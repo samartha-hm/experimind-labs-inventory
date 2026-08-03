@@ -7,29 +7,42 @@
 1. [Project Overview](#1-project-overview)
 2. [Core Architecture & Technologies](#2-core-architecture--technologies)
 3. [Authentication & Role-Based Access Control (RBAC)](#3-authentication--role-based-access-control-rbac)
-4. [GitHub-Style Revision History & Diff Engine](#4-github-style-revision-history--diff-engine)
-5. [System-Wide Undo / Redo Framework](#5-system-wide-undo--redo-framework)
-6. [Database Schema & TypeORM Entities](#6-database-schema--typeorm-entities)
-7. [REST API Specification](#7-rest-api-specification)
-8. [Frontend State & Component Structure](#8-frontend-state--component-structure)
-9. [Migration & Seed Engine](#9-migration--seed-engine)
-10. [Maintenance & Best Practices](#10-maintenance--best-practices)
+4. [CompAI Agentic Workflow & Human-in-the-Loop Engine](#4-compai-agentic-workflow--human-in-the-loop-engine)
+5. [Global Command Palette (`Ctrl+K`)](#5-global-command-palette-ctrlk)
+6. [Statistical Safety Stock & Reorder Point (ROP) Calculator](#6-statistical-safety-stock--reorder-point-rop-calculator)
+7. [Supplier Quality & Performance Scorecard Radar](#7-supplier-quality--performance-scorecard-radar)
+8. [Financial Inventory Valuation & COGS Hub](#8-financial-inventory-valuation--cogs-hub)
+9. [Visual Supply Chain Pipeline Node Flowchart](#9-visual-supply-chain-pipeline-node-flowchart)
+10. [ThermaPrint™ Barcode & QR Label Studio](#10-thermaprint-barcode--qr-label-studio)
+11. [Automations & Webhooks Engine](#11-automations--webhooks-engine)
+12. [GitHub-Style Revision History & Diff Engine](#12-github-style-revision-history--diff-engine)
+13. [System-Wide Undo / Redo Framework](#13-system-wide-undo--redo-framework)
+14. [Database Schema & TypeORM Entities](#14-database-schema--typeorm-entities)
+15. [REST API Specification](#15-rest-api-specification)
+16. [Frontend State & Component Structure](#16-frontend-state--component-structure)
+17. [Migration & Seed Engine](#17-migration--seed-engine)
+18. [Maintenance & Best Practices](#18-maintenance--best-practices)
 
 ---
 
 ## 1. PROJECT OVERVIEW
 
-**NexaInventory ERP** is an enterprise-grade supply chain, inventory, assembly kitting, and fulfillment management application modeled after high-end platforms like Zoho Inventory.
+**NexaInventory ERP** is a Zoho-grade enterprise supply chain, inventory, assembly kitting, and fulfillment management application.
 
 - **Primary Goal**: Complete operational independence with ZERO third-party Firebase dependency for core operations. All authentication, catalog management, assembly kitting, sales/purchase order fulfillment, partner management, and transaction audit trails function via an internal REST API server connected to PostgreSQL.
 - **Key Modules**:
-  1. **Items & Master Catalog**: Raw parts, common/unlimited parts (screws, wires), stock thresholds, bin mapping.
-  2. **Composite Kits (BOM Assembly)**: Assembly kitting formula manager, capacity calculator, 1-click Pack/Unpack engine.
-  3. **Sales & Fulfillment**: Sales orders, B2B customer directory, storefront order portal.
-  4. **Purchases & Vendors**: Purchase orders, vendor directory, payment terms.
-  5. **Warehouses & Bins**: Multi-warehouse facility management and storage bin locations.
-  6. **Revision History (Commit Stream)**: System-wide audit log tracking exact red/green property diffs, commit metadata, author accounts, and roles.
-  7. **Global Undo / Redo Framework**: Action stack supporting `Ctrl+Z` / `Ctrl+Y` and floating widget with explicit action labels.
+  1. **Executive Fulfillment Pipeline & Supply Chain Flow**: Visual node flowchart tracking inventory flow from suppliers to delivery.
+  2. **Items & Master Catalog**: Raw parts, common/unlimited parts, stock safety thresholds, bin mapping.
+  3. **Composite Kits (BOM Assembly)**: Assembly kitting formula manager, bottleneck calculator, 1-click Pack/Unpack engine.
+  4. **Financial Valuation Hub**: Multi-currency (₹ INR / $ USD) FIFO Layering vs Moving Average valuation & COGS analytics.
+  5. **CompAI Agentic Workflow**: Background task recommendation bar with Human-in-the-Loop approval safeguards and task log drawer.
+  6. **Global Command Palette (`Ctrl+K`)**: Keyboard-driven spotlight search across SKUs, Kits, Orders, and system actions.
+  7. **Statistical Safety Stock Calculator**: ROP formula calculator computing optimal buffers based on lead-time variance.
+  8. **Supplier Performance Radar**: Vendor quality metrics (On-Time Delivery %, Lead Times, Defect Rates).
+  9. **ThermaPrint™ Label Studio**: Thermal barcode/QR label generator with live thermal print preview.
+  10. **Automations & Webhooks Engine**: Trigger rule manager with live Webhook POST test simulator.
+  11. **Revision History (Commit Stream)**: System-wide audit log tracking exact red/green property diffs, commit metadata, author accounts, and roles.
+  12. **Global Undo / Redo Framework**: Action stack supporting `Ctrl+Z` / `Ctrl+Y` and floating widget with explicit action labels.
 
 ---
 
@@ -48,10 +61,10 @@
 └─────────────────────────┘       └─────────────────────────┘
 ```
 
-- **Frontend**: React 18, Vite, Tailwind CSS, Lucide Icons, TypeScript.
+- **Frontend**: React 18, Vite, Vanilla Tailwind CSS tokens, Lucide Icons, TypeScript.
 - **Backend API**: Node.js 24+, Express.js, TypeORM, PostgreSQL (`pg`).
 - **Data Transport**: RESTful JSON endpoints mapped under `/api/v1/*`.
-- **Security**: Local JWT tokens with hashed password credentials; zero external Firebase runtime requirement.
+- **Security**: Local JWT tokens with hashed password credentials; zero external Firebase runtime requirement. Storefront honeypot anti-bot security.
 
 ---
 
@@ -66,112 +79,126 @@ The security architecture enforces fine-grained access control across four disti
 | **User** | View-Only | View catalog, kit formulas, warehouses, and orders. Cannot modify database records. |
 | **Intern** | Draft Only | Draft new records; restricted from finalizing transactions or deleting system records. |
 
-### UI Protection (`RequireRole.tsx`)
-UI components wrap restricted action buttons with `<RequireRole allowedRoles={['admin', 'staff']}>` to dynamically hide or disable forbidden controls based on the logged-in session.
+---
+
+## 4. COMPAI AGENTIC WORKFLOW & HUMAN-IN-THE-LOOP ENGINE
+
+Inspired by **CompAI CRM** ([trycompai/crm](https://github.com/trycompai/crm)):
+
+1. **Top Agent Suggestion Bar (`AIAgentSuggestionBar.tsx`)**: Surfaces autonomous background agent recommendations (e.g. *Auto-Generate PO for Wash Bottles*, *Optimize Kit Assembly Batch*).
+2. **Human Confirmation Safeguard**: Includes explicit **Confirm (Action)** and **Dismiss** buttons to ensure AI suggestions are never auto-applied without human approval.
+3. **Background Agent Research Notebook (`AIAgentResearchDrawer.tsx`)**: Side drawer logging PostgreSQL row leases, scheduled task intervals (5 minutes), scanned stock thresholds, and evidence verification logs.
 
 ---
 
-## 4. GITHUB-STYLE REVISION HISTORY & DIFF ENGINE
+## 5. GLOBAL COMMAND PALETTE (`Ctrl+K`)
+
+Mounted globally in `App.tsx` and triggered via `Ctrl+K` or search bar click:
+
+- **Fuzzy Search Modal (`CommandPaletteModal.tsx`)**: Instant lookup across SKUs, Composite Kits, Sales Orders, Purchase Orders, and Vendors.
+- **Shortcut Actions**: Jump directly to system tabs or launch creation modals.
+
+---
+
+## 6. STATISTICAL SAFETY STOCK & REORDER POINT (ROP) CALCULATOR
+
+Integrated via `SafetyStockCalculatorModal.tsx`:
+
+- **Formula-Driven Buffer**:
+  $$\text{Safety Stock} = (\text{Max Daily Usage} \times \text{Max Lead Time}) - (\text{Avg Daily Usage} \times \text{Avg Lead Time})$$
+  $$\text{Reorder Point (ROP)} = (\text{Avg Daily Usage} \times \text{Avg Lead Time}) + \text{Safety Stock}$$
+- **1-Click Apply**: Updates the component safety threshold in real time with toast notifications.
+
+---
+
+## 7. SUPPLIER QUALITY & PERFORMANCE SCORECARD RADAR
+
+Located in **Vendors Directory** under `PURCHASES & VENDORS`:
+
+- **Scorecard Metrics**: Tracks On-Time Delivery Rate (`98.4% ★★★★★`), Average Lead Time (`4.2 Days`), Defect Rate, and payment terms.
+
+---
+
+## 8. FINANCIAL INVENTORY VALUATION & COGS HUB
+
+Located under `INTELLIGENCE` ➔ `Financial Valuation`:
+
+- **Valuation Methods**: Toggle dynamically between **FIFO Layering** (First-In, First-Out) and **Moving Average Costing**.
+- **Multi-Currency Engine**: Instant conversion between **₹ INR** and **$ USD**.
+- **COGS Analysis**: Calculates Total Asset Valuation, COGS breakdown, and turnover velocity.
+
+---
+
+## 9. VISUAL SUPPLY CHAIN PIPELINE NODE FLOWCHART
+
+Embedded on the main Executive Dashboard (`SupplyChainPipeline.tsx`):
+
+- Interactive SVG node flowchart mapping the supply chain pipeline:
+  *Suppliers & Vendors ➔ Purchase Orders ➔ Warehouse & Bins ➔ Kitting Assembly ➔ Sales & Fulfillment ➔ Customer Delivery*
+
+---
+
+## 10. THERMAPRINT™ BARCODE & QR LABEL STUDIO
+
+Launched via the `Barcode Scan` button in the top header (`BarcodeStudioModal.tsx`):
+
+- Optical barcode/QR scanner simulator, SKU lookup, and thermal label generator (50mm x 25mm) with direct thermal print formatting.
+
+---
+
+## 11. AUTOMATIONS & WEBHOOKS ENGINE
+
+Located under `INTELLIGENCE` ➔ `Automations & Webhooks` (`AutomationTab.tsx`):
+
+- **Workflow Trigger Rules**: Configure rules for *Stock Shortage*, *Kit Packed*, *Order Created*, and *Vendor Added*.
+- **Webhook POST Test Simulator**: Test webhook URLs with sample JSON payloads and inspect live HTTP responses (`HTTP 200 OK`).
+
+---
+
+## 12. GITHUB-STYLE REVISION HISTORY & DIFF ENGINE
 
 Every mutation in NexaInventory records an audit commit to provide complete supply chain traceability.
 
-### 1. Data Structure (`TransactionRecord`)
-```ts
-export interface TransactionRecord {
-  id: string;
-  timestamp: string; // ISO 8601
-  type: 'pack' | 'add_stock' | 'adjust' | 'unpack';
-  kitName?: string;
-  kitQty?: number;
-  description: string;
-  userName?: string;
-  userRole?: string;
-  userId?: string;
-  items: {
-    componentId: string;
-    componentName: string;
-    qtyDiff: number;
-  }[];
-  diffs?: {
-    field: string;
-    oldValue: any;
-    newValue: any;
-  }[];
-}
-```
-
-### 2. Main Revision History Stream (`RevisionHistoryTab.tsx`)
-- Located under the **AUDIT & LOGS** navigation menu.
-- Renders a GitHub-style timeline of commits.
-- **Author Attribution Badge**: Displays the author's full name, account role badge (e.g. `Guest Administrator` | `ADMIN`), and precise timestamp.
+- **Main Audit Log (`RevisionHistoryTab.tsx`)**: Renders a GitHub-style timeline of commits.
+- **Author Attribution Badge**: Displays the author's full name, account role badge (e.g. `Guest Administrator` | `ADMIN`), and timestamp.
 - **Visual Diff Viewer (`DiffViewer.tsx`)**: Displays property-level modifications using formatted red (`- old value`) and green (`+ new value`) diff blocks.
-
-### 3. Inline Modal History Tabs
-- **`EditPartModal.tsx`**: Features a *Revision History* tab displaying all historical property changes for that specific component.
-- **`BOMCustomizerModal.tsx`**: Features a *Revision History* tab tracking kit formula changes, added/removed parts, and quantity revisions over time.
 
 ---
 
-## 5. SYSTEM-WIDE UNDO / REDO FRAMEWORK
+## 13. SYSTEM-WIDE UNDO / REDO FRAMEWORK
 
 NexaInventory includes a global action stack managed by `UndoRedoContext.tsx`.
 
-### 1. Operation Coverage
-Undo and Redo (`Ctrl+Z` / `Ctrl+Y`) cover all primary entity mutations:
-- **Inventory**: Creating, updating, and deleting items.
-- **Composite Kits**: Creating kits, modifying BOM requirements, deleting kits, packing/unpacking kit sets.
-- **Vendors & Customers**: Adding, editing, and removing partner directory entries.
-- **Purchase & Sales Orders**: Creating, updating statuses, and deleting orders.
-- **Warehouses & Bins**: Adding/editing facilities and storage bin locations.
-
-### 2. Floating Undo/Redo Widget (`UndoRedoWidget.tsx`)
-Located in the bottom-right corner of the interface:
-- Explicitly names the pending action (e.g. `Undo: Update Wash bottles`, `Redo: Add Vendor Acorn`).
-- Shows shortcut helpers (`Ctrl+Z` / `Ctrl+Y`).
-- Features real-time spinner feedback while executing asynchronous undo/redo network calls.
+- **Floating Undo/Redo Widget (`UndoRedoWidget.tsx`)**: Explicitly names the pending action (e.g. `Undo (Ctrl+Z): Update Wash bottles`, `Redo (Ctrl+Y): Add Vendor Acorn`).
+- Supports `Ctrl+Z` and `Ctrl+Y` hotkeys across Inventory, Kits, Partners, Orders, and Warehouses.
 
 ---
 
-## 6. DATABASE SCHEMA & TYPEORM ENTITIES
+## 14. DATABASE SCHEMA & TYPEORM ENTITIES
 
 The system uses TypeORM with PostgreSQL relational entities:
 
-- **`InventoryItem` (`inventory_items`)**: `id` (UUID), `name`, `sku`, `category`, `stock_qty`, `unit`, `is_common`, `threshold`, `image_url`, `base_price`, `description`, `bin_location`.
-- **`Kit` (`kits`)**: `id` (UUID), `name`, `description`, `image_url`, `created_at`, `updated_at`.
-- **`KitBom` (`kit_boms`)**: `id`, `kit_id`, `inventory_item_id`, `quantity`.
-- **`Vendor` (`vendors`)**: `id`, `vendor_code`, `name`, `contact_name`, `email`, `phone`, `payment_terms`, `address`.
-- **`Customer` (`customers`)**: `id`, `customer_code`, `name`, `contact_name`, `email`, `phone`, `credit_limit`, `billing_address`.
-- **`PurchaseOrder` (`purchase_orders`)**: `id`, `po_number`, `vendor_id`, `order_date`, `expected_date`, `status`, `total_amount`.
-- **`SalesOrder` (`sales_orders`)**: `id`, `so_number`, `customer_id`, `order_date`, `required_date`, `status`, `total_amount`.
-- **`Warehouse` (`warehouses`)**: `id`, `code`, `name`, `address`, `is_default`.
-- **`Bin` (`bins`)**: `id`, `code`, `warehouse_id`, `description`.
-- **`Transaction` (`transactions`)**: `id`, `type`, `description`, `occurred_at`, `lines`.
+- `InventoryItem`, `Kit`, `KitBom`, `Vendor`, `Customer`, `PurchaseOrder`, `SalesOrder`, `Warehouse`, `Bin`, `Transaction`, `TransactionLine`, `User`, `Setting`.
 
 ---
 
-## 7. REST API SPECIFICATION
+## 15. REST API SPECIFICATION
 
-All endpoints return JSON and adhere to standard HTTP status codes:
+Mapped under `/api/v1/*`:
 
-- `GET /api/v1/inventory` - List all inventory items
-- `POST /api/v1/inventory` - Create inventory item
-- `PUT /api/v1/inventory/:id` - Update inventory item properties
-- `DELETE /api/v1/inventory/:id` - Delete item
-- `GET /api/v1/kit` - List all composite kits and BOM requirements
-- `POST /api/v1/kit` - Create composite kit
-- `PUT /api/v1/kit/:id` - Update kit metadata and BOM items
-- `DELETE /api/v1/kit/:id` - Delete kit
-- `POST /api/v1/transaction` - Log inventory stock transaction / revision commit
-- `GET /api/v1/vendor`, `POST /api/v1/vendor`, `PUT /api/v1/vendor/:id`, `DELETE /api/v1/vendor/:id`
-- `GET /api/v1/customer`, `POST /api/v1/customer`, `PUT /api/v1/customer/:id`, `DELETE /api/v1/customer/:id`
-- `GET /api/v1/purchase-order`, `POST /api/v1/purchase-order`, `PUT /api/v1/purchase-order/:id`, `DELETE /api/v1/purchase-order/:id`
-- `GET /api/v1/sales-order`, `POST /api/v1/sales-order`, `PUT /api/v1/sales-order/:id`, `DELETE /api/v1/sales-order/:id`
-- `GET /api/v1/warehouse`, `POST /api/v1/warehouse`, `PUT /api/v1/warehouse/:id`, `DELETE /api/v1/warehouse/:id`
-- `GET /api/v1/bin`, `POST /api/v1/bin`, `DELETE /api/v1/bin/:id`
+- `GET/POST/PUT/DELETE /api/v1/inventory`
+- `GET/POST/PUT/DELETE /api/v1/kit`
+- `GET/POST/PUT/DELETE /api/v1/vendor`
+- `GET/POST/PUT/DELETE /api/v1/customer`
+- `GET/POST/PUT/DELETE /api/v1/purchase-order`
+- `GET/POST/PUT/DELETE /api/v1/sales-order`
+- `GET/POST/PUT/DELETE /api/v1/warehouse`
+- `GET/POST/PUT/DELETE /api/v1/bin`
+- `GET/POST /api/v1/transaction`
 
 ---
 
-## 8. FRONTEND STATE & COMPONENT STRUCTURE
+## 16. FRONTEND STATE & COMPONENT STRUCTURE
 
 ```
 src/
@@ -179,38 +206,36 @@ src/
 ├── DataContext.tsx             # Global state provider & REST API fetchers
 ├── AuthContext.tsx             # Local auth provider & role management
 ├── types.ts                    # TypeScript interfaces
-├── components/
-│   ├── DiffViewer.tsx          # Red/green property diff viewer
-│   ├── UndoRedoWidget.tsx      # Floating Undo/Redo widget with labels
-│   ├── RequireRole.tsx         # RBAC UI enforcement wrapper
-│   └── Login.tsx               # Standard login & registration screen
+├── contexts/                   # ToastContext, UndoRedoContext
+├── components/                 # DiffViewer, UndoRedoWidget, ToastContainer
 ├── features/
-│   ├── dashboard/              # Overview KPI dashboard
-│   ├── inventory/              # Items & Catalog (EditPartModal)
+│   ├── dashboard/              # Overview, Visual Supply Chain, Valuation
+│   ├── inventory/              # Items & Catalog, SafetyStockCalculatorModal
 │   ├── kitting/                # Composite Kits & BOM (BOMCustomizerModal)
+│   ├── automation/             # Automations & Webhooks
 │   ├── history/                # System Revision History & Commit Stream
 │   ├── procurement/            # Purchase Orders
 │   ├── sales/                  # Sales Orders
-│   ├── partners/               # Vendors & Customers
+│   ├── partners/               # Vendors & Customers Directory
 │   ├── warehouse/              # Warehouses & Bins
-│   ├── storefront/             # Storefront Order Portal
-│   └── copilot/                # AI Supply Chain Assistant
+│   ├── storefront/             # Storefront Order Portal (Honeypot)
+│   └── copilot/                # AI Supply Chain Assistant, Research Drawer
 └── shared/
-    ├── components/             # Header, Sidebar
+    ├── components/             # Header, Sidebar, CommandPaletteModal, BarcodeStudioModal
     └── layout/                 # Layout wrappers
 ```
 
 ---
 
-## 9. MIGRATION & SEED ENGINE
+## 17. MIGRATION & SEED ENGINE
 
-- Data seeding is handled via the internal backend migration tool or via the **Seed Database** option in the Admin settings.
-- Initial CSV dataset files (`Assets.csv`, `Orders.csv`, `Settings.csv`, `Users.csv`) are mapped directly to PostgreSQL database entities upon initial initialization.
+- Data seeding is handled via the internal backend migration tool (`scripts/migrate_local.cjs`) or via Admin settings.
+- Initial CSV datasets (`Assets.csv`, `Orders.csv`, `Settings.csv`, `Users.csv`) seed PostgreSQL automatically.
 
 ---
 
-## 10. MAINTENANCE & BEST PRACTICES
+## 18. MAINTENANCE & BEST PRACTICES
 
 1. **Linting & Type Safety**: Always verify code changes with `npm run lint` (`tsc --noEmit`).
 2. **Transaction Logging**: Any new entity mutation function added to `DataContext.tsx` must call `logTransaction` to append a commit record with diffs and user metadata.
-3. **Undo Stack Registration**: New mutation handlers should register an undo/redo action via `addAction({ id, name, undo, redo })` to preserve global Ctrl+Z support.
+3. **Undo Stack Registration**: New mutation handlers should register an undo/redo action via `addAction({ id, name, undo, redo })` to preserve global `Ctrl+Z` support.
