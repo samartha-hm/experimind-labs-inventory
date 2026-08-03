@@ -1,0 +1,6 @@
+{
+  "name": "Tester Pro Kit Planner & Inventory Optimizer",
+  "description": "An interactive supply chain logistics, Bill of Materials (BOM) customizer, and kit-packing feasibility optimizer for Tester Pro educational electronics hardware.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

@@ -1,0 +1,324 @@
+id,name,description,price,quantity,imageUrl,category,isHidden,room,shelf,box,updatedAt,barcode
+1766123928700,Wash bottles,,179,13,https://drive.google.com/thumbnail?id=1lcUEYS3MgT5n2qtI6dgiJRcwH-7YP5NY&sz=w1000,Prastuti Science,FALSE,Rack,1,,2026-03-09T05:58:16.353Z,EL-1
+1766124295358,Petri Dish,,25,0,https://drive.google.com/thumbnail?id=1jcAulLMdFlFX8vWOFxlJgLg0VNrtc10I&sz=w1000,Prastuti Science,FALSE,Rack,1,,2026-03-09T06:00:15.166Z,EL-2
+1766124575076,Glue gun,,391,0,https://drive.google.com/thumbnail?id=14eQ_9JXcSrPqgqvG5d_ixwm63xoUx95o&sz=w1000,Electronics,FALSE,Rack,1,,2025-12-19T06:09:35.076Z,EL-3
+1766124805780,Blotting Paper,1 box with 100 pieces,109,0,https://drive.google.com/thumbnail?id=1voR-B_SCf1CzzMfVNKEc4Ik41buV1lm3&sz=w1000,Prastuti Science,FALSE,Rack,2,,2025-12-19T06:13:25.780Z,EL-4
+1766124946616,Ph Papers,,98,10,https://drive.google.com/thumbnail?id=1V8DiunU9F_NX73LjYkw61pvEzjD1f6_J&sz=w1000,Prastuti Science,FALSE,Rack,2,,2026-03-09T06:29:38.426Z,EL-5
+1766125282621,Aluminium Foil ,,399,2,https://drive.google.com/thumbnail?id=1k8lPgGlAAJjOOk2Trb63k8JNjtzJTcbQ&sz=w1000,Prastuti Science,FALSE,Rack,2,roll,2025-12-19T06:21:22.621Z,EL-6
+1766125651071,Plastic dropper,Plastic dropper,9,74,https://drive.google.com/thumbnail?id=1PH-brCZb5cqjtMHE2Nse-PcGEQbkvwmx&sz=w1000,Prastuti Science,FALSE,Rack,2,,2026-03-09T06:07:16.493Z,EL-7
+1766126410104,Plastic funnel  ,"2 large, 1 medium, one small",58,4,https://drive.google.com/thumbnail?id=12RWa34BJOpKK8n3FI8r38ZodxdSoyIw_&sz=w1000,Prastuti Science,FALSE,Rack,2,,2026-03-09T06:11:00.127Z,EL-8
+1766126734705,Magnetic compass (50mm),,250,2,https://drive.google.com/thumbnail?id=1dxXDQNQH5G7Vpj_l9R1Kwk3cCdEnSo2d&sz=w1000,Prastuti Science,FALSE,Rack,2,,2025-12-19T06:47:15.409Z,EL-9
+1766127131560,Magnetic compass(25mm),,15,10,https://drive.google.com/thumbnail?id=14C8EVooWho7M3BBXWUAOW4K0-FRCWgKe&sz=w1000,Prastuti Science,FALSE,Rack,2,,2026-03-09T06:12:17.461Z,EL-10
+1766127757324,Plastic Reagent bottle(250ml),,38,18,https://drive.google.com/thumbnail?id=1P3vg1iM1zaQwQ94cFTOPwTgTipzSChwE&sz=w1000,Prastuti Science,FALSE,Rack,2,,2025-12-19T07:04:24.565Z,EL-11
+1766128075625,Spirit Lamp,,135,8,https://drive.google.com/thumbnail?id=1qOoqYc1uIXDevIV5mPzELxrvYf049EzJ&sz=w1000,Prastuti Science,FALSE,Rack,2,,2025-12-19T07:07:55.625Z,EL-12
+1766128362989,Burette Clamp,,250,14,https://drive.google.com/thumbnail?id=1I5fbv6mSk_yhsBgfYC4a20mYstUZkw7G&sz=w1000,Prastuti Science,FALSE,Rack,2,,2025-12-19T07:13:06.660Z,EL-13
+1766128729752,Centrifuge tube (15ml),,10,9,https://drive.google.com/thumbnail?id=1Rb8svF16SawzTho7vsukGpjm7_y6CfHR&sz=w1000,Prastuti Science,FALSE,Rack,2,,2026-03-09T06:25:58.924Z,EL-14
+1766129084871,Testtube with stopper,,3,3,https://drive.google.com/thumbnail?id=1h3B6g878s_38HNqmugLStdwfh6PwT-Qm&sz=w1000,Prastuti Science,FALSE,Rack,2,,2026-03-09T06:27:01.713Z,EL-15
+1766129424138,Torch,,6,0,https://drive.google.com/thumbnail?id=1pdHKNaMtjs_R_3J7SA9OivAtCdHaog8K&sz=w1000,Prastuti Science,FALSE,Rack,2,,2025-12-19T07:30:24.138Z,EL-16
+1766129694514,Syringe without needle(50ml),,50,5,https://drive.google.com/thumbnail?id=18wWbnew1PKCLPRPEYxp-S-M23b2xBCeA&sz=w1000,Prastuti Science,FALSE,Rack,2,,2025-12-19T07:37:03.747Z,EL-17
+1766130089273,Measuring Cyliinder (250ml),,125,2,https://drive.google.com/thumbnail?id=1-ukTPsZXRD4S85IhXzaU3sXZKRMLQKmQ&sz=w1000,Prastuti Science,FALSE,Rack,3,,2026-03-09T06:30:43.585Z,EL-18
+1766130188256,Measuring Cylinder(100ml),,55,1,https://drive.google.com/thumbnail?id=19GYXirYALFeFbI-AbVc07v7zU8FRsCsk&sz=w1000,Prastuti Science,FALSE,Rack,3,,2025-12-20T06:23:44.732Z,EL-19
+1766212109878,Measuring cylinder (500ml),,469,3,https://drive.google.com/thumbnail?id=1_0cSQc_MCj9KNdhJ_PHIqilxCmNjM-G7&sz=w1000,Prastuti Science,FALSE,Rack,3,,2026-03-09T06:32:41.579Z,EL-20
+1766212269824,Lighter,,32,10,https://drive.google.com/thumbnail?id=1b_7aJwF5FtsuBRgu-o5LKhOSLRUwSrxf&sz=w1000,Prastuti Science,FALSE,Rack,3,,2026-03-09T06:34:06.078Z,EL-21
+1766212627670,Spatula,,42,5,https://drive.google.com/thumbnail?id=1KJWOP7osn9vkn9IBhBqi2FWytXCeqnPn&sz=w1000,Prastuti Science,FALSE,Rack,3,,2026-03-09T06:34:51.453Z,EL-22
+1766212825497,Eraser(big),,5,0,https://drive.google.com/thumbnail?id=1fv1Ew8wXhYLIktQT2xNYs4SjVGQSgTJg&sz=w1000,Prastuti Science,FALSE,Rack,3,,2026-02-27T09:45:30.330Z,EL-23
+1766212987845,Eraser(small),,3,5,https://drive.google.com/thumbnail?id=1Le6evGGb4mh2GCuK8P8e0sGu0tcdA4lw&sz=w1000,Prastuti Science,FALSE,Rack,3,,2026-02-27T09:31:37.772Z,EL-24
+1766213160566,Tongs,,200,12,https://drive.google.com/thumbnail?id=102kFWpu6zDScJvynH76ED4Txxz4OoyEJ&sz=w1000,Prastuti Science,FALSE,Rack,3,,2026-03-09T06:36:34.981Z,EL-25
+1766213497273,Filter paper(12.5cm),,220,11,https://drive.google.com/thumbnail?id=1SOjPLKT53Anp4UM79cVkExZKm3xIdHQo&sz=w1000,Prastuti Science,FALSE,Rack,3,pack,2025-12-20T06:52:42.662Z,EL-26
+1766213911121,Chalk Piece,,2,45,https://drive.google.com/thumbnail?id=1tr1fattys_ZZygTdpa4SJNcPLUT4fqRV&sz=w1000,Prastuti Science,FALSE,Rack,3,,2025-12-20T06:58:31.121Z,EL-27
+1766214187141,Laser Pointer,,65,0,https://drive.google.com/thumbnail?id=1tN1CoYpuIA4zV7f1nIDtQVty3ivLI-Pf&sz=w1000,Prastuti Science,FALSE,Rack,3,,2026-03-09T07:05:18.460Z,EL-28
+1766214423806,Double side tapes,,20,2,https://drive.google.com/thumbnail?id=1VdIWzEA8psWKsvkigbpUe5GY-2_0ORXR&sz=w1000,Stationary,FALSE,Rack,3,,2025-12-20T07:07:03.806Z,EL-29
+1766214757469,Measuring cup (25ml),,16,3,https://drive.google.com/thumbnail?id=1dsLHVnsYYNI8eIR8b1Tpnv15rC34qhce&sz=w1000,others,FALSE,Rack,3,,2025-12-20T07:12:37.469Z,EL-30
+1766214939499,Protactor,,6,5,https://drive.google.com/thumbnail?id=1AR3h8BhZe2NRSuPf79olv4e857amjIBB&sz=w1000,Prastuti Science,FALSE,Rack,3,,2026-03-09T06:43:28.943Z,EL-31
+1766215334422,Bar Magnet,,150,0,https://drive.google.com/thumbnail?id=1M3w28ndo-9dV5n5nGXHZRGWHaSok3WCg&sz=w1000,Prastuti Science,FALSE,Rack,3,,2025-12-20T07:22:14.422Z,EL-32
+1766215634639,Camphor,,20,7,https://drive.google.com/thumbnail?id=1qTCfVRQstXu5DnScyhyXZ58MTbYQqnqm&sz=w1000,Stationary,FALSE,Rack,3,,2025-12-20T07:27:14.639Z,EL-33
+1766215933511,Tuning fork (512 Hz),,200,0,https://drive.google.com/thumbnail?id=1xTArJo2liDqC6T2hW1w0DtqC0VBD09cG&sz=w1000,Prastuti Science,FALSE,Rack,3,,2025-12-20T07:32:13.511Z,EL-34
+1766216456186,Metal bobs with hook(12mm),,42,13,https://drive.google.com/thumbnail?id=10p-Paamc72F9Bs5oP6XaucOFVM8ooPv2&sz=w1000,Prastuti Science,FALSE,Rack,3,,2026-03-09T06:47:55.746Z,EL-35
+1766216650505,Metal bobs(25mm),,70,16,https://drive.google.com/thumbnail?id=1KsvETs0kshYG8XODGW8QDR-rJNmWYa01&sz=w1000,Prastuti Science,FALSE,Rack,3,,2025-12-20T07:44:10.505Z,EL-36
+1766217006720,Candle (medium size),,5,2,https://drive.google.com/thumbnail?id=1Hf0jyijigga0rwHFg0OxadYP4Gzjgj-a&sz=w1000,Prastuti Science,FALSE,Rack,2,,2026-03-09T06:59:53.948Z,EL-37
+1766217310807,Test tube holder,,55,15,https://drive.google.com/thumbnail?id=1aMmjCveh7R__shf4akK9vpSkWSdQ_9iX&sz=w1000,Prastuti Science,FALSE,Rack,3,,2026-03-09T06:55:54.553Z,EL-38
+1766220492841,Litmus paper(blue),,80,1,https://drive.google.com/thumbnail?id=1QQrWb41nOzEtq1HpOPJZ0uWD8ti-OpuB&sz=w1000,Prastuti Science,FALSE,Rack,3,,2026-03-09T06:56:52.601Z,EL-39
+1766220621290,Litmus paper(red),,80,1,https://drive.google.com/thumbnail?id=1e5klwSzGPEqyHLGU13MhH1yfchQmzpon&sz=w1000,Prastuti Science,FALSE,Rack,3,,2026-03-09T06:57:01.623Z,EL-40
+1766220894000,Ping pong ball,,10,1,https://drive.google.com/thumbnail?id=1vHLwrIqyP2OPJHTyorPIZ5lYWpUUb_sC&sz=w1000,Prastuti Science,FALSE,Rack,4,,2026-02-27T09:42:50.889Z,EL-41
+1766221119770,Clonical Flask (250ml),,188,6,https://drive.google.com/thumbnail?id=1ypcEUpkzZt1yBi48yh7KzhRmCABnzr1W&sz=w1000,Prastuti Science,FALSE,Rack,4,,2026-03-09T07:04:23.570Z,EL-42
+1766221423313,Testtube (25*150mm),,24,20,https://drive.google.com/thumbnail?id=1lWV98ESAfXcZ1jCfBWxi0R9IvUVQKiKc&sz=w1000,Prastuti Science,FALSE,Rack,4,,2026-03-09T07:02:00.490Z,EL-43
+1766221648177,Ball Bearing,,65,0,https://drive.google.com/thumbnail?id=1R-ksxfuREkFJfVcgzpYnvrpBGhY9SdEn&sz=w1000,Prastuti Science,FALSE,Rack,4,,2026-03-09T07:25:48.896Z,EL-44
+1766221979157,Glass Slab(75*50*18 mm),,190,4,https://drive.google.com/thumbnail?id=1A5ucSef_muDcntpj8CJFYFdJjUvbsyiw&sz=w1000,Prastuti Science,FALSE,Rack,4,,2025-12-20T09:12:59.157Z,EL-45
+1766222104439,Equilateral Prism(50*50mm),,148,3,https://drive.google.com/thumbnail?id=1V-0WmOD0i7hH8I9yl2tNG2kqUMcnRzMD&sz=w1000,Prastuti Science,FALSE,Rack,4,,2025-12-20T09:15:04.439Z,EL-46
+1766222433099,Glass Thermometer,,110,0,https://drive.google.com/thumbnail?id=1QmjpLqlgAhrTaaLTLK3Em6zKXO_Msemh&sz=w1000,Prastuti Science,FALSE,Rack,4,,2026-03-09T07:23:30.004Z,EL-47
+1766222751213,Watch Glass(75mm),,14,7,https://drive.google.com/thumbnail?id=16Z0jAnUj5KEgT2gn7N5MBGIsJ_ZlnJP5&sz=w1000,Prastuti Science,FALSE,Rack,4,,2025-12-20T09:25:51.213Z,EL-48
+1766223134635,Stomata slides- Angiosperm,,55,27,https://drive.google.com/thumbnail?id=15X3m9WLbRTQStKWpCa3onpE8MHkNUVB-&sz=w1000,Prastuti Science,FALSE,Rack,4,,2026-03-09T07:27:03.061Z,EL-49
+1766223421606,Glass dropper with teet,,45,29,https://drive.google.com/thumbnail?id=1FpJNqyoSvZu56Gc28XFpzXyn3iN1ZHmq&sz=w1000,others,FALSE,Rack,4,,2026-03-09T07:45:02.191Z,EL-50
+1766223705192,Glass rod,,41,9,https://drive.google.com/thumbnail?id=1y9IcxFnceTtcPb5Nu-DCzPf6fppNU8mP&sz=w1000,Prastuti Science,FALSE,Rack,4,,2026-03-09T07:28:46.899Z,EL-51
+1766224337930,"Concave Mirror( F.L.15cm, Dia 50mm)",,80,10,https://drive.google.com/thumbnail?id=1WKbjb9BN_0Fgu1oVxV4mYNIPfzntU5K8&sz=w1000,others,FALSE,Rack,4,,2025-12-20T09:52:17.930Z,EL-52
+1766224617707,"Convex Mirror( F.L.15cm, Dia 50mm)",,80,10,https://drive.google.com/thumbnail?id=1Ug2i_DelOzvUWVQe7JeVPA3dg_jXpP0e&sz=w1000,others,FALSE,Rack,4,,2025-12-20T09:56:57.707Z,EL-53
+1766225080005,"Double convex lens(F.L-10cm, Dia-50mm)",,95,0,https://drive.google.com/thumbnail?id=1UP3E-_YvUEdCbu2xFHIAy-PsCyq3RjRl&sz=w1000,Prastuti Science,FALSE,Rack,4,,2025-12-20T10:04:40.005Z,EL-54
+1766225444335,Microscope Slides,,4,120,https://drive.google.com/thumbnail?id=1iYEz92Bgs7xA_b6PSDxGf2eknKg2KY9X&sz=w1000,Prastuti Science,FALSE,Rack,4,,2025-12-20T10:11:02.814Z,EL-55
+1766226311423,Prepared Microscope Slides,,150,0,https://drive.google.com/thumbnail?id=1Qqxs4K5X5gpyq2T26fDzp7-2-heyvPkD&sz=w1000,Prastuti Science,FALSE,Rack,4,,2026-01-08T08:44:03.358Z,EL-56
+1766226716850,Cover slips (18*18mm),,1,113,https://drive.google.com/thumbnail?id=1j-RKvvshyKLRD41YmobHSTkVQSqeH-Lb&sz=w1000,Prastuti Science,FALSE,Rack,4,,2026-03-09T07:39:42.309Z,EL-57
+1766226953981,Glass funnel,,200,2,https://drive.google.com/thumbnail?id=13AuyDQzY62jbNgBJGPtX0AgGXKwzFsDH&sz=w1000,Prastuti Science,FALSE,Rack,4,,2025-12-20T10:35:53.981Z,EL-58
+1766227341095,Battery pack with alligator clips,,99,1,https://drive.google.com/thumbnail?id=1un5RxiFY6glF1lwNVm73-2FsKOfstiBM&sz=w1000,Prastuti Science,FALSE,Rack,4,,2026-03-09T07:35:54.212Z,EL-59
+1766227544311,Incense stick,,10,0,https://drive.google.com/thumbnail?id=1Cv0p1UOT_nmwzLuUafnLHATMB9okJ-oB&sz=w1000,Prastuti Science,FALSE,Rack,5,,2026-02-27T09:29:52.493Z,EL-60
+1766227840382,Beaker (100ml),,75,12,https://drive.google.com/thumbnail?id=11eLXmXNgWUBEj8uC-5n337F2ob4VjkEi&sz=w1000,Prastuti Science,FALSE,Rack,5,,2025-12-20T11:00:41.353Z,EL-61
+1766228100262,Testtube (12*75mm),,4,98,https://drive.google.com/thumbnail?id=1MgJ_JlWbkOXsgSrTq4p8nxOy7w3wz6-r&sz=w1000,Stationary,FALSE,Rack,5,,2025-12-20T11:00:29.247Z,EL-62
+1766228380005,China Dish,,60,1,https://drive.google.com/thumbnail?id=1ytEcAsCbVn1f50weAitfXfeUSyLFoN5U&sz=w1000,Prastuti Science,FALSE,Rack,5,,2026-03-09T07:42:11.397Z,EL-63
+1766228834632,Tripod Stand,,150,8,https://drive.google.com/thumbnail?id=1B_xfXpAqew144N4cYoGPmfdEP09CQvzf&sz=w1000,Prastuti Science,FALSE,Rack,5,,2026-03-09T07:46:50.535Z,EL-64
+1766229200423,Wire Gauge,,30,9,https://drive.google.com/thumbnail?id=1Mh6FTqqk6K0iaRMw8biJbr7OXUPGKEfo&sz=w1000,Prastuti Science,FALSE,Rack,,,2025-12-20T11:13:20.423Z,EL-65
+1766229396736,Plastic ball with hook,,25,0,https://drive.google.com/thumbnail?id=1pATXlF5WYEcyDH880ytXnmw446nzkQ-j&sz=w1000,Prastuti Science,TRUE,Rack,9,,2025-12-20T11:16:36.736Z,EL-66
+1766229724177,Balloon,,2,0,https://drive.google.com/thumbnail?id=1fLtFoKbm5aGQbS99xm7jbVgvKSJBJpCh&sz=w1000,Prastuti Science,FALSE,Rack,9,,2026-02-27T09:42:26.277Z,EL-67
+1766229871238,Rubber balls,,45,0,https://drive.google.com/thumbnail?id=1C03sb4TywgcalwiLh3e1kLtaaUM5g3nh&sz=w1000,Prastuti Science,FALSE,Rack,9,,2025-12-20T11:24:31.238Z,EL-68
+1766230043459,Comb,,40,0,https://drive.google.com/thumbnail?id=1iB1LMAQhAL7yYEDn84yfh1qqBgIvobVP&sz=w1000,Prastuti Science,FALSE,Rack,9,,2026-02-27T09:35:21.777Z,EL-69
+1766230335968,Toy cars,,5,10,https://drive.google.com/thumbnail?id=1_5rd1NJLqLCcXIFNke2Ko3hvPneQZyOX&sz=w1000,Stationary,FALSE,Rack,9,,2026-02-27T09:30:38.144Z,EL-70
+1766230474759,Match Box,,1,12,https://drive.google.com/thumbnail?id=1onzTV_MvqkNdXIpilvUWvs7r2oiMqB3_&sz=w1000,Prastuti Science,FALSE,Rack,9,,2026-02-27T09:31:01.377Z,EL-71
+1766230883210,Gumtape,,15,3,https://drive.google.com/thumbnail?id=1v2nhyMn7gb69FBRYO3wrGGVlVygtMSQO&sz=w1000,Prastuti Science,FALSE,Rack,9,,2025-12-20T11:41:23.210Z,EL-72
+1766231143479,Atomic molecule kit,,420,1,https://drive.google.com/thumbnail?id=1YA1gj0f8HOB2hbL2kyIaNL0EKwjdXCzB&sz=w1000,Prastuti Science,FALSE,Rack,9,,2025-12-20T11:45:43.479Z,EL-73
+1766231353824,Slinky,,90,0,https://drive.google.com/thumbnail?id=1nJmBByPM4SDpmF0aF-4VNyLNUD7Vy1c-&sz=w1000,Prastuti Science,FALSE,Rack,9,,2025-12-20T11:49:13.824Z,EL-74
+1766231575728,Magnesium ribbon,,210,0,https://drive.google.com/thumbnail?id=1gpXM9SPwyhXtkBEgRkQirR0uOFIR48gB&sz=w1000,Prastuti Science,FALSE,Rack,9,roll,2025-12-25T05:28:59.356Z,EL-75
+1766641228504,Safety Glasses,,35,23,https://drive.google.com/thumbnail?id=1cILvx6Lv5kKV_EhmRDiI-YaD7U8og8ej&sz=w1000,Prastuti Science,FALSE,Rack,1,,2026-03-09T06:02:35.216Z,EL-76
+1766641831826,Slider bags(Large),,13,40,https://drive.google.com/thumbnail?id=1z40u8P_xyZxDNFg3TZpw1uOnclNknl6o&sz=w1000,Stationary,FALSE,Rack,8,,2025-12-26T04:55:21.920Z,EL-77
+1766642487832,Slider Bags(Medium),,10,54,https://drive.google.com/thumbnail?id=1Jmceu-_x6XknkN0FMcg8d4ejdACm2uKo&sz=w1000,Stationary,FALSE,Rack,8,,2025-12-26T04:57:20.489Z,EL-78
+1766642786816,Slider bags(Small),,7,0,https://drive.google.com/thumbnail?id=1KkhhKznIt_PRrN62AYqfV7ICdnYnuN5e&sz=w1000,Stationary,FALSE,Rack,8,,2025-12-26T04:59:03.600Z,EL-79
+1766644113472,Paper Cups,,2,0,https://drive.google.com/thumbnail?id=1Rg2ydHeMmufDiFy1Yc9u9Q0CJ-_yvc1A&sz=w1000,Prastuti Science,FALSE,Rack,8,,2026-02-27T09:29:00.320Z,EL-80
+1766644665948,Ziplock packets( yellow),,9,172,https://drive.google.com/thumbnail?id=1_ArhnohtbavtHO91spFddE2IwnpnOSt4&sz=w1000,Prastuti Science,FALSE,Rack,8,,2025-12-26T07:20:30.455Z,EL-81
+1766645295488,Ziplock packets(green),,9,176,https://drive.google.com/thumbnail?id=1hMZVBLICf2F2tffH19mk_BfAM7rKfR5w&sz=w1000,Prastuti Science,FALSE,Rack,8,,2025-12-26T07:22:11.044Z,EL-82
+1766645574695,Ziplock Packets(Blue),,10,0,https://drive.google.com/thumbnail?id=1YP_-fzLeUL1KtfLyIdTRzGDdezxSvLwj&sz=w1000,Prastuti Science,FALSE,Rack,8,,2025-12-26T07:22:46.884Z,EL-83
+1766646322594,Test tube Stand (6 Hole - 25 Mm ),,60,5,https://drive.google.com/thumbnail?id=1k-mlJmMNsQc-y-gGNgrR7oRh_8dsKn63&sz=w1000,Prastuti Science,FALSE,Rack,7,,2025-12-26T07:23:26.731Z,EL-84
+1766646544105,Disection Kit,,155,1,https://drive.google.com/thumbnail?id=1hrky32wFxyTA0P-y4LIu2gt4FpsO6aWh&sz=w1000,Prastuti Science,FALSE,Rack,7,,2025-12-26T07:23:55.480Z,EL-85
+1766646721130,Wire Stripper and cutter,Multitec -150B,148,0,https://drive.google.com/thumbnail?id=1Ma_xXOL7f3xiwWRnAc8fSDU79atP1soW&sz=w1000,Electronics,FALSE,Rack,7,,2025-12-26T07:24:36.362Z,EL-86
+1766646830527,Multimeter,Model- UT33D+,945,1,https://drive.google.com/thumbnail?id=19U7s2OP9nxWB0geaxLaCKPFNQpeINa3t&sz=w1000,Electronics,FALSE,Rack,7,,2025-12-26T07:25:10.202Z,EL-87
+1766647721828,Soldering Iron Stand,,80,6,https://drive.google.com/thumbnail?id=1YE8LVaGcS5BvPAvy1baHLB8xywTw7eco&sz=w1000,Electronics,FALSE,Rack,7,,2026-04-09T06:48:51.785Z,EL-88
+1766647933363,Continuity Tester,,119,0,https://drive.google.com/thumbnail?id=1XefAjmqiodl9sjC0184F8LVZauqmk4ou&sz=w1000,Prastuti Science,FALSE,Rack,7,,2025-12-26T07:28:02.587Z,EL-89
+1766648108805,Soldering Flux,,30,6,https://drive.google.com/thumbnail?id=1YfbObwhQEmCTsdQCUHK5uVzzgY2s43lj&sz=w1000,Electronics,FALSE,Rack,7,,2026-04-09T06:49:41.152Z,EL-90
+1766648291222,Soldering Iron,,349,1,https://drive.google.com/thumbnail?id=1c0ki_jyub0Q5wPPndJMmp6-jDkrtCE3p&sz=w1000,Electronics,FALSE,Rack,7,,2026-04-09T06:49:18.999Z,EL-91
+1766648513055,Zippup packets(3*4),,0.5,54,https://drive.google.com/thumbnail?id=1z8SK_T3X1zkt3olxFAO0KATzMH6mF7w4&sz=w1000,Stationary,FALSE,Rack,8,,2026-01-08T09:02:48.025Z,EL-92
+1766648916144,Sodium Hydroxide Flakes,,322,500,https://drive.google.com/thumbnail?id=1CbXELHPShhq65pCwWXQ73IPmTTpaOy5p&sz=w1000,Chemicals,FALSE,Rack,6,gram,2025-12-26T07:31:50.445Z,EL-93
+1766649229393,Pottasium Chromate,,1216,500,https://drive.google.com/thumbnail?id=1kMH-Sa2YbUIPSrtfq2aReEUjczbJ_l9S&sz=w1000,Chemicals,FALSE,Rack,6,gram,2025-12-26T07:32:45.447Z,EL-94
+1766649307434,Sodium Sulphate Anhydrous,,254,500,https://drive.google.com/thumbnail?id=1K8gYHxrkbM2GyJUIjGHckc3kmbiEfVg5&sz=w1000,Chemicals,FALSE,Rack,6,gram,2025-12-26T11:42:22.412Z,EL-95
+1766649476358,Aluminium Metal Powder,,644,200,https://drive.google.com/thumbnail?id=12yl1I41VEAkHNYRDrTG44IvBd8ikWYVX&sz=w1000,Chemicals,FALSE,Rack,6,gram,2025-12-26T11:45:33.136Z,EL-96
+1766649605575,Potassium Permanganate,,499,500,https://drive.google.com/thumbnail?id=1ktMZotVkhhnUwUYRU7iH6RaKF3hAo2os&sz=w1000,Chemicals,FALSE,Rack,6,gram,2025-12-26T11:46:55.869Z,EL-97
+1766649685938,Copper Sulphate Pentahydrate,,670,500,https://drive.google.com/thumbnail?id=1X9O0YOwAC_iDIq4LrZc_PPF750J0al8U&sz=w1000,Chemicals,FALSE,Rack,6,gram,2025-12-26T11:48:35.268Z,EL-98
+1766652591372,Copper Sulphate Solution,,660,500,https://drive.google.com/thumbnail?id=1dnpsOfCno66mFmdnGMYerhehDVJniqLc&sz=w1000,Chemicals,FALSE,Rack,6,ml,2025-12-26T07:34:42.470Z,EL-99
+1766652841363,Glycerine,400ml-2 botttle,700,2,https://drive.google.com/thumbnail?id=1YWbbxzgDzMPB0A_etoMGli8Rl3SS7SNx&sz=w1000,Chemicals,FALSE,Rack,6,no.,2025-12-26T07:35:55.098Z,EL-100
+1766653113615,Acetic Acid Glacial,,254,500,https://drive.google.com/thumbnail?id=1CKV3Jm-WgAKusB7zzC1j0SjoMKkMyYTN&sz=w1000,Chemicals,FALSE,Rack,6,ml,2025-12-26T07:36:41.440Z,EL-101
+1766653237405,Methylene Blue Alkaline,125 ml- 2 bottles,207,2,https://drive.google.com/thumbnail?id=1JkyN1b8OSnIoN4C4bySws2LOJhyceMtn&sz=w1000,Chemicals,FALSE,Rack,6,no.,2025-12-26T07:38:02.844Z,EL-102
+1766653312320,Potassium Iodide- Iodate Solution,,270,500,https://drive.google.com/thumbnail?id=12dwU9nSSjEF5-G8jNDCKqU6D4c2BWZgd&sz=w1000,Chemicals,FALSE,Rack,6,ml,2025-12-26T07:42:02.791Z,EL-103
+1766653434869,Lead Nitrate ,,745,500,https://drive.google.com/thumbnail?id=1AIyQh9QBSvqDsbfwFXHDpsNbFEEiebSW&sz=w1000,Chemicals,FALSE,Rack,6,gram,2025-12-26T07:44:00.389Z,EL-104
+1766653617080,Sodium Chloride,,150,500,https://drive.google.com/thumbnail?id=13XsZtRVFD13RWTLhWbyFhZglTX5ON8LR&sz=w1000,Chemicals,FALSE,Rack,6,gram,2025-12-26T07:44:27.577Z,EL-105
+1766653704138,Calcium Oxide,,360,500,https://drive.google.com/thumbnail?id=1VvpJ97AvLjowYwUyduzxdlQNBJpKPBBV&sz=w1000,Chemicals,FALSE,Rack,6,gram,2025-12-26T07:48:22.595Z,EL-106
+1766653776416,Sodium Hydroxide Pellets,,389,500,https://drive.google.com/thumbnail?id=1p1suG3qkLrl6wi3pDKbOGH6u1ECcIrrq&sz=w1000,Chemicals,FALSE,Rack,6,gram,2025-12-26T07:46:44.094Z,EL-107
+1766653822746,Iron Filings,,1049,500,https://drive.google.com/thumbnail?id=12zMj0yULe1M40Ru4ap4DGxzW5ztBgfAD&sz=w1000,Chemicals,FALSE,Rack,6,gram,2025-12-26T07:49:22.157Z,EL-108
+1766653913174,Sodium Carbonate Anhydrous,,399,500,https://drive.google.com/thumbnail?id=1DJTqIZIdMzvluxHSbGMtZZqCRnJcuGLj&sz=w1000,Chemicals,FALSE,Rack,6,gram,2025-12-26T07:50:30.738Z,EL-109
+1766654145626,Hydrochloric Acid,500ml bottle - 5,300,5,https://drive.google.com/thumbnail?id=1a9iyi3WfMQ71-n8jeY3jNViKgYYFxu6t&sz=w1000,Chemicals,FALSE,Rack,11,no.,2025-12-26T07:51:51.883Z,EL-110
+1766654242285,Lamposlov,500ml- 6bottle,350,6,https://drive.google.com/thumbnail?id=1TeMuGlbU506Zy7-0hHR8uwgseKbEwhwn&sz=w1000,Chemicals,FALSE,Rack,11,no.,2025-12-26T07:52:37.635Z,EL-111
+1766654288831,Calcium Oxide Powder,,393,500,https://drive.google.com/thumbnail?id=1R9COhk7098wePE3vdo5NS0z-TnfdzKro&sz=w1000,Chemicals,FALSE,Rack,11,gram,2025-12-26T07:54:45.616Z,EL-112
+1766654418366,Phenolphthalein Solution,"125ml- 2 bottles, 100ml-1 bottle",182,2,https://drive.google.com/thumbnail?id=1nVV74h8lMD0tvBmqBiRFP9a9cdavAy0y&sz=w1000,Chemicals,FALSE,Rack,10,no.,2025-12-26T07:55:56.472Z,EL-113
+1766654465788,Lime Water,"500ml- 1 bottle
+500ml- half bottle",228,750,https://drive.google.com/thumbnail?id=1pAKUBFoD1Tvt-PCLkx5IL_2wQY0HF9KO&sz=w1000,Chemicals,FALSE,Rack,10,ml,2025-12-26T07:56:36.599Z,EL-114
+1766654828930,Surgical Spirit,,650,100,https://drive.google.com/thumbnail?id=1MJ5IbELI2YVU9nMreYXMP8av_CMDXaoJ&sz=w1000,Chemicals,FALSE,Rack,10,ml,2025-12-26T07:57:50.354Z,EL-115
+1766655331793,Plastic Containers,,10,10,https://drive.google.com/thumbnail?id=1MaHHpKLaFslIxjzaQeQRwHYT6kk2c5Q3&sz=w1000,Prastuti Science,FALSE,Rack,12,no.,2026-02-27T09:36:12.376Z,EL-116
+1766655435772,Surgical Gloves,,5,1,https://drive.google.com/thumbnail?id=1OxiZR7hZf-0HSkG_c9DepBc_tsMhDTLl&sz=w1000,Prastuti Science,FALSE,Rack,3,,2026-03-09T06:58:18.103Z,EL-117
+1766655515586,Voltmeter,,422,1,https://drive.google.com/thumbnail?id=1T3RyqhIYgegfAURZQOQVnOMWVUwvXxyx&sz=w1000,Prastuti Science,FALSE,Rack,15,,2025-12-26T10:30:54.742Z,EL-118
+1766655548713,Ammeter,,422,1,https://drive.google.com/thumbnail?id=13utfiLnuSDwLaVJQu9JyKA73CPgy0_aX&sz=w1000,Prastuti Science,FALSE,Rack,15,,2025-12-26T10:32:25.105Z,EL-119
+1766655733553,Lens( Light Box),,599,15,https://drive.google.com/thumbnail?id=1oweLtXpOCJBu9SiDeXin5APya_WQgO_j&sz=w1000,Prastuti Science,FALSE,Rack,15,,2026-03-09T07:22:50.656Z,EL-120
+1766656239261,Battery Pack with Banana Connector,,40,5,https://drive.google.com/thumbnail?id=1BDZ_WGPcn4DBegALtYlKRvsX-8lK5ezt&sz=w1000,Prastuti Science,FALSE,Rack,15,,2025-12-26T10:43:36.632Z,EL-121
+1766656381062,Basic Electronic Component Chart,,0,2,,Prastuti Science,TRUE,Rack,15,,2025-12-26T11:50:00.367Z,EL-122
+1766656704129,Spring balance(500 gm),,259,2,https://drive.google.com/thumbnail?id=1dJQgU-dKrzp3mNGR2eVJZaf4uWJlFxk7&sz=w1000,Prastuti Science,FALSE,Rack,15,no.,2025-12-26T10:53:55.054Z,EL-123
+1766656848341,Spring Balance(250gm),,209,5,https://drive.google.com/thumbnail?id=1Tid5h4jyyyWvSQjUZnD1J-B1VOezL1Mq&sz=w1000,others,FALSE,Rack,15,no.,2025-12-26T11:04:47.546Z,EL-124
+1766656989986,Spring balance(100 gm),,226,1,https://drive.google.com/thumbnail?id=1HJZEYzY9uyRiSbPcekPQ97gyLePdNZuR&sz=w1000,Prastuti Science,FALSE,Rack,15,no.,2025-12-26T11:05:41.885Z,EL-125
+1766657202466,Measuring Tape,,97,4,https://drive.google.com/thumbnail?id=1USaLqLbtykJujXRmvGWP2QDGA-yLvySd&sz=w1000,Prastuti Science,FALSE,Rack,15,no.,2025-12-26T11:06:39.648Z,EL-126
+1766657362347,Bleaching Powder,,237,1,https://drive.google.com/thumbnail?id=16HgcqKd80u8JBnc_bUHi-MNy1WkrnT9b&sz=w1000,Chemicals,FALSE,Rack,16,pack,2025-12-26T11:07:51.726Z,EL-127
+1766657524281,Vermicompost,,58,4,https://drive.google.com/thumbnail?id=1FDYxQGgQV68HsXWlbyuVqeNjnN8ZLvPD&sz=w1000,Chemicals,FALSE,Rack,16,kg,2025-12-26T11:10:22.346Z,EL-128
+1766657706135,First Aid Kit,,450,13,https://drive.google.com/thumbnail?id=1YeiEIwyD5y93HxTcd17pfu_4Np60Zzop&sz=w1000,others,FALSE,Rack,14,,2025-12-26T11:11:13.492Z,EL-129
+1766658167957,Sandpaper,,20,8,https://drive.google.com/thumbnail?id=1OtynnQnd5a161uh4JhRwDLfWV-fmoaFC&sz=w1000,Stationary,FALSE,Rack,14,no.,2025-12-26T11:11:53.050Z,EL-130
+1766658306148,Reflection Kit,,0,4,,MDF,TRUE,Rack,14,,2025-12-25T10:25:06.148Z,EL-131
+1766658476465,Thread roll,,50,6,https://drive.google.com/thumbnail?id=180ZKiW8t153Rh7RfWqQSCJLHwGg-lfWF&sz=w1000,Stationary,FALSE,Rack,9,no.,2026-02-27T09:32:19.156Z,EL-132
+1766658752797,Cotton swabs,,0.49,100,https://drive.google.com/thumbnail?id=1iA2kNvIBPQNXgLJEzDXnYjy3tzgHSU8m&sz=w1000,Prastuti Science,FALSE,Rack,14,,2025-12-26T11:17:33.186Z,EL-133
+1766658857092,Glass piece,,50,0,https://drive.google.com/thumbnail?id=1XBUHgOSMO1NZZRp3RwkejdY4s5Vq1N8S&sz=w1000,Stationary,FALSE,Rack,14,,2025-12-26T11:18:23.621Z,EL-134
+1766659859894,Rectangular plastic box,,16,329,https://drive.google.com/thumbnail?id=1v5TGT1wGoH91xlQMVDNxmkdEfmVBpBGw&sz=w1000,Box,FALSE,Rack,13,no.,2025-12-26T11:19:13.222Z,EL-135
+1766660076356,Bottle(30ml),,13,0,https://drive.google.com/thumbnail?id=1fdp3oH6VcDGZWi6ElUqNzVAksbmO8NuA&sz=w1000,Box,FALSE,Rack,13,,2025-12-26T11:19:50.295Z,EL-136
+1766660574273,Box with Flip-Lock Lid,,8,82,https://drive.google.com/thumbnail?id=1BOvBFo1GF1YzE90r8i_1bdtT3gPuCmTF&sz=w1000,Box,FALSE,Rack,13,,2025-12-26T11:20:28.613Z,EL-137
+1766661361982,Plastic Dropper Bottle(small),,8,27,https://drive.google.com/thumbnail?id=1RJK--Z-ND-UVKl-vQZu8SKVbaai4dBHN&sz=w1000,Box,FALSE,Rack,13,no.,2025-12-26T11:21:09.388Z,EL-138
+1766662181942,Plastic Storage Box(Kwality 102),,118,38,https://drive.google.com/thumbnail?id=1J7uQcLUHtOSGn2uD_ZNcUgl-j1oy1xcc&sz=w1000,Box,FALSE,,,,2025-12-26T11:21:57.864Z,EL-139
+1766662638668,Dropper Bottle(medium),,10,150,https://drive.google.com/thumbnail?id=1G-TnXe-NWMNyP6Q_inL5V4pQIJQIAYmM&sz=w1000,Box,FALSE,Rack,12,,2025-12-26T11:22:32.898Z,EL-140
+1766663044919,Dice,,5,49,https://drive.google.com/thumbnail?id=1aBVpwnhAJcY6QLnRWyFT7fX_dbl-tVh4&sz=w1000,Prastuti Maths,FALSE,Rack,19,,2025-12-26T11:23:10.004Z,EL-141
+1766663159906,Probability Spinner,,0,0,https://drive.google.com/thumbnail?id=12s_jqHnx2_uRj1-yKiM9-k9ukpggEIFD&sz=w1000,Prastuti Maths,TRUE,Rack,19,,2025-12-26T11:24:19.507Z,EL-142
+1766663366648,Cone and Cylinder,there is in 19 self also,60,10,https://drive.google.com/thumbnail?id=1vEDJCy9P2CBlL6SkAX_ygdQSGIGju5R9&sz=w1000,Prastuti Maths,FALSE,Rack,22,,2025-12-27T05:39:03.919Z,EL-143
+1766663971155,(a+b) cube,,0,4,https://drive.google.com/thumbnail?id=1Q_XHKLbizj1V-bgcQxmMfZMyfqVHjvak&sz=w1000,Prastuti Maths,TRUE,Rack,19,,2025-12-26T11:27:44.341Z,EL-144
+1766664457800,Twister Sticks,used as pegs in co-ordinate board,3,27,https://drive.google.com/thumbnail?id=1TksL_dFuiWDM4UJcz-3VEYehOUSfTVeV&sz=w1000,Prastuti Maths,FALSE,Rack,19,,2025-12-26T11:28:28.074Z,EL-145
+1766813658525,Marbles,,7,164,https://drive.google.com/thumbnail?id=1H5df1rPHJkzC5qhDI2avn4-xfICllgwG&sz=w1000,Prastuti Maths,FALSE,Rack,19,,2025-12-27T05:34:18.525Z,EL-146
+1766813821501,Marbles (big size),,9,7,https://drive.google.com/thumbnail?id=1CLF_VsRhtipOhW6xs7ScR4eNCHxHbW_I&sz=w1000,Stationary,FALSE,Rack,19,,2025-12-27T05:37:01.501Z,EL-147
+1766814215152,3D Sphere,,0,1,https://drive.google.com/thumbnail?id=17tGjAktm8Y3de87DuD0aIoy8rJclHdSx&sz=w1000,Prastuti Maths,TRUE,Rack,18,,2025-12-27T05:45:01.596Z,EL-148
+1766814932918,Pouch,,63,48,https://drive.google.com/thumbnail?id=1nN3_rEh5GHjACeHRK_b3QF2JmYc8e1Ls&sz=w1000,Stationary,FALSE,Rack,18,,2025-12-27T05:55:32.918Z,EL-149
+1766815284058,Weighing scale,,150,7,https://drive.google.com/thumbnail?id=1ZxMQlcJPvEwkI9-eBw-F8Fya7C3ec7Aw&sz=w1000,Prastuti Science,FALSE,Rack,24,,2026-01-14T06:44:28.401Z,EL-150
+1766815626158,Charger with USB cable,,222,2,https://drive.google.com/thumbnail?id=1j8b2PwuO3JVfYl9Nlbh6a7JGo110BJEm&sz=w1000,Electronics,FALSE,Rack,,,2025-12-27T06:07:06.158Z,EL-151
+1766815788380,Solder wire,,195,4,https://drive.google.com/thumbnail?id=1jVluJL6Trf5-016ItnY3rqzC-d2EpXM3&sz=w1000,Electronics,FALSE,Rack,25,,2026-04-09T06:50:01.273Z,EL-152
+1766815963684,DC Adaptor,27 shelf also it is there,180,3,https://drive.google.com/thumbnail?id=1Zlmvqcna_iCHLtrf66NdijTIv7HV-Bxz&sz=w1000,Electronics,FALSE,Rack,25,,2025-12-27T06:48:22.782Z,EL-153
+1766816512812,Battery,,310,13,https://drive.google.com/thumbnail?id=1CWaDqcRBrB3ltLrECnOFsXJRCTMbGbId&sz=w1000,Electronics,FALSE,Rack,27,,2025-12-27T06:32:20.613Z,EL-154
+1766816801528,Premium UNO cable,,69,10,https://drive.google.com/thumbnail?id=1a8rBEJjapyWIXGtJjO_swBEUhYT1OcAW&sz=w1000,Electronics,TRUE,Rack,27,,2025-12-27T06:26:41.528Z,EL-155
+1766816978048,JST Wires,,63,63,https://drive.google.com/thumbnail?id=13RdR-GQm7c2QBCAnBXGPa8b72Hwz-hdg&sz=w1000,Electronics,FALSE,Rack,27,,2025-12-27T06:29:38.048Z,EL-156
+1766817336785,Aurdino UNO,,209,4,https://drive.google.com/thumbnail?id=1dDC30aRl97FZFpa8TnFPT6FIIup9i7hn&sz=w1000,Electronics,FALSE,Rack,27,,2025-12-27T06:35:36.785Z,EL-157
+1766817405253,Robot PCB,,0,3,https://drive.google.com/thumbnail?id=1xUDugYsd0OyQxNrSmOonUfg0e4fOMpSg&sz=w1000,Electronics,TRUE,Rack,27,,2025-12-27T06:39:14.206Z,EL-158
+1766817667530,Motor Driver,,124,1,https://drive.google.com/thumbnail?id=1Z9yhU9GZPb4KE_4aJAbdzPtzcnzzgepm&sz=w1000,Electronics,FALSE,Rack,27,,2025-12-27T06:49:20.601Z,EL-159
+1766818056961,AC power Adapter,,172,3,https://drive.google.com/thumbnail?id=1juDOjYmKjFGRcGadcd7w_Xe6I_pAGgP_&sz=w1000,Electronics,FALSE,Rack,27,,2025-12-27T06:47:36.961Z,EL-160
+1766818808581,Weather Station,,0,8,,Project for you kit,TRUE,Rack,,,2025-12-27T07:31:34.612Z,EL-161
+1766818861845,Home Security,,0,4,,Project for you kit,TRUE,Rack,,,2025-12-27T07:32:23.191Z,EL-162
+1766818911938,Rat Trap,,0,10,,Project for you kit,TRUE,Rack,,,2025-12-27T09:45:17.627Z,EL-163
+1766818935557,Traffic Light,,0,8,,Project for you kit,TRUE,Rack,,,2025-12-27T07:31:47.400Z,EL-164
+1766819144177,DIY Lamp,,0,6,,Project for you kit,TRUE,Rack,,,2025-12-27T07:31:58.940Z,EL-165
+1766819184703,Smart Irrigation System,,0,6,,Project for you kit,TRUE,Rack,,,2025-12-27T07:32:10.319Z,EL-166
+1766820413069,IR Remote,,52,10,https://drive.google.com/thumbnail?id=1U19O_oyeJgbfhh7-5zQi-EmT_gg3TCVX&sz=w1000,Anubhav,FALSE,Fablab,8,,2025-12-27T07:26:53.069Z,EL-167
+1766820880789,N20 Vibrator Motor,3 motors do not have wires,0,9,https://drive.google.com/thumbnail?id=1_NF6kVZk09scju49i0vUq5ETgZAFRxc3&sz=w1000,Anubhav,TRUE,Fablab,8,,2025-12-27T07:35:13.186Z,EL-168
+1766821022686,RC Reciever,,0,1,https://drive.google.com/thumbnail?id=1HpbyiFtFdlIgwfVviGbrxOg7O528LAkE&sz=w1000,Anubhav,TRUE,Fablab,8,,2025-12-27T07:37:02.686Z,EL-169
+1766821521580,Propellor,,20,4,https://drive.google.com/thumbnail?id=1pYriLY2okv-rzx-zsWEqUi0WRbbNWUP-&sz=w1000,Stationary,FALSE,Fablab,8,,2025-12-27T07:48:14.906Z,EL-170
+1766821678821,Fan,,10,5,https://drive.google.com/thumbnail?id=1Vng9Zm0OxTOHwrWHNXgNxcAQkqrm2mIE&sz=w1000,Anubhav,FALSE,Fablab,8,,2025-12-27T07:47:58.821Z,EL-171
+1766821847278,Castor wheel,,29,10,https://drive.google.com/thumbnail?id=1b863JJmHO4-aOofNV-53RgpmNNRBuISq&sz=w1000,Anubhav,FALSE,Fablab,8,,2025-12-27T11:16:08.394Z,EL-172
+1766822029186,Wire with Nut,,0,12,https://drive.google.com/thumbnail?id=1NMowMnI72dk1AxtIql6rTJ0JIOAz7I_c&sz=w1000,Anubhav,TRUE,Fablab,8,,2025-12-27T07:53:49.186Z,EL-173
+1766822138878,Nut,,2,7,https://drive.google.com/thumbnail?id=1mSRwZCUpLWO0xlZd6DfosRjE1tJlmlTy&sz=w1000,Anubhav,FALSE,Fablab,8,,2025-12-27T07:55:38.878Z,EL-174
+1766822534717,LED with connector,,0,22,https://drive.google.com/thumbnail?id=19rmn7zG3bqGNO-SX7EYWNvskF0XpxEz6&sz=w1000,Anubhav,TRUE,Fablab,8,,2025-12-27T08:04:57.419Z,EL-175
+1766825181954,Source (Thick),,0,14,https://drive.google.com/thumbnail?id=1suqXcLwHFJk0XlkIcU4eSjvmFbVD4C5y&sz=w1000,Anubhav,TRUE,Fablab,1,,2025-12-27T08:46:36.310Z,EL-176
+1766825332197,Fan (MDF),,0,1,https://drive.google.com/thumbnail?id=11BKs2_BnEozzsdFvrFCoIKo9jF2DwrSD&sz=w1000,Anubhav,TRUE,Fablab,1,,2025-12-27T08:56:07.990Z,EL-177
+1766825757796,Buzzer (MDF),,0,90,https://drive.google.com/thumbnail?id=1KyR0P95YyT7KE8ZU7IU3eLBkv9oZ1Tkr&sz=w1000,Anubhav,TRUE,Rack,1,,2025-12-27T08:55:57.796Z,EL-178
+1766826156535,Metal Sensor,,0,4,https://drive.google.com/thumbnail?id=1cmr46dcWsuwGsBhsEPOhn-XtkrJVSS3r&sz=w1000,Anubhav,TRUE,Fablab,1,,2025-12-27T09:51:09.796Z,EL-179
+1766826300643,Bulb,,0,7,https://drive.google.com/thumbnail?id=1f5Nq_WEvGneD6MDaVMJbvTxwRnrTc-of&sz=w1000,Anubhav,TRUE,Fablab,1,,2025-12-27T09:49:03.397Z,EL-180
+1766826407522,Flame,,0,6,https://drive.google.com/thumbnail?id=1KyevBd-ML5jeZmGYbUKlDqSm1eUO8cm8&sz=w1000,Anubhav,TRUE,Fablab,1,,2025-12-27T09:13:21.733Z,EL-181
+1766826553318,Transistor,,0,8,https://drive.google.com/thumbnail?id=1uUvVYxtAuRi7P-1NaxwfEnLrdjlW-fJ6&sz=w1000,Anubhav,TRUE,Fablab,1,,2025-12-27T09:13:10.911Z,EL-182
+1766826635955,Laser TX,,0,8,https://drive.google.com/thumbnail?id=1QvebEAdQ2d8H1PV0Ab-9wXaJghYYBdXJ&sz=w1000,Anubhav,TRUE,Fablab,1,,2025-12-27T09:13:02.379Z,EL-183
+1766826771955,Laser RX,,0,9,https://drive.google.com/thumbnail?id=1q8QmcdaGiIskjmxe78vQoOmeVhjG28IK&sz=w1000,Anubhav,TRUE,Fablab,1,,2025-12-27T09:12:51.955Z,EL-184
+1766827190399,LED,,0,19,https://drive.google.com/thumbnail?id=1dEOgOWEn4Ib-RvY5twM4-cyOM3GTQGx4&sz=w1000,Anubhav,TRUE,Fablab,1,,2025-12-27T09:49:19.563Z,EL-185
+1766827395355,N20 Motor (MDF),,0,36,https://drive.google.com/thumbnail?id=1JbpXYGnUIS-qldqs0w3ZY2iho_gJ1cBA&sz=w1000,Anubhav,TRUE,Fablab,1,,2025-12-27T09:23:15.355Z,EL-186
+1766827491551,Motor X,,0,11,https://drive.google.com/thumbnail?id=17Os9QlkiZSukVi8FKQEe6uc2xtBu7qVo&sz=w1000,Anubhav,TRUE,Fablab,1,,2025-12-29T08:48:49.161Z,EL-187
+1766827761903,Soil Moisture,4- thick,0,32,https://drive.google.com/thumbnail?id=1sETd_CYNHdNGwcX3ZPQi_r554w58LOc3&sz=w1000,Anubhav,TRUE,Fablab,1,,2025-12-27T09:32:43.729Z,EL-188
+1766828133656,TSOP IR,,0,17,https://drive.google.com/thumbnail?id=1p21bwx2JWs7sqf0n6_CEJATRj2dJktsp&sz=w1000,Anubhav,TRUE,Fablab,1,,2025-12-27T09:38:36.210Z,EL-189
+1766828304938,LDR,,0,8,https://drive.google.com/thumbnail?id=1iBx9o6pwYIicaarfuALih9Sxb9XZ8LAw&sz=w1000,Anubhav,TRUE,Fablab,1,,2025-12-27T09:38:24.938Z,EL-190
+1766828443984,UM66,5-thick,0,14,https://drive.google.com/thumbnail?id=1aA0YxvK_DRY0NDLx4H-qAwIiRUu7eAMN&sz=w1000,Anubhav,TRUE,Fablab,1,,2025-12-27T09:41:07.100Z,EL-191
+1766828653373,Not gate,3- thick,0,13,https://drive.google.com/thumbnail?id=1ko5XYGKoN8cnFxR-A-_dYFPMK809eJdZ&sz=w1000,Anubhav,TRUE,Fablab,1,,2025-12-27T09:45:51.671Z,EL-192
+1766828891185,Touch,,0,3,https://drive.google.com/thumbnail?id=1_4DoTA5nx3x7MiiHwziLCzNSWPJaP3nQ&sz=w1000,Anubhav,TRUE,,1,,2025-12-27T09:48:11.185Z,EL-193
+1766829166779,Meta sensor with hole,,0,6,https://drive.google.com/thumbnail?id=1ewhes0xl_jJgjImsZLwTsEkQXiP-Ttiq&sz=w1000,Anubhav,TRUE,Fablab,1,,2025-12-27T09:53:46.261Z,EL-194
+1766829610701,Rheostat,11 piece only MDF without wire,0,28,https://drive.google.com/thumbnail?id=1JwRa3GxG77ViHVaLt3XEcMXy4BIBeBGN&sz=w1000,Anubhav,TRUE,Fablab,2,,2025-12-27T11:27:41.847Z,EL-195
+1766829909048,Continuity Toy set,there is only 2 piece of MDF in which continuity tester is printed,0,8,https://drive.google.com/thumbnail?id=1ng84ZiV99qDLBSr7lOoPAlB4YB2GW06x&sz=w1000,Anubhav,TRUE,Fablab,2,,2025-12-27T10:18:51.181Z,EL-196
+1766830195760,Base X ,,0,22,https://drive.google.com/thumbnail?id=1ylHYOC4G55uaqg9L9K7QYgcDuvdljOBN&sz=w1000,Anubhav,TRUE,Fablab,2,,2025-12-29T08:50:57.479Z,EL-197
+1766830974094,MDF piece with 6 curves,,0,33,https://drive.google.com/thumbnail?id=1k93_oqkn19WgZQRq52JOcsPWD87fj4ct&sz=w1000,Anubhav,TRUE,Fablab,2,,2025-12-27T10:26:05.712Z,EL-198
+1766831156507,MDF piece with 2 side holes,,0,12,https://drive.google.com/thumbnail?id=1wIwA5eSexXYJc2vhQUCRMhxTxI9rKbck&sz=w1000,Anubhav,TRUE,Fablab,2,,2025-12-27T10:25:56.507Z,EL-199
+1766831488937,Pole,,0,25,https://drive.google.com/thumbnail?id=1O4JsuVrGpl8vZUKW3DmyehQ9Qp1vhaLI&sz=w1000,Anubhav,TRUE,Fablab,2,,2025-12-27T10:31:28.937Z,EL-200
+1766831615936,Rectangle piece with 2 holes in side,,0,13,https://drive.google.com/thumbnail?id=1kDUy_l9ceZ7h8BGL2K3MsHQIO0IqEWOb&sz=w1000,Anubhav,TRUE,Fablab,2,,2025-12-27T10:34:10.043Z,EL-201
+1766831802343,Tester Pro,,0,3,https://drive.google.com/thumbnail?id=1AmEiwWbkZT5MeJTJZikYMQgZpOlERVe0&sz=w1000,Anubhav,TRUE,Fablab,1,,2025-12-27T11:20:21.899Z,EL-202
+1766831908832,Earthquake Detector set,,0,3,https://drive.google.com/thumbnail?id=1EoXCKJC1mZrUTzlGbHIXKu6JQjdN_gIr&sz=w1000,Anubhav,TRUE,Fablab,2,,2025-12-29T08:43:14.715Z,EL-203
+1766832766784, Bulb Holder (Single),,0,10,https://drive.google.com/thumbnail?id=1jZ8kKV-_9wuBO3OJtuX77KxdrfRM1Fol&sz=w1000,Anubhav,TRUE,Fablab,3,,2025-12-27T10:52:46.784Z,EL-204
+1766832981097,BO Motor,is also there in shelf 5,48,67,https://drive.google.com/thumbnail?id=1Q0dS0qgMyaHIxQLVSrFmfzqCHe4ZlhI5&sz=w1000,Anubhav,FALSE,Fablab,3,,2025-12-27T11:15:22.687Z,EL-205
+1766833693280,65mm*28mm wheel-yellow,,28,38,https://drive.google.com/thumbnail?id=1i6fJ_JbpXZ1sLOMUl28ZWZd5HDF_u-7c&sz=w1000,Anubhav,FALSE,Fablab,5,,2025-12-27T11:08:13.280Z,EL-206
+1766835180460,MDF piece of swing,,0,10,https://drive.google.com/thumbnail?id=1UwjMaT72Q29X775HVAZoNq8_8z9uuB2M&sz=w1000,Anubhav,TRUE,Fablab,7,,2025-12-27T11:33:00.460Z,EL-207
+1766994645861,Handle,in three piece - handle is not printed,0,25,https://drive.google.com/thumbnail?id=1NOlOlFXxaTgyRwtjRfWVTIS7IhbzmcU5&sz=w1000,Anubhav,TRUE,Fablab,7,,2025-12-29T08:56:00.109Z,EL-208
+1766997899667,Music Player,,0,29,https://drive.google.com/thumbnail?id=1xlebTthXvMhMHIU6UUzD33io0nBewX-T&sz=w1000,Anubhav,TRUE,Fablab,7,,2025-12-29T08:56:50.484Z,EL-209
+1766998155193,Motor X base,,0,28,https://drive.google.com/thumbnail?id=127a3f3Hg5YXNteKv09A0Uz4r2d4oP8Ed&sz=w1000,Anubhav,TRUE,Fablab,7,,2025-12-29T08:50:05.866Z,EL-210
+1767003398762,BO Motor Holder (T),,0,457,https://drive.google.com/thumbnail?id=1FNDHCVTtjmridTgZiLAhZ9RX2AO-oWxH&sz=w1000,Anubhav,TRUE,Fablab,9,,2025-12-29T10:46:12.962Z,EL-211
+1767004051994,Small (T),,0,200,https://drive.google.com/thumbnail?id=1lHUC6tmLAXJk7e1tUMXitPHYN4VUJQ2J&sz=w1000,Anubhav,TRUE,Fablab,9,,2025-12-29T10:35:25.207Z,EL-212
+1767004480155,Spacers (4mm),,0,52,https://drive.google.com/thumbnail?id=1ydOc3JtHAuJdf-LU7WncXyRxKLuYJMI2&sz=w1000,Anubhav,TRUE,Fablab,9,,2025-12-29T10:34:55.982Z,EL-213
+1767004563117,Spacers,,0,500,https://drive.google.com/thumbnail?id=1OgdaiW0hpdecvB0Nk3f7L4xlEyAbcMqM&sz=w1000,Anubhav,TRUE,,9,,2025-12-29T10:38:04.677Z,EL-214
+1767005046985,Big T,,0,99,https://drive.google.com/thumbnail?id=1JRRTqwFkE0ar1bgKr8YRntNPtrhdUmY6&sz=w1000,Anubhav,TRUE,Fablab,9,,2025-12-29T10:44:06.985Z,EL-215
+1767005369713,Geomagic scale(Yellow and orange),,0,10,,Geomagic,TRUE,Fablab,10,,2025-12-29T10:49:29.713Z,EL-216
+1767005974559,Keasri 77 Box,,125,,https://drive.google.com/thumbnail?id=11nDAQfPLMRZt2sdnQ60UXsBeJlOeGCpz&sz=w1000,Box,FALSE,Mechanical Room,,,2025-12-29T10:59:34.559Z,EL-217
+1767006231100,Inertia Apparatus,,200,5,https://drive.google.com/thumbnail?id=1ZH3Cg-8S_FwuVhEQme9g9bTYIf_Hj9XI&sz=w1000,Prastuti Science,FALSE,Fablab,,,2025-12-29T11:03:51.100Z,EL-218
+1767006739262,Microscope ,,799,1,https://drive.google.com/thumbnail?id=1l0VFT8KNUZP9jmql2FPKKNXJwVme7kec&sz=w1000,kits,FALSE,,,,2025-12-29T11:23:11.637Z,EL-219
+1767006887793,Lion Enlightenment Balanced Cool Math Counting Games,,1199,1,https://drive.google.com/thumbnail?id=1UAwpcmE_D-qr8Zqol31YaDLs03UzeUO2&sz=w1000,kits,FALSE,Stock,,,2025-12-29T11:22:49.199Z,EL-220
+1767006996733,Chemistry Kit,some chemicals are missing,0,1,,kits,TRUE,Stock,,,2025-12-29T11:22:59.479Z,EL-221
+1767007145565,Intelligent Tom cat,,249,1,https://drive.google.com/thumbnail?id=1LNbdiGweibzHYbEgXiqOMrqXTqxMHeJ_&sz=w1000,kits,FALSE,Stock,,,2025-12-29T11:22:36.307Z,EL-222
+1767007346288,Snaily Shapes Puzzles,,449,1,https://drive.google.com/thumbnail?id=1FAoMuMbSQihjqdIb2wbPW2Upb9Q6eBLB&sz=w1000,kits,FALSE,Stock,,,2025-12-29T11:22:26.288Z,EL-223
+1767007503708,Earth and Crystal Science,,632,1,https://drive.google.com/thumbnail?id=13VOZLpeIBbaTYeGdx3gjNLGLeSWJPo_d&sz=w1000,kits,FALSE,Stock,,,2025-12-29T11:25:03.708Z,EL-224
+1767007604651, Science Kits,,649,1,https://drive.google.com/thumbnail?id=1nioqNtvFTns5rMa7HQmjB2hQg3XHGVzz&sz=w1000,kits,FALSE,Stock,,,2025-12-29T11:26:44.651Z,EL-225
+1767007728372,Chemistry kit for students,,1490,1,https://drive.google.com/thumbnail?id=1QTFRJvBJRkM5g9o0CGt1oB909Y53s45-&sz=w1000,kits,FALSE,Stock,,,2025-12-29T11:28:48.372Z,EL-226
+1767007854914, Maplology- Animals,,549,1,https://drive.google.com/thumbnail?id=1qGKvxCd2UoA918oEZi6UakVBTrR1kVe9&sz=w1000,kits,FALSE,Stock,,,2025-12-29T11:30:54.914Z,EL-227
+1767007966792,Illusion Science,,439,1,https://drive.google.com/thumbnail?id=1-XRX3kHo00GRggUzwhiRzpAuqOEZpIfV&sz=w1000,kits,FALSE,Stock,,,2025-12-29T11:32:46.792Z,EL-228
+1767008414972,Stitch Me,,255,1,,kits,FALSE,Stock,,,2025-12-29T11:40:14.972Z,EL-229
+1767008486265,Wind Power Car,,599,1,https://drive.google.com/thumbnail?id=1hJfKRjrYk3A1NSqqes9FT0gH8QVOozYO&sz=w1000,kits,FALSE,Stock,,,2025-12-29T11:50:11.461Z,EL-230
+1767008691037,Nerf Alpha Strike Blaster,,849,1,https://drive.google.com/thumbnail?id=1fOkkQVW8pe7di7HKTGtcdnL7xw5VRSXd&sz=w1000,kits,FALSE,Stock,,,2025-12-29T11:44:51.037Z,EL-231
+1767009260762,Digital Train,,465,1,https://drive.google.com/thumbnail?id=1ZeNbSh-WQ8p9gqfYP7fnM5pDKtXEPjrj&sz=w1000,kits,FALSE,Fablab,,,2025-12-29T11:54:20.762Z,EL-232
+1767009630802,Remote control car,,399,,https://drive.google.com/thumbnail?id=1Udb6xrw5csTm6nyXcevYCQaOrWv3WZce&sz=w1000,kits,FALSE,Fablab,,,2025-12-29T12:00:30.802Z,EL-233
+1767009780920,Plastic Blocks,,60,1,https://drive.google.com/thumbnail?id=1720HdgSED9WAEq5kTPigsxL-X5_easrA&sz=w1000,kits,FALSE,Fablab,,,2025-12-29T12:03:00.920Z,EL-234
+1767009883983,Puzzle games,,50,1,https://drive.google.com/thumbnail?id=1HFn02d9QAW_rBQ2BVYjyVEKrjkM5BJBr&sz=w1000,kits,FALSE,Fablab,,,2025-12-29T12:04:43.983Z,EL-235
+1767010071170,Shooting Gun,,299,1,https://drive.google.com/thumbnail?id=1JzWqJ128BYaUbpxKF-axFSwuPet4JTLn&sz=w1000,kits,FALSE,Fablab,,,2025-12-29T12:07:51.170Z,EL-236
+1767010200650,Duel Rocket,,549,1,https://drive.google.com/thumbnail?id=1dJvyjCx2iLzc6DDI8eIiSVTh-6aYHaGS&sz=w1000,kits,FALSE,Fablab,,,2025-12-29T12:10:00.650Z,EL-237
+1770199878389,Miracle Bricks,,599,1,https://drive.google.com/thumbnail?id=1U7gZNH6HRRoUO9cezu-X7FLCupdVkdRT&sz=w1000,kits,FALSE,Fablab,,,2026-02-04T10:12:38.511Z,EL-238
+1770200164395,Spider Hero(wrist transmitter),,2073,1,https://drive.google.com/thumbnail?id=1bUGgJ2vKuEVVhMnHv83XEuaSpjut_fJD&sz=w1000,kits,FALSE,Fablab,,,2026-02-04T10:16:04.395Z,EL-239
+1770200532679,Cute face expression changer toy,,10,27,https://drive.google.com/thumbnail?id=1Qb2VF_MyHvoybBl0rMreEYq8SmbB-tCZ&sz=w1000,kits,FALSE,Fablab,,,2026-02-04T10:23:48.495Z,EL-240
+1770201265282,DIY mini toys,,150,10,https://drive.google.com/thumbnail?id=1t4AeAZUbJTYFCHpMir2YwXRoGs-dgq3O&sz=w1000,kits,FALSE,Fablab,,,2026-02-04T10:34:25.282Z,EL-241
+1770201594472,Mini toy car set,,299,25,https://drive.google.com/thumbnail?id=1Afs8Izq3qYNneTCFNpmzNsBw1VByFlbO&sz=w1000,kits,FALSE,Fablab,,,2026-02-04T10:39:54.472Z,EL-242
+1770201768393, Shape Stacker Puzzle Game,,199,1,https://drive.google.com/thumbnail?id=1dKNq9n1aFlEBeFy0p1w4tuCKuraAK7dq&sz=w1000,kits,FALSE,Fablab,,,2026-02-04T10:42:48.393Z,EL-243
+1770201994750,Electric Bubble gun,,909,1,https://drive.google.com/thumbnail?id=1Yg3vGq9RC8CbeXINHqyvW0C8d96GkKxw&sz=w1000,kits,FALSE,Fablab,,,2026-02-04T10:46:34.750Z,EL-244
+1770202117423,Catching game,,451,1,https://drive.google.com/thumbnail?id=1jxlKIGlYZtXRxHMvVIm9LB1e762KAso2&sz=w1000,kits,FALSE,Fablab,,,2026-02-04T10:48:37.423Z,EL-245
+1770202283878,Power Balloon,,1299,1,https://drive.google.com/thumbnail?id=1ichgsn2PQ8GgpuaJDmMgdXqIhFCFvWE2&sz=w1000,kits,FALSE,Fablab,,,2026-02-04T10:51:23.878Z,EL-246
+1770202493805,Stacking cubes,,120,1,https://drive.google.com/thumbnail?id=1fPeBBKcU5WGnU7DFHOD5J3wvzAQT1YyN&sz=w1000,kits,FALSE,Fablab,,,2026-02-04T10:54:53.805Z,EL-247
+1770202644068,Shape sorter cubes,,219,1,https://drive.google.com/thumbnail?id=1ZAQpEixuSFli4AeKCSC05ndpJIo_ByL0&sz=w1000,kits,FALSE,Fablab,,,2026-02-04T10:57:24.068Z,EL-248
+1770202794717,Jumping spring toy,,299,7,https://drive.google.com/thumbnail?id=1HoS7ckSe4_552vbeX50cM8e9f1L71Kd6&sz=w1000,kits,FALSE,Fablab,,,2026-02-04T10:59:54.717Z,EL-249
+1770206216480,Pop it fidget toys,,95,1,https://drive.google.com/thumbnail?id=1QsxcQxotnX766o-cYNHZGtgyaTtAmUE0&sz=w1000,kits,FALSE,Fablab,,,2026-02-04T11:59:18.476Z,EL-250
+1770206335330,Mushroom Button nail,,299,1,https://drive.google.com/thumbnail?id=1s5l-2lNN8MOmBFikii6DGy2TjYPoVMmA&sz=w1000,kits,FALSE,Fablab,,,2026-02-04T11:58:55.330Z,EL-251
+1770206538503,"Fun Pack , Shaping and Sculpting ",,247,1,https://drive.google.com/thumbnail?id=1GOmkUC-JNkVtuX_pg9dIc2MOT_bjBteS&sz=w1000,kits,FALSE,,,,2026-02-04T12:02:18.503Z,EL-252
+1770207105671,Football board game,,300,1,https://drive.google.com/thumbnail?id=1vcG6UZiPJdig_0U_qB3un11E4V8KYTxS&sz=w1000,kits,FALSE,Fablab,,,2026-02-04T12:11:45.671Z,EL-253
+1770207265586,Mini Table Top Finger Basketball Game for Kids ,,300,1,https://drive.google.com/thumbnail?id=1-UpKsNmL2Wr9gNuoPSOR5JpT8DV_M8tJ&sz=w1000,kits,FALSE,Fablab,,,2026-02-04T12:14:25.586Z,EL-254
+1770207603153,Tumbling Monkey,,199,1,https://drive.google.com/thumbnail?id=10tJVzWdoVege7Gqyj7Mci6pzbEQPTb7E&sz=w1000,kits,FALSE,Fablab,,,2026-02-04T12:20:03.153Z,EL-255
+1770207710798,Colorful Stacking and Balancing Wooden Blocks,,349,1,https://drive.google.com/thumbnail?id=1qTgAomDgukYyJgNciXJPtXxQKdFu7dph&sz=w1000,kits,FALSE,Fablab,,,2026-02-04T12:21:50.798Z,EL-256
+1770207880370,Crocodile biting toy,,799,1,https://drive.google.com/thumbnail?id=1pDtmkXfOngOtcEjiJjLTSxPgEeaKB7Jp&sz=w1000,kits,FALSE,Fablab,,,2026-02-04T12:24:40.370Z,EL-257
+1770455317517,Rectangular magnet ,,154,10,https://drive.google.com/thumbnail?id=1EdlTjXMZ031uDbpmj0D0GzIZlULzudoc&sz=w1000,Anubhav,FALSE,Fablab,8,,2026-02-07T09:08:37.517Z,EL-258
+1770616310219,Geomagic ,Line and circle edition,,7,https://drive.google.com/thumbnail?id=1CVTLBC3_vQVOcdXFbtQKCHIfL5pXWswr&sz=w1000,Geomagic,TRUE,Fablab,1,,2026-02-09T05:53:54.446Z,EL-259
+1770616788739,Acrylic Protactor,Geomagic circle,,9,https://drive.google.com/thumbnail?id=1ns0xYqygOhVBSAQHPPhCoBDou3DXkOkp&sz=w1000,Geomagic,TRUE,Fablab,,,2026-02-09T06:02:59.881Z,EL-260
+1770617350738,Circle(Pink),geomagic circle,,15,https://drive.google.com/thumbnail?id=15x2w_-ICDeADUJ7T7Ox2TcvRlP3SWzPL&sz=w1000,Geomagic,TRUE,Fablab,,,2026-02-09T06:09:10.738Z,EL-261
+1770617719519,Small circle(green),Geomagic Circle,,57,https://drive.google.com/thumbnail?id=1oBzQO4gwPaL3YJnFDhS4XID9uXT_5k4L&sz=w1000,Geomagic,TRUE,,,,2026-02-09T06:15:19.519Z,EL-262
+1770618111870,Punched square piece,Some are pending for punching,,100,https://drive.google.com/thumbnail?id=1S1O6NGRAYM5e2MsK9HVWRSuO75vjxhZg&sz=w1000,Geomagic,TRUE,Fablab,,,2026-02-09T06:21:51.870Z,EL-263
+1770618437665,Protactor(10)- circle and line,,,16,https://drive.google.com/thumbnail?id=114wJZSTZA_2PFyPhfkZ1zjIS-jw1TRaS&sz=w1000,Geomagic,TRUE,Fablab,,,2026-02-09T06:42:07.782Z,EL-264
+1770618889820,long scale with small holes,,,8,https://drive.google.com/thumbnail?id=1l4GeGGOFOtjSkwxf19g5CXAXDBnGWx53&sz=w1000,Geomagic,TRUE,Fablab,,,2026-02-09T06:34:49.820Z,EL-265
+1770619319638,long scale with small dashes(5),,,8,https://drive.google.com/thumbnail?id=18mgEa0y2d-EHy4u-SfT1s8La04e9kvI_&sz=w1000,Geomagic,TRUE,Fablab,,,2026-02-09T06:41:59.638Z,EL-266
+1770619683341,small scale(4),,,8,https://drive.google.com/thumbnail?id=1sEtpBb-Dq4VlYG_tUVqIRa8lfvOctsLa&sz=w1000,Geomagic,TRUE,Fablab,,,2026-02-09T06:48:58.140Z,EL-267
+1770619892291,Wing nut(M4)(10),Line and circle,,16,https://drive.google.com/thumbnail?id=1pxgtzWs4bDe4x1hrmN5YSFZB939DvAwX&sz=w1000,Geomagic,TRUE,Fablab,,,2026-02-09T07:04:17.908Z,EL-268
+1770620068855,Alenn Bolts(10),Line and circle,,16,https://drive.google.com/thumbnail?id=1m4u0rKAXQ1sPOCn3fxNkVm4u5AWwi4NS&sz=w1000,Geomagic,TRUE,Fablab,,,2026-02-09T07:04:31.853Z,EL-269
+1770620589217,Strips(different 2 colours),"16 set( 8 orange and yellow) ,(8 orange and transparent)",,16,https://drive.google.com/thumbnail?id=1GElISzXxG_ZCjovCeOgG0GYQFZY4C-GL&sz=w1000,Geomagic,TRUE,Fablab,,,2026-02-09T07:04:44.863Z,EL-270
+1770621267597,Iqnaax (Drone),,4708,1,,IQNAAX,FALSE,Fablab,,,2026-02-09T07:14:43.407Z,EL-271
+1770621431836,Pneumatic,,1520,2,,IQNAAX,FALSE,Fablab,,,2026-02-09T07:17:11.836Z,EL-272
+1770621479913,Hydraulic Experiment,,1710,1,,IQNAAX,FALSE,Fablab,,,2026-02-09T07:17:59.913Z,EL-273
+1770621681735,Wind power,,1500,1,,IQNAAX,FALSE,Fablab,,,2026-02-09T07:21:21.735Z,EL-274
+1770621712203,Microbit Car,,6270,1,,IQNAAX,FALSE,Fablab,,,2026-02-09T07:21:52.203Z,EL-275
+1770621785767,Electricity kit,,1847,1,,IQNAAX,FALSE,Fablab,,,2026-02-09T07:23:05.767Z,EL-276
+1770622032720,Iqnaax kit,,1500,1,,IQNAAX,FALSE,Fablab,,,2026-02-09T07:27:12.720Z,EL-277
+1770625910892,Area of Trapezium,,599,1,https://drive.google.com/thumbnail?id=1EMsf4bPqKOaoLyzkLVuKz0IB4CTNjjxP&sz=w1000,Maths kits,FALSE,Fablab,,,2026-02-09T08:39:45.885Z,EL-278
+1770626035959,Area of Triangle(parallellogram),,599,1,https://drive.google.com/thumbnail?id=1H_UVR3oAnRQ2PsGPIFl2KuWWPAQd7g3B&sz=w1000,Maths kits,FALSE,Fablab,,,2026-02-09T08:42:42.082Z,EL-279
+1770626283486,Sum of all angles of quadrilateral is 360 degree,,599,1,https://drive.google.com/thumbnail?id=1PKn3MSNIng4dg_zect3Dbn8uWaew-MGx&sz=w1000,Maths kits,FALSE,Fablab,,,2026-02-09T08:40:14.776Z,EL-280
+1770626516639,Concepts/ Theorems,,599,1,https://drive.google.com/thumbnail?id=1LBrQsvNrNM1ELksa8B3Ltd8AhDE5XHO1&sz=w1000,Maths kits,FALSE,Fablab,,,2026-02-09T08:41:56.639Z,EL-281
+1770626673757,Area of Triangle (Obtuse angle triangle),,599,1,https://drive.google.com/thumbnail?id=1sWbzXAWZU5iiR48HMv3HlbVcNN6JHv9C&sz=w1000,Maths kits,FALSE,Fablab,,,2026-02-09T08:44:33.757Z,EL-282
+1770626813506,Pythagoras Theorem(equilateral triangle),,599,1,https://drive.google.com/thumbnail?id=17kf5lgNr0FBntpjguWQhb-oYbign_YMa&sz=w1000,Maths kits,FALSE,Fablab,,,2026-02-09T08:47:48.588Z,EL-283
+1770626982841,Pythagoras theorem,,599,1,https://drive.google.com/thumbnail?id=1v4XAdIGVeXavBI5CuBIwv4f1unuLzY54&sz=w1000,Maths kits,FALSE,Fablab,,,2026-02-09T08:49:42.841Z,EL-284
+1770627189405,Difference of Squares,,599,1,https://drive.google.com/thumbnail?id=1I3FAvbFEVC76Oq8IJsR68b37wwDZiuaD&sz=w1000,Maths kits,FALSE,Fablab,,,2026-02-09T08:53:09.405Z,EL-285
+1770627362709,Area of Trapezium(Areea of 4 triangles),,599,1,https://drive.google.com/thumbnail?id=1uPLJ5KhIQnzd0sZOkJj_lgjRVTzyWgWA&sz=w1000,Maths kits,FALSE,Fablab,,,2026-02-09T08:56:02.709Z,EL-286
+1770627528927,Factorisation of Algebraic Expressions(x+a) (x+b),,599,1,https://drive.google.com/thumbnail?id=1LXjrtFMBpWqcgeyvFsjQdnRMRxGeqqUO&sz=w1000,Maths kits,FALSE,Fablab,,,2026-02-09T08:58:48.927Z,EL-287
+1770627801469,Pythagoras Theorem,,599,1,https://drive.google.com/thumbnail?id=1fZOhnZF64uAY1r129kYz4DLiNO2J5B6d&sz=w1000,Maths kits,FALSE,Fablab,,,2026-02-09T09:15:42.041Z,EL-288
+1770628329354,Area of Parallelogram,,599,1,https://drive.google.com/thumbnail?id=1-_CrLB_GILZX3_6-TdybrtzRnjOEzUl7&sz=w1000,Maths kits,FALSE,Fablab,,,2026-02-09T09:16:08.344Z,EL-289
+1770628817554,Area of quadrilateral,,599,1,https://drive.google.com/thumbnail?id=1hbUy4RPTnx9TJhtV1sL_pSMpnEDBf6mR&sz=w1000,Maths kits,FALSE,Fablab,,,2026-02-09T09:20:17.554Z,EL-290
+1770629025225,Factorisation of Algebraic Expressions,,599,1,https://drive.google.com/thumbnail?id=1lbFkKpj9UjzybiT1SLDcIs4wfLOCSSpq&sz=w1000,Maths kits,FALSE,Fablab,,,2026-02-09T09:23:45.225Z,EL-291
+1770634846031,Algebraic Expressions (a+b)2-(a-b)2,,599,1,https://drive.google.com/thumbnail?id=1RjsRugrggV6fPhBkiBGXI27gWjauqi9_&sz=w1000,Maths kits,FALSE,Fablab,,,2026-02-09T11:04:41.962Z,EL-292
+1770634999102,Algebraic Identity(a+b)2,,599,1,https://drive.google.com/thumbnail?id=17pakAeu5bsI5VzufSe7ymTqcFNQPgReF&sz=w1000,Maths kits,FALSE,Fablab,,,2026-02-09T11:03:19.102Z,EL-293
+1770635214502,Algebraic Identity(a+b+c)2,,599,1,https://drive.google.com/thumbnail?id=1WQyTRhfzWHKHVGEdYi5WGCyzP-R8H6aY&sz=w1000,Maths kits,FALSE,Fablab,,,2026-02-09T11:06:54.502Z,EL-294
+1770635408308,Pythagoras Theorem(hypo)2=(base)2+(adj)2,,599,1,https://drive.google.com/thumbnail?id=1LozNMIDxOHPb6EbS2t8ZDumof1LB2Ren&sz=w1000,Maths kits,FALSE,Fablab,,,2026-02-09T11:10:08.308Z,EL-295
+1770636111991,Area of  Trapezium,,599,1,https://drive.google.com/thumbnail?id=11hnnKivfXhBBSzEp62sV_hDykbj0A7rN&sz=w1000,Maths kits,FALSE,Fablab,,,2026-02-09T11:21:51.991Z,EL-296
+1770636591314,Pythagoras Theorem (Converse),,599,1,https://drive.google.com/thumbnail?id=1AnOj4mnxFrmqMFzXLKdHA2cY1YZiZc3l&sz=w1000,Maths kits,FALSE,Fablab,,,2026-02-09T11:29:51.314Z,EL-297
+1770636710277,Area of Parallelogram,,599,1,https://drive.google.com/thumbnail?id=1wUNoRDZsw0ql8-NS4kY0ouAsI5lLBr4g&sz=w1000,Maths kits,FALSE,Fablab,,,2026-02-09T11:31:50.277Z,EL-298
+1770636850474,Area of Kite,,599,1,https://drive.google.com/thumbnail?id=14ZQnQdtqNQjoBts3-Wlw9EUhMDPuC7bw&sz=w1000,Maths kits,FALSE,Fablab,,,2026-02-09T11:34:10.474Z,EL-299
+1770636988875,"Area of Triangle, squrae, parallelogram, trapezium=a2",,599,1,https://drive.google.com/thumbnail?id=1wPk6WUSASKv56oOScYwtM10qmmrI2WRw&sz=w1000,Maths kits,FALSE,Fablab,,,2026-02-09T11:36:28.875Z,EL-300
+1770637114916,Pythagoras Theorem,,599,1,https://drive.google.com/thumbnail?id=1xIA8cX-d7lXrK77_VkJNjmpZ3RnU0w2M&sz=w1000,Maths kits,FALSE,Fablab,,,2026-02-09T11:38:34.916Z,EL-301
+1770637251226,Area of Triangle,,599,1,https://drive.google.com/thumbnail?id=1HrFC_uv6cRdQ4eKvcxYO5AOZsnvLgZfx&sz=w1000,Maths kits,FALSE,Fablab,,,2026-02-09T11:40:51.226Z,EL-302
+1770637417599,Sum of Angles of a triangle is 180 degree,,599,1,https://drive.google.com/thumbnail?id=1bZ5Hsis-XWHAvkDNQ3x8OddzdcyRh3wB&sz=w1000,Maths kits,FALSE,Fablab,,,2026-02-09T11:43:37.599Z,EL-303
+1770637573590,Pythagoras Theorem(a2+a2),,599,1,https://drive.google.com/thumbnail?id=1XITbykByQuB0G_SGnUTEIdxVEak1Qkj4&sz=w1000,Maths kits,FALSE,Fablab,,,2026-02-09T11:46:13.590Z,EL-304
+1770637834237,Area of Triangle,,599,1,https://drive.google.com/thumbnail?id=1NYoOApBnvOnXn2DBMTwY9tzmYW9Ajh8k&sz=w1000,Maths kits,FALSE,Fablab,,,2026-02-09T11:50:34.237Z,EL-305
+1770638006663,Sum of Exterior angle of Pentagon is 360 degree,,599,1,https://drive.google.com/thumbnail?id=1Ud0WYh72Y8PMeZt9lHg9jrYhqDErKT1H&sz=w1000,Maths kits,FALSE,Fablab,,,2026-02-09T11:53:26.663Z,EL-306
+1770638208130,Algebraic Identity(a-b)2,,599,1,https://drive.google.com/thumbnail?id=1F4R91KXb6TsnJFhfETQ97JzNdkJGjXX5&sz=w1000,Maths kits,FALSE,Fablab,,,2026-02-09T12:06:13.647Z,EL-307
+1770638735304,Area of Rhombus,,599,1,https://drive.google.com/thumbnail?id=1otl72NNJI2Ui9-noJ3xKaWnHzRxITmGt&sz=w1000,Maths kits,FALSE,Fablab,,,2026-02-09T12:05:35.304Z,EL-308
+1770638876137,Area of Trapezium,,599,1,https://drive.google.com/thumbnail?id=1osMu3dOJ3dVhSO95FybyQzK30txGfxKY&sz=w1000,Maths kits,FALSE,Fablab,,,2026-02-09T12:07:56.137Z,EL-309
+1770639007559,Sum of Angles of Polygon,,599,1,https://drive.google.com/thumbnail?id=1WWGHrSBcvtz3MEhOElNuks2qbzJ5yRrR&sz=w1000,Maths kits,FALSE,Fablab,,,2026-02-09T12:10:07.559Z,EL-310
+1770639106919,Board Game,,,12,,IQNAAX,FALSE,Fablab,,,2026-02-09T12:11:46.919Z,EL-311
+1772184277168,Miniature bulb,,20,30,https://drive.google.com/thumbnail?id=1joCsECZlyYLmWdpY7NPBGQmLpePiWD-V&sz=w1000,Prastuti Science,FALSE,Rack,5,,2026-02-27T09:24:37.168Z,EL-312
+1772184780703,Tray,,80,5,https://drive.google.com/thumbnail?id=1wewsnUYTFiHjwSCscUMB-NT_H1t_rSGE&sz=w1000,Prastuti Science,FALSE,Rack,,,2026-02-27T09:34:59.074Z,EL-313
+1772185107341,Plastic ball,,30,10,https://drive.google.com/thumbnail?id=1PyHE-pi7DYRVQSDzMuhUwqUTt5O1_dtb&sz=w1000,Prastuti Science,FALSE,Rack,7,,2026-02-27T09:38:27.341Z,EL-314
+1772185318602,Metal hooks for balls,,15,5,https://drive.google.com/thumbnail?id=1Hi3QTjFJjsj2NHul8smEI3yALzWiVzCY&sz=w1000,Prastuti Science,FALSE,Rack,4,,2026-02-27T09:41:58.602Z,EL-315
+1772185508627,Vinegar,,40,2,https://drive.google.com/thumbnail?id=1i-Xsx8nuBPlh0SqhME18uZZAqFLnsaV8&sz=w1000,Chemicals,FALSE,Rack,5,,2026-02-27T09:45:08.627Z,EL-316
+1772185639452,palm oil,,80,0.5,https://drive.google.com/thumbnail?id=1cXAtoZnt9mw3PkBoLX2zu4ikSeyLjFVH&sz=w1000,Prastuti Science,FALSE,Rack,,,2026-02-27T09:47:19.452Z,EL-317
+1772185757005,Detergent,,20,0.5,https://drive.google.com/thumbnail?id=156WGYyhYMTZUCZF_qeOlWZXPfnw58l7d&sz=w1000,Prastuti Science,FALSE,Rack,,,2026-02-27T09:49:17.005Z,EL-318
+1772185952679,Iron nail (10cm),,25,5,https://drive.google.com/thumbnail?id=1XxH758CFMmKG1pW51LKsjwcj-p0frubN&sz=w1000,Prastuti Science,FALSE,Rack,,,2026-03-09T06:50:13.853Z,EL-319
+1773037309782,Syringe 20ml,,30,3,https://drive.google.com/thumbnail?id=1SFgKrZ-_G7sdQT6wczkfPNXCyTUwwKBv&sz=w1000,Prastuti Science,FALSE,Rack,2,,2026-03-09T06:21:49.782Z,EL-320
+1773039249049,Washers (for car),,2,25,https://drive.google.com/thumbnail?id=1msUtEjywDUR1yfZv1pknRcc8KhVi2Jgz&sz=w1000,Prastuti Science,FALSE,Rack,3,,2026-03-09T06:54:09.049Z,EL-321
+1773041663822,Plano convex lens (optical bench),,249,0,https://drive.google.com/thumbnail?id=1xMPxIB9cCNVkYp9MV4AjjDMwNxA290_B&sz=w1000,Prastuti Science,FALSE,Rack,4,,2026-03-09T07:34:23.822Z,EL-322
