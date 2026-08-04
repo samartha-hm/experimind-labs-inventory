@@ -13,9 +13,12 @@ import {
   Globe,
   Sun,
   Moon,
+  Menu,
 } from 'lucide-react';
 import { InventoryItem, KitBOM } from '@/src/types';
 import BarcodeStudioModal from '@/src/shared/components/BarcodeStudioModal';
+import TenantOnboardingModal from '@/src/features/tenant/components/TenantOnboardingModal';
+import { useTenant } from '@/src/contexts/TenantContext';
 
 interface HeaderProps {
   inventory: InventoryItem[];
@@ -27,6 +30,7 @@ interface HeaderProps {
   onOpenCreateItemModal?: () => void;
   onOpenCreateKitModal?: () => void;
   onOpenCommandPalette?: () => void;
+  onToggleMobileMenu?: () => void;
 }
 
 export default function Header({
@@ -39,30 +43,78 @@ export default function Header({
   onOpenCreateItemModal,
   onOpenCreateKitModal,
   onOpenCommandPalette,
+  onToggleMobileMenu,
 }: HeaderProps) {
+  const { activeTenant, tenants, setActiveTenantId, theme, toggleTheme } = useTenant();
   const [isQuickCreateOpen, setIsQuickCreateOpen] = useState(false);
-  const [globalSearch, setGlobalSearch] = useState('');
+  const [isTenantMenuOpen, setIsTenantMenuOpen] = useState(false);
+  const [isOnboardingOpen, setIsOnboardingOpen] = useState(false);
   const [isScannerOpen, setIsScannerOpen] = useState(false);
-  const [currency, setCurrency] = useState<'INR' | 'USD'>('INR');
-  const [theme, setTheme] = useState<'light' | 'dark'>('light');
 
   const lowStockCount = inventory.filter(
     (item) => item.stockQty < item.threshold && !item.isCommon
   ).length;
 
   return (
-    <header className="bg-white/90 backdrop-blur-md border-b border-slate-200/80 sticky top-0 z-20 shadow-xs">
-      <div className="px-6 py-3 flex items-center justify-between gap-4">
-        {/* Left: Organization & Global Search */}
-        <div className="flex items-center gap-4 flex-1 max-w-2xl">
-          {/* Org Selector */}
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-100/80 text-slate-800 text-xs font-bold shrink-0 border border-slate-200/60 cursor-pointer hover:bg-slate-200/70 transition-colors">
-            <Building2 className="w-4 h-4 text-indigo-600" />
-            <span>Experimind Labs (HQ)</span>
-            <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+    <header className="bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border-b border-slate-200/80 dark:border-slate-800 sticky top-0 z-20 shadow-xs transition-colors">
+      <div className="px-4 md:px-6 py-3 flex items-center justify-between gap-4">
+        {/* Mobile Menu Button + Org Selector */}
+        <div className="flex items-center gap-3 flex-1 max-w-2xl">
+          {/* Mobile Hamburger Button */}
+          <button
+            onClick={onToggleMobileMenu}
+            className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 md:hidden cursor-pointer"
+          >
+            <Menu className="w-5 h-5" />
+          </button>
+
+          {/* Org / Tenant Selector */}
+          <div className="relative">
+            <button
+              onClick={() => setIsTenantMenuOpen(!isTenantMenuOpen)}
+              className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-100/80 dark:bg-slate-800 text-slate-800 dark:text-slate-100 text-xs font-bold shrink-0 border border-slate-200/60 dark:border-slate-700 cursor-pointer hover:bg-slate-200/70 transition-colors"
+            >
+              <Building2 className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+              <span>{activeTenant.name}</span>
+              <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+            </button>
+
+            {isTenantMenuOpen && (
+              <div
+                className="absolute left-0 mt-2 w-64 bg-white dark:bg-slate-900 rounded-2xl shadow-xl border border-slate-100 dark:border-slate-800 p-2 space-y-1 z-50 animate-in fade-in slide-in-from-top-2"
+                onMouseLeave={() => setIsTenantMenuOpen(false)}
+              >
+                <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 px-3 py-1">Select SaaS Tenant</div>
+                {tenants.map(t => (
+                  <button
+                    key={t.id}
+                    onClick={() => {
+                      setActiveTenantId(t.id);
+                      setIsTenantMenuOpen(false);
+                    }}
+                    className={`w-full flex items-center justify-between px-3 py-2 text-xs font-bold rounded-xl transition-colors cursor-pointer ${
+                      t.id === activeTenant.id ? 'bg-indigo-50 dark:bg-indigo-950/50 text-indigo-700 dark:text-indigo-300' : 'text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'
+                    }`}
+                  >
+                    <span>{t.name}</span>
+                    <span className="font-mono text-[10px] text-slate-400">{t.code}</span>
+                  </button>
+                ))}
+
+                <button
+                  onClick={() => {
+                    setIsTenantMenuOpen(false);
+                    setIsOnboardingOpen(true);
+                  }}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 rounded-xl transition-colors cursor-pointer border-t border-slate-100 dark:border-slate-800 mt-1"
+                >
+                  <Plus className="w-3.5 h-3.5" /> + Onboard New Tenant
+                </button>
+              </div>
+            )}
           </div>
 
-          {/* Search Bar */}
+          {/* Global Search Bar */}
           <div
             onClick={onOpenCommandPalette}
             className="relative w-full max-w-md hidden md:block cursor-pointer"
@@ -71,57 +123,41 @@ export default function Header({
             <input
               type="text"
               readOnly
-              placeholder="Global Search (Items, SKUs, POs, Sales Orders)..."
-              value={globalSearch}
-              className="w-full pl-10 pr-12 py-2 bg-slate-50 border border-slate-200/80 rounded-xl text-xs font-medium text-slate-800 placeholder-slate-400 focus:outline-none cursor-pointer"
+              placeholder="Global Search (Ctrl+K for Spotlight)..."
+              className="w-full pl-10 pr-12 py-2 bg-slate-50 dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700 rounded-xl text-xs font-medium text-slate-800 dark:text-slate-100 placeholder-slate-400 focus:outline-none cursor-pointer"
             />
-            <kbd className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-400 bg-slate-200/60 px-1.5 py-0.5 rounded border border-slate-300/60">
+            <kbd className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-400 bg-slate-200/60 dark:bg-slate-700 px-1.5 py-0.5 rounded border border-slate-300/60 dark:border-slate-600">
               Ctrl K
             </kbd>
           </div>
         </div>
 
-        {/* Right: Barcode Scanner, Currency Switcher, Theme & Quick Actions */}
-        <div className="flex items-center gap-2.5 shrink-0">
-          {/* Live Barcode Scanner Button */}
+        {/* Right Controls */}
+        <div className="flex items-center gap-2 shrink-0">
+          {/* Barcode Scan Button */}
           <button
             onClick={() => setIsScannerOpen(true)}
-            className="p-2 rounded-xl bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200/80 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs"
+            className="p-2 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 border border-indigo-200/80 dark:border-indigo-800 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs"
             title="Scan Part Barcode / QR Code"
           >
-            <QrCode className="w-4 h-4 text-indigo-600" />
+            <QrCode className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
             <span className="hidden lg:inline">Barcode Scan</span>
           </button>
 
-          {/* Multi-Currency Engine Switcher */}
-          <div className="bg-slate-100/90 p-0.5 rounded-xl border border-slate-200/80 flex items-center gap-0.5 text-xs font-bold">
-            <button
-              onClick={() => setCurrency('INR')}
-              className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer ${
-                currency === 'INR'
-                  ? 'bg-white text-indigo-600 shadow-2xs'
-                  : 'text-slate-500 hover:text-slate-900'
-              }`}
-            >
-              ₹ INR
-            </button>
-            <button
-              onClick={() => setCurrency('USD')}
-              className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer ${
-                currency === 'USD'
-                  ? 'bg-white text-indigo-600 shadow-2xs'
-                  : 'text-slate-500 hover:text-slate-900'
-              }`}
-            >
-              $ USD
-            </button>
-          </div>
+          {/* Theme Toggle Button */}
+          <button
+            onClick={toggleTheme}
+            className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-200 transition-colors cursor-pointer"
+            title="Toggle Light / Dark Mode"
+          >
+            {theme === 'light' ? <Moon className="w-4 h-4 text-slate-600" /> : <Sun className="w-4 h-4 text-amber-400" />}
+          </button>
 
-          {/* Low Stock Indicator */}
+          {/* Shortage Badge */}
           {lowStockCount > 0 && (
             <button
               onClick={() => onNavigateTab?.('inventory')}
-              className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-50 text-amber-800 border border-amber-200/80 text-xs font-bold hover:bg-amber-100 transition-colors cursor-pointer"
+              className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-50 dark:bg-amber-950/50 text-amber-800 dark:text-amber-300 border border-amber-200/80 dark:border-amber-800 text-xs font-bold hover:bg-amber-100 transition-colors cursor-pointer"
             >
               <AlertTriangle className="w-3.5 h-3.5 text-amber-600" />
               <span>{lowStockCount} Shortages</span>
@@ -132,16 +168,16 @@ export default function Header({
           <div className="relative">
             <button
               onClick={() => setIsQuickCreateOpen(!isQuickCreateOpen)}
-              className="bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white font-bold px-4 py-2 rounded-xl text-xs shadow-md shadow-indigo-600/20 transition-all flex items-center gap-2 cursor-pointer"
+              className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-4 py-2 rounded-xl text-xs shadow-md transition-all flex items-center gap-2 cursor-pointer"
             >
               <Plus className="w-4 h-4" />
-              <span>Quick Create</span>
+              <span className="hidden sm:inline">Quick Create</span>
               <ChevronDown className="w-3.5 h-3.5 text-indigo-200" />
             </button>
 
             {isQuickCreateOpen && (
               <div
-                className="absolute right-0 mt-2 w-52 bg-white rounded-2xl shadow-xl border border-slate-100 p-2 space-y-1 z-50 animate-in fade-in slide-in-from-top-2 duration-150"
+                className="absolute right-0 mt-2 w-52 bg-white dark:bg-slate-900 rounded-2xl shadow-xl border border-slate-100 dark:border-slate-800 p-2 space-y-1 z-50 animate-in fade-in slide-in-from-top-2"
                 onMouseLeave={() => setIsQuickCreateOpen(false)}
               >
                 <button
@@ -150,7 +186,7 @@ export default function Header({
                     onNavigateTab?.('inventory');
                     if (onOpenCreateItemModal) onOpenCreateItemModal();
                   }}
-                  className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 rounded-xl transition-colors cursor-pointer"
+                  className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-xl transition-colors cursor-pointer"
                 >
                   <Box className="w-4 h-4 text-indigo-600" /> New Inventory Item
                 </button>
@@ -160,7 +196,7 @@ export default function Header({
                     onNavigateTab?.('kitting');
                     if (onOpenCreateKitModal) onOpenCreateKitModal();
                   }}
-                  className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 rounded-xl transition-colors cursor-pointer"
+                  className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-xl transition-colors cursor-pointer"
                 >
                   <Package className="w-4 h-4 text-emerald-600" /> New Composite Kit
                 </button>
@@ -169,7 +205,7 @@ export default function Header({
                     setIsQuickCreateOpen(false);
                     onNavigateTab?.('purchase_orders');
                   }}
-                  className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 rounded-xl transition-colors cursor-pointer"
+                  className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-xl transition-colors cursor-pointer"
                 >
                   <ShoppingCart className="w-4 h-4 text-blue-600" /> Issue Purchase Order
                 </button>
@@ -178,7 +214,7 @@ export default function Header({
                     setIsQuickCreateOpen(false);
                     onNavigateTab?.('sales_orders');
                   }}
-                  className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 rounded-xl transition-colors cursor-pointer"
+                  className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-xl transition-colors cursor-pointer"
                 >
                   <PackageCheck className="w-4 h-4 text-purple-600" /> Create Sales Order
                 </button>
@@ -188,11 +224,17 @@ export default function Header({
         </div>
       </div>
 
-      {/* Barcode & QR Label Studio Modal */}
+      {/* Barcode Studio Modal */}
       <BarcodeStudioModal
         isOpen={isScannerOpen}
         onClose={() => setIsScannerOpen(false)}
         inventory={inventory}
+      />
+
+      {/* Tenant Onboarding Modal */}
+      <TenantOnboardingModal
+        isOpen={isOnboardingOpen}
+        onClose={() => setIsOnboardingOpen(false)}
       />
     </header>
   );

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Building2, ShoppingCart, Warehouse, Boxes, ShoppingBag, Truck, ArrowRight, CheckCircle2, AlertTriangle, Layers } from 'lucide-react';
+import { Building2, ShoppingCart, Warehouse, Boxes, ShoppingBag, Truck, ArrowRight, CheckCircle2, AlertTriangle, Layers, Zap } from 'lucide-react';
 import { InventoryItem, KitBOM } from '@/src/types';
 
 interface SupplyChainPipelineProps {
@@ -69,22 +69,22 @@ export default function SupplyChainPipeline({ inventory, kits }: SupplyChainPipe
   ];
 
   return (
-    <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-2xl text-white space-y-6">
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-slate-800 pb-4">
+    <div className="bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950/60 border border-slate-800 rounded-3xl p-6 shadow-2xl text-white space-y-6 glow-card-indigo">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-slate-800/80 pb-4">
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <span className="px-2.5 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 text-[10px] font-mono font-bold uppercase tracking-wider flex items-center gap-1">
-              <Layers className="w-3 h-3 text-amber-400" /> End-to-End Logistics Pipeline
+            <span className="px-2.5 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/40 text-[10px] font-mono font-bold uppercase tracking-wider flex items-center gap-1">
+              <Zap className="w-3 h-3 text-amber-400 animate-pulse" /> Live Flow Graph
             </span>
           </div>
           <h3 className="text-lg font-black tracking-tight text-white flex items-center gap-2">
-            Visual Supply Chain Flow
+            Visual Supply Chain Flow Pipeline
           </h3>
         </div>
 
         <div className="flex items-center gap-3 text-xs">
-          <div className="flex items-center gap-1.5 text-emerald-400 font-bold bg-emerald-950/60 border border-emerald-800/80 px-3 py-1.5 rounded-full">
-            <CheckCircle2 className="w-4 h-4" /> System Healthy
+          <div className="flex items-center gap-1.5 text-emerald-400 font-bold bg-emerald-950/60 border border-emerald-800/80 px-3 py-1.5 rounded-full font-mono text-[11px]">
+            <CheckCircle2 className="w-4 h-4" /> Real-time Node Telemetry Active
           </div>
         </div>
       </div>
@@ -93,9 +93,9 @@ export default function SupplyChainPipeline({ inventory, kits }: SupplyChainPipe
       <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-3 relative">
         {NODES.map((node, index) => (
           <div key={node.id} className="relative group">
-            <div className="bg-slate-950/80 border border-slate-800 hover:border-indigo-500/50 rounded-2xl p-4 transition-all duration-300 shadow-lg flex flex-col justify-between h-full space-y-3">
+            <div className="bg-slate-900/90 border border-slate-800/90 hover:border-indigo-500/80 rounded-2xl p-4 transition-all duration-300 shadow-lg flex flex-col justify-between h-full space-y-3 hover:-translate-y-1">
               <div className="flex items-center justify-between">
-                <div className="p-2 bg-slate-900 rounded-xl border border-slate-800 group-hover:scale-110 transition-transform">
+                <div className="p-2.5 bg-slate-950 rounded-xl border border-slate-800 group-hover:scale-110 transition-transform shadow-xs">
                   {node.icon}
                 </div>
                 <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase border ${node.badgeColor}`}>
@@ -108,15 +108,17 @@ export default function SupplyChainPipeline({ inventory, kits }: SupplyChainPipe
                 <p className="text-[10px] text-slate-400 mt-0.5">{node.sub}</p>
               </div>
 
-              <div className="text-[11px] font-mono text-indigo-300 font-bold bg-slate-900/90 border border-slate-800 rounded-lg p-2 text-center">
+              <div className="text-[11px] font-mono text-indigo-300 font-bold bg-slate-950 border border-slate-800 rounded-xl p-2 text-center shadow-inner">
                 {node.count}
               </div>
             </div>
 
             {/* Connecting Arrow for Desktop */}
             {index < NODES.length - 1 && (
-              <div className="hidden lg:flex absolute top-1/2 -right-3 -translate-y-1/2 z-10 text-slate-600 group-hover:text-indigo-400 transition-colors">
-                <ArrowRight className="w-4 h-4" />
+              <div className="hidden lg:flex absolute top-1/2 -right-3.5 -translate-y-1/2 z-10 text-indigo-400/80 transition-colors">
+                <div className="relative">
+                  <ArrowRight className="w-4 h-4" />
+                </div>
               </div>
             )}
           </div>

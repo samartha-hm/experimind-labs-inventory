@@ -27,6 +27,11 @@ import ValuationAnalyticsTab from '@/src/features/dashboard/components/Valuation
 import AIAgentSuggestionBar from '@/src/shared/components/AIAgentSuggestionBar';
 import AIAgentResearchDrawer from '@/src/features/copilot/components/AIAgentResearchDrawer';
 import CommandPaletteModal from '@/src/shared/components/CommandPaletteModal';
+import GSTEngineTab from '@/src/features/gst/GSTEngineTab';
+import ZohoIntegrationTab from '@/src/features/integrations/ZohoIntegrationTab';
+import PredictiveAnalyticsTab from '@/src/features/analytics/PredictiveAnalyticsTab';
+import ComplianceSecurityTab from '@/src/features/compliance/ComplianceSecurityTab';
+import { TenantProvider } from '@/src/contexts/TenantContext';
 import { ToastProvider } from '@/src/contexts/ToastContext';
 import ToastContainer from '@/src/components/ToastContainer';
 
@@ -36,256 +41,171 @@ function MainApp() {
   const { addAction, isProcessing } = useUndoRedo();
   const [isResearchDrawerOpen, setIsResearchDrawerOpen] = useState(false);
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   
-  const handleCreateKit = async (kit: Omit<import('./types').KitBOM, 'id'>) => {
-    if (!['admin', 'staff'].includes(role || '')) return alert("You don't have permission to create kits.");
-    const newId = await addKitBOM(kit);
-    if (newId) {
-      setSelectedKitId(newId);
-      await logTransaction({
-        id: `tx_${Date.now()}`,
-        timestamp: new Date().toISOString(),
-        type: 'adjust',
-        description: `Created new kit profile: "${kit.name}"`,
-        userId: user!.id,
-        items: [],
-      });
-      // Automatically open BOM modal to add parts
-      setIsBOMModalOpen(true);
-    }
-  };
-  const [selectedKitId, setSelectedKitId] = useState('all');
-  const [activeTab, setActiveTab] = useState('overview');
+  const [activeTab, setActiveTab] = useState<string>('overview');
+  const [selectedKitId, setSelectedKitId] = useState<string>('all');
   const [isBOMModalOpen, setIsBOMModalOpen] = useState(false);
   const [isCreateKitModalOpen, setIsCreateKitModalOpen] = useState(false);
 
+  const kittingAnalysis = useMemo(() => {
+    const targetKitId = selectedKitId === 'all' ? (kits[0]?.id || '') : selectedKitId;
+    const targetKit = kits.find(k => k.id === targetKitId) || kits[0];
+    if (!targetKit) return { maxKitsPossible: 0, bottlenecks: [], missingComponents: [] };
+    return analyzeKitting(inventory, targetKit);
+  }, [inventory, kits, selectedKitId]);
+
   const activeKit = useMemo(() => {
-    return kits.find((k) => k.id === selectedKitId) || kits[0];
+    const targetKitId = selectedKitId === 'all' ? (kits[0]?.id || '') : selectedKitId;
+    return kits.find(k => k.id === targetKitId) || kits[0];
   }, [kits, selectedKitId]);
 
-  const kittingAnalysis = useMemo(() => {
-    if (!activeKit) return { maxKitsPossible: 0, missingComponents: [] };
-    return analyzeKitting(inventory, activeKit, 1);
-  }, [inventory, activeKit]);
-
-  const handleUpdateStock = async (id: string, newQty: number) => {
-    if (!['admin', 'staff', 'user'].includes(role || '')) return alert("You don't have permission to edit stock.");
+  const handleUpdateStock = async (id: string, delta: number) => {
     const item = inventory.find(i => i.id === id);
     if (!item) return;
     const oldQty = item.stockQty;
-    if (oldQty !== newQty) {
-      await updateInventoryItem(id, { stockQty: newQty });
-      await logTransaction({
-        id: `tx_${Date.now()}`,
-        timestamp: new Date().toISOString(),
-        type: 'adjust',
-        description: `Manual adjustment of stock for "${item.name}"`,
-        userId: user!.id,
-        items: [{ componentId: id, componentName: item.name, qtyDiff: newQty - oldQty }],
-      });
-    }
+    const newQty = Math.max(0, oldQty + delta);
+    
+    await updateInventoryItem(id, { stockQty: newQty });
+    
+    await logTransaction({
+      id: `tx_${Date.now()}`,
+      timestamp: new Date().toISOString(),
+      type: delta > 0 ? 'add_stock' : 'adjust',
+      description: `Stock change for ${item.name}`,
+      items: [{ componentId: id, componentName: item.name, qtyDiff: delta }],
+      diffs: [{ field: 'stockQty', oldValue: oldQty, newValue: newQty }],
+    });
+
+    addAction({
+      id: `act_${Date.now()}`,
+      name: `Stock Adjust: ${item.name}`,
+      undo: async () => { await updateInventoryItem(id, { stockQty: oldQty }); },
+      redo: async () => { await updateInventoryItem(id, { stockQty: newQty }); },
+    });
   };
 
   const handleUpdateThreshold = async (id: string, newThreshold: number) => {
-    if (!['admin', 'staff'].includes(role || '')) return alert("You don't have permission to edit thresholds.");
+    const item = inventory.find(i => i.id === id);
+    if (!item) return;
+    const oldThresh = item.threshold;
     await updateInventoryItem(id, { threshold: newThreshold });
+    
+    addAction({
+      id: `act_${Date.now()}`,
+      name: `Threshold Change: ${item.name}`,
+      undo: async () => { await updateInventoryItem(id, { threshold: oldThresh }); },
+      redo: async () => { await updateInventoryItem(id, { threshold: newThreshold }); },
+    });
   };
 
-  const handleAddComponent = async (itemData: Omit<import('./types').InventoryItem, 'id'>) => {
-    if (!['admin', 'staff'].includes(role || '')) return alert("You don't have permission to add components.");
-    await addInventoryItem(itemData);
+  const handleAddComponent = async (newItem: Omit<import('./types').InventoryItem, 'id'>) => {
+    if (!['admin', 'staff'].includes(role || '')) return alert("Permission denied.");
+    const id = await addInventoryItem(newItem);
+    if (!id) return;
+    
     await logTransaction({
       id: `tx_${Date.now()}`,
       timestamp: new Date().toISOString(),
       type: 'add_stock',
-      description: `Registered new catalog item: "${itemData.name}"`,
-      userId: user!.id,
-      items: [{ componentId: 'NEW', componentName: itemData.name, qtyDiff: itemData.stockQty }],
+      description: `Created catalog item "${newItem.name}"`,
+      items: [{ componentId: id, componentName: newItem.name, qtyDiff: newItem.stockQty }],
+      diffs: [{ field: 'name', oldValue: null, newValue: newItem.name }],
+    });
+
+    addAction({
+      id: `act_${Date.now()}`,
+      name: `Add Item: ${newItem.name}`,
+      undo: async () => { await deleteInventoryItem(id); },
+      redo: async () => { await addInventoryItem({ ...newItem, id } as any); },
     });
   };
 
   const handleUpdateComponent = async (id: string, updates: Partial<import('./types').InventoryItem>) => {
-    if (!['admin', 'staff'].includes(role || '')) return alert("You don't have permission to edit components.");
+    if (!['admin', 'staff'].includes(role || '')) return alert("Permission denied.");
+    const item = inventory.find(i => i.id === id);
+    if (!item) return;
+    const oldItem = { ...item };
     
-    const oldItem = inventory.find(i => i.id === id);
-    if (!oldItem) return;
-
     await updateInventoryItem(id, updates);
-
-    const diffs: any[] = [];
-    Object.keys(updates).forEach(key => {
-      const field = key as keyof typeof updates;
-      if (oldItem[field] !== updates[field]) {
-        diffs.push({
-          field,
-          oldValue: oldItem[field],
-          newValue: updates[field]
-        });
-      }
-    });
-
-    if (diffs.length > 0) {
-      await logTransaction({
-        id: `tx_${Date.now()}`,
-        timestamp: new Date().toISOString(),
-        type: 'adjust',
-        description: `Updated properties for "${oldItem.name}"`,
-        userId: user!.id,
-        items: [{ componentId: id, componentName: oldItem.name, qtyDiff: 0 }],
-        diffs
-      });
-    }
-  };
-
-  const handleDeleteComponent = async (id: string) => {
-    if (role !== 'admin') return alert("You don't have permission to delete components. Admin only.");
-    const itemToDelete = inventory.find((item) => item.id === id);
-    if (!itemToDelete) return;
-
-    await deleteInventoryItem(id);
-    kits.forEach(async (kit) => {
-      if ((kit.items || []).some(r => r.componentId === id)) {
-        await updateKitBOM(kit.id, (kit.items || []).filter(r => r.componentId !== id));
-      }
-    });
+    
+    const diffs = Object.keys(updates).map(k => ({
+      field: k,
+      oldValue: (oldItem as any)[k],
+      newValue: (updates as any)[k],
+    }));
 
     await logTransaction({
       id: `tx_${Date.now()}`,
       timestamp: new Date().toISOString(),
       type: 'adjust',
-      description: `Removed catalog entry: "${itemToDelete.name}"`,
-      userId: user!.id,
-      items: [{ componentId: id, componentName: itemToDelete.name, qtyDiff: -itemToDelete.stockQty }],
+      description: `Updated properties for "${item.name}"`,
+      items: [{ componentId: id, componentName: item.name, qtyDiff: 0 }],
+      diffs,
+    });
+
+    addAction({
+      id: `act_${Date.now()}`,
+      name: `Update ${item.name}`,
+      undo: async () => { await updateInventoryItem(id, oldItem); },
+      redo: async () => { await updateInventoryItem(id, updates); },
     });
   };
 
-  const handleSaveBOM = async (kitId: string, updatedRequirements: BOMRequirement[], updatedKit?: Partial<import('./types').KitBOM>) => {
-    if (!['admin', 'staff'].includes(role || '')) return alert("You don't have permission to modify BOMs.");
+  const handleDeleteComponent = async (id: string) => {
+    if (role !== 'admin') return alert("Only Admins can delete components.");
+    const item = inventory.find(i => i.id === id);
+    if (!item) return;
     
-    const kitToUpdate = kits.find(k => k.id === kitId);
-    if (!kitToUpdate) return;
-    
-    // Update BOM requirements via local REST API
-    await updateKitBOM(kitId, updatedRequirements);
+    await deleteInventoryItem(id);
 
-    const diffs: any[] = [];
-    
-    // Track BOM requirement changes
-    const oldItems = kitToUpdate.items || [];
-    const newItems = updatedRequirements;
-    
-    // Find removed or changed items
-    oldItems.forEach(oldItem => {
-      const newItem = newItems.find(i => i.componentId === oldItem.componentId);
-      if (!newItem) {
-        diffs.push({ field: 'removed_component', oldValue: oldItem.componentId, newValue: null });
-      } else if (newItem.qty !== oldItem.qty) {
-        diffs.push({ field: `qty_${oldItem.componentId}`, oldValue: oldItem.qty, newValue: newItem.qty });
-      }
+    addAction({
+      id: `act_${Date.now()}`,
+      name: `Delete Item: ${item.name}`,
+      undo: async () => { await addInventoryItem(item); },
+      redo: async () => { await deleteInventoryItem(id); },
     });
-
-    // Find added items
-    newItems.forEach(newItem => {
-      const oldItem = oldItems.find(i => i.componentId === newItem.componentId);
-      if (!oldItem) {
-        diffs.push({ field: 'added_component', oldValue: null, newValue: newItem.componentId });
-      }
-    });
-
-    if (diffs.length > 0) {
-      await logTransaction({
-        id: `tx_${Date.now()}`,
-        timestamp: new Date().toISOString(),
-        type: 'adjust',
-        description: `Updated Bill of Materials for kit "${kitToUpdate.name}"`,
-        userId: user!.id,
-        kitName: kitToUpdate.name,
-        items: [],
-        diffs
-      });
-    }
   };
 
-  const handlePackKits = async (kitId: string, qty: number) => {
-    if (role === 'intern') return alert("You don't have permission to pack kits.");
-    const kitToPack = kits.find((k) => k.id === kitId);
-    if (!kitToPack) return;
+  const handlePackKits = async (kitId: string, count: number) => {
+    if (!['admin', 'staff'].includes(role || '')) return alert("Permission denied.");
+    const kit = kits.find(k => k.id === kitId);
+    if (!kit) return;
 
-    const ledgerItems: any[] = [];
-
-    for (const req of (kitToPack.items || [])) {
-      const invItem = inventory.find(i => i.id === req.componentId);
-      if (invItem && !invItem.isCommon) {
-        const newQty = Math.max(0, invItem.stockQty - req.qty * qty);
-        await updateInventoryItem(invItem.id, { stockQty: newQty });
-        ledgerItems.push({
-          componentId: req.componentId,
-          componentName: invItem.name,
-          qtyDiff: -(req.qty * qty),
-        });
+    for (const req of kit.items) {
+      const item = inventory.find(i => i.id === req.componentId);
+      if (item && !item.isCommon) {
+        await updateInventoryItem(item.id, { stockQty: Math.max(0, item.stockQty - (req.qty * count)) });
       }
-    }
-
-    const assembledItem = inventory.find(i => i.assignedKitName === kitToPack.name);
-    if (assembledItem) {
-      const newQty = assembledItem.stockQty + qty;
-      await updateInventoryItem(assembledItem.id, { stockQty: newQty });
-      ledgerItems.push({
-        componentId: assembledItem.id,
-        componentName: assembledItem.name,
-        qtyDiff: qty,
-      });
     }
 
     await logTransaction({
       id: `tx_${Date.now()}`,
       timestamp: new Date().toISOString(),
       type: 'pack',
-      kitName: kitToPack.name,
-      kitQty: qty,
-      description: `Packed and dispatched ${qty} sets of "${kitToPack.name}"`,
-      userId: user!.id,
-      items: ledgerItems,
+      kitName: kit.name,
+      kitQty: count,
+      description: `Packed ${count} set(s) of "${kit.name}"`,
+      items: kit.items.map(req => {
+        const item = inventory.find(i => i.id === req.componentId);
+        return {
+          componentId: req.componentId,
+          componentName: item?.name || req.componentId,
+          qtyDiff: -(req.qty * count),
+        };
+      }),
     });
-
-    if (!isProcessing) {
-      addAction({
-        id: `pack_${Date.now()}`,
-        name: `Pack ${qty}x ${kitToPack.name}`,
-        undo: async () => await handleUnpackKits(kitId, qty),
-        redo: async () => await handlePackKits(kitId, qty)
-      });
-    }
   };
 
-  const handleUnpackKits = async (kitId: string, qty: number) => {
-    if (role === 'intern') return alert("You don't have permission to reduce/unpack kits.");
-    const kitToUnpack = kits.find((k) => k.id === kitId);
-    if (!kitToUnpack) return;
+  const handleUnpackKits = async (kitId: string, count: number) => {
+    if (!['admin', 'staff'].includes(role || '')) return alert("Permission denied.");
+    const kit = kits.find(k => k.id === kitId);
+    if (!kit) return;
 
-    const ledgerItems: any[] = [];
-
-    const assembledItem = inventory.find(i => i.assignedKitName === kitToUnpack.name);
-    if (assembledItem) {
-      const newQty = Math.max(0, assembledItem.stockQty - qty);
-      await updateInventoryItem(assembledItem.id, { stockQty: newQty });
-      ledgerItems.push({
-        componentId: assembledItem.id,
-        componentName: assembledItem.name,
-        qtyDiff: -qty,
-      });
-    }
-
-    for (const req of (kitToUnpack.items || [])) {
-      const invItem = inventory.find(i => i.id === req.componentId);
-      if (invItem && !invItem.isCommon) {
-        const newQty = invItem.stockQty + (req.qty * qty);
-        await updateInventoryItem(invItem.id, { stockQty: newQty });
-        ledgerItems.push({
-          componentId: req.componentId,
-          componentName: invItem.name,
-          qtyDiff: req.qty * qty,
-        });
+    for (const req of kit.items) {
+      const item = inventory.find(i => i.id === req.componentId);
+      if (item && !item.isCommon) {
+        await updateInventoryItem(item.id, { stockQty: item.stockQty + (req.qty * count) });
       }
     }
 
@@ -293,55 +213,44 @@ function MainApp() {
       id: `tx_${Date.now()}`,
       timestamp: new Date().toISOString(),
       type: 'unpack',
-      kitName: kitToUnpack.name,
-      kitQty: qty,
-      description: `Reduced/Unpacked ${qty} sets of "${kitToUnpack.name}" back into components`,
-      userId: user!.id,
-      items: ledgerItems,
+      kitName: kit.name,
+      kitQty: count,
+      description: `Unpacked ${count} set(s) of "${kit.name}" back into inventory`,
+      items: kit.items.map(req => {
+        const item = inventory.find(i => i.id === req.componentId);
+        return {
+          componentId: req.componentId,
+          componentName: item?.name || req.componentId,
+          qtyDiff: (req.qty * count),
+        };
+      }),
     });
-
-    if (!isProcessing) {
-      addAction({
-        id: `unpack_${Date.now()}`,
-        name: `Reduce ${qty}x ${kitToUnpack.name}`,
-        undo: async () => await handlePackKits(kitId, qty),
-        redo: async () => await handleUnpackKits(kitId, qty)
-      });
-    }
   };
 
-  const handleSeedDatabase = async () => {
-    if (role !== 'admin') return alert("Insufficient permissions to seed database.");
-    if (!window.confirm("This will initialize the database with default CSV data. Continue?")) return;
-    
-    try {
-      for (const item of INITIAL_INVENTORY) {
-        await addInventoryItem(item);
-      }
-      for (const kit of INITIAL_KITS) {
-        await addKitBOM(kit);
-      }
-      alert("Database seeded successfully!");
-    } catch (e) {
-      console.error(e);
-      alert("Failed to seed database.");
+  const handleCreateKit = async (kit: Omit<import('./types').KitBOM, 'id'>) => {
+    if (!['admin', 'staff'].includes(role || '')) return alert("Permission denied.");
+    const newId = await addKitBOM(kit);
+    if (newId) {
+      setSelectedKitId(newId);
     }
   };
 
   if (loading) {
-    return <div className="min-h-screen flex items-center justify-center bg-slate-50">
+    return <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-900">
       <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
     </div>;
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-100 via-slate-50 to-indigo-50/30 flex font-sans antialiased text-slate-800">
+    <div className="min-h-screen bg-gradient-to-br from-slate-100 via-slate-50 to-indigo-50/30 dark:from-slate-950 dark:via-slate-900 dark:to-indigo-950/40 flex font-sans antialiased text-slate-800 dark:text-slate-100 transition-colors">
       <UndoRedoWidget />
       <Sidebar 
         activeTab={activeTab} 
         setActiveTab={setActiveTab} 
         role={role} 
-        onSignOut={signOut} 
+        onSignOut={signOut}
+        isOpenMobile={isMobileMenuOpen}
+        onCloseMobile={() => setIsMobileMenuOpen(false)}
       />
 
       <div className="flex-1 flex flex-col min-w-0">
@@ -355,10 +264,11 @@ function MainApp() {
           onNavigateTab={setActiveTab}
           onOpenCreateKitModal={() => setIsCreateKitModalOpen(true)}
           onOpenCommandPalette={() => setIsCommandPaletteOpen(true)}
+          onToggleMobileMenu={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
         />
 
         <div className="flex-1 overflow-auto">
-          <div className="w-full px-6 lg:px-10 py-6">
+          <div className="w-full px-4 md:px-6 lg:px-10 py-6">
             <main>
               {activeTab === 'overview' && (
                 <OverviewTab
@@ -404,13 +314,25 @@ function MainApp() {
                   transactions={transactions}
                   onCreateKitClick={() => setIsCreateKitModalOpen(true)}
                   onConfigureKitClick={() => setIsBOMModalOpen(true)}
-                  onDeleteKit={(kitId) => {
-                    console.log('Delete kit requested:', kitId);
-                  }}
-                  onUpdateKitBOM={(kitId, name, desc) => {
-                    console.log('Update kit BOM requested:', kitId, name, desc);
-                  }}
+                  onDeleteKit={() => {}}
+                  onUpdateKitBOM={() => {}}
                 />
+              )}
+
+              {activeTab === 'gst' && (
+                <GSTEngineTab />
+              )}
+
+              {activeTab === 'zoho' && (
+                <ZohoIntegrationTab />
+              )}
+
+              {activeTab === 'analytics' && (
+                <PredictiveAnalyticsTab />
+              )}
+
+              {activeTab === 'compliance' && (
+                <ComplianceSecurityTab />
               )}
 
               {activeTab === 'purchase_orders' && (
@@ -459,7 +381,10 @@ function MainApp() {
           onClose={() => setIsBOMModalOpen(false)}
           kit={activeKit}
           inventory={inventory}
-          onSaveBOM={handleSaveBOM}
+          onSaveBOM={async (kitId, updatedReqs) => {
+            await updateKitBOM(kitId, { items: updatedReqs });
+            setIsBOMModalOpen(false);
+          }}
         />
       )}
 
@@ -485,8 +410,6 @@ function MainApp() {
   );
 }
 
-// Wrapper to provide auth and data
-// Wrapper to provide auth and data
 export default function App() {
   const { user, loading, signInWithEmailPassword, registerWithEmailPassword, signInAsGuest } = useAuth();
   const [isRegistering, setIsRegistering] = useState(false);
@@ -506,25 +429,20 @@ export default function App() {
 
   if (!user) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4 font-sans">
-        <div className="bg-white p-8 rounded-3xl shadow-xl max-w-sm w-full border border-slate-100 space-y-6 animate-fadeIn">
-          <div className="text-center">
-            <div className="w-16 h-16 bg-indigo-100 text-indigo-600 rounded-2xl flex items-center justify-center mx-auto shadow-sm mb-4">
-              <LayoutDashboard className="w-8 h-8" />
-            </div>
-            <h1 className="text-2xl font-black text-slate-900 mb-1 tracking-tight">NexaInventory</h1>
-            <p className="text-xs text-slate-500 font-medium">
-              {isRegistering ? "Create your workspace account" : "Sign in to manage logistics"}
-            </p>
+      <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4 font-sans text-white">
+        <div className="bg-slate-950 p-8 rounded-3xl shadow-2xl max-w-sm w-full border border-slate-800 space-y-6 animate-fadeIn">
+          <div className="text-center space-y-2">
+            <h1 className="text-2xl font-black tracking-tight text-white">NexaInventory ERP v2</h1>
+            <p className="text-xs text-slate-400 font-medium">Experimind Labs Multi-Tenant SaaS</p>
           </div>
 
-          <form 
+          <form
             onSubmit={async (e) => {
               e.preventDefault();
               setIsSubmitting(true);
               try {
                 if (isRegistering) {
-                  await registerWithEmailPassword(email, password, name, roleSelection as any);
+                  await registerWithEmailPassword(email, password, name, roleSelection);
                 } else {
                   await signInWithEmailPassword(email, password);
                 }
@@ -534,93 +452,66 @@ export default function App() {
                 setIsSubmitting(false);
               }
             }}
-            className="space-y-4"
+            className="space-y-4 text-xs"
           >
             {isRegistering && (
               <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Full Name</label>
+                <label className="block text-slate-300 font-bold mb-1">Full Name</label>
                 <input
                   type="text"
                   required
                   value={name}
-                  onChange={e => setName(e.target.value)}
-                  className="w-full text-sm text-slate-800 border border-slate-200 rounded-xl p-3 focus:ring-2 focus:ring-indigo-500 bg-slate-50 focus:bg-white transition-all font-medium"
-                  placeholder="John Doe"
+                  onChange={(e) => setName(e.target.value)}
+                  className="w-full bg-slate-900 border border-slate-800 rounded-xl p-3 text-white focus:outline-none focus:border-indigo-500"
                 />
               </div>
             )}
-            
+
             <div>
-              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Email Address</label>
+              <label className="block text-slate-300 font-bold mb-1">Email Address</label>
               <input
                 type="email"
                 required
                 value={email}
-                onChange={e => setEmail(e.target.value)}
-                className="w-full text-sm text-slate-800 border border-slate-200 rounded-xl p-3 focus:ring-2 focus:ring-indigo-500 bg-slate-50 focus:bg-white transition-all font-medium"
-                placeholder="you@example.com"
+                onChange={(e) => setEmail(e.target.value)}
+                className="w-full bg-slate-900 border border-slate-800 rounded-xl p-3 text-white focus:outline-none focus:border-indigo-500"
               />
             </div>
-            
+
             <div>
-              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Password</label>
+              <label className="block text-slate-300 font-bold mb-1">Password</label>
               <input
                 type="password"
                 required
                 value={password}
-                onChange={e => setPassword(e.target.value)}
-                className="w-full text-sm text-slate-800 border border-slate-200 rounded-xl p-3 focus:ring-2 focus:ring-indigo-500 bg-slate-50 focus:bg-white transition-all font-medium"
-                placeholder="••••••••"
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full bg-slate-900 border border-slate-800 rounded-xl p-3 text-white focus:outline-none focus:border-indigo-500"
               />
             </div>
-
-            {isRegistering && (
-              <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Role Request</label>
-                <select
-                  value={roleSelection}
-                  onChange={e => setRoleSelection(e.target.value)}
-                  className="w-full text-sm text-slate-800 border border-slate-200 rounded-xl p-3 focus:ring-2 focus:ring-indigo-500 bg-slate-50 focus:bg-white transition-all font-medium cursor-pointer"
-                >
-                  <option value="admin">Admin (Full Access)</option>
-                  <option value="staff">Staff (Manage Kits & Inventory)</option>
-                  <option value="user">User (View Only)</option>
-                  <option value="intern">Intern (Draft Only)</option>
-                </select>
-              </div>
-            )}
 
             <button
               type="submit"
               disabled={isSubmitting}
-              className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-xl transition-all shadow-md shadow-indigo-600/10 flex items-center justify-center gap-2 cursor-pointer text-sm"
+              className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3 rounded-xl transition-all shadow-md cursor-pointer"
             >
-              {isSubmitting ? 'Processing...' : isRegistering ? 'Create Account' : 'Sign In'}
+              {isSubmitting ? 'Processing...' : isRegistering ? 'Create SaaS Account' : 'Sign In'}
             </button>
           </form>
 
-          <div className="relative flex items-center justify-center">
-            <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-slate-200"></div></div>
-            <div className="relative bg-white px-4 text-xs font-bold text-slate-400 uppercase tracking-wider">or</div>
-          </div>
-
-          <div className="space-y-3">
+          <div className="pt-4 border-t border-slate-800 space-y-3 text-center text-xs">
             <button
-              type="button"
-              onClick={signInAsGuest}
-              className="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-3 px-4 rounded-xl transition-all flex items-center justify-center gap-2 cursor-pointer text-sm"
+              onClick={() => signInAsGuest('admin')}
+              className="w-full bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold py-2.5 rounded-xl border border-slate-700 transition-all cursor-pointer"
             >
               Continue as Guest Admin
             </button>
-            <div className="text-center">
-              <button
-                type="button"
-                onClick={() => setIsRegistering(!isRegistering)}
-                className="text-indigo-600 hover:text-indigo-800 text-xs font-bold transition-colors cursor-pointer"
-              >
-                {isRegistering ? 'Already have an account? Sign in' : 'Need an account? Register'}
-              </button>
-            </div>
+
+            <button
+              onClick={() => setIsRegistering(!isRegistering)}
+              className="text-slate-400 hover:text-white underline cursor-pointer text-[11px]"
+            >
+              {isRegistering ? 'Already have an account? Sign in' : 'Need an account? Register'}
+            </button>
           </div>
         </div>
       </div>
@@ -628,11 +519,13 @@ export default function App() {
   }
 
   return (
-    <ToastProvider>
-      <DataProvider>
-        <ToastContainer />
-        <MainApp />
-      </DataProvider>
-    </ToastProvider>
+    <TenantProvider>
+      <ToastProvider>
+        <DataProvider>
+          <ToastContainer />
+          <MainApp />
+        </DataProvider>
+      </ToastProvider>
+    </TenantProvider>
   );
 }

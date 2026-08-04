@@ -6,7 +6,7 @@ import { InventoryItem, KitBOM, KittingAnalysis, BottleneckItem } from '../types
 export function analyzeKitting(
   inventory: InventoryItem[],
   kit: KitBOM,
-  targetQty: number
+  targetQty: number = 1
 ): KittingAnalysis {
   let maxKitsPossible = Infinity;
   const bottlenecks: BottleneckItem[] = [];
