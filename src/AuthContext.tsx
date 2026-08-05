@@ -13,6 +13,7 @@ export interface UserProfile {
 interface AuthContextType {
   user: UserProfile | null;
   role: AppRole | null;
+  token: string | null;
   loading: boolean;
   signInWithGoogle: () => Promise<void>;
   signInWithEmailPassword: (email: string, password: string) => Promise<void>;
@@ -24,6 +25,7 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType>({
   user: null,
   role: null,
+  token: null,
   loading: true,
   signInWithGoogle: async () => {},
   signInWithEmailPassword: async () => {},
@@ -34,22 +36,27 @@ const AuthContext = createContext<AuthContextType>({
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<UserProfile | null>(null);
+  const [token, setToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Restore session from localStorage on startup
-    const storedUser = localStorage.getItem('nexa_user_profile');
-    const storedToken = localStorage.getItem('nexa_auth_token');
-
-    if (storedUser && storedToken) {
+    // Silent refresh using HttpOnly cookie on startup
+    const tryRefreshSession = async () => {
       try {
-        setUser(JSON.parse(storedUser));
+        const res = await apiFetch('/api/v1/auth/refresh-token', { method: 'POST' });
+        if (res && res.token && res.user) {
+          setToken(res.token);
+          setUser(res.user);
+        }
       } catch (e) {
-        localStorage.removeItem('nexa_user_profile');
-        localStorage.removeItem('nexa_auth_token');
+        // No active session cookie
+        setToken(null);
+        setUser(null);
+      } finally {
+        setLoading(false);
       }
-    }
-    setLoading(false);
+    };
+    tryRefreshSession();
   }, []);
 
   const signInWithEmailPassword = async (email: string, password: string) => {
@@ -60,8 +67,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         body: JSON.stringify({ email, password })
       });
       if (res && res.token && res.user) {
-        localStorage.setItem('nexa_auth_token', res.token);
-        localStorage.setItem('nexa_user_profile', JSON.stringify(res.user));
+        setToken(res.token);
         setUser(res.user);
       }
     } catch (e: any) {
@@ -72,7 +78,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const registerWithEmailPassword = async (email: string, password: string, name: string, role = 'intern') => {
+  const registerWithEmailPassword = async (email: string, password: string, name: string, role = 'viewer') => {
     setLoading(true);
     try {
       const res = await apiFetch('/api/v1/auth/register', {
@@ -80,8 +86,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         body: JSON.stringify({ email, password, name, role })
       });
       if (res && res.token && res.user) {
-        localStorage.setItem('nexa_auth_token', res.token);
-        localStorage.setItem('nexa_user_profile', JSON.stringify(res.user));
+        setToken(res.token);
         setUser(res.user);
       }
     } catch (e: any) {
@@ -93,25 +98,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const signInAsGuest = async () => {
-    // Standard guest role with guest credentials in the client state
-    const guestUser: UserProfile = {
-      id: 'guest-admin-uid',
-      email: 'guest-admin@nexainventory.com',
-      name: 'Guest Administrator',
-      role: 'admin'
-    };
-    localStorage.setItem('nexa_auth_token', 'guest-token-mock');
-    localStorage.setItem('nexa_user_profile', JSON.stringify(guestUser));
-    setUser(guestUser);
+    alert("Guest access is disabled in production mode. Please sign in with registered credentials.");
   };
 
   const signInWithGoogle = async () => {
-    alert("Google Sign-In has been removed for absolute Firebase Independence. Please register a local credentials profile or run as Guest Admin.");
+    alert("Google Sign-In has been removed for Firebase Independence. Please register local credentials.");
   };
 
   const signOut = async () => {
-    localStorage.removeItem('nexa_auth_token');
-    localStorage.removeItem('nexa_user_profile');
+    try {
+      await apiFetch('/api/v1/auth/logout', { method: 'POST' });
+    } catch (e) {
+      // Ignore logout errors
+    }
+    setToken(null);
     setUser(null);
   };
 
@@ -121,6 +121,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     <AuthContext.Provider value={{
       user,
       role,
+      token,
       loading,
       signInWithGoogle,
       signInWithEmailPassword,

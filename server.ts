@@ -1,5 +1,6 @@
 import "reflect-metadata";
 import express from "express";
+import cookieParser from "cookie-parser";
 import path from "path";
 import helmet from "helmet";
 import cors from "cors";
@@ -66,8 +67,9 @@ async function startServer() {
   // Raw Buffer Parser for Razorpay Webhook HMAC Verification
   app.use("/api/public/webhook/razorpay", express.raw({ type: "application/json" }));
 
-  // Parsers for JSON requests
+  // Parsers for JSON requests and cookies
   app.use(express.json({ limit: "10mb" }));
+  app.use(cookieParser());
 
   // Simple request logger
   app.use((req, res, next) => {

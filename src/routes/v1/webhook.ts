@@ -2,6 +2,7 @@ import { Router, Request, Response } from "express";
 import crypto from "crypto";
 import { AppDataSource } from "../../db.ts";
 import { CustomerOrder } from "../../entity/CustomerOrder.ts";
+import { CustomerOrderLine } from "../../entity/CustomerOrderLine.ts";
 import { InventoryItem } from "../../entity/InventoryItem.ts";
 import { Invoice } from "../../entity/Invoice.ts";
 import { InvoiceSequence } from "../../entity/InvoiceSequence.ts";
@@ -56,9 +57,9 @@ router.post("/razorpay", async (req: Request, res: Response) => {
         await queryRunner.startTransaction();
 
         try {
+          // Lock CustomerOrder row alone to avoid PostgreSQL FOR UPDATE outer join error
           const order = await queryRunner.manager.findOne(CustomerOrder, {
             where: { razorpay_order_id: razorpayOrderId },
-            relations: ["lines"],
             lock: { mode: "pessimistic_write" },
           });
 
@@ -67,7 +68,12 @@ router.post("/razorpay", async (req: Request, res: Response) => {
             order.razorpay_payment_id = razorpayPaymentId;
             await queryRunner.manager.save(order);
 
-            for (const line of order.lines || []) {
+            // Fetch order lines in secondary query inside transaction
+            const orderLines = await queryRunner.manager.find(CustomerOrderLine, {
+              where: { order: { id: order.id } },
+            });
+
+            for (const line of orderLines) {
               const item = await queryRunner.manager.findOne(InventoryItem, {
                 where: { id: line.inventory_item_id },
                 lock: { mode: "pessimistic_write" },

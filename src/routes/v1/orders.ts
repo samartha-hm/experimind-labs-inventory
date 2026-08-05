@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { OrderService } from "../../services/OrderService.ts";
+import { getTenantOrgId } from "../../middleware/tenant.ts";
 import { validate, IsString, IsOptional, IsEmail, IsArray, ArrayNotEmpty, IsInt, Min, IsUUID, ValidateNested } from "class-validator";
 import { plainToInstance, Type } from "class-transformer";
 
@@ -51,7 +52,7 @@ async function validateDto<T extends object>(dto: T, cls: new () => T): Promise<
 router.post("/", async (req, res) => {
   try {
     await validateDto(req.body, CreateOrderDto);
-    const orgId = (req as any).user?.orgId || "org-default";
+    const orgId = getTenantOrgId(req);
     const result = await orderService.createStorefrontOrder({
       ...req.body,
       organizationId: orgId,

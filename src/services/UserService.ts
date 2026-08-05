@@ -73,7 +73,7 @@ export class UserService {
   private async logUserAudit(actorId: string, action: string, targetId: string, before: any, after: any) {
     const auditRepo = AppDataSource.getRepository(AuditLog);
     const audit = auditRepo.create({
-      organization_id: "org-default",
+      organization_id: "00000000-0000-0000-0000-000000000000",
       actor_id: actorId,
       action,
       entity_type: "User",
