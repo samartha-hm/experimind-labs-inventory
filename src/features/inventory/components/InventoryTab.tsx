@@ -69,41 +69,66 @@ export default function InventoryTab({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
 
+  const PREDEFINED_CATEGORIES = useMemo(() => [
+    'Prastuti Science',
+    'Electronics',
+    'Stationary',
+    'others',
+    'Chemicals',
+    'Box',
+    'Prastuti Maths',
+    'Anubhav',
+    'kits',
+    'IQNAAX',
+    'Maths kits'
+  ], []);
+
   const getCategoryBadgeStyle = (category?: string) => {
     switch (category) {
-      case 'Boards & Controllers':
-        return { bg: 'bg-indigo-50 text-indigo-700 border-indigo-200/80', dot: 'bg-indigo-500' };
-      case 'Sensors & Inputs':
+      case 'Prastuti Science':
         return { bg: 'bg-emerald-50 text-emerald-700 border-emerald-200/80', dot: 'bg-emerald-500' };
-      case 'Outputs & Actuators':
-        return { bg: 'bg-purple-50 text-purple-700 border-purple-200/80', dot: 'bg-purple-500' };
-      case 'Power & Accessories':
+      case 'Electronics':
+        return { bg: 'bg-indigo-50 text-indigo-700 border-indigo-200/80', dot: 'bg-indigo-500' };
+      case 'Stationary':
         return { bg: 'bg-amber-50 text-amber-800 border-amber-200/80', dot: 'bg-amber-500' };
-      case 'Cables & Connectors':
-        return { bg: 'bg-slate-100 text-slate-700 border-slate-200/80', dot: 'bg-slate-500' };
-      case 'SMD Components':
+      case 'Chemicals':
+        return { bg: 'bg-rose-50 text-rose-700 border-rose-200/80', dot: 'bg-rose-500' };
+      case 'Box':
+        return { bg: 'bg-blue-50 text-blue-700 border-blue-200/80', dot: 'bg-blue-500' };
+      case 'Prastuti Maths':
+        return { bg: 'bg-sky-50 text-sky-700 border-sky-200/80', dot: 'bg-sky-500' };
+      case 'Anubhav':
+        return { bg: 'bg-purple-50 text-purple-700 border-purple-200/80', dot: 'bg-purple-500' };
+      case 'kits':
+        return { bg: 'bg-teal-50 text-teal-700 border-teal-200/80', dot: 'bg-teal-500' };
+      case 'IQNAAX':
+        return { bg: 'bg-yellow-50 text-yellow-800 border-yellow-200/80', dot: 'bg-yellow-500' };
+      case 'Maths kits':
         return { bg: 'bg-cyan-50 text-cyan-700 border-cyan-200/80', dot: 'bg-cyan-500' };
+      case 'others':
+        return { bg: 'bg-slate-100 text-slate-700 border-slate-200/80', dot: 'bg-slate-500' };
       default:
         return { bg: 'bg-slate-100 text-slate-700 border-slate-200/80', dot: 'bg-slate-400' };
     }
   };
 
   const allExistingCategories = useMemo(() => {
-    const cats = new Set<string>();
+    const cats = new Set<string>(PREDEFINED_CATEGORIES);
     inventory.forEach((item) => {
       if (item.category && item.category.trim() !== '') {
         cats.add(item.category.trim());
       }
     });
-    return Array.from(cats).sort();
-  }, [inventory]);
+    return Array.from(cats);
+  }, [inventory, PREDEFINED_CATEGORIES]);
 
   const filteredInventory = useMemo(() => {
     return inventory.filter((item) => {
-      const matchesSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        item.id.toLowerCase().includes(searchTerm.toLowerCase());
       const matchesCategory =
-        selectedCategory === 'All' ||
-        (item.category && item.category.trim() === selectedCategory);
+        selectedCategory === 'All' || selectedCategory === 'ALL' ||
+        (item.category && item.category.trim().toLowerCase() === selectedCategory.toLowerCase());
       return matchesSearch && matchesCategory;
     });
   }, [inventory, searchTerm, selectedCategory]);

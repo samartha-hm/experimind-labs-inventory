@@ -8,20 +8,38 @@ export default function PredictiveAnalyticsTab() {
   const { showToast } = useToast();
 
   const [selectedClass, setSelectedClass] = useState<string>('AX');
+  const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
+
+  const CATEGORIES = [
+    'ALL',
+    'Prastuti Science',
+    'Electronics',
+    'Stationary',
+    'others',
+    'Chemicals',
+    'Box',
+    'Prastuti Maths',
+    'Anubhav',
+    'kits',
+    'IQNAAX',
+    'Maths kits'
+  ];
 
   // Compute ABC/XYZ Mock Classification
-  const classifiedSKUs = inventory.map((item, idx) => {
-    const abc: 'A' | 'B' | 'C' = idx % 3 === 0 ? 'A' : idx % 3 === 1 ? 'B' : 'C';
-    const xyz: 'X' | 'Y' | 'Z' = idx % 2 === 0 ? 'X' : 'Y';
-    const forecastDays = item.stockQty === 0 ? 0 : Math.max(2, (item.stockQty * 1.5) - (idx * 2));
-    return {
-      ...item,
-      abc,
-      xyz,
-      matrixCode: `${abc}${xyz}`,
-      forecastDays,
-    };
-  });
+  const classifiedSKUs = inventory
+    .filter((item) => selectedCategory === 'ALL' || (item.category && item.category.trim().toLowerCase() === selectedCategory.toLowerCase()))
+    .map((item, idx) => {
+      const abc: 'A' | 'B' | 'C' = idx % 3 === 0 ? 'A' : idx % 3 === 1 ? 'B' : 'C';
+      const xyz: 'X' | 'Y' | 'Z' = idx % 2 === 0 ? 'X' : 'Y';
+      const forecastDays = item.stockQty === 0 ? 0 : Math.max(2, (item.stockQty * 1.5) - (idx * 2));
+      return {
+        ...item,
+        abc,
+        xyz,
+        matrixCode: `${abc}${xyz}`,
+        forecastDays,
+      };
+    });
 
   const filteredSKUs = classifiedSKUs.filter(s => s.matrixCode === selectedClass);
 
@@ -46,12 +64,26 @@ export default function PredictiveAnalyticsTab() {
           </p>
         </div>
 
-        <button
-          onClick={handleScheduleResendEmail}
-          className="bg-purple-600 hover:bg-purple-500 text-white font-bold px-5 py-3 rounded-xl text-xs flex items-center gap-2 shadow-lg transition-all cursor-pointer shrink-0"
-        >
-          <Mail className="w-4 h-4" /> Schedule Weekly Resend Email Digest
-        </button>
+        <div className="flex items-center gap-3 shrink-0">
+          <select
+            value={selectedCategory}
+            onChange={(e) => setSelectedCategory(e.target.value)}
+            className="bg-slate-900/80 text-white border border-purple-500/40 rounded-xl px-3 py-2 text-xs font-bold focus:outline-none cursor-pointer"
+          >
+            {CATEGORIES.map((cat) => (
+              <option key={cat} value={cat} className="bg-slate-900 text-white">
+                Category: {cat}
+              </option>
+            ))}
+          </select>
+
+          <button
+            onClick={handleScheduleResendEmail}
+            className="bg-purple-600 hover:bg-purple-500 text-white font-bold px-5 py-2.5 rounded-xl text-xs flex items-center gap-2 shadow-lg transition-all cursor-pointer shrink-0"
+          >
+            <Mail className="w-4 h-4" /> Schedule Resend Digest
+          </button>
+        </div>
       </div>
 
       {/* Cash Flow & Inventory Velocity Metrics */}

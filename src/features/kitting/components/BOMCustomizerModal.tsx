@@ -116,11 +116,31 @@ export default function BOMCustomizerModal({
     (inv) => !requirements.some((req) => req.componentId === inv.id)
   );
 
-  const categories = Array.from(new Set(inventory.map((inv) => inv.category).filter(Boolean)));
+  const PREDEFINED_CATS = [
+    'Prastuti Science',
+    'Electronics',
+    'Stationary',
+    'others',
+    'Chemicals',
+    'Box',
+    'Prastuti Maths',
+    'Anubhav',
+    'kits',
+    'IQNAAX',
+    'Maths kits'
+  ];
+
+  const categories = Array.from(
+    new Set([...PREDEFINED_CATS, ...inventory.map((inv) => inv.category).filter(Boolean)])
+  );
 
   const filteredParts = availableInventoryParts.filter((part) => {
-    const matchesSearch = part.name.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesCategory = selectedCategory === 'all' || part.category === selectedCategory;
+    const matchesSearch = part.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      part.id.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesCategory =
+      selectedCategory === 'all' ||
+      selectedCategory === 'ALL' ||
+      (part.category && part.category.trim().toLowerCase() === selectedCategory.toLowerCase());
     return matchesSearch && matchesCategory;
   });
 

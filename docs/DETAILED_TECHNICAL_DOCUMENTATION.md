@@ -239,3 +239,24 @@ src/
 1. **Linting & Type Safety**: Always verify code changes with `npm run lint` (`tsc --noEmit`).
 2. **Transaction Logging**: Any new entity mutation function added to `DataContext.tsx` must call `logTransaction` to append a commit record with diffs and user metadata.
 3. **Undo Stack Registration**: New mutation handlers should register an undo/redo action via `addAction({ id, name, undo, redo })` to preserve global `Ctrl+Z` support.
+
+---
+
+## 19. UNIFIED MASTER CATEGORIES STANDARD
+
+To maintain complete taxonomy alignment across **NexaInventory ERP** (Items & Master Catalog, Composite Kits BOM, Predictive Analytics) and the **Experimind Storefront (`shop.experimindlabs.com`)**, the system enforces 12 core master categories with dedicated icons, badge themes, and real-time item counts:
+
+| Category | Icon / Visual Theme | Target Products & Description |
+|---|---|---|
+| **ALL** | `LayoutGrid` (Indigo) | Complete catalog view & universal category filter. |
+| **Prastuti Science** | `FlaskConical` (Emerald) | Laboratory glassware, test tubes, reagents & science experiment apparatus. |
+| **Electronics** | `Cpu` (Indigo) | Microcontrollers, ESP32/Arduino modules, sensors & electronic components. |
+| **Stationary** | `PenTool` (Amber) | Lab notebooks, blotting papers, pH indicator strips & stationery items. |
+| **others** | `Package` (Slate) | General hardware, miscellaneous fittings & hardware accessories. |
+| **Chemicals** | `Sparkles` (Rose) | Laboratory chemicals, solvents, indicator solutions & salts. |
+| **Box** | `Box` (Blue) | Storage boxes, acrylic trays, bin containers & packaging materials. |
+| **Prastuti Maths** | `Calculator` (Sky) | Mathematical visual aids, geometry modules & learning instruments. |
+| **Anubhav** | `Award` (Purple) | Experiential learning modules & practical demonstration toolkits. |
+| **kits** | `Wrench` (Teal) | Comprehensive STEM kit packages & assembly toolkits. |
+| **IQNAAX** | `Lightbulb` (Yellow) | Cognitive puzzle toys, IQ development kits & logic games. |
+| **Maths kits** | `Grid` (Cyan) | Specialized mathematics lab toolkits & manipulative sets. |
