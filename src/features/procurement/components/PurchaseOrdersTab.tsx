@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 
 import DocumentPreviewModal from '@/src/shared/components/DocumentPreviewModal';
+import PODocumentGeneratorModal from '@/src/features/procurement/components/PODocumentGeneratorModal';
 import { useData } from '@/src/DataContext';
 
 interface PurchaseOrdersTabProps {
@@ -438,6 +439,15 @@ export default function PurchaseOrdersTab({ role }: PurchaseOrdersTabProps) {
             </form>
           </div>
         </div>
+      )}
+
+      {/* PO Printable PDF Invoice Generator Modal */}
+      {selectedPoForPreview && (
+        <PODocumentGeneratorModal
+          po={selectedPoForPreview}
+          isOpen={!!selectedPoForPreview}
+          onClose={() => setSelectedPoForPreview(null)}
+        />
       )}
     </div>
   );

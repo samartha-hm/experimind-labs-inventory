@@ -20,6 +20,9 @@ import {
   Link2,
   TrendingUp,
   Lock,
+  MapPin,
+  ArrowRightLeft,
+  Tag,
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -64,7 +67,10 @@ export default function Sidebar({
           badgeColor: 'bg-amber-500/20 text-amber-300 border-amber-500/30',
         },
         { id: 'kitting', label: 'Composite Kits (BOM)', icon: <Package className="w-4 h-4" /> },
+        { id: 'batch_expiry', label: 'Batch Expiry Tracker', icon: <Tag className="w-4 h-4" />, badge: 'Lots', badgeColor: 'bg-rose-500/20 text-rose-300 border-rose-500/30' },
         { id: 'warehouses', label: 'Warehouses & Bins', icon: <Warehouse className="w-4 h-4" /> },
+        { id: 'warehouse_heatmap', label: 'Warehouse 2D Heatmap', icon: <MapPin className="w-4 h-4" /> },
+        { id: 'stock_transfer', label: 'Stock Transfer (STO)', icon: <ArrowRightLeft className="w-4 h-4" /> },
       ],
     },
     {

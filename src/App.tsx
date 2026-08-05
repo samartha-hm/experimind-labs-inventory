@@ -31,6 +31,9 @@ import GSTEngineTab from '@/src/features/gst/GSTEngineTab';
 import ZohoIntegrationTab from '@/src/features/integrations/ZohoIntegrationTab';
 import PredictiveAnalyticsTab from '@/src/features/analytics/PredictiveAnalyticsTab';
 import ComplianceSecurityTab from '@/src/features/compliance/ComplianceSecurityTab';
+import WarehouseHeatmapTab from '@/src/features/warehouse/components/WarehouseHeatmapTab';
+import StockTransferTab from '@/src/features/warehouse/components/StockTransferTab';
+import BatchExpiryTab from '@/src/features/inventory/components/BatchExpiryTab';
 import { TenantProvider } from '@/src/contexts/TenantContext';
 import { ToastProvider } from '@/src/contexts/ToastContext';
 import ToastContainer from '@/src/components/ToastContainer';
@@ -349,6 +352,18 @@ function MainApp() {
 
               {activeTab === 'warehouses' && (
                 <WarehousesTab role={role} />
+              )}
+
+              {activeTab === 'warehouse_heatmap' && (
+                <WarehouseHeatmapTab />
+              )}
+
+              {activeTab === 'stock_transfer' && (
+                <StockTransferTab />
+              )}
+
+              {activeTab === 'batch_expiry' && (
+                <BatchExpiryTab />
               )}
 
               {activeTab === 'copilot' && (

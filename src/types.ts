@@ -150,6 +150,23 @@ export interface BottleneckItem {
   maxKitsPossible: number;
 }
 
+export interface PurchaseOrder {
+  id: string;
+  tenantId?: string;
+  poNumber?: string;
+  vendorName: string;
+  createdAt: string;
+  expectedDate?: string;
+  status: 'draft' | 'issued' | 'received' | 'cancelled' | string;
+  totalAmount: number;
+  items: {
+    itemId: string;
+    name: string;
+    quantity: number;
+    unitPrice: number;
+  }[];
+}
+
 export interface KittingAnalysis {
   maxKitsPossible: number;
   bottlenecks: BottleneckItem[];
