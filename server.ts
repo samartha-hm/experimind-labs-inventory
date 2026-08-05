@@ -23,6 +23,7 @@ import transactionRoutes from "./src/routes/v1/transaction.ts";
 import reportRoutes from "./src/routes/v1/report.ts";
 import settingRoutes from "./src/routes/v1/setting.ts";
 import webhookRoutes from "./src/routes/v1/webhook.ts";
+import userRoutes from "./src/routes/v1/users.ts";
 
 // Initialize Postgres (with retry)
 async function connectDatabase(retries = 3): Promise<void> {
@@ -94,6 +95,7 @@ async function startServer() {
 
   // ===== Versioned API (protected) =====
   app.use("/api/v1/auth", authLimiter, authRoutes);
+  app.use("/api/v1/users", authenticateJwt, userRoutes);
   app.use("/api/v1/inventory", authenticateJwt, inventoryRoutes);
   app.use("/api/v1/warehouse", authenticateJwt, warehouseRoutes);
   app.use("/api/v1/bin", authenticateJwt, binRoutes);

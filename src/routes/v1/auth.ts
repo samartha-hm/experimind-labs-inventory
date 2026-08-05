@@ -1,13 +1,11 @@
 import { Router } from "express";
-import jwt from "jsonwebtoken";
-import { AuthService } from "../../services/AuthService";
+import { AuthService } from "../../services/AuthService.ts";
 
 const router = Router();
+const authService = new AuthService();
 
 /**
  * POST /api/v1/auth/register
- * Body: { email: string, password: string, name?: string, role?: string }
- * Returns: { user: {id, email, name, role}, token: string }
  */
 router.post("/register", async (req, res) => {
   const { email, password, name, role } = req.body;
@@ -15,13 +13,13 @@ router.post("/register", async (req, res) => {
     return res.status(400).json({ error: "Email and password are required" });
   }
   try {
-    const authService = new AuthService();
-    const { user, token } = await authService.register(
+    const { user, token, refreshToken } = await authService.register(
       email,
       password,
       name ?? email.split("@")[0],
       role ?? "viewer"
     );
+
     res.status(201).json({
       user: {
         id: user.id,
@@ -30,6 +28,7 @@ router.post("/register", async (req, res) => {
         role: user.role,
       },
       token,
+      refreshToken,
     });
   } catch (e: any) {
     res.status(400).json({ error: e.message });
@@ -38,8 +37,6 @@ router.post("/register", async (req, res) => {
 
 /**
  * POST /api/v1/auth/login
- * Body: { email: string, password: string }
- * Returns: { user: {id, email, name, role}, token: string }
  */
 router.post("/login", async (req, res) => {
   const { email, password } = req.body;
@@ -47,8 +44,7 @@ router.post("/login", async (req, res) => {
     return res.status(400).json({ error: "Email and password are required" });
   }
   try {
-    const authService = new AuthService();
-    const { user, token } = await authService.login(email, password);
+    const { user, token, refreshToken } = await authService.login(email, password);
     res.json({
       user: {
         id: user.id,
@@ -57,19 +53,61 @@ router.post("/login", async (req, res) => {
         role: user.role,
       },
       token,
+      refreshToken,
     });
   } catch (e: any) {
-    if (e.message === "Invalid email or password") {
-      return res.status(401).json({ error: e.message });
-    }
-    if (
-      e.message ===
-      "This account does not have a password set. Use Firebase login instead."
-    ) {
-      return res.status(400).json({ error: e.message });
-    }
-    console.error("Login error:", e);
-    res.status(500).json({ error: "Internal server error" });
+    res.status(400).json({ error: e.message });
+  }
+});
+
+/**
+ * POST /api/v1/auth/forgot-password
+ */
+router.post("/forgot-password", async (req, res) => {
+  const { email } = req.body;
+  if (!email) {
+    return res.status(400).json({ error: "Email is required" });
+  }
+  try {
+    const rawResetToken = await authService.generateForgotPasswordToken(email);
+    res.json({
+      message: "If your email is registered, a password reset token has been generated.",
+      resetToken: rawResetToken, // Returned in API response for client-side reset workflow
+    });
+  } catch (e: any) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
+/**
+ * POST /api/v1/auth/reset-password
+ */
+router.post("/reset-password", async (req, res) => {
+  const { resetToken, newPassword } = req.body;
+  if (!resetToken || !newPassword) {
+    return res.status(400).json({ error: "resetToken and newPassword are required" });
+  }
+  try {
+    await authService.resetPasswordWithToken(resetToken, newPassword);
+    res.json({ message: "Password has been successfully reset. You may now login." });
+  } catch (e: any) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
+/**
+ * POST /api/v1/auth/refresh-token
+ */
+router.post("/refresh-token", async (req, res) => {
+  const { refreshToken } = req.body;
+  if (!refreshToken) {
+    return res.status(400).json({ error: "refreshToken is required" });
+  }
+  try {
+    const tokens = await authService.refreshAccessToken(refreshToken);
+    res.json(tokens);
+  } catch (e: any) {
+    res.status(401).json({ error: e.message });
   }
 });
 
