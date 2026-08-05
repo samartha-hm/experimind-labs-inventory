@@ -1,42 +1,42 @@
 import { Router } from "express";
 import { ReportService } from "../../services/ReportService";
-import { validate } from "class-validator";
+import { validate, IsOptional, IsUUID, IsDateString } from "class-validator";
 import { plainToInstance } from "class-transformer";
+import { requireRole } from "../../middleware/requireRole.ts";
 
 const router = Router();
 const service = new ReportService();
 
-// DTO for inventory valuation request
-class InventoryValuationDto {
-  // No parameters needed for basic valuation
+export class InventoryTurnoverDto {
+  @IsOptional()
+  @IsDateString()
+  startDate?: string;
+
+  @IsOptional()
+  @IsDateString()
+  endDate?: string;
 }
 
-// DTO for inventory turnover request
-class InventoryTurnoverDto {
-  startDate?: string; // ISO date string
-  endDate?: string;   // ISO date string
-}
-
-// DTO for low stock alerts request
-class LowStockAlertDto {
+export class LowStockAlertDto {
+  @IsOptional()
+  @IsUUID()
   warehouseId?: string;
 }
 
-// Validation helper
-async function validateDto(dto: any, cls: any) {
+async function validateDto<T extends object>(dto: any, cls: new (...args: any[]) => T): Promise<T> {
   const obj = plainToInstance(cls, dto);
-  const errors = await validate(obj, { forbidUnknownValues: false });
+  const errors = await validate(obj, { whitelist: true, forbidNonWhitelisted: true });
   if (errors.length > 0) {
-    const messages = Object.values(errors)
-      .map((e) => Object.values(e.constraints ?? {}))
-      .flat()
-      .join(", ");
-    throw new Error(messages);
+    const messages = errors
+      .map((e) => Object.values(e.constraints ?? {}).join(", "))
+      .join("; ");
+    throw new Error(`Validation failed: ${messages}`);
   }
+  return obj;
 }
 
-// GET /api/v1/report/inventory-valuation
-router.get("/inventory-valuation", async (req, res) => {
+// GET /api/v1/report/inventory-valuation (Viewer+)
+router.get("/inventory-valuation", requireRole("viewer", "staff", "manager", "admin"), async (req, res) => {
   try {
     const valuation = await service.inventoryValuation();
     res.json(valuation);
@@ -45,30 +45,30 @@ router.get("/inventory-valuation", async (req, res) => {
   }
 });
 
-// GET /api/v1/report/inventory-turnover
-router.get("/inventory-turnover", async (req, res) => {
+// GET /api/v1/report/inventory-turnover (Viewer+)
+router.get("/inventory-turnover", requireRole("viewer", "staff", "manager", "admin"), async (req, res) => {
   try {
-    await validateDto(req.query, InventoryTurnoverDto);
-    const turnover = await service.inventoryTurnover(req.query as any);
+    const validQuery = await validateDto(req.query, InventoryTurnoverDto);
+    const turnover = await service.inventoryTurnover(validQuery as any);
     res.json(turnover);
   } catch (e: any) {
     res.status(400).json({ error: e.message });
   }
 });
 
-// GET /api/v1/report/low-stock-alerts
-router.get("/low-stock-alerts", async (req, res) => {
+// GET /api/v1/report/low-stock-alerts (Viewer+)
+router.get("/low-stock-alerts", requireRole("viewer", "staff", "manager", "admin"), async (req, res) => {
   try {
-    await validateDto(req.query, LowStockAlertDto);
-    const alerts = await service.lowStockAlerts(req.query.warehouseId as string | undefined);
+    const validQuery = await validateDto(req.query, LowStockAlertDto);
+    const alerts = await service.lowStockAlerts(validQuery.warehouseId);
     res.json(alerts);
   } catch (e: any) {
     res.status(400).json({ error: e.message });
   }
 });
 
-// GET /api/v1/report/purchase-order-status
-router.get("/purchase-order-status", async (req, res) => {
+// GET /api/v1/report/purchase-order-status (Viewer+)
+router.get("/purchase-order-status", requireRole("viewer", "staff", "manager", "admin"), async (req, res) => {
   try {
     const status = await service.purchaseOrderStatus();
     res.json(status);
@@ -77,8 +77,8 @@ router.get("/purchase-order-status", async (req, res) => {
   }
 });
 
-// GET /api/v1/report/sales-order-status
-router.get("/sales-order-status", async (req, res) => {
+// GET /api/v1/report/sales-order-status (Viewer+)
+router.get("/sales-order-status", requireRole("viewer", "staff", "manager", "admin"), async (req, res) => {
   try {
     const status = await service.salesOrderStatus();
     res.json(status);
@@ -87,10 +87,9 @@ router.get("/sales-order-status", async (req, res) => {
   }
 });
 
-// GET /api/v1/report/dashboard (combined overview)
-router.get("/dashboard", async (req, res) => {
+// GET /api/v1/report/dashboard (Viewer+)
+router.get("/dashboard", requireRole("viewer", "staff", "manager", "admin"), async (req, res) => {
   try {
-    // Get data for dashboard widgets
     const [
       inventoryValuation,
       lowStockAlerts,
@@ -111,7 +110,7 @@ router.get("/dashboard", async (req, res) => {
       },
       lowStockAlerts: {
         count: lowStockAlerts.length,
-        items: lowStockAlerts.slice(0, 5) // Top 5 for dashboard
+        items: lowStockAlerts.slice(0, 5)
       },
       purchaseOrderStatus: {
         totalPos: poStatus.summary.totalPos,

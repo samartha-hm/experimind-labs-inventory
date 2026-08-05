@@ -1,42 +1,46 @@
 import { Router } from "express";
 import { TransactionService } from "../../services/TransactionService";
-import { validate } from "class-validator";
+import { validate, IsString, IsOptional, IsUUID, IsDateString, IsInt, Min } from "class-validator";
 import { plainToInstance } from "class-transformer";
+import { requireRole } from "../../middleware/requireRole.ts";
 
 const router = Router();
 const service = new TransactionService();
 
-// DTO for creating transactions
-class CreateTransactionDto {
-  user_id: string;
-  reference_type: string;
+export class CreateTransactionDto {
+  @IsUUID()
+  user_id!: string;
+
+  @IsString()
+  reference_type!: string;
+
+  @IsOptional()
+  @IsUUID()
   reference_uuid?: string;
+
+  @IsOptional()
+  @IsString()
   notes?: string;
-  occurred_at?: string; // ISO date string
+
+  @IsOptional()
+  @IsDateString()
+  occurred_at?: string;
 }
 
-// DTO for transaction lines
-class TransactionLineDto {
-  inventory_item_id: string;
-  quantity_change: number;
-  unit_cost: number;
-}
-
-// Validation helper
-async function validateDto(dto: any, cls: any) {
+async function validateDto<T extends object>(dto: T, cls: new () => T): Promise<T> {
   const obj = plainToInstance(cls, dto);
-  const errors = await validate(obj, { forbidUnknownValues: false });
+  const errors = await validate(obj, { whitelist: true, forbidNonWhitelisted: true });
   if (errors.length > 0) {
-    const messages = Object.values(errors)
-      .map((e) => Object.values(e.constraints ?? {}))
-      .flat()
-      .join(", ");
-    throw new Error(messages);
+    const messages = errors
+      .map((e) => Object.values(e.constraints ?? {}).join(", "))
+      .join("; ");
+    throw new Error(`Validation failed: ${messages}`);
   }
+  return obj;
 }
 
-// GET /api/v1/transaction
-router.get("/", async (req, res) => {
+// GET /api/v1/transaction (Viewer+)
+router.get("/", requireRole("viewer", "staff", "manager", "admin"), async (req, res) => {
   try {
     const filters = {
       userId: req.query.userId as string,
@@ -51,8 +55,8 @@ router.get("/", async (req, res) => {
   }
 });
 
-// GET /api/v1/transaction/:id
-router.get("/:id", async (req, res) => {
+// GET /api/v1/transaction/:id (Viewer+)
+router.get("/:id", requireRole("viewer", "staff", "manager", "admin"), async (req, res) => {
   try {
     const transaction = await service.getById(req.params.id);
     if (!transaction) {
@@ -64,13 +68,12 @@ router.get("/:id", async (req, res) => {
   }
 });
 
-// POST /api/v1/transaction
-router.post("/", async (req, res) => {
+// POST /api/v1/transaction (Staff+)
+router.post("/", requireRole("staff", "manager", "admin"), async (req, res) => {
   try {
     await validateDto(req.body, CreateTransactionDto);
     const { lines, ...txData } = req.body;
 
-    // Convert date string to Date object if provided
     const processedData = {
       ...txData,
       occurred_at: txData.occurred_at ? new Date(txData.occurred_at) : undefined
@@ -86,25 +89,23 @@ router.post("/", async (req, res) => {
   }
 });
 
-// GET /api/v1/transaction/stock-adjustment (convenience endpoint)
-router.post("/stock-adjustment", async (req, res) => {
+// POST /api/v1/transaction/stock-adjustment (Staff+)
+router.post("/stock-adjustment", requireRole("staff", "manager", "admin"), async (req, res) => {
   try {
     const {
       user_id,
       reference_type,
       reference_uuid,
-      adjustments, // [{ inventoryItemId, quantityChange, unitCost }]
+      adjustments,
       notes
     } = req.body;
 
-    // Validate required fields
     if (!user_id || !reference_type || !Array.isArray(adjustments)) {
       return res.status(400).json({
         error: "user_id, reference_type, and adjustments array are required"
       });
     }
 
-    // Validate each adjustment
     for (const adj of adjustments) {
       if (!adj.inventoryItemId || typeof adj.quantityChange !== 'number' || typeof adj.unitCost !== 'number') {
         return res.status(400).json({

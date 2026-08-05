@@ -27,6 +27,7 @@ import { CustomerOrderLine } from "./entity/CustomerOrderLine.ts";
 import { StockAdjustment } from "./entity/StockAdjustment.ts";
 import { RefreshToken } from "./entity/RefreshToken.ts";
 import { Init1689500000000 } from "./migration/1689500000000-Init.ts";
+import { AddOrgAuditOrdersInvoices1689500000001 } from "./migration/1689500000001-AddOrgAuditOrdersInvoices.ts";
 
 const isLocalhostDb = env.databaseUrl.includes("localhost") || env.databaseUrl.includes("127.0.0.1");
 
@@ -62,6 +63,6 @@ export const AppDataSource = new DataSource({
     StockAdjustment,
     RefreshToken,
   ],
-  migrations: [Init1689500000000],
+  migrations: [Init1689500000000, AddOrgAuditOrdersInvoices1689500000001],
   subscribers: [],
 });

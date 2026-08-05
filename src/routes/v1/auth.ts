@@ -1,8 +1,16 @@
 import { Router } from "express";
 import { AuthService } from "../../services/AuthService.ts";
+import { env } from "../../config/env.ts";
 
 const router = Router();
 const authService = new AuthService();
+
+const COOKIE_OPTIONS = {
+  httpOnly: true,
+  secure: env.nodeEnv === "production",
+  sameSite: "strict" as const,
+  maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+};
 
 /**
  * POST /api/v1/auth/register
@@ -20,6 +28,7 @@ router.post("/register", async (req, res) => {
       role ?? "viewer"
     );
 
+    res.cookie("refreshToken", refreshToken, COOKIE_OPTIONS);
     res.status(201).json({
       user: {
         id: user.id,
@@ -45,6 +54,7 @@ router.post("/login", async (req, res) => {
   }
   try {
     const { user, token, refreshToken } = await authService.login(email, password);
+    res.cookie("refreshToken", refreshToken, COOKIE_OPTIONS);
     res.json({
       user: {
         id: user.id,
@@ -72,7 +82,7 @@ router.post("/forgot-password", async (req, res) => {
     const rawResetToken = await authService.generateForgotPasswordToken(email);
     res.json({
       message: "If your email is registered, a password reset token has been generated.",
-      resetToken: rawResetToken, // Returned in API response for client-side reset workflow
+      resetToken: rawResetToken,
     });
   } catch (e: any) {
     res.status(400).json({ error: e.message });
@@ -99,16 +109,25 @@ router.post("/reset-password", async (req, res) => {
  * POST /api/v1/auth/refresh-token
  */
 router.post("/refresh-token", async (req, res) => {
-  const { refreshToken } = req.body;
+  const refreshToken = req.cookies?.refreshToken || req.body?.refreshToken;
   if (!refreshToken) {
-    return res.status(400).json({ error: "refreshToken is required" });
+    return res.status(400).json({ error: "refreshToken cookie or body field is required" });
   }
   try {
     const tokens = await authService.refreshAccessToken(refreshToken);
+    res.cookie("refreshToken", tokens.refreshToken, COOKIE_OPTIONS);
     res.json(tokens);
   } catch (e: any) {
     res.status(401).json({ error: e.message });
   }
+});
+
+/**
+ * POST /api/v1/auth/logout
+ */
+router.post("/logout", async (req, res) => {
+  res.clearCookie("refreshToken", COOKIE_OPTIONS);
+  res.json({ message: "Successfully logged out." });
 });
 
 export default router;

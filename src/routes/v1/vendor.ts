@@ -1,37 +1,58 @@
 import { Router } from "express";
 import { VendorService } from "../../services/VendorService";
-import { validate } from "class-validator";
+import { validate, IsString, IsOptional, IsEmail, MaxLength } from "class-validator";
 import { plainToInstance } from "class-transformer";
+import { requireRole } from "../../middleware/requireRole.ts";
 
 const router = Router();
 const service = new VendorService();
 
-// DTO for creating/updating vendors
-class CreateVendorDto {
-  vendor_code: string;
-  name: string;
+export class CreateVendorDto {
+  @IsString()
+  @MaxLength(100)
+  vendor_code!: string;
+
+  @IsString()
+  @MaxLength(255)
+  name!: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(255)
   contact_name?: string;
+
+  @IsOptional()
+  @IsEmail()
   email?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(50)
   phone?: string;
+
+  @IsOptional()
   address?: Record<string, any>;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
   payment_terms?: string;
 }
 
-// Validation helper
-async function validateDto(dto: any, cls: any) {
+async function validateDto<T extends object>(dto: T, cls: new () => T): Promise<T> {
   const obj = plainToInstance(cls, dto);
-  const errors = await validate(obj, { forbidUnknownValues: false });
+  const errors = await validate(obj, { whitelist: true, forbidNonWhitelisted: true });
   if (errors.length > 0) {
-    const messages = Object.values(errors)
-      .map((e) => Object.values(e.constraints ?? {}))
-      .flat()
-      .join(", ");
-    throw new Error(messages);
+    const messages = errors
+      .map((e) => Object.values(e.constraints ?? {}).join(", "))
+      .join("; ");
+    throw new Error(`Validation failed: ${messages}`);
   }
+  return obj;
 }
 
-// GET /api/v1/vendor
-router.get("/", async (req, res) => {
+// GET /api/v1/vendor (Viewer+)
+router.get("/", requireRole("viewer", "staff", "manager", "admin"), async (req, res) => {
   try {
     const list = await service.list();
     res.json(list);
@@ -40,8 +61,8 @@ router.get("/", async (req, res) => {
   }
 });
 
-// GET /api/v1/vendor/:id
-router.get("/:id", async (req, res) => {
+// GET /api/v1/vendor/:id (Viewer+)
+router.get("/:id", requireRole("viewer", "staff", "manager", "admin"), async (req, res) => {
   try {
     const vendor = await service.findById(req.params.id);
     if (!vendor) {
@@ -53,30 +74,30 @@ router.get("/:id", async (req, res) => {
   }
 });
 
-// POST /api/v1/vendor
-router.post("/", async (req, res) => {
+// POST /api/v1/vendor (Staff+)
+router.post("/", requireRole("staff", "manager", "admin"), async (req, res) => {
   try {
-    await validateDto(req.body, CreateVendorDto);
-    const created = await service.create(req.body);
+    const validData = await validateDto(req.body, CreateVendorDto);
+    const created = await service.create(validData);
     res.status(201).json(created);
   } catch (e: any) {
     res.status(400).json({ error: e.message });
   }
 });
 
-// PUT /api/v1/vendor/:id
-router.put("/:id", async (req, res) => {
+// PUT /api/v1/vendor/:id (Staff+)
+router.put("/:id", requireRole("staff", "manager", "admin"), async (req, res) => {
   try {
-    await validateDto(req.body, CreateVendorDto);
-    const updated = await service.update(req.params.id, req.body);
+    const validData = await validateDto(req.body, CreateVendorDto);
+    const updated = await service.update(req.params.id, validData);
     res.json(updated);
   } catch (e: any) {
     res.status(400).json({ error: e.message });
   }
 });
 
-// DELETE /api/v1/vendor/:id
-router.delete("/:id", async (req, res) => {
+// DELETE /api/v1/vendor/:id (Admin only)
+router.delete("/:id", requireRole("admin"), async (req, res) => {
   try {
     await service.delete(req.params.id);
     res.json({ message: "Deleted" });
