@@ -33,7 +33,10 @@ export class OrderService {
 
       for (const reqItem of dto.items) {
         const item = await queryRunner.manager.findOne(InventoryItem, {
-          where: { id: reqItem.itemId, organization_id: dto.organizationId },
+          where: [
+            { id: reqItem.itemId, organization_id: dto.organizationId },
+            { sku: reqItem.itemId, organization_id: dto.organizationId },
+          ],
         });
 
         if (!item) {

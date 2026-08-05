@@ -1,15 +1,20 @@
 import { Router } from "express";
 import { OrderService } from "../../services/OrderService.ts";
 import { getTenantOrgId } from "../../middleware/tenant.ts";
-import { validate, IsString, IsOptional, IsEmail, IsArray, ArrayNotEmpty, IsInt, Min, IsUUID, ValidateNested } from "class-validator";
+import { validate, IsString, IsOptional, IsEmail, IsArray, ArrayNotEmpty, IsInt, Min, ValidateNested } from "class-validator";
 import { plainToInstance, Type } from "class-transformer";
 
 const router = Router();
 const orderService = new OrderService();
 
 export class OrderItemInput {
-  @IsUUID()
-  itemId!: string;
+  @IsOptional()
+  @IsString()
+  itemId?: string;
+
+  @IsOptional()
+  @IsString()
+  sku?: string;
 
   @IsInt()
   @Min(1)
@@ -22,12 +27,24 @@ export class CreateOrderDto {
   customerName?: string;
 
   @IsOptional()
+  @IsString()
+  customer_name?: string;
+
+  @IsOptional()
   @IsEmail()
   customerEmail?: string;
 
   @IsOptional()
+  @IsEmail()
+  customer_email?: string;
+
+  @IsOptional()
   @IsString()
   customerPhone?: string;
+
+  @IsOptional()
+  @IsString()
+  customer_phone?: string;
 
   @IsArray()
   @ArrayNotEmpty()
@@ -38,7 +55,7 @@ export class CreateOrderDto {
 
 async function validateDto<T extends object>(dto: T, cls: new () => T): Promise<T> {
   const obj = plainToInstance(cls, dto);
-  const errors = await validate(obj, { whitelist: true, forbidNonWhitelisted: true });
+  const errors = await validate(obj, { whitelist: false, forbidNonWhitelisted: false });
   if (errors.length > 0) {
     const messages = errors
       .map((e) => Object.values(e.constraints ?? {}).join(", "))
@@ -51,10 +68,23 @@ async function validateDto<T extends object>(dto: T, cls: new () => T): Promise<
 // POST /api/v1/orders (Public / Storefront)
 router.post("/", async (req, res) => {
   try {
-    await validateDto(req.body, CreateOrderDto);
+    const validated = await validateDto(req.body, CreateOrderDto);
     const orgId = getTenantOrgId(req);
+
+    const customerName = validated.customerName || validated.customer_name || "Guest Customer";
+    const customerEmail = validated.customerEmail || validated.customer_email || "guest@experimindlabs.com";
+    const customerPhone = validated.customerPhone || validated.customer_phone || "";
+
+    const items = validated.items.map((i) => ({
+      itemId: i.itemId || i.sku || "",
+      quantity: i.quantity,
+    }));
+
     const result = await orderService.createStorefrontOrder({
-      ...req.body,
+      customerName,
+      customerEmail,
+      customerPhone,
+      items,
       organizationId: orgId,
     });
     res.status(201).json(result);

@@ -107,7 +107,7 @@ router.post("/razorpay", async (req: Request, res: Response) => {
             seq.last_number += 1;
             await queryRunner.manager.save(seq);
 
-            const invoiceNumber = `EXP-${startYear}-${String(seq.last_number).padStart(5, "0")}`;
+            const invoiceNumber = `EXP/${financialYear}/${String(seq.last_number).padStart(5, "0")}`;
 
             const invoice = queryRunner.manager.create(Invoice, {
               organization_id: order.organization_id,

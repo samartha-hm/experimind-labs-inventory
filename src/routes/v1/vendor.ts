@@ -54,7 +54,7 @@ async function validateDto<T extends object>(dto: T, cls: new () => T): Promise<
 // GET /api/v1/vendor (Viewer+)
 router.get("/", requireRole("viewer", "staff", "manager", "admin"), async (req, res) => {
   try {
-    const list = await service.list();
+    const list = await service.list((req as any).orgId);
     res.json(list);
   } catch (e: any) {
     res.status(400).json({ error: e.message });
@@ -64,7 +64,7 @@ router.get("/", requireRole("viewer", "staff", "manager", "admin"), async (req, 
 // GET /api/v1/vendor/:id (Viewer+)
 router.get("/:id", requireRole("viewer", "staff", "manager", "admin"), async (req, res) => {
   try {
-    const vendor = await service.findById(req.params.id);
+    const vendor = await service.findById(req.params.id, (req as any).orgId);
     if (!vendor) {
       return res.status(404).json({ error: "Vendor not found" });
     }
@@ -78,7 +78,7 @@ router.get("/:id", requireRole("viewer", "staff", "manager", "admin"), async (re
 router.post("/", requireRole("staff", "manager", "admin"), async (req, res) => {
   try {
     const validData = await validateDto(req.body, CreateVendorDto);
-    const created = await service.create(validData);
+    const created = await service.create(validData, (req as any).orgId);
     res.status(201).json(created);
   } catch (e: any) {
     res.status(400).json({ error: e.message });
@@ -89,7 +89,7 @@ router.post("/", requireRole("staff", "manager", "admin"), async (req, res) => {
 router.put("/:id", requireRole("staff", "manager", "admin"), async (req, res) => {
   try {
     const validData = await validateDto(req.body, CreateVendorDto);
-    const updated = await service.update(req.params.id, validData);
+    const updated = await service.update(req.params.id, validData, (req as any).orgId);
     res.json(updated);
   } catch (e: any) {
     res.status(400).json({ error: e.message });
@@ -99,7 +99,7 @@ router.put("/:id", requireRole("staff", "manager", "admin"), async (req, res) =>
 // DELETE /api/v1/vendor/:id (Admin only)
 router.delete("/:id", requireRole("admin"), async (req, res) => {
   try {
-    await service.delete(req.params.id);
+    await service.delete(req.params.id, (req as any).orgId);
     res.json({ message: "Deleted" });
   } catch (e: any) {
     res.status(400).json({ error: e.message });
