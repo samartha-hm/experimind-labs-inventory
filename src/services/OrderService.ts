@@ -32,11 +32,11 @@ export class OrderService {
       const orderLines: CustomerOrderLine[] = [];
 
       for (const reqItem of dto.items) {
+        const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(reqItem.itemId);
         const item = await queryRunner.manager.findOne(InventoryItem, {
-          where: [
-            { id: reqItem.itemId, organization_id: dto.organizationId },
-            { sku: reqItem.itemId, organization_id: dto.organizationId },
-          ],
+          where: isUuid
+            ? { id: reqItem.itemId, organization_id: dto.organizationId }
+            : { sku: reqItem.itemId, organization_id: dto.organizationId },
         });
 
         if (!item) {

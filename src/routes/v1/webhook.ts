@@ -109,34 +109,46 @@ router.post("/razorpay", async (req: Request, res: Response) => {
 
             const invoiceNumber = `EXP/${financialYear}/${String(seq.last_number).padStart(5, "0")}`;
 
+            const grandTotal = Number(order.total_amount);
+            const totalTaxable = Math.round((grandTotal * 100) / 118 * 100) / 100;
+            const totalTax = Math.round((grandTotal - totalTaxable) * 100) / 100;
+            const cgstTotal = Math.round((totalTax / 2) * 100) / 100;
+            const sgstTotal = Math.round((totalTax / 2) * 100) / 100;
+
             const invoice = queryRunner.manager.create(Invoice, {
               organization_id: order.organization_id,
               invoice_number: invoiceNumber,
               invoice_date: new Date(),
               customer_name: order.customer_name,
               place_of_supply: "29",
-              total_taxable: order.total_amount,
-              cgst_total: Math.round(order.total_amount * 0.09),
-              sgst_total: Math.round(order.total_amount * 0.09),
+              total_taxable: totalTaxable,
+              cgst_total: cgstTotal,
+              sgst_total: sgstTotal,
               igst_total: 0,
-              grand_total: Math.round(order.total_amount * 1.18),
+              grand_total: grandTotal,
               status: "issued",
             });
             const savedInvoice = await queryRunner.manager.save(invoice);
 
             // Persist individual InvoiceLine items
             for (const line of orderLines) {
+              const lineGrandTotal = Number(line.line_total);
+              const lineTaxable = Math.round((lineGrandTotal * 100) / 118 * 100) / 100;
+              const lineTax = Math.round((lineGrandTotal - lineTaxable) * 100) / 100;
+              const lineCgst = Math.round((lineTax / 2) * 100) / 100;
+              const lineSgst = Math.round((lineTax / 2) * 100) / 100;
+
               const invLine = queryRunner.manager.create(InvoiceLine, {
                 invoice: savedInvoice,
                 item_name: line.item_name,
                 quantity: line.quantity,
                 unit_price: line.unit_price,
-                taxable_value: line.line_total,
+                taxable_value: lineTaxable,
                 gst_rate_pct: 18.0,
-                cgst_amount: Math.round(line.line_total * 0.09),
-                sgst_amount: Math.round(line.line_total * 0.09),
+                cgst_amount: lineCgst,
+                sgst_amount: lineSgst,
                 igst_amount: 0,
-                line_total: Math.round(line.line_total * 1.18),
+                line_total: lineGrandTotal,
               });
               await queryRunner.manager.save(invLine);
             }

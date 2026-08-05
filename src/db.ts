@@ -31,6 +31,7 @@ import { AddOrgAuditOrdersInvoices1689500000001 } from "./migration/168950000000
 import { SeedDefaultOrganization1689500000002 } from "./migration/1689500000002-SeedDefaultOrganization.ts";
 import { AlignEntitiesAndSchema1689500000003 } from "./migration/1689500000003-AlignEntitiesAndSchema.ts";
 import { CleanSchemaAlignment1689500000004 } from "./migration/1689500000004-CleanSchemaAlignment.ts";
+import { FinalSchemaReconciliation1689500000005 } from "./migration/1689500000005-FinalSchemaReconciliation.ts";
 
 const isLocalhostDb = env.databaseUrl.includes("localhost") || env.databaseUrl.includes("127.0.0.1");
 
@@ -66,6 +67,6 @@ export const AppDataSource = new DataSource({
     StockAdjustment,
     RefreshToken,
   ],
-  migrations: [Init1689500000000, AddOrgAuditOrdersInvoices1689500000001, SeedDefaultOrganization1689500000002, AlignEntitiesAndSchema1689500000003, CleanSchemaAlignment1689500000004],
+  migrations: [Init1689500000000, AddOrgAuditOrdersInvoices1689500000001, SeedDefaultOrganization1689500000002, AlignEntitiesAndSchema1689500000003, CleanSchemaAlignment1689500000004, FinalSchemaReconciliation1689500000005],
   subscribers: [],
 });

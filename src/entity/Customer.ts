@@ -3,6 +3,7 @@ import {
   PrimaryGeneratedColumn,
   Column,
   OneToMany,
+  Index,
   CreateDateColumn,
   UpdateDateColumn,
 } from "typeorm";
@@ -12,6 +13,10 @@ import type { SalesOrder } from "./SalesOrder";
 export class Customer {
   @PrimaryGeneratedColumn("uuid")
   id: string;
+
+  @Column({ type: "uuid", default: "00000000-0000-0000-0000-000000000000" })
+  @Index()
+  organization_id: string;
 
   @Column({ type: "varchar", unique: true })
   customer_code: string;

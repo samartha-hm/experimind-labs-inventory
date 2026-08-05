@@ -57,7 +57,7 @@ async function validateDto<T extends object>(dto: T, cls: new () => T): Promise<
 // GET /api/v1/customer (Viewer+)
 router.get("/", requireRole("viewer", "staff", "manager", "admin"), async (req, res) => {
   try {
-    const list = await service.list();
+    const list = await service.list((req as any).orgId);
     res.json(list);
   } catch (e: any) {
     res.status(400).json({ error: e.message });
@@ -67,7 +67,7 @@ router.get("/", requireRole("viewer", "staff", "manager", "admin"), async (req, 
 // GET /api/v1/customer/:id (Viewer+)
 router.get("/:id", requireRole("viewer", "staff", "manager", "admin"), async (req, res) => {
   try {
-    const customer = await service.findById(req.params.id);
+    const customer = await service.findById(req.params.id, (req as any).orgId);
     if (!customer) {
       return res.status(404).json({ error: "Customer not found" });
     }
@@ -81,7 +81,7 @@ router.get("/:id", requireRole("viewer", "staff", "manager", "admin"), async (re
 router.post("/", requireRole("staff", "manager", "admin"), async (req, res) => {
   try {
     await validateDto(req.body, CreateCustomerDto);
-    const created = await service.create(req.body);
+    const created = await service.create(req.body, (req as any).orgId);
     res.status(201).json(created);
   } catch (e: any) {
     res.status(400).json({ error: e.message });
@@ -92,7 +92,7 @@ router.post("/", requireRole("staff", "manager", "admin"), async (req, res) => {
 router.put("/:id", requireRole("staff", "manager", "admin"), async (req, res) => {
   try {
     await validateDto(req.body, CreateCustomerDto);
-    const updated = await service.update(req.params.id, req.body);
+    const updated = await service.update(req.params.id, req.body, (req as any).orgId);
     res.json(updated);
   } catch (e: any) {
     res.status(400).json({ error: e.message });
@@ -102,7 +102,7 @@ router.put("/:id", requireRole("staff", "manager", "admin"), async (req, res) =>
 // DELETE /api/v1/customer/:id (Admin only)
 router.delete("/:id", requireRole("admin"), async (req, res) => {
   try {
-    await service.delete(req.params.id);
+    await service.delete(req.params.id, (req as any).orgId);
     res.json({ message: "Deleted" });
   } catch (e: any) {
     res.status(400).json({ error: e.message });
