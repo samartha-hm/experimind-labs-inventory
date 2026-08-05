@@ -3,38 +3,43 @@ import {
   PrimaryGeneratedColumn,
   Column,
   OneToMany,
+  Index,
   CreateDateColumn,
   UpdateDateColumn,
 } from "typeorm";
-import type { Bin } from "./Bin";
-import type { InventoryItem } from "./InventoryItem";
+import type { Bin } from "./Bin.ts";
+import type { InventoryItem } from "./InventoryItem.ts";
 
 @Entity("warehouses")
 export class Warehouse {
   @PrimaryGeneratedColumn("uuid")
-  id: string;
+  id!: string;
+
+  @Column({ type: "uuid", default: "00000000-0000-0000-0000-000000000000" })
+  @Index()
+  organization_id!: string;
 
   @Column({ type: "varchar", unique: true })
-  code: string;
+  code!: string;
 
   @Column({ type: "varchar" })
-  name: string;
+  name!: string;
 
   @Column({ type: "jsonb", nullable: true })
   address?: any;
 
   @Column({ type: "boolean", default: false })
-  is_default: boolean;
+  is_default!: boolean;
 
   @OneToMany("Bin", "warehouse")
-  bins: Bin[];
+  bins!: Bin[];
 
   @OneToMany("InventoryItem", "warehouse")
-  inventory: InventoryItem[];
+  inventory!: InventoryItem[];
 
   @CreateDateColumn()
-  created_at: Date;
+  created_at!: Date;
 
   @UpdateDateColumn()
-  updated_at: Date;
+  updated_at!: Date;
 }

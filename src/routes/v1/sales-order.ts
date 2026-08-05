@@ -1,42 +1,45 @@
 import { Router } from "express";
 import { SalesOrderService } from "../../services/SalesOrderService";
-import { validate } from "class-validator";
+import { validate, IsString, IsOptional, IsUUID, IsDateString, IsEnum, IsInt, Min } from "class-validator";
 import { plainToInstance } from "class-transformer";
+import { requireRole } from "../../middleware/requireRole.ts";
 
 const router = Router();
 const service = new SalesOrderService();
 
-// DTO for creating/updating sales orders
-class CreateSalesOrderDto {
-  customer_id: string;
-  so_number: string;
-  order_date: string; // ISO date string
-  required_date?: string; // ISO date string
+export class CreateSalesOrderDto {
+  @IsUUID()
+  customer_id!: string;
+
+  @IsString()
+  so_number!: string;
+
+  @IsDateString()
+  order_date!: string;
+
+  @IsOptional()
+  @IsDateString()
+  required_date?: string;
+
+  @IsOptional()
+  @IsEnum(["draft", "confirmed", "picking", "packed", "shipped", "delivered", "cancelled"])
   status?: "draft" | "confirmed" | "picking" | "packed" | "shipped" | "delivered" | "cancelled";
 }
 
-// DTO for sales order lines
-class SalesOrderLineDto {
-  inventory_item_id: string;
-  qty_ordered: number;
-  unit_price: number;
-}
-
-// Validation helper
-async function validateDto(dto: any, cls: any) {
+async function validateDto<T extends object>(dto: T, cls: new () => T): Promise<T> {
   const obj = plainToInstance(cls, dto);
-  const errors = await validate(obj, { forbidUnknownValues: false });
+  const errors = await validate(obj, { whitelist: true, forbidNonWhitelisted: true });
   if (errors.length > 0) {
-    const messages = Object.values(errors)
-      .map((e) => Object.values(e.constraints ?? {}))
-      .flat()
-      .join(", ");
-    throw new Error(messages);
+    const messages = errors
+      .map((e) => Object.values(e.constraints ?? {}).join(", "))
+      .join("; ");
+    throw new Error(`Validation failed: ${messages}`);
   }
+  return obj;
 }
 
-// GET /api/v1/sales-order
-router.get("/", async (req, res) => {
+// GET /api/v1/sales-order (Viewer+)
+router.get("/", requireRole("viewer", "staff", "manager", "admin"), async (req, res) => {
   try {
     const list = await service.list();
     res.json(list);
@@ -45,8 +48,8 @@ router.get("/", async (req, res) => {
   }
 });
 
-// GET /api/v1/sales-order/:id
-router.get("/:id", async (req, res) => {
+// GET /api/v1/sales-order/:id (Viewer+)
+router.get("/:id", requireRole("viewer", "staff", "manager", "admin"), async (req, res) => {
   try {
     const so = await service.findById(req.params.id);
     if (!so) {
@@ -58,13 +61,12 @@ router.get("/:id", async (req, res) => {
   }
 });
 
-// POST /api/v1/sales-order
-router.post("/", async (req, res) => {
+// POST /api/v1/sales-order (Staff+)
+router.post("/", requireRole("staff", "manager", "admin"), async (req, res) => {
   try {
     await validateDto(req.body, CreateSalesOrderDto);
     const { lines, ...soData } = req.body;
 
-    // Convert date strings to Date objects
     const processedData = {
       ...soData,
       order_date: new Date(soData.order_date),
@@ -81,13 +83,12 @@ router.post("/", async (req, res) => {
   }
 });
 
-// PUT /api/v1/sales-order/:id
-router.put("/:id", async (req, res) => {
+// PUT /api/v1/sales-order/:id (Staff+)
+router.put("/:id", requireRole("staff", "manager", "admin"), async (req, res) => {
   try {
     await validateDto(req.body, CreateSalesOrderDto);
     const { lines, ...soData } = req.body;
 
-    // Convert date strings to Date objects
     const processedData = {
       ...soData,
       order_date: new Date(soData.order_date),
@@ -101,8 +102,8 @@ router.put("/:id", async (req, res) => {
   }
 });
 
-// DELETE /api/v1/sales-order/:id
-router.delete("/:id", async (req, res) => {
+// DELETE /api/v1/sales-order/:id (Admin only)
+router.delete("/:id", requireRole("admin"), async (req, res) => {
   try {
     await service.delete(req.params.id);
     res.json({ message: "Deleted" });
@@ -111,8 +112,8 @@ router.delete("/:id", async (req, res) => {
   }
 });
 
-// POST /api/v1/sales-order/:id/ship
-router.post("/:id/ship", async (req, res) => {
+// POST /api/v1/sales-order/:id/ship (Staff+)
+router.post("/:id/ship", requireRole("staff", "manager", "admin"), async (req, res) => {
   try {
     const { shipments } = req.body;
     if (!Array.isArray(shipments)) {

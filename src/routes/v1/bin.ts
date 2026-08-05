@@ -1,34 +1,44 @@
 import { Router } from "express";
 import { BinService } from "../../services/BinService";
-import { validate } from "class-validator";
+import { validate, IsString, IsOptional, IsUUID, IsBoolean, MaxLength } from "class-validator";
 import { plainToInstance } from "class-transformer";
+import { requireRole } from "../../middleware/requireRole.ts";
 
 const router = Router();
 const service = new BinService();
 
-// DTO for creating/updating bins
-class CreateBinDto {
-  warehouse_id: string;
-  code: string;
+export class CreateBinDto {
+  @IsUUID()
+  warehouse_id!: string;
+
+  @IsString()
+  @MaxLength(100)
+  code!: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
   description?: string;
+
+  @IsOptional()
+  @IsBoolean()
   is_active?: boolean;
 }
 
-// Validation helper
-async function validateDto(dto: any, cls: any) {
+async function validateDto<T extends object>(dto: T, cls: new () => T): Promise<T> {
   const obj = plainToInstance(cls, dto);
-  const errors = await validate(obj, { forbidUnknownValues: false });
+  const errors = await validate(obj, { whitelist: true, forbidNonWhitelisted: true });
   if (errors.length > 0) {
-    const messages = Object.values(errors)
-      .map((e) => Object.values(e.constraints ?? {}))
-      .flat()
-      .join(", ");
-    throw new Error(messages);
+    const messages = errors
+      .map((e) => Object.values(e.constraints ?? {}).join(", "))
+      .join("; ");
+    throw new Error(`Validation failed: ${messages}`);
   }
+  return obj;
 }
 
-// GET /api/v1/bin?warehouseId=...
-router.get("/", async (req, res) => {
+// GET /api/v1/bin (Viewer+)
+router.get("/", requireRole("viewer", "staff", "manager", "admin"), async (req, res) => {
   try {
     const warehouseId = req.query.warehouseId as string;
     const list = await service.list(warehouseId);
@@ -38,8 +48,8 @@ router.get("/", async (req, res) => {
   }
 });
 
-// GET /api/v1/bin/:id
-router.get("/:id", async (req, res) => {
+// GET /api/v1/bin/:id (Viewer+)
+router.get("/:id", requireRole("viewer", "staff", "manager", "admin"), async (req, res) => {
   try {
     const bin = await service.findById(req.params.id);
     if (!bin) {
@@ -51,8 +61,8 @@ router.get("/:id", async (req, res) => {
   }
 });
 
-// POST /api/v1/bin
-router.post("/", async (req, res) => {
+// POST /api/v1/bin (Staff+)
+router.post("/", requireRole("staff", "manager", "admin"), async (req, res) => {
   try {
     await validateDto(req.body, CreateBinDto);
     const created = await service.create(req.body);
@@ -62,8 +72,8 @@ router.post("/", async (req, res) => {
   }
 });
 
-// PUT /api/v1/bin/:id
-router.put("/:id", async (req, res) => {
+// PUT /api/v1/bin/:id (Staff+)
+router.put("/:id", requireRole("staff", "manager", "admin"), async (req, res) => {
   try {
     await validateDto(req.body, CreateBinDto);
     const updated = await service.update(req.params.id, req.body);
@@ -73,8 +83,8 @@ router.put("/:id", async (req, res) => {
   }
 });
 
-// DELETE /api/v1/bin/:id
-router.delete("/:id", async (req, res) => {
+// DELETE /api/v1/bin/:id (Admin only)
+router.delete("/:id", requireRole("admin"), async (req, res) => {
   try {
     await service.delete(req.params.id);
     res.json({ message: "Deleted" });

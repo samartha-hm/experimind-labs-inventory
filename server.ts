@@ -24,6 +24,7 @@ import reportRoutes from "./src/routes/v1/report.ts";
 import settingRoutes from "./src/routes/v1/setting.ts";
 import webhookRoutes from "./src/routes/v1/webhook.ts";
 import userRoutes from "./src/routes/v1/users.ts";
+import orderRoutes from "./src/routes/v1/orders.ts";
 
 // Initialize Postgres (with retry)
 async function connectDatabase(retries = 3): Promise<void> {
@@ -62,6 +63,9 @@ async function startServer() {
 
   app.use(globalLimiter);
 
+  // Raw Buffer Parser for Razorpay Webhook HMAC Verification
+  app.use("/api/public/webhook/razorpay", express.raw({ type: "application/json" }));
+
   // Parsers for JSON requests
   app.use(express.json({ limit: "10mb" }));
 
@@ -95,6 +99,7 @@ async function startServer() {
 
   // ===== Versioned API (protected) =====
   app.use("/api/v1/auth", authLimiter, authRoutes);
+  app.use("/api/v1/orders", orderRoutes);
   app.use("/api/v1/users", authenticateJwt, userRoutes);
   app.use("/api/v1/inventory", authenticateJwt, inventoryRoutes);
   app.use("/api/v1/warehouse", authenticateJwt, warehouseRoutes);

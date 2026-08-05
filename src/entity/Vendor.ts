@@ -3,21 +3,26 @@ import {
   PrimaryGeneratedColumn,
   Column,
   OneToMany,
+  Index,
   CreateDateColumn,
   UpdateDateColumn,
 } from "typeorm";
-import type { PurchaseOrder } from "./PurchaseOrder";
+import type { PurchaseOrder } from "./PurchaseOrder.ts";
 
 @Entity("vendors")
 export class Vendor {
   @PrimaryGeneratedColumn("uuid")
-  id: string;
+  id!: string;
+
+  @Column({ type: "uuid", default: "00000000-0000-0000-0000-000000000000" })
+  @Index()
+  organization_id!: string;
 
   @Column({ type: "varchar", unique: true })
-  vendor_code: string;
+  vendor_code!: string;
 
   @Column({ type: "varchar" })
-  name: string;
+  name!: string;
 
   @Column({ type: "varchar", nullable: true })
   contact_name?: string;
@@ -35,11 +40,11 @@ export class Vendor {
   payment_terms?: string;
 
   @OneToMany("PurchaseOrder", "vendor")
-  purchaseOrders: PurchaseOrder[];
+  purchaseOrders!: PurchaseOrder[];
 
   @CreateDateColumn()
-  created_at: Date;
+  created_at!: Date;
 
   @UpdateDateColumn()
-  updated_at: Date;
+  updated_at!: Date;
 }

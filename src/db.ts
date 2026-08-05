@@ -1,31 +1,41 @@
-import "dotenv/config";
+import "reflect-metadata";
 import { DataSource } from "typeorm";
-import { User } from "./entity/User";
-import { InventoryItem } from "./entity/InventoryItem";
-import { Warehouse } from "./entity/Warehouse";
-import { Bin } from "./entity/Bin";
-import { Kit } from "./entity/Kit";
-import { KitBom } from "./entity/KitBom";
-import { Vendor } from "./entity/Vendor";
-import { PurchaseOrder } from "./entity/PurchaseOrder";
-import { PurchaseOrderLine } from "./entity/PurchaseOrderLine";
-import { Customer } from "./entity/Customer";
-import { SalesOrder } from "./entity/SalesOrder";
-import { SalesOrderLine } from "./entity/SalesOrderLine";
-import { Transaction } from "./entity/Transaction";
-import { TransactionLine } from "./entity/TransactionLine";
-import { Setting } from "./entity/Setting";
-import { Init1689500000000 } from "./migration/1689500000000-Init";
+import { env } from "./config/env.ts";
+
+import { User } from "./entity/User.ts";
+import { InventoryItem } from "./entity/InventoryItem.ts";
+import { Warehouse } from "./entity/Warehouse.ts";
+import { Bin } from "./entity/Bin.ts";
+import { Kit } from "./entity/Kit.ts";
+import { KitBom } from "./entity/KitBom.ts";
+import { Vendor } from "./entity/Vendor.ts";
+import { PurchaseOrder } from "./entity/PurchaseOrder.ts";
+import { PurchaseOrderLine } from "./entity/PurchaseOrderLine.ts";
+import { Customer } from "./entity/Customer.ts";
+import { SalesOrder } from "./entity/SalesOrder.ts";
+import { SalesOrderLine } from "./entity/SalesOrderLine.ts";
+import { Transaction } from "./entity/Transaction.ts";
+import { TransactionLine } from "./entity/TransactionLine.ts";
+import { Setting } from "./entity/Setting.ts";
+import { Organization } from "./entity/Organization.ts";
+import { AuditLog } from "./entity/AuditLog.ts";
+import { Invoice } from "./entity/Invoice.ts";
+import { InvoiceLine } from "./entity/InvoiceLine.ts";
+import { InvoiceSequence } from "./entity/InvoiceSequence.ts";
+import { CustomerOrder } from "./entity/CustomerOrder.ts";
+import { CustomerOrderLine } from "./entity/CustomerOrderLine.ts";
+import { StockAdjustment } from "./entity/StockAdjustment.ts";
+import { RefreshToken } from "./entity/RefreshToken.ts";
+import { Init1689500000000 } from "./migration/1689500000000-Init.ts";
+
+const isLocalhostDb = env.databaseUrl.includes("localhost") || env.databaseUrl.includes("127.0.0.1");
 
 export const AppDataSource = new DataSource({
   type: "postgres",
-  host: process.env.DB_HOST ?? "localhost",
-  port: Number(process.env.DB_PORT ?? 5432),
-  username: process.env.DB_USER ?? "postgres",
-  password: process.env.DB_PASSWORD ?? "postgres",
-  database: process.env.DB_NAME ?? "experimind",
-  synchronize: false, // Use migrations in production
-  logging: ["error", "schema"],
+  url: env.databaseUrl,
+  ssl: isLocalhostDb ? false : { rejectUnauthorized: false },
+  synchronize: false, // Use migrations for production DB schema changes
+  logging: env.nodeEnv === "development" ? ["error", "warn"] : ["error"],
   entities: [
     User,
     InventoryItem,
@@ -41,7 +51,16 @@ export const AppDataSource = new DataSource({
     SalesOrderLine,
     Transaction,
     TransactionLine,
-    Setting
+    Setting,
+    Organization,
+    AuditLog,
+    Invoice,
+    InvoiceLine,
+    InvoiceSequence,
+    CustomerOrder,
+    CustomerOrderLine,
+    StockAdjustment,
+    RefreshToken,
   ],
   migrations: [Init1689500000000],
   subscribers: [],

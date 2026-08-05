@@ -1,38 +1,61 @@
 import { Router } from "express";
 import { CustomerService } from "../../services/CustomerService";
-import { validate } from "class-validator";
+import { validate, IsString, IsOptional, IsEmail, MaxLength, IsInt, Min } from "class-validator";
 import { plainToInstance } from "class-transformer";
+import { requireRole } from "../../middleware/requireRole.ts";
 
 const router = Router();
 const service = new CustomerService();
 
-// DTO for creating/updating customers
-class CreateCustomerDto {
-  customer_code: string;
-  name: string;
+export class CreateCustomerDto {
+  @IsString()
+  @MaxLength(100)
+  customer_code!: string;
+
+  @IsString()
+  @MaxLength(255)
+  name!: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(255)
   contact_name?: string;
+
+  @IsOptional()
+  @IsEmail()
   email?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(50)
   phone?: string;
+
+  @IsOptional()
   billing_address?: Record<string, any>;
+
+  @IsOptional()
   shipping_address?: Record<string, any>;
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
   credit_limit?: number;
 }
 
-// Validation helper
-async function validateDto(dto: any, cls: any) {
+async function validateDto<T extends object>(dto: T, cls: new () => T): Promise<T> {
   const obj = plainToInstance(cls, dto);
-  const errors = await validate(obj, { forbidUnknownValues: false });
+  const errors = await validate(obj, { whitelist: true, forbidNonWhitelisted: true });
   if (errors.length > 0) {
-    const messages = Object.values(errors)
-      .map((e) => Object.values(e.constraints ?? {}))
-      .flat()
-      .join(", ");
-    throw new Error(messages);
+    const messages = errors
+      .map((e) => Object.values(e.constraints ?? {}).join(", "))
+      .join("; ");
+    throw new Error(`Validation failed: ${messages}`);
   }
+  return obj;
 }
 
-// GET /api/v1/customer
-router.get("/", async (req, res) => {
+// GET /api/v1/customer (Viewer+)
+router.get("/", requireRole("viewer", "staff", "manager", "admin"), async (req, res) => {
   try {
     const list = await service.list();
     res.json(list);
@@ -41,8 +64,8 @@ router.get("/", async (req, res) => {
   }
 });
 
-// GET /api/v1/customer/:id
-router.get("/:id", async (req, res) => {
+// GET /api/v1/customer/:id (Viewer+)
+router.get("/:id", requireRole("viewer", "staff", "manager", "admin"), async (req, res) => {
   try {
     const customer = await service.findById(req.params.id);
     if (!customer) {
@@ -54,8 +77,8 @@ router.get("/:id", async (req, res) => {
   }
 });
 
-// POST /api/v1/customer
-router.post("/", async (req, res) => {
+// POST /api/v1/customer (Staff+)
+router.post("/", requireRole("staff", "manager", "admin"), async (req, res) => {
   try {
     await validateDto(req.body, CreateCustomerDto);
     const created = await service.create(req.body);
@@ -65,8 +88,8 @@ router.post("/", async (req, res) => {
   }
 });
 
-// PUT /api/v1/customer/:id
-router.put("/:id", async (req, res) => {
+// PUT /api/v1/customer/:id (Staff+)
+router.put("/:id", requireRole("staff", "manager", "admin"), async (req, res) => {
   try {
     await validateDto(req.body, CreateCustomerDto);
     const updated = await service.update(req.params.id, req.body);
@@ -76,8 +99,8 @@ router.put("/:id", async (req, res) => {
   }
 });
 
-// DELETE /api/v1/customer/:id
-router.delete("/:id", async (req, res) => {
+// DELETE /api/v1/customer/:id (Admin only)
+router.delete("/:id", requireRole("admin"), async (req, res) => {
   try {
     await service.delete(req.params.id);
     res.json({ message: "Deleted" });

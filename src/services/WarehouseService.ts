@@ -1,31 +1,47 @@
-import { Warehouse } from "../entity/Warehouse";
-import { AppDataSource } from "../db";
+import { Warehouse } from "../entity/Warehouse.ts";
+import { AppDataSource } from "../db.ts";
 
 export class WarehouseService {
   private get repo() {
     return AppDataSource.getRepository(Warehouse);
   }
 
-  async list(): Promise<Warehouse[]> {
-    return this.repo.find();
+  async list(organizationId?: string): Promise<Warehouse[]> {
+    const where: any = {};
+    if (organizationId) where.organization_id = organizationId;
+    return this.repo.find({ where });
   }
 
-  async create(dto: Partial<Warehouse>): Promise<Warehouse> {
-    const entity = this.repo.create(dto);
+  async create(dto: Partial<Warehouse>, organizationId?: string): Promise<Warehouse> {
+    const entity = this.repo.create({
+      ...dto,
+      organization_id: organizationId || dto.organization_id || "00000000-0000-0000-0000-000000000000",
+    });
     return this.repo.save(entity);
   }
 
-  async update(id: string, changes: Partial<Warehouse>): Promise<Warehouse> {
-    await this.repo.update(id, changes);
-    const updated = await this.repo.findOneByOrFail({ id });
-    return updated;
+  async update(id: string, changes: Partial<Warehouse>, organizationId?: string): Promise<Warehouse> {
+    const where: any = { id };
+    if (organizationId) where.organization_id = organizationId;
+
+    const existing = await this.repo.findOneBy(where);
+    if (!existing) {
+      throw new Error(`Warehouse '${id}' not found in organization.`);
+    }
+
+    Object.assign(existing, changes);
+    return this.repo.save(existing);
   }
 
-  async delete(id: string): Promise<void> {
-    await this.repo.delete(id);
+  async delete(id: string, organizationId?: string): Promise<void> {
+    const where: any = { id };
+    if (organizationId) where.organization_id = organizationId;
+    await this.repo.delete(where);
   }
 
-  async findById(id: string): Promise<Warehouse | null> {
-    return this.repo.findOneBy({ id });
+  async findById(id: string, organizationId?: string): Promise<Warehouse | null> {
+    const where: any = { id };
+    if (organizationId) where.organization_id = organizationId;
+    return this.repo.findOneBy(where);
   }
 }
