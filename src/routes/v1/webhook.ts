@@ -5,13 +5,14 @@ import { CustomerOrder } from "../../entity/CustomerOrder.ts";
 import { CustomerOrderLine } from "../../entity/CustomerOrderLine.ts";
 import { InventoryItem } from "../../entity/InventoryItem.ts";
 import { Invoice } from "../../entity/Invoice.ts";
+import { InvoiceLine } from "../../entity/InvoiceLine.ts";
 import { InvoiceSequence } from "../../entity/InvoiceSequence.ts";
 
 const router = Router();
 
 /**
  * Razorpay Webhook Endpoint
- * Performs HMAC verification over raw Buffer and executes atomic DB transaction for payment capture, stock decrement, and invoice generation.
+ * Performs HMAC verification over raw Buffer and executes atomic DB transaction for payment capture, stock decrement, and GST-compliant invoice line generation.
  */
 router.post("/razorpay", async (req: Request, res: Response) => {
   try {
@@ -57,7 +58,6 @@ router.post("/razorpay", async (req: Request, res: Response) => {
         await queryRunner.startTransaction();
 
         try {
-          // Lock CustomerOrder row alone to avoid PostgreSQL FOR UPDATE outer join error
           const order = await queryRunner.manager.findOne(CustomerOrder, {
             where: { razorpay_order_id: razorpayOrderId },
             lock: { mode: "pessimistic_write" },
@@ -68,7 +68,6 @@ router.post("/razorpay", async (req: Request, res: Response) => {
             order.razorpay_payment_id = razorpayPaymentId;
             await queryRunner.manager.save(order);
 
-            // Fetch order lines in secondary query inside transaction
             const orderLines = await queryRunner.manager.find(CustomerOrderLine, {
               where: { order: { id: order.id } },
             });
@@ -84,8 +83,13 @@ router.post("/razorpay", async (req: Request, res: Response) => {
               }
             }
 
-            const currentYear = new Date().getFullYear();
-            const financialYear = `${currentYear}-${currentYear + 1}`;
+            // Indian Financial Year Calculation (April 1 - March 31)
+            const now = new Date();
+            const year = now.getFullYear();
+            const month = now.getMonth(); // 0-indexed (0 = Jan, 3 = Apr)
+            const startYear = month < 3 ? year - 1 : year;
+            const endYear = startYear + 1;
+            const financialYear = `${startYear}-${endYear}`;
             
             let seq = await queryRunner.manager.findOne(InvoiceSequence, {
               where: { organization_id: order.organization_id, financial_year: financialYear },
@@ -103,7 +107,7 @@ router.post("/razorpay", async (req: Request, res: Response) => {
             seq.last_number += 1;
             await queryRunner.manager.save(seq);
 
-            const invoiceNumber = `EXP-${currentYear}-${String(seq.last_number).padStart(5, "0")}`;
+            const invoiceNumber = `EXP-${startYear}-${String(seq.last_number).padStart(5, "0")}`;
 
             const invoice = queryRunner.manager.create(Invoice, {
               organization_id: order.organization_id,
@@ -118,7 +122,24 @@ router.post("/razorpay", async (req: Request, res: Response) => {
               grand_total: Math.round(order.total_amount * 1.18),
               status: "issued",
             });
-            await queryRunner.manager.save(invoice);
+            const savedInvoice = await queryRunner.manager.save(invoice);
+
+            // Persist individual InvoiceLine items
+            for (const line of orderLines) {
+              const invLine = queryRunner.manager.create(InvoiceLine, {
+                invoice_id: savedInvoice.id,
+                description: line.item_name,
+                quantity: line.quantity,
+                unit_price: line.unit_price,
+                taxable_value: line.line_total,
+                gst_rate: 18,
+                cgst: Math.round(line.line_total * 0.09),
+                sgst: Math.round(line.line_total * 0.09),
+                igst: 0,
+                total_amount: Math.round(line.line_total * 1.18),
+              });
+              await queryRunner.manager.save(invLine);
+            }
           }
 
           await queryRunner.commitTransaction();

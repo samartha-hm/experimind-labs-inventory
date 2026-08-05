@@ -26,7 +26,7 @@ router.post("/register", async (req, res) => {
       email,
       password,
       name ?? email.split("@")[0],
-      role ?? "viewer"
+      "viewer" // Public registration is strictly forced to viewer role
     );
 
     res.cookie("refreshToken", refreshToken, COOKIE_OPTIONS);

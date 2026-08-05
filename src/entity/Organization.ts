@@ -5,16 +5,16 @@ export class Organization {
   @PrimaryGeneratedColumn("uuid")
   id!: string;
 
-  @Column({ unique: true })
+  @Column({ type: "varchar", unique: true })
   name!: string;
 
-  @Column({ nullable: true })
+  @Column({ type: "varchar", nullable: true })
   gstin?: string;
 
-  @Column({ nullable: true })
+  @Column({ type: "varchar", nullable: true })
   state_code?: string;
 
-  @Column({ default: "INR" })
+  @Column({ type: "varchar", default: "INR" })
   currency!: string;
 
   @CreateDateColumn()

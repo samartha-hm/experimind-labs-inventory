@@ -186,6 +186,7 @@ export class AuthService {
       sub: user.id,
       email: user.email,
       role: user.role,
+      orgId: (user as any).organization_id || "00000000-0000-0000-0000-000000000000",
     };
     return jwt.sign(payload, env.jwtSecret, { expiresIn: "12h" });
   }

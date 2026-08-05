@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { apiFetch } from './utils/api';
+import { apiFetch, setApiAuthToken } from './utils/api';
 
 export type AppRole = 'admin' | 'manager' | 'staff' | 'viewer';
 
@@ -38,6 +38,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<UserProfile | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    setApiAuthToken(token);
+  }, [token]);
 
   useEffect(() => {
     // Silent refresh using HttpOnly cookie on startup

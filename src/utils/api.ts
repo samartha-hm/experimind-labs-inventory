@@ -1,15 +1,19 @@
-// Type-safe REST API Client wrapper with JWT auth persistence
+let currentAuthToken: string | null = null;
+
+export function setApiAuthToken(token: string | null) {
+  currentAuthToken = token;
+}
 
 export async function apiFetch(endpoint: string, options: RequestInit = {}) {
-  const token = localStorage.getItem('nexa_auth_token');
   const headers = {
     'Content-Type': 'application/json',
-    ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+    ...(currentAuthToken ? { 'Authorization': `Bearer ${currentAuthToken}` } : {}),
     ...(options.headers || {})
   };
 
   const response = await fetch(endpoint, {
     ...options,
+    credentials: 'include',
     headers
   });
 
@@ -22,8 +26,6 @@ export async function apiFetch(endpoint: string, options: RequestInit = {}) {
     throw new Error(errorMsg);
   }
 
-  // Handle empty or 204 responses
   if (response.status === 204) return null;
-  
   return response.json();
 }
