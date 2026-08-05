@@ -1,11 +1,16 @@
 import "reflect-metadata";
 import express from "express";
 import path from "path";
+import helmet from "helmet";
+import cors from "cors";
+import rateLimit from "express-rate-limit";
 import { createServer as createViteServer } from "vite";
 import { GoogleGenAI } from "@google/genai";
+import { env } from "./src/config/env.ts";
 import { AppDataSource } from "./src/db.ts";
 import authRoutes from "./src/routes/v1/auth.ts";
 import { authenticateJwt } from "./src/middleware/auth.ts";
+import { errorHandler } from "./src/middleware/errorHandler.ts";
 import inventoryRoutes from "./src/routes/v1/inventory.ts";
 import warehouseRoutes from "./src/routes/v1/warehouse.ts";
 import binRoutes from "./src/routes/v1/bin.ts";
@@ -17,9 +22,7 @@ import salesOrderRoutes from "./src/routes/v1/sales-order.ts";
 import transactionRoutes from "./src/routes/v1/transaction.ts";
 import reportRoutes from "./src/routes/v1/report.ts";
 import settingRoutes from "./src/routes/v1/setting.ts";
-import dotenv from "dotenv";
-
-dotenv.config();
+import webhookRoutes from "./src/routes/v1/webhook.ts";
 
 // Initialize Postgres (with retry)
 async function connectDatabase(retries = 3): Promise<void> {
@@ -43,7 +46,20 @@ async function startServer() {
   // Connect to database first
   await connectDatabase();
   const app = express();
-  const PORT = Number(process.env.PORT ?? 3000);
+  const PORT = env.port;
+
+  // Security Headers & CORS
+  app.use(helmet({ contentSecurityPolicy: false }));
+  app.use(cors({
+    origin: env.nodeEnv === "production" ? env.appUrl : true,
+    credentials: true,
+  }));
+
+  // Rate Limiters
+  const globalLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 300, standardHeaders: true });
+  const authLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 15, standardHeaders: true });
+
+  app.use(globalLimiter);
 
   // Parsers for JSON requests
   app.use(express.json({ limit: "10mb" }));
@@ -56,12 +72,28 @@ async function startServer() {
     next();
   });
 
-  // ===== Legacy shop routes (to be added later) =====
-  // Example: app.use("/api/assets", legacyAssetRoutes);
-  // For now we leave a placeholder comment.
+  // Healthcheck Endpoints for Load Balancers & Kubernetes
+  app.get("/healthz", (_req, res) => {
+    res.status(200).json({ status: "healthy", timestamp: new Date().toISOString() });
+  });
+
+  app.get("/readyz", async (_req, res) => {
+    try {
+      const isConnected = AppDataSource.isInitialized;
+      if (isConnected) {
+        return res.status(200).json({ status: "ready", db: "connected" });
+      }
+      return res.status(503).json({ status: "not_ready", db: "disconnected" });
+    } catch (err: any) {
+      return res.status(503).json({ status: "error", error: err.message });
+    }
+  });
+
+  // ===== Razorpay Webhook Public Endpoint =====
+  app.use("/api/public/webhook", webhookRoutes);
 
   // ===== Versioned API (protected) =====
-  app.use("/api/v1/auth", authRoutes);
+  app.use("/api/v1/auth", authLimiter, authRoutes);
   app.use("/api/v1/inventory", authenticateJwt, inventoryRoutes);
   app.use("/api/v1/warehouse", authenticateJwt, warehouseRoutes);
   app.use("/api/v1/bin", authenticateJwt, binRoutes);
@@ -192,11 +224,8 @@ User is asking: "${customPrompt ||
     });
   }
 
-  // Global error handler
-  app.use((err: any, _req: any, res: any, _next: any) => {
-    console.error(err);
-    res.status(500).json({ error: "Internal Server Error" });
-  });
+  // Centralized Error Handler Middleware
+  app.use(errorHandler);
 
   app.listen(PORT, "0.0.0.0", () => {
     console.log(`🚀 Server listening on http://localhost:${PORT}`);

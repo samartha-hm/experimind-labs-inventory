@@ -10,6 +10,7 @@ import {
   UpdateDateColumn,
 } from "typeorm";
 import { Warehouse } from "./Warehouse";
+import { Organization } from "./Organization";
 import type { Bin } from "./Bin";
 import type { KitBom } from "./KitBom";
 import type { PurchaseOrderLine } from "./PurchaseOrderLine";
@@ -21,7 +22,15 @@ export class InventoryItem {
   @PrimaryGeneratedColumn("uuid")
   id: string;
 
-  @Column({ type: "varchar", unique: true })
+  @Column({ type: "uuid", default: "00000000-0000-0000-0000-000000000000" })
+  @Index()
+  organization_id: string;
+
+  @ManyToOne(() => Organization, { nullable: true })
+  @JoinColumn({ name: "organization_id" })
+  organization?: Organization;
+
+  @Column({ type: "varchar" })
   @Index()
   sku: string;
 
