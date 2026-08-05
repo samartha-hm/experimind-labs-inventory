@@ -127,16 +127,16 @@ router.post("/razorpay", async (req: Request, res: Response) => {
             // Persist individual InvoiceLine items
             for (const line of orderLines) {
               const invLine = queryRunner.manager.create(InvoiceLine, {
-                invoice_id: savedInvoice.id,
-                description: line.item_name,
+                invoice: savedInvoice,
+                item_name: line.item_name,
                 quantity: line.quantity,
                 unit_price: line.unit_price,
                 taxable_value: line.line_total,
-                gst_rate: 18,
-                cgst: Math.round(line.line_total * 0.09),
-                sgst: Math.round(line.line_total * 0.09),
-                igst: 0,
-                total_amount: Math.round(line.line_total * 1.18),
+                gst_rate_pct: 18.0,
+                cgst_amount: Math.round(line.line_total * 0.09),
+                sgst_amount: Math.round(line.line_total * 0.09),
+                igst_amount: 0,
+                line_total: Math.round(line.line_total * 1.18),
               });
               await queryRunner.manager.save(invLine);
             }

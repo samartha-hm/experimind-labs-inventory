@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { InventoryService } from "../../services/InventoryService";
-import { validate, IsString, IsOptional, IsInt, Min, IsUUID, IsBoolean, MaxLength, IsUrl } from "class-validator";
+import { validate, IsString, IsOptional, IsInt, IsNumber, Min, IsUUID, IsBoolean, MaxLength, IsUrl } from "class-validator";
 import { plainToInstance } from "class-transformer";
 import { requireRole } from "../../middleware/requireRole.ts";
 
@@ -21,7 +21,7 @@ export class CreateInventoryDto {
   @MaxLength(2000)
   description?: string;
 
-  @IsInt()
+  @IsNumber({ maxDecimalPlaces: 2 })
   @Min(0)
   base_price!: number;
 

@@ -11,6 +11,7 @@ import { env } from "./src/config/env.ts";
 import { AppDataSource } from "./src/db.ts";
 import authRoutes from "./src/routes/v1/auth.ts";
 import { authenticateJwt } from "./src/middleware/auth.ts";
+import { requireTenant } from "./src/middleware/tenant.ts";
 import { errorHandler } from "./src/middleware/errorHandler.ts";
 import inventoryRoutes from "./src/routes/v1/inventory.ts";
 import warehouseRoutes from "./src/routes/v1/warehouse.ts";
@@ -102,18 +103,18 @@ async function startServer() {
   // ===== Versioned API (protected) =====
   app.use("/api/v1/auth", authLimiter, authRoutes);
   app.use("/api/v1/orders", orderRoutes);
-  app.use("/api/v1/users", authenticateJwt, userRoutes);
-  app.use("/api/v1/inventory", authenticateJwt, inventoryRoutes);
-  app.use("/api/v1/warehouse", authenticateJwt, warehouseRoutes);
-  app.use("/api/v1/bin", authenticateJwt, binRoutes);
-  app.use("/api/v1/kit", authenticateJwt, kitRoutes);
-  app.use("/api/v1/vendor", authenticateJwt, vendorRoutes);
-  app.use("/api/v1/customer", authenticateJwt, customerRoutes);
-  app.use("/api/v1/purchase-order", authenticateJwt, purchaseOrderRoutes);
-  app.use("/api/v1/sales-order", authenticateJwt, salesOrderRoutes);
-  app.use("/api/v1/transaction", authenticateJwt, transactionRoutes);
-  app.use("/api/v1/report", authenticateJwt, reportRoutes);
-  app.use("/api/v1/setting", authenticateJwt, settingRoutes);
+  app.use("/api/v1/users", authenticateJwt, requireTenant, userRoutes);
+  app.use("/api/v1/inventory", authenticateJwt, requireTenant, inventoryRoutes);
+  app.use("/api/v1/warehouse", authenticateJwt, requireTenant, warehouseRoutes);
+  app.use("/api/v1/bin", authenticateJwt, requireTenant, binRoutes);
+  app.use("/api/v1/kit", authenticateJwt, requireTenant, kitRoutes);
+  app.use("/api/v1/vendor", authenticateJwt, requireTenant, vendorRoutes);
+  app.use("/api/v1/customer", authenticateJwt, requireTenant, customerRoutes);
+  app.use("/api/v1/purchase-order", authenticateJwt, requireTenant, purchaseOrderRoutes);
+  app.use("/api/v1/sales-order", authenticateJwt, requireTenant, salesOrderRoutes);
+  app.use("/api/v1/transaction", authenticateJwt, requireTenant, transactionRoutes);
+  app.use("/api/v1/report", authenticateJwt, requireTenant, reportRoutes);
+  app.use("/api/v1/setting", authenticateJwt, requireTenant, settingRoutes);
 
   // ===== Existing AI analysis endpoint (unchanged) =====
   app.post("/api/analyze", async (req, res) => {

@@ -4,6 +4,7 @@ import {
   Column,
   Unique,
   OneToMany,
+  Index,
   CreateDateColumn,
   UpdateDateColumn,
 } from "typeorm";
@@ -15,6 +16,10 @@ import type { Transaction } from "./Transaction.ts";
 export class User {
   @PrimaryGeneratedColumn("uuid")
   id!: string;
+
+  @Column({ type: "uuid", default: "00000000-0000-0000-0000-000000000000" })
+  @Index()
+  organization_id!: string;
 
   @Column({ nullable: true, type: "varchar" })
   firebase_uid!: string | null;

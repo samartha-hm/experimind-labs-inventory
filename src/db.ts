@@ -29,6 +29,7 @@ import { RefreshToken } from "./entity/RefreshToken.ts";
 import { Init1689500000000 } from "./migration/1689500000000-Init.ts";
 import { AddOrgAuditOrdersInvoices1689500000001 } from "./migration/1689500000001-AddOrgAuditOrdersInvoices.ts";
 import { SeedDefaultOrganization1689500000002 } from "./migration/1689500000002-SeedDefaultOrganization.ts";
+import { AlignEntitiesAndSchema1689500000003 } from "./migration/1689500000003-AlignEntitiesAndSchema.ts";
 
 const isLocalhostDb = env.databaseUrl.includes("localhost") || env.databaseUrl.includes("127.0.0.1");
 
@@ -64,6 +65,6 @@ export const AppDataSource = new DataSource({
     StockAdjustment,
     RefreshToken,
   ],
-  migrations: [Init1689500000000, AddOrgAuditOrdersInvoices1689500000001, SeedDefaultOrganization1689500000002],
+  migrations: [Init1689500000000, AddOrgAuditOrdersInvoices1689500000001, SeedDefaultOrganization1689500000002, AlignEntitiesAndSchema1689500000003],
   subscribers: [],
 });
