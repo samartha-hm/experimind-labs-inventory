@@ -34,6 +34,9 @@ import ComplianceSecurityTab from '@/src/features/compliance/ComplianceSecurityT
 import WarehouseHeatmapTab from '@/src/features/warehouse/components/WarehouseHeatmapTab';
 import StockTransferTab from '@/src/features/warehouse/components/StockTransferTab';
 import BatchExpiryTab from '@/src/features/inventory/components/BatchExpiryTab';
+import CompAIVoiceAssistant from '@/src/features/copilot/components/CompAIVoiceAssistant';
+import Warehouse3DDigitalTwin from '@/src/features/warehouse/components/Warehouse3DDigitalTwin';
+import GlobalLogisticsMapTab from '@/src/features/procurement/components/GlobalLogisticsMapTab';
 import { TenantProvider } from '@/src/contexts/TenantContext';
 import { ToastProvider } from '@/src/contexts/ToastContext';
 import ToastContainer from '@/src/components/ToastContainer';
@@ -358,12 +361,20 @@ function MainApp() {
                 <WarehouseHeatmapTab />
               )}
 
+              {activeTab === 'warehouse_3d' && (
+                <Warehouse3DDigitalTwin />
+              )}
+
               {activeTab === 'stock_transfer' && (
                 <StockTransferTab />
               )}
 
               {activeTab === 'batch_expiry' && (
                 <BatchExpiryTab />
+              )}
+
+              {activeTab === 'global_logistics' && (
+                <GlobalLogisticsMapTab />
               )}
 
               {activeTab === 'copilot' && (

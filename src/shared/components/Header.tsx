@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { InventoryItem, KitBOM } from '@/src/types';
 import BarcodeStudioModal from '@/src/shared/components/BarcodeStudioModal';
+import BarcodeScannerModal from '@/src/shared/components/BarcodeScannerModal';
 import TenantOnboardingModal from '@/src/features/tenant/components/TenantOnboardingModal';
 import { useTenant } from '@/src/contexts/TenantContext';
 
@@ -224,11 +225,10 @@ export default function Header({
         </div>
       </div>
 
-      {/* Barcode Studio Modal */}
-      <BarcodeStudioModal
+      {/* Live WebCam Barcode & QR Scanner Modal */}
+      <BarcodeScannerModal
         isOpen={isScannerOpen}
         onClose={() => setIsScannerOpen(false)}
-        inventory={inventory}
       />
 
       {/* Tenant Onboarding Modal */}

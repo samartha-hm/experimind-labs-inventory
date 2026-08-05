@@ -23,6 +23,7 @@ import {
   MapPin,
   ArrowRightLeft,
   Tag,
+  Globe,
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -70,6 +71,7 @@ export default function Sidebar({
         { id: 'batch_expiry', label: 'Batch Expiry Tracker', icon: <Tag className="w-4 h-4" />, badge: 'Lots', badgeColor: 'bg-rose-500/20 text-rose-300 border-rose-500/30' },
         { id: 'warehouses', label: 'Warehouses & Bins', icon: <Warehouse className="w-4 h-4" /> },
         { id: 'warehouse_heatmap', label: 'Warehouse 2D Heatmap', icon: <MapPin className="w-4 h-4" /> },
+        { id: 'warehouse_3d', label: '3D Digital Twin Map', icon: <Layers className="w-4 h-4" />, badge: '3D WebGL', badgeColor: 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30' },
         { id: 'stock_transfer', label: 'Stock Transfer (STO)', icon: <ArrowRightLeft className="w-4 h-4" /> },
       ],
     },
@@ -89,9 +91,10 @@ export default function Sidebar({
       ],
     },
     {
-      title: 'PURCHASES & VENDORS',
+      title: 'PURCHASES & LOGISTICS',
       items: [
         { id: 'purchase_orders', label: 'Purchase Orders', icon: <ShoppingCart className="w-4 h-4" />, badge: openPoCount > 0 ? `${openPoCount}` : undefined, badgeColor: 'bg-blue-500/20 text-blue-300 border-blue-500/30' },
+        { id: 'global_logistics', label: 'Global Freight & Logistics', icon: <Globe className="w-4 h-4" />, badge: 'Freight', badgeColor: 'bg-blue-500/20 text-blue-300 border-blue-500/30' },
         { id: 'vendors', label: 'Vendors Directory', icon: <Building2 className="w-4 h-4" /> },
       ],
     },

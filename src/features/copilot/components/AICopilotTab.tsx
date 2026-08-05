@@ -14,6 +14,7 @@ import {
   CheckCircle2,
 } from 'lucide-react';
 import { InventoryItem, KitBOM } from '@/src/types';
+import CompAIVoiceAssistant from '@/src/features/copilot/components/CompAIVoiceAssistant';
 
 interface AICopilotTabProps {
   inventory: InventoryItem[];
@@ -209,7 +210,11 @@ ${inventory.filter((i) => i.stockQty < i.threshold).slice(0, 4).map((i) => `| ${
   };
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 h-[calc(100vh-210px)] min-h-[500px]">
+    <div className="space-y-6">
+      {/* Voice Assistant Copilot Banner */}
+      <CompAIVoiceAssistant />
+
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 h-[calc(100vh-290px)] min-h-[480px]">
       {/* Left Column: Quick Triggers & Velocity Analytics */}
       <div className="lg:col-span-1 space-y-4 flex flex-col justify-between overflow-y-auto">
         <div className="space-y-4">
@@ -336,6 +341,7 @@ ${inventory.filter((i) => i.stockQty < i.threshold).slice(0, 4).map((i) => `| ${
           </button>
         </form>
       </div>
+    </div>
     </div>
   );
 }
