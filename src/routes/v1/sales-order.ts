@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { SalesOrderService } from "../../services/SalesOrderService";
-import { validate, IsString, IsOptional, IsUUID, IsDateString, IsEnum, IsInt, Min } from "class-validator";
+import { validate, IsString, IsOptional, IsUUID, IsDateString, IsEnum, IsInt, Min, IsArray } from "class-validator";
 import { plainToInstance } from "class-transformer";
 import { requireRole } from "../../middleware/requireRole.ts";
 
@@ -24,6 +24,13 @@ export class CreateSalesOrderDto {
   @IsOptional()
   @IsEnum(["draft", "confirmed", "picking", "packed", "shipped", "delivered", "cancelled"])
   status?: "draft" | "confirmed" | "picking" | "packed" | "shipped" | "delivered" | "cancelled";
+
+  @IsOptional()
+  @IsArray()
+  lines?: any[];
+
+  @IsOptional()
+  total_amount?: number;
 }
 
 async function validateDto<T extends object>(dto: T, cls: new () => T): Promise<T> {

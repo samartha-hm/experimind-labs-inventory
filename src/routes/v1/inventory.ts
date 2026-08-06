@@ -71,6 +71,14 @@ export class CreateInventoryDto {
 
   @IsOptional()
   @IsString()
+  category?: string;
+
+  @IsOptional()
+  @IsString()
+  assigned_kit_name?: string;
+
+  @IsOptional()
+  @IsString()
   bin_location?: string;
 }
 

@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { TransactionService } from "../../services/TransactionService";
-import { validate, IsString, IsOptional, IsUUID, IsDateString, IsInt, Min } from "class-validator";
+import { validate, IsString, IsOptional, IsUUID, IsDateString, IsInt, Min, IsArray } from "class-validator";
 import { plainToInstance } from "class-transformer";
 import { requireRole } from "../../middleware/requireRole.ts";
 
@@ -8,11 +8,13 @@ const router = Router();
 const service = new TransactionService();
 
 export class CreateTransactionDto {
+  @IsOptional()
   @IsUUID()
-  user_id!: string;
+  user_id?: string;
 
+  @IsOptional()
   @IsString()
-  reference_type!: string;
+  reference_type?: string;
 
   @IsOptional()
   @IsUUID()
@@ -23,8 +25,24 @@ export class CreateTransactionDto {
   notes?: string;
 
   @IsOptional()
+  @IsString()
+  type?: string;
+
+  @IsOptional()
+  @IsString()
+  description?: string;
+
+  @IsOptional()
   @IsDateString()
   occurred_at?: string;
+
+  @IsOptional()
+  @IsArray()
+  items?: any[];
+
+  @IsOptional()
+  @IsArray()
+  lines?: any[];
 }
 
 async function validateDto<T extends object>(dto: T, cls: new () => T): Promise<T> {

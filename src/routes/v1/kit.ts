@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { KitService } from "../../services/KitService";
-import { validate, IsString, IsOptional, IsUrl, MaxLength } from "class-validator";
+import { validate, IsString, IsOptional, IsUrl, MaxLength, IsArray } from "class-validator";
 import { plainToInstance } from "class-transformer";
 import { requireRole } from "../../middleware/requireRole.ts";
 
@@ -19,6 +19,10 @@ export class CreateKitDto {
   @IsOptional()
   @IsString()
   image_url?: string;
+
+  @IsOptional()
+  @IsArray()
+  bom_items?: any[];
 }
 
 async function validateDto<T extends object>(dto: T, cls: new () => T): Promise<T> {
