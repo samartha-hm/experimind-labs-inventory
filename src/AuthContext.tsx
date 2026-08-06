@@ -49,11 +49,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       try {
         const res = await apiFetch('/api/v1/auth/refresh-token', { method: 'POST' });
         if (res && res.token && res.user) {
+          setApiAuthToken(res.token);
           setToken(res.token);
           setUser(res.user);
         }
       } catch (e) {
         // No active session cookie
+        setApiAuthToken(null);
         setToken(null);
         setUser(null);
       } finally {
@@ -71,6 +73,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         body: JSON.stringify({ email, password })
       });
       if (res && res.token && res.user) {
+        setApiAuthToken(res.token);
         setToken(res.token);
         setUser(res.user);
       }
@@ -90,6 +93,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         body: JSON.stringify({ email, password, name, role })
       });
       if (res && res.token && res.user) {
+        setApiAuthToken(res.token);
         setToken(res.token);
         setUser(res.user);
       }

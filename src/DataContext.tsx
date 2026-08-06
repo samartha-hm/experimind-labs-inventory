@@ -135,7 +135,7 @@ function mapItemToBackend(item: Partial<InventoryItem>): any {
 }
 
 export function DataProvider({ children }: { children: React.ReactNode }) {
-  const { user } = useAuth();
+  const { user, token } = useAuth();
   const { addAction } = useUndoRedo();
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [kits, setKits] = useState<KitBOM[]>([]);
@@ -274,7 +274,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       setBins([]);
       setLoading(false);
     }
-  }, [user]);
+  }, [user, token]);
 
   // CRUD Implementations
 
