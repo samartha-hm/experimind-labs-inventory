@@ -52,6 +52,7 @@ export default function InventoryTab({
 }: InventoryTabProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
+  const [sortKey, setSortKey] = useState<string>('name-asc');
   const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
   const [drawerItem, setDrawerItem] = useState<InventoryItem | null>(null);
 
@@ -122,16 +123,45 @@ export default function InventoryTab({
     return Array.from(cats);
   }, [inventory, PREDEFINED_CATEGORIES]);
 
-  const filteredInventory = useMemo(() => {
-    return inventory.filter((item) => {
+  const filteredAndSortedInventory = useMemo(() => {
+    const filtered = inventory.filter((item) => {
       const matchesSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        item.id.toLowerCase().includes(searchTerm.toLowerCase());
+        item.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (item.barcode && item.barcode.toLowerCase().includes(searchTerm.toLowerCase()));
       const matchesCategory =
         selectedCategory === 'All' || selectedCategory === 'ALL' ||
         (item.category && item.category.trim().toLowerCase() === selectedCategory.toLowerCase());
       return matchesSearch && matchesCategory;
     });
-  }, [inventory, searchTerm, selectedCategory]);
+
+    return [...filtered].sort((a, b) => {
+      switch (sortKey) {
+        case 'name-asc':
+          return a.name.localeCompare(b.name);
+        case 'name-desc':
+          return b.name.localeCompare(a.name);
+        case 'stock-asc':
+          return a.stockQty - b.stockQty;
+        case 'stock-desc':
+          return b.stockQty - a.stockQty;
+        case 'price-asc':
+          return (a.basePrice || 0) - (b.basePrice || 0);
+        case 'price-desc':
+          return (b.basePrice || 0) - (a.basePrice || 0);
+        case 'category-asc':
+          return (a.category || '').localeCompare(b.category || '');
+        case 'sku-asc':
+          return (a.barcode || a.id || '').localeCompare(b.barcode || b.id || '');
+        case 'low-stock': {
+          const aRatio = a.threshold > 0 ? a.stockQty / a.threshold : a.stockQty;
+          const bRatio = b.threshold > 0 ? b.stockQty / b.threshold : b.stockQty;
+          return aRatio - bRatio;
+        }
+        default:
+          return 0;
+      }
+    });
+  }, [inventory, searchTerm, selectedCategory, sortKey]);
 
   const handleCreateComponent = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -221,17 +251,41 @@ export default function InventoryTab({
         </div>
       </div>
 
-      {/* Category Pills & Search */}
+      {/* Category Pills & Search & Sort */}
       <div className="bg-white/80 backdrop-blur-md p-4 rounded-3xl border border-slate-200/80 shadow-xs space-y-3">
-        <div className="relative">
-          <Search className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
-          <input
-            type="text"
-            placeholder="Search items by name, SKU, or category..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-11 pr-4 py-2.5 bg-slate-50 border border-slate-200/80 rounded-2xl text-xs font-medium text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:bg-white transition-all"
-          />
+        <div className="flex flex-col md:flex-row items-center gap-3">
+          <div className="relative flex-1 w-full">
+            <Search className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input
+              type="text"
+              placeholder="Search items by name, SKU, or category..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-11 pr-4 py-2.5 bg-slate-50 border border-slate-200/80 rounded-2xl text-xs font-medium text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:bg-white transition-all"
+            />
+          </div>
+
+          <div className="flex items-center gap-2 w-full md:w-auto shrink-0">
+            <div className="flex items-center gap-2 bg-slate-50 border border-slate-200/80 px-3 py-2 rounded-2xl text-xs w-full md:w-auto">
+              <SlidersHorizontal className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+              <span className="font-bold text-slate-600 shrink-0 hidden sm:inline">Sort:</span>
+              <select
+                value={sortKey}
+                onChange={(e) => setSortKey(e.target.value)}
+                className="bg-transparent font-bold text-slate-800 focus:outline-none cursor-pointer w-full"
+              >
+                <option value="name-asc">Name (A → Z)</option>
+                <option value="name-desc">Name (Z → A)</option>
+                <option value="stock-asc">Stock Qty (Low → High)</option>
+                <option value="stock-desc">Stock Qty (High → Low)</option>
+                <option value="price-asc">Price (Low → High)</option>
+                <option value="price-desc">Price (High → Low)</option>
+                <option value="category-asc">Category</option>
+                <option value="sku-asc">SKU / Barcode</option>
+                <option value="low-stock">Low Stock Warning</option>
+              </select>
+            </div>
+          </div>
         </div>
 
         <div className="flex items-center gap-2 overflow-x-auto pb-1 custom-scrollbar">
@@ -398,13 +452,13 @@ export default function InventoryTab({
       {/* Grid Cards View with Differentiated Cell Layouts */}
       {viewMode === 'grid' ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {filteredInventory.length === 0 ? (
+          {filteredAndSortedInventory.length === 0 ? (
             <div className="col-span-full bg-white p-12 rounded-3xl border border-slate-200/80 text-center text-slate-400 font-medium">
               <FolderOpen className="w-10 h-10 mx-auto mb-2 text-slate-300" />
               No components found matching your filter.
             </div>
           ) : (
-            filteredInventory.map((item) => {
+            filteredAndSortedInventory.map((item) => {
               const isZero = item.stockQty === 0 && !item.isCommon;
               const isLow = item.stockQty < item.threshold && !item.isCommon && !isZero;
               const isCommon = !!item.isCommon;
@@ -655,24 +709,44 @@ export default function InventoryTab({
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
-                <tr className="bg-slate-50/80 border-b border-slate-200/80 text-[11px] uppercase tracking-wider font-bold text-slate-400">
-                  <th className="py-4 px-6">Part Information</th>
-                  <th className="py-4 px-6">Category</th>
-                  <th className="py-4 px-6 text-center">Status</th>
-                  <th className="py-4 px-6 text-center w-44">Stock Qty</th>
+                <tr className="bg-slate-50/80 border-b border-slate-200/80 text-[11px] uppercase tracking-wider font-bold text-slate-400 select-none">
+                  <th
+                    onClick={() => setSortKey(sortKey === 'name-asc' ? 'name-desc' : 'name-asc')}
+                    className="py-4 px-6 cursor-pointer hover:text-indigo-600 transition-colors"
+                  >
+                    Part Information {sortKey === 'name-asc' ? '↑' : sortKey === 'name-desc' ? '↓' : ''}
+                  </th>
+                  <th
+                    onClick={() => setSortKey(sortKey === 'category-asc' ? 'name-asc' : 'category-asc')}
+                    className="py-4 px-6 cursor-pointer hover:text-indigo-600 transition-colors"
+                  >
+                    Category {sortKey === 'category-asc' ? '↑' : ''}
+                  </th>
+                  <th
+                    onClick={() => setSortKey(sortKey === 'low-stock' ? 'name-asc' : 'low-stock')}
+                    className="py-4 px-6 text-center cursor-pointer hover:text-indigo-600 transition-colors"
+                  >
+                    Status {sortKey === 'low-stock' ? '⚠️' : ''}
+                  </th>
+                  <th
+                    onClick={() => setSortKey(sortKey === 'stock-asc' ? 'stock-desc' : 'stock-asc')}
+                    className="py-4 px-6 text-center w-44 cursor-pointer hover:text-indigo-600 transition-colors"
+                  >
+                    Stock Qty {sortKey === 'stock-asc' ? '↑' : sortKey === 'stock-desc' ? '↓' : ''}
+                  </th>
                   <th className="py-4 px-6 text-center w-36">Reorder Limit</th>
                   <th className="py-4 px-6 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-sm font-medium text-slate-700">
-                {filteredInventory.length === 0 ? (
+                {filteredAndSortedInventory.length === 0 ? (
                   <tr>
                     <td colSpan={6} className="py-12 text-center text-slate-400 font-medium">
                       No components found.
                     </td>
                   </tr>
                 ) : (
-                  filteredInventory.map((item) => {
+                  filteredAndSortedInventory.map((item) => {
                     const isZero = item.stockQty === 0 && !item.isCommon;
                     const isLow = item.stockQty < item.threshold && !item.isCommon && !isZero;
                     const catStyle = getCategoryBadgeStyle(item.category);
