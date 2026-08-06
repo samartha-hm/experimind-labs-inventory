@@ -90,16 +90,29 @@ router.get("/:id", requireRole("viewer", "staff", "manager", "admin"), async (re
 router.post("/", requireRole("staff", "manager", "admin"), async (req, res) => {
   try {
     await validateDto(req.body, CreateTransactionDto);
-    const { lines, ...txData } = req.body;
+    const { lines, items, ...txData } = req.body;
+
+    const user = (req as any).user;
+    const userId = txData.user_id || user?.id || "00000000-0000-0000-0000-000000000001";
+    const referenceType = txData.reference_type || txData.type || "adjustment";
+
+    const linesInput = lines || (items || []).map((i: any) => ({
+      inventory_item_id: i.componentId || i.inventory_item_id,
+      quantity_change: i.qtyDiff ?? i.quantity_change ?? 0,
+      unit_cost: i.unit_cost ?? 0
+    }));
 
     const processedData = {
       ...txData,
-      occurred_at: txData.occurred_at ? new Date(txData.occurred_at) : undefined
+      user_id: userId,
+      reference_type: referenceType,
+      notes: txData.notes || txData.description || "",
+      occurred_at: txData.occurred_at ? new Date(txData.occurred_at) : new Date()
     };
 
     const created = await service.create({
       ...processedData,
-      lines: lines || []
+      lines: linesInput
     });
     res.status(201).json(created);
   } catch (e: any) {

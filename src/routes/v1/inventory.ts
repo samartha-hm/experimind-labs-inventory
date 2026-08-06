@@ -82,6 +82,84 @@ export class CreateInventoryDto {
   bin_location?: string;
 }
 
+export class UpdateInventoryDto {
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  sku?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(255)
+  name?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(2000)
+  description?: string;
+
+  @IsOptional()
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  base_price?: number;
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  price_markup_pct?: number;
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  quantity?: number;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(20)
+  unit?: string;
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  threshold?: number;
+
+  @IsOptional()
+  @IsBoolean()
+  is_common?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  is_subassembly?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  is_sellable?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  is_hidden?: boolean;
+
+  @IsOptional()
+  @IsUrl()
+  image_url?: string;
+
+  @IsOptional()
+  @IsUUID()
+  warehouse_id?: string;
+
+  @IsOptional()
+  @IsString()
+  category?: string;
+
+  @IsOptional()
+  @IsString()
+  assigned_kit_name?: string;
+
+  @IsOptional()
+  @IsString()
+  bin_location?: string;
+}
+
 // Strict validation helper
 async function validateDto<T extends object>(dto: T, cls: new () => T): Promise<T> {
   const obj = plainToInstance(cls, dto);
@@ -126,7 +204,7 @@ router.post("/", requireRole("staff", "admin"), async (req, res) => {
 // PUT /api/v1/inventory/:id (Staff, Admins)
 router.put("/:id", requireRole("staff", "admin"), async (req, res) => {
   try {
-    await validateDto(req.body, CreateInventoryDto);
+    await validateDto(req.body, UpdateInventoryDto);
     const updated = await service.update(req.params.id, req.body);
     res.json(updated);
   } catch (e: any) {

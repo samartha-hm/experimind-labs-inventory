@@ -583,12 +583,15 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     try {
       const payload = {
         type: enrichedTx.type,
+        reference_type: enrichedTx.type || 'adjustment',
+        user_id: user?.id || '00000000-0000-0000-0000-000000000001',
         description: enrichedTx.description,
+        notes: enrichedTx.description,
         occurred_at: enrichedTx.timestamp,
         lines: enrichedTx.items.map(i => ({
           inventory_item_id: i.componentId,
           quantity_change: i.qtyDiff,
-          unit_cost: 3.50
+          unit_cost: 0
         }))
       };
       await apiFetch('/api/v1/transaction', {
