@@ -14,18 +14,6 @@ const DEFAULT_TENANTS: Tenant[] = [
     isFlagship: true,
     workspaces: ['HQ Main Storage', 'Kitting Assembly Line', 'R&D Lab'],
   },
-  {
-    id: 'acme-sensors',
-    name: 'Acme Sensors Corp',
-    code: 'ACME-S',
-    logoUrl: 'https://images.unsplash.com/photo-1518770660439-4636190af475?w=100&auto=format&fit=crop&q=80',
-    currency: 'USD',
-    gstin: '29BBBCA9876E1Z5',
-    stateCode: '29', // Karnataka
-    plan: 'Growth',
-    isFlagship: false,
-    workspaces: ['Bangalore Hub', 'Warehouse B'],
-  },
 ];
 
 interface TenantContextType {

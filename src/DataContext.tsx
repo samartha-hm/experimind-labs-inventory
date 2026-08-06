@@ -216,37 +216,37 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       setPurchaseOrders(dbPos.map((po: any) => ({
         id: po.id,
         poNumber: po.po_number,
-        vendorName: po.vendor?.name || 'Seeded Supplier Corp',
+        vendorName: po.vendor?.name || 'Supplier',
         orderDate: po.order_date,
         expectedDate: po.expected_date,
         status: po.status,
-        totalAmount: Number(po.total_amount) || 1260.00
+        totalAmount: Number(po.total_amount) || 0
       })));
 
       setSalesOrders(dbSos.map((so: any) => ({
         id: so.id,
         soNumber: so.so_number,
-        customerName: so.customer?.name || 'Seeded B2B Buyer',
+        customerName: so.customer?.name || 'Customer',
         orderDate: so.order_date,
         requiredDate: so.required_date,
         status: so.status,
-        totalAmount: Number(so.total_amount) || 3450.00
+        totalAmount: Number(so.total_amount) || 0
       })));
 
       setWarehouses(dbWh.map((wh: any) => ({
         id: wh.id,
         code: wh.code,
         name: wh.name,
-        address: typeof wh.address === 'object' ? (wh.address?.street || 'Tech Hub') : (wh.address || ''),
+        address: typeof wh.address === 'object' ? (wh.address?.street || 'Main Storage') : (wh.address || ''),
         isDefault: !!wh.is_default,
-        binCount: 16,
-        totalCapacityPct: 50
+        binCount: 0,
+        totalCapacityPct: 0
       })));
 
       setBins(dbBins.map((bin: any) => ({
         id: bin.id,
         code: bin.code,
-        warehouseCode: bin.warehouse?.code || 'WH-MAIN-01',
+        warehouseCode: bin.warehouse?.code || '',
         description: bin.description || '',
         isActive: true
       })));
