@@ -24,6 +24,25 @@ export class CreateWarehouseDto {
   is_default?: boolean;
 }
 
+export class UpdateWarehouseDto {
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  code?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(255)
+  name?: string;
+
+  @IsOptional()
+  address?: Record<string, any>;
+
+  @IsOptional()
+  @IsBoolean()
+  is_default?: boolean;
+}
+
 async function validateDto<T extends object>(dto: T, cls: new () => T): Promise<T> {
   const obj = plainToInstance(cls, dto);
   const errors = await validate(obj, { whitelist: true, forbidNonWhitelisted: true });
@@ -73,7 +92,7 @@ router.post("/", requireRole("staff", "manager", "admin"), async (req, res) => {
 // PUT /api/v1/warehouse/:id (Staff+)
 router.put("/:id", requireRole("staff", "manager", "admin"), async (req, res) => {
   try {
-    await validateDto(req.body, CreateWarehouseDto);
+    await validateDto(req.body, UpdateWarehouseDto);
     const updated = await service.update(req.params.id, req.body);
     res.json(updated);
   } catch (e: any) {

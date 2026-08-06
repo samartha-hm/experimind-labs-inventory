@@ -25,6 +25,26 @@ export class CreateBinDto {
   is_active?: boolean;
 }
 
+export class UpdateBinDto {
+  @IsOptional()
+  @IsUUID()
+  warehouse_id?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  code?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  description?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  is_active?: boolean;
+}
+
 async function validateDto<T extends object>(dto: T, cls: new () => T): Promise<T> {
   const obj = plainToInstance(cls, dto);
   const errors = await validate(obj, { whitelist: true, forbidNonWhitelisted: true });
@@ -75,7 +95,7 @@ router.post("/", requireRole("staff", "manager", "admin"), async (req, res) => {
 // PUT /api/v1/bin/:id (Staff+)
 router.put("/:id", requireRole("staff", "manager", "admin"), async (req, res) => {
   try {
-    await validateDto(req.body, CreateBinDto);
+    await validateDto(req.body, UpdateBinDto);
     const updated = await service.update(req.params.id, req.body);
     res.json(updated);
   } catch (e: any) {

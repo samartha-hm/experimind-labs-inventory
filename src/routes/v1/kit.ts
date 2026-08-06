@@ -25,6 +25,25 @@ export class CreateKitDto {
   bom_items?: any[];
 }
 
+export class UpdateKitDto {
+  @IsOptional()
+  @IsString()
+  @MaxLength(255)
+  name?: string;
+
+  @IsOptional()
+  @IsString()
+  description?: string;
+
+  @IsOptional()
+  @IsString()
+  image_url?: string;
+
+  @IsOptional()
+  @IsArray()
+  bom_items?: any[];
+}
+
 async function validateDto<T extends object>(dto: T, cls: new () => T): Promise<T> {
   const obj = plainToInstance(cls, dto);
   const errors = await validate(obj, { whitelist: true, forbidNonWhitelisted: true });
@@ -74,7 +93,7 @@ router.post("/", requireRole("staff", "manager", "admin"), async (req, res) => {
 // PUT /api/v1/kit/:id (Staff+)
 router.put("/:id", requireRole("staff", "manager", "admin"), async (req, res) => {
   try {
-    const validData = await validateDto(req.body, CreateKitDto);
+    const validData = await validateDto(req.body, UpdateKitDto);
     const updated = await service.update(req.params.id, validData);
     res.json(updated);
   } catch (e: any) {

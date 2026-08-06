@@ -46,6 +46,35 @@ export class CreatePurchaseOrderDto {
   total_amount?: number;
 }
 
+export class UpdatePurchaseOrderDto {
+  @IsOptional()
+  @IsUUID()
+  vendor_id?: string;
+
+  @IsOptional()
+  @IsString()
+  po_number?: string;
+
+  @IsOptional()
+  @IsDateString()
+  order_date?: string;
+
+  @IsOptional()
+  @IsDateString()
+  expected_date?: string;
+
+  @IsOptional()
+  @IsEnum(["draft", "sent", "approved", "received", "cancelled"])
+  status?: "draft" | "sent" | "approved" | "received" | "cancelled";
+
+  @IsOptional()
+  @IsArray()
+  lines?: any[];
+
+  @IsOptional()
+  total_amount?: number;
+}
+
 async function validateDto<T extends object>(dto: T, cls: new () => T): Promise<T> {
   const obj = plainToInstance(cls, dto);
   const errors = await validate(obj, { whitelist: true, forbidNonWhitelisted: true });
@@ -106,13 +135,13 @@ router.post("/", requireRole("staff", "admin"), async (req, res) => {
 // PUT /api/v1/purchase-order/:id
 router.put("/:id", requireRole("staff", "admin"), async (req, res) => {
   try {
-    await validateDto(req.body, CreatePurchaseOrderDto);
+    await validateDto(req.body, UpdatePurchaseOrderDto);
     const { lines, ...poData } = req.body;
 
     const processedData = {
       ...poData,
-      order_date: new Date(poData.order_date),
-      expected_date: poData.expected_date ? new Date(poData.expected_date) : undefined
+      ...(poData.order_date ? { order_date: new Date(poData.order_date) } : {}),
+      ...(poData.expected_date ? { expected_date: new Date(poData.expected_date) } : {})
     };
 
     const updated = await service.update(req.params.id, processedData);

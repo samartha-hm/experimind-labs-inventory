@@ -42,6 +42,43 @@ export class CreateCustomerDto {
   credit_limit?: number;
 }
 
+export class UpdateCustomerDto {
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  customer_code?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(255)
+  name?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(255)
+  contact_name?: string;
+
+  @IsOptional()
+  @IsEmail()
+  email?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(50)
+  phone?: string;
+
+  @IsOptional()
+  billing_address?: Record<string, any>;
+
+  @IsOptional()
+  shipping_address?: Record<string, any>;
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  credit_limit?: number;
+}
+
 async function validateDto<T extends object>(dto: T, cls: new () => T): Promise<T> {
   const obj = plainToInstance(cls, dto);
   const errors = await validate(obj, { whitelist: true, forbidNonWhitelisted: true });
@@ -91,7 +128,7 @@ router.post("/", requireRole("staff", "manager", "admin"), async (req, res) => {
 // PUT /api/v1/customer/:id (Staff+)
 router.put("/:id", requireRole("staff", "manager", "admin"), async (req, res) => {
   try {
-    await validateDto(req.body, CreateCustomerDto);
+    await validateDto(req.body, UpdateCustomerDto);
     const updated = await service.update(req.params.id, req.body, (req as any).orgId);
     res.json(updated);
   } catch (e: any) {

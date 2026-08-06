@@ -33,6 +33,35 @@ export class CreateSalesOrderDto {
   total_amount?: number;
 }
 
+export class UpdateSalesOrderDto {
+  @IsOptional()
+  @IsUUID()
+  customer_id?: string;
+
+  @IsOptional()
+  @IsString()
+  so_number?: string;
+
+  @IsOptional()
+  @IsDateString()
+  order_date?: string;
+
+  @IsOptional()
+  @IsDateString()
+  required_date?: string;
+
+  @IsOptional()
+  @IsEnum(["draft", "confirmed", "picking", "packed", "shipped", "delivered", "cancelled"])
+  status?: "draft" | "confirmed" | "picking" | "packed" | "shipped" | "delivered" | "cancelled";
+
+  @IsOptional()
+  @IsArray()
+  lines?: any[];
+
+  @IsOptional()
+  total_amount?: number;
+}
+
 async function validateDto<T extends object>(dto: T, cls: new () => T): Promise<T> {
   const obj = plainToInstance(cls, dto);
   const errors = await validate(obj, { whitelist: true, forbidNonWhitelisted: true });
@@ -93,13 +122,13 @@ router.post("/", requireRole("staff", "manager", "admin"), async (req, res) => {
 // PUT /api/v1/sales-order/:id (Staff+)
 router.put("/:id", requireRole("staff", "manager", "admin"), async (req, res) => {
   try {
-    await validateDto(req.body, CreateSalesOrderDto);
+    await validateDto(req.body, UpdateSalesOrderDto);
     const { lines, ...soData } = req.body;
 
     const processedData = {
       ...soData,
-      order_date: new Date(soData.order_date),
-      required_date: soData.required_date ? new Date(soData.required_date) : undefined
+      ...(soData.order_date ? { order_date: new Date(soData.order_date) } : {}),
+      ...(soData.required_date ? { required_date: new Date(soData.required_date) } : {})
     };
 
     const updated = await service.update(req.params.id, processedData);

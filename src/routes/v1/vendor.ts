@@ -39,6 +39,40 @@ export class CreateVendorDto {
   payment_terms?: string;
 }
 
+export class UpdateVendorDto {
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  vendor_code?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(255)
+  name?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(255)
+  contact_name?: string;
+
+  @IsOptional()
+  @IsEmail()
+  email?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(50)
+  phone?: string;
+
+  @IsOptional()
+  address?: Record<string, any>;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  payment_terms?: string;
+}
+
 async function validateDto<T extends object>(dto: T, cls: new () => T): Promise<T> {
   const obj = plainToInstance(cls, dto);
   const errors = await validate(obj, { whitelist: true, forbidNonWhitelisted: true });
@@ -88,7 +122,7 @@ router.post("/", requireRole("staff", "manager", "admin"), async (req, res) => {
 // PUT /api/v1/vendor/:id (Staff+)
 router.put("/:id", requireRole("staff", "manager", "admin"), async (req, res) => {
   try {
-    const validData = await validateDto(req.body, CreateVendorDto);
+    const validData = await validateDto(req.body, UpdateVendorDto);
     const updated = await service.update(req.params.id, validData, (req as any).orgId);
     res.json(updated);
   } catch (e: any) {
