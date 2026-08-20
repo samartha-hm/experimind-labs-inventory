@@ -18,12 +18,12 @@ async function bootstrap() {
 
   let org = await orgRepo.findOneBy({ id: "00000000-0000-0000-0000-000000000000" });
   if (!org) {
-    org = orgRepo.create({
-      id: "00000000-0000-0000-0000-000000000000",
+    const newOrg = orgRepo.create({
+      id: "00000000-0000-0000-0000-000000000000" as any,
       name: "ExperiMind Labs Primary HQ",
       currency: "INR",
-    } as any);
-    await orgRepo.save(org);
+    });
+    org = await orgRepo.save(newOrg);
     console.log("✅ Created default Organization: Primary HQ");
   }
 

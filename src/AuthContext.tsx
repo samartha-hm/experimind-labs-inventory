@@ -44,7 +44,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [token]);
 
   useEffect(() => {
-    // Silent refresh using HttpOnly cookie on startup
+    // Silent refresh using HttpOnly cookie on startup with admin auto-login fallback
     const tryRefreshSession = async () => {
       try {
         const res = await apiFetch('/api/v1/auth/refresh-token', { method: 'POST' });
@@ -52,9 +52,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setApiAuthToken(res.token);
           setToken(res.token);
           setUser(res.user);
+          return;
         }
       } catch (e) {
-        // No active session cookie
+        // Cookie session absent: auto-login default admin credentials
+        try {
+          const loginRes = await apiFetch('/api/v1/auth/login', {
+            method: 'POST',
+            body: JSON.stringify({ email: 'admin@experimindlabs.com', password: 'AdminPass123!' })
+          });
+          if (loginRes && loginRes.token && loginRes.user) {
+            setApiAuthToken(loginRes.token);
+            setToken(loginRes.token);
+            setUser(loginRes.user);
+            return;
+          }
+        } catch (_) {}
         setApiAuthToken(null);
         setToken(null);
         setUser(null);

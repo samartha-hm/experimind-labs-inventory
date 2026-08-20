@@ -46,24 +46,31 @@ export default function BarcodeScannerModal({ isOpen, onClose }: BarcodeScannerM
     isOpen
   );
 
+  const initCameraStream = async () => {
+    try {
+      let s: MediaStream;
+      try {
+        s = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+      } catch (_) {
+        s = await navigator.mediaDevices.getUserMedia({ video: true });
+      }
+      if (videoRef.current) {
+        videoRef.current.srcObject = s;
+        await videoRef.current.play().catch(() => {});
+        setCameraActive(true);
+      }
+    } catch (err) {
+      console.warn("Camera feed unavailable or access denied:", err);
+      setCameraActive(false);
+    }
+  };
+
   // Camera video stream & live decoding loop
   useEffect(() => {
-    let stream: MediaStream | null = null;
     let animId: number | null = null;
 
     if (isOpen) {
-      navigator.mediaDevices?.getUserMedia({ video: { facingMode: 'environment' } })
-        .then((s) => {
-          stream = s;
-          if (videoRef.current) {
-            videoRef.current.srcObject = s;
-            setCameraActive(true);
-          }
-        })
-        .catch((err) => {
-          console.warn("Camera feed unavailable or access denied:", err);
-          setCameraActive(false);
-        });
+      initCameraStream();
 
       // Browser native BarcodeDetector API if available
       if ('BarcodeDetector' in window) {
@@ -92,8 +99,10 @@ export default function BarcodeScannerModal({ isOpen, onClose }: BarcodeScannerM
     }
 
     return () => {
-      if (stream) {
+      if (videoRef.current && videoRef.current.srcObject) {
+        const stream = videoRef.current.srcObject as MediaStream;
         stream.getTracks().forEach((t) => t.stop());
+        videoRef.current.srcObject = null;
       }
       if (animId) {
         cancelAnimationFrame(animId);
@@ -204,12 +213,24 @@ export default function BarcodeScannerModal({ isOpen, onClose }: BarcodeScannerM
         <div className="p-6 overflow-y-auto space-y-5 text-xs text-slate-700 dark:text-slate-300">
           {/* Camera Viewport & Scan Laser */}
           <div className="relative w-full h-56 bg-slate-950 rounded-2xl overflow-hidden border border-slate-800 flex items-center justify-center">
-            {cameraActive ? (
-              <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover opacity-85" />
-            ) : (
-              <div className="text-center space-y-2 text-slate-500">
-                <Camera className="w-10 h-10 mx-auto text-slate-600 animate-pulse" />
-                <p className="text-xs">Camera Feed Ready • Point Barcode / USB Scanner Gun</p>
+            <video
+              ref={videoRef}
+              autoPlay
+              playsInline
+              muted
+              className={`w-full h-full object-cover opacity-90 ${cameraActive ? '' : 'hidden'}`}
+            />
+            {!cameraActive && (
+              <div className="text-center space-y-2 text-slate-500 p-4">
+                <Camera className="w-10 h-10 mx-auto text-indigo-400 animate-bounce" />
+                <p className="text-xs font-semibold text-slate-300">Point Barcode / USB Scanner Gun at Reader</p>
+                <button
+                  type="button"
+                  onClick={() => initCameraStream()}
+                  className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-bold text-xs shadow-md transition-all cursor-pointer"
+                >
+                  📷 Enable WebCam Stream
+                </button>
               </div>
             )}
 

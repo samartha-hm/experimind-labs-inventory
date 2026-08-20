@@ -263,7 +263,6 @@ function MainApp() {
       />
 
       <div className="flex-1 flex flex-col min-w-0">
-        <AIAgentSuggestionBar onOpenResearchDrawer={() => setIsResearchDrawerOpen(true)} />
         <Header
           inventory={inventory}
           maxKitsPossible={kittingAnalysis.maxKitsPossible}
