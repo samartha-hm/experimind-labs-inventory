@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import { Html5Qrcode, Html5QrcodeSupportedFormats } from 'html5-qrcode';
+import { BrowserMultiFormatReader, IScannerControls } from '@zxing/browser';
 import {
   QrCode,
   Camera,
@@ -20,21 +20,20 @@ import {
   Trash2,
   UploadCloud,
   RefreshCw,
-  Layers,
-  ArrowRight,
-  TrendingUp,
   Boxes,
   Zap,
   Info,
   Sliders,
   DollarSign,
   Clock,
-  Sparkles
+  Sparkles,
+  ArrowRight
 } from 'lucide-react';
 import { useData } from '@/src/DataContext';
 import { useToast } from '@/src/contexts/ToastContext';
 import { InventoryItem } from '@/src/types';
 import { playScanBeep, useBarcodeGunListener } from '@/src/utils/barcode';
+import { createZXingReader, decodeBarcodeFromImageFile } from '@/src/utils/barcodeEngine';
 
 export type ScanOperationMode = 'inspect' | 'inbound' | 'outbound' | 'batch' | 'relocate';
 
@@ -71,11 +70,13 @@ export default function BarcodeScannerModal({
   const [customQtyStep, setCustomQtyStep] = useState<number>(1);
 
   // Scanner Hardware & Stream State
-  const scannerRef = useRef<Html5Qrcode | null>(null);
-  const viewportMountedRef = useRef<boolean>(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const controlsRef = useRef<IScannerControls | null>(null);
+  const readerRef = useRef<BrowserMultiFormatReader | null>(null);
+  
   const [isCameraActive, setIsCameraActive] = useState(false);
   const [isStartingCamera, setIsStartingCamera] = useState(false);
-  const [availableCameras, setAvailableCameras] = useState<{ id: string; label: string }[]>([]);
+  const [availableCameras, setAvailableCameras] = useState<MediaDeviceInfo[]>([]);
   const [selectedCameraId, setSelectedCameraId] = useState<string>('');
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [isProcessingFile, setIsProcessingFile] = useState(false);
@@ -99,136 +100,74 @@ export default function BarcodeScannerModal({
     isOpen
   );
 
-  // Safely stop camera stream
-  const stopCameraStream = useCallback(async () => {
-    if (scannerRef.current) {
+  // Safely stop video stream and reader
+  const stopCameraStream = useCallback(() => {
+    if (controlsRef.current) {
       try {
-        if (scannerRef.current.isScanning) {
-          await scannerRef.current.stop();
-        }
-        await scannerRef.current.clear();
+        controlsRef.current.stop();
       } catch (_) {}
-      scannerRef.current = null;
+      controlsRef.current = null;
+    }
+    if (videoRef.current && videoRef.current.srcObject) {
+      const stream = videoRef.current.srcObject as MediaStream;
+      stream.getTracks().forEach(track => track.stop());
+      videoRef.current.srcObject = null;
     }
     setIsCameraActive(false);
     setIsStartingCamera(false);
   }, []);
 
-  // Start Html5Qrcode Scanner safely after DOM node is confirmed
-  const startCameraStream = useCallback(async (cameraIdToUse?: string) => {
-    if (!isOpen) return;
+  // Start ZXing Camera Stream directly on videoRef
+  const startCameraStream = useCallback(async (deviceIdToUse?: string) => {
+    if (!isOpen || !videoRef.current) return;
     setCameraError(null);
     setIsStartingCamera(true);
 
-    // Wait until viewport DOM element is guaranteed to exist
-    let attempts = 0;
-    while (!document.getElementById('html5-barcode-viewport') && attempts < 20) {
-      await new Promise((r) => setTimeout(r, 50));
-      attempts++;
-    }
-
-    const viewportElem = document.getElementById('html5-barcode-viewport');
-    if (!viewportElem) {
-      setCameraError('Camera viewport element initializing...');
-      setIsStartingCamera(false);
-      return;
-    }
-
     try {
-      await stopCameraStream();
+      stopCameraStream();
 
-      // Enumerate cameras
-      let targetCamId = cameraIdToUse || selectedCameraId;
+      // Enumerate available video inputs
       try {
-        const cameras = await Html5Qrcode.getCameras();
-        if (cameras && cameras.length > 0) {
-          setAvailableCameras(cameras.map(c => ({ id: c.id, label: c.label || `Camera ${c.id.slice(0, 6)}` })));
-          if (!targetCamId) {
-            const backCam = cameras.find(c => c.label.toLowerCase().includes('back') || c.label.toLowerCase().includes('environment'));
-            targetCamId = backCam ? backCam.id : cameras[0].id;
-            setSelectedCameraId(targetCamId);
-          }
+        const devices = await BrowserMultiFormatReader.listVideoInputDevices();
+        setAvailableCameras(devices);
+        if (!deviceIdToUse && devices.length > 0) {
+          const backCam = devices.find(d => d.label.toLowerCase().includes('back') || d.label.toLowerCase().includes('environment'));
+          deviceIdToUse = backCam ? backCam.deviceId : devices[0].deviceId;
+          setSelectedCameraId(deviceIdToUse);
         }
-      } catch (camErr) {
-        console.warn('Camera enumeration note:', camErr);
+      } catch (devErr) {
+        console.warn('Camera device listing note:', devErr);
       }
 
-      const scanner = new Html5Qrcode('html5-barcode-viewport', {
-        verbose: false,
-        formatsToSupport: [
-          Html5QrcodeSupportedFormats.CODE_128,
-          Html5QrcodeSupportedFormats.CODE_39,
-          Html5QrcodeSupportedFormats.EAN_13,
-          Html5QrcodeSupportedFormats.EAN_8,
-          Html5QrcodeSupportedFormats.UPC_A,
-          Html5QrcodeSupportedFormats.UPC_E,
-          Html5QrcodeSupportedFormats.QR_CODE,
-          Html5QrcodeSupportedFormats.DATA_MATRIX,
-          Html5QrcodeSupportedFormats.ITF,
-          Html5QrcodeSupportedFormats.CODABAR,
-        ]
-      });
+      const reader = createZXingReader();
+      readerRef.current = reader;
 
-      scannerRef.current = scanner;
+      const targetDeviceId = deviceIdToUse || selectedCameraId || undefined;
 
-      const config = {
-        fps: 25,
-        qrbox: { width: 340, height: 160 },
-        aspectRatio: 1.777778,
-        experimentalFeatures: {
-          useBarCodeDetectorIfSupported: true
-        }
-      };
-
-      const cameraConstraint = targetCamId ? { deviceId: { exact: targetCamId } } : { facingMode: 'environment' };
-
-      await scanner.start(
-        cameraConstraint,
-        config,
-        (decodedText) => {
-          if (decodedText) {
-            handleCodeScanned(decodedText);
+      const controls = await reader.decodeFromVideoDevice(
+        targetDeviceId,
+        videoRef.current,
+        (result, error) => {
+          if (result && result.getText()) {
+            handleCodeScanned(result.getText());
           }
-        },
-        () => {}
+        }
       );
 
+      controlsRef.current = controls;
       setIsCameraActive(true);
       setIsStartingCamera(false);
     } catch (err: any) {
-      console.warn('Primary camera stream error, attempting standard constraint fallback:', err);
-      try {
-        if (scannerRef.current) {
-          await scannerRef.current.start(
-            { facingMode: 'user' },
-            { fps: 20, qrbox: { width: 300, height: 150 } },
-            (decodedText) => handleCodeScanned(decodedText),
-            () => {}
-          );
-          setIsCameraActive(true);
-          setIsStartingCamera(false);
-          return;
-        }
-      } catch (fallbackErr: any) {
-        setCameraError(fallbackErr.message || 'Camera access permission denied or device busy.');
-        setIsCameraActive(false);
-        setIsStartingCamera(false);
-      }
+      console.warn('ZXing camera start error:', err);
+      setCameraError(err.message || 'Camera access not permitted or device busy.');
+      setIsCameraActive(false);
+      setIsStartingCamera(false);
     }
   }, [isOpen, selectedCameraId, stopCameraStream]);
-
-  // Viewport DOM mount handler
-  const setViewportRef = useCallback((node: HTMLDivElement | null) => {
-    if (node && !viewportMountedRef.current) {
-      viewportMountedRef.current = true;
-      startCameraStream();
-    }
-  }, [startCameraStream]);
 
   // Lifecycle
   useEffect(() => {
     if (isOpen) {
-      viewportMountedRef.current = false;
       const timer = setTimeout(() => {
         startCameraStream();
       }, 100);
@@ -244,54 +183,23 @@ export default function BarcodeScannerModal({
     }
   }, [isOpen, startCameraStream, stopCameraStream]);
 
-  // Decode Image File Upload (Enhanced)
+  // Decode Image File Upload using Multi-Pass Super Decoder
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files || e.target.files.length === 0) return;
     const file = e.target.files[0];
     setIsProcessingFile(true);
 
     try {
-      // Ensure target element is available
-      const tempElemId = 'html5-file-decoder-target';
-      let targetElem = document.getElementById(tempElemId);
-      if (!targetElem) {
-        targetElem = document.createElement('div');
-        targetElem.id = tempElemId;
-        targetElem.style.position = 'absolute';
-        targetElem.style.left = '-9999px';
-        targetElem.style.width = '400px';
-        targetElem.style.height = '400px';
-        document.body.appendChild(targetElem);
-      }
-
-      const fileScanner = new Html5Qrcode(tempElemId, {
-        verbose: false,
-        formatsToSupport: [
-          Html5QrcodeSupportedFormats.CODE_128,
-          Html5QrcodeSupportedFormats.CODE_39,
-          Html5QrcodeSupportedFormats.EAN_13,
-          Html5QrcodeSupportedFormats.EAN_8,
-          Html5QrcodeSupportedFormats.UPC_A,
-          Html5QrcodeSupportedFormats.UPC_E,
-          Html5QrcodeSupportedFormats.QR_CODE,
-          Html5QrcodeSupportedFormats.DATA_MATRIX,
-          Html5QrcodeSupportedFormats.ITF,
-          Html5QrcodeSupportedFormats.CODABAR,
-        ]
-      });
-
-      const decodedText = await fileScanner.scanFile(file, true);
-      await fileScanner.clear();
-      
+      const decodedText = await decodeBarcodeFromImageFile(file);
       if (decodedText) {
-        showToast('success', 'Photo Decoded', `Detected Barcode: ${decodedText}`);
+        showToast('success', 'Barcode Decoded From Photo', `Read Code: ${decodedText}`);
         handleCodeScanned(decodedText);
       } else {
-        showToast('error', 'Barcode Not Found', 'Could not read a recognizable 1D/2D barcode in this photo.');
+        showToast('error', 'Barcode Not Detected', 'Could not decode barcode from this image. Try capturing closer with better lighting.');
       }
     } catch (err: any) {
-      console.warn('File decode error:', err);
-      showToast('error', 'Barcode Not Detected', 'Please ensure the barcode in the photo is in focus and well-lit.');
+      console.warn('File decode exception:', err);
+      showToast('error', 'Decode Error', 'Failed to process image file.');
     } finally {
       setIsProcessingFile(false);
       if (e.target) e.target.value = '';
@@ -335,7 +243,7 @@ export default function BarcodeScannerModal({
       setScannedItem(matchedItem);
       if (soundEnabled) playScanBeep('match');
 
-      // Append to Recent Scans Feed
+      // Append to Recent Activity Feed
       setRecentScanLog(prev => [
         { code: cleanCode, name: matchedItem.name, time: new Date().toLocaleTimeString(), success: true },
         ...prev.slice(0, 19)
@@ -344,15 +252,15 @@ export default function BarcodeScannerModal({
       // Mode-specific Automatic Workflow Execution
       if (activeMode === 'inbound') {
         const delta = Math.max(1, customQtyStep);
-        await handleAdjustStock(matchedItem, delta, inboundNote || `Inbound scan receipt (+${delta} ${matchedItem.unit})`);
+        await handleAdjustStock(matchedItem, delta, inboundNote || `Inbound receipt (+${delta} ${matchedItem.unit}) via Barcode`);
       } else if (activeMode === 'outbound') {
         const delta = -Math.max(1, customQtyStep);
-        await handleAdjustStock(matchedItem, delta, `Outbound scan picking/dispatch (-${Math.abs(delta)} ${matchedItem.unit})`);
+        await handleAdjustStock(matchedItem, delta, `Outbound dispatch (-${Math.abs(delta)} ${matchedItem.unit}) via Barcode`);
       } else if (activeMode === 'batch') {
         handleAddToBatch(matchedItem, Math.max(1, customQtyStep));
       } else if (activeMode === 'relocate') {
         setRelocateStep('scan_bin');
-        showToast('info', 'Component Identified', `Step 2: Scan or type destination Bin location for "${matchedItem.name}"`);
+        showToast('info', 'Component Identified', `Step 2: Point at destination Bin barcode for "${matchedItem.name}"`);
       } else {
         // Inspect & Monitor Mode
         showToast('success', 'Component Matched', `${matchedItem.name} (Barcode: ${matchedItem.barcode || matchedItem.id})`);
@@ -364,7 +272,7 @@ export default function BarcodeScannerModal({
         { code: cleanCode, name: 'Unrecognized Barcode', time: new Date().toLocaleTimeString(), success: false },
         ...prev.slice(0, 19)
       ]);
-      showToast('error', 'Barcode Not In Catalog', `No component matches barcode "${cleanCode}".`);
+      showToast('error', 'Barcode Not Found', `No item matching "${cleanCode}" in master inventory.`);
     }
   };
 
@@ -416,7 +324,7 @@ export default function BarcodeScannerModal({
       ];
     });
     if (soundEnabled) playScanBeep('click');
-    showToast('info', 'Batch Added', `+${qty} ${item.name} added to batch queue`);
+    showToast('info', 'Batch Queued', `+${qty} ${item.name} queued in session`);
   };
 
   // Commit Batch Session to Database
@@ -428,7 +336,7 @@ export default function BarcodeScannerModal({
         await handleAdjustStock(item, b.quantity, `Batch Audit Scan (${b.quantity} ${b.unit})`);
       }
     }
-    showToast('success', 'Batch Committed', `Successfully updated ${batchList.length} components in master inventory.`);
+    showToast('success', 'Batch Session Committed', `Updated ${batchList.length} components in inventory.`);
     setBatchList([]);
   };
 
@@ -469,7 +377,7 @@ export default function BarcodeScannerModal({
     });
 
     if (soundEnabled) playScanBeep('success');
-    showToast('success', 'Bin Relocation Complete', `Moved "${item.name}" to Bin "${newBinCode}"`);
+    showToast('success', 'Bin Location Updated', `Moved "${item.name}" to Bin "${newBinCode}"`);
   };
 
   // Parent composite kits requiring this part
@@ -497,10 +405,10 @@ export default function BarcodeScannerModal({
                 </h3>
                 <span className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-[9px] font-mono font-bold uppercase">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                  USB Gun Active
+                  USB Gun & Camera Ready
                 </span>
               </div>
-              <p className="text-[11px] text-slate-400 font-mono">ZXing Live Engine • Code 128 / Code 39 / EAN / UPC / QR</p>
+              <p className="text-[11px] text-slate-400 font-mono">ZXing Engine • Code 128 / Code 39 / EAN / UPC / QR</p>
             </div>
           </div>
 
@@ -609,7 +517,7 @@ export default function BarcodeScannerModal({
         {/* Scrollable Content Container */}
         <div className="p-4 md:p-6 overflow-y-auto space-y-5 text-xs text-slate-700 dark:text-slate-300">
           
-          {/* Active Mode Banner & Quick Step Configurator */}
+          {/* Active Mode Description & Quick Step Configurator */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 bg-slate-50 dark:bg-slate-800/70 rounded-2xl border border-slate-200 dark:border-slate-700/80">
             <div className="flex items-center gap-2.5">
               <div className={`p-2 rounded-xl text-white ${
@@ -637,12 +545,12 @@ export default function BarcodeScannerModal({
                   {activeMode === 'inbound' && 'Scanned barcode immediately adds step quantity to inventory and creates receipt audit log.'}
                   {activeMode === 'outbound' && 'Scanned barcode deducts step quantity with negative stock prevention.'}
                   {activeMode === 'batch' && 'Continuously accumulate scans into a batch list with CSV export and bulk commit.'}
-                  {activeMode === 'relocate' && 'Step 1: Scan Component $\\to$ Step 2: Scan Target Bin to update storage location.'}
+                  {activeMode === 'relocate' && 'Step 1: Scan Component -> Step 2: Scan Target Bin to update storage location.'}
                 </p>
               </div>
             </div>
 
-            {/* Step Quantity Selector (for Inbound, Outbound, and Batch) */}
+            {/* Step Quantity Selector */}
             {(activeMode === 'inbound' || activeMode === 'outbound' || activeMode === 'batch') && (
               <div className="flex items-center gap-1.5 self-end sm:self-auto bg-white dark:bg-slate-900 p-1.5 rounded-xl border border-slate-200 dark:border-slate-700 shrink-0">
                 <span className="text-[10px] font-bold text-slate-400 uppercase px-1">Step:</span>
@@ -672,13 +580,14 @@ export default function BarcodeScannerModal({
             )}
           </div>
 
-          {/* Camera Viewport & Stream Status Box */}
+          {/* Camera Viewport & Stream Box (Direct React Video Ref) */}
           <div className="relative w-full h-60 bg-slate-950 rounded-3xl overflow-hidden border border-slate-800 shadow-xl flex items-center justify-center">
             
-            {/* Html5Qrcode Mounted DOM Container */}
-            <div
-              id="html5-barcode-viewport"
-              ref={setViewportRef}
+            <video
+              ref={videoRef}
+              autoPlay
+              playsInline
+              muted
               className="w-full h-full object-cover"
             />
 
@@ -689,8 +598,8 @@ export default function BarcodeScannerModal({
             <div className="absolute inset-x-12 inset-y-8 border-2 border-dashed border-indigo-400/70 rounded-2xl pointer-events-none flex items-center justify-center z-10">
               <span className="text-[10px] font-mono text-indigo-200 bg-slate-950/85 px-3 py-1 rounded-lg border border-indigo-500/40 uppercase tracking-widest shadow-md">
                 {activeMode === 'relocate' && relocateStep === 'scan_bin'
-                  ? '🎯 SCAN DESTINATION BIN/SHELF'
-                  : '🎯 ALIGN BARCODE / QR HERE'}
+                  ? 'TARGET: SCAN DESTINATION BIN/SHELF'
+                  : 'ALIGN BARCODE / QR HERE'}
               </span>
             </div>
 
@@ -706,7 +615,7 @@ export default function BarcodeScannerModal({
                   className="text-[11px] font-bold bg-slate-900/90 text-slate-200 border border-slate-700 rounded-xl px-2.5 py-1.5 focus:outline-none shadow-lg cursor-pointer"
                 >
                   {availableCameras.map(c => (
-                    <option key={c.id} value={c.id}>{c.label}</option>
+                    <option key={c.deviceId} value={c.deviceId}>{c.label || `Camera ${c.deviceId.slice(0, 6)}`}</option>
                   ))}
                 </select>
               </div>
@@ -757,7 +666,7 @@ export default function BarcodeScannerModal({
 
             <label className="px-4 py-3 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer shrink-0 shadow-xs">
               <UploadCloud className="w-4 h-4 text-indigo-500" />
-              <span>{isProcessingFile ? 'Decoding...' : 'Upload Barcode Image'}</span>
+              <span>{isProcessingFile ? 'Decoding Photo...' : 'Upload Barcode Photo'}</span>
               <input
                 type="file"
                 accept="image/*"
