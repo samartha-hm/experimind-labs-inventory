@@ -26,7 +26,8 @@ import {
   DollarSign,
   Clock,
   Sparkles,
-  ArrowRight
+  ArrowRight,
+  ImageIcon
 } from 'lucide-react';
 import { useData } from '@/src/DataContext';
 import { useToast } from '@/src/contexts/ToastContext';
@@ -81,7 +82,11 @@ export default function BarcodeScannerModal({
   const [availableCameras, setAvailableCameras] = useState<MediaDeviceInfo[]>([]);
   const [selectedCameraId, setSelectedCameraId] = useState<string>('');
   const [cameraError, setCameraError] = useState<string | null>(null);
+
+  // Uploaded Photo State & Visual Preview
   const [isProcessingFile, setIsProcessingFile] = useState(false);
+  const [uploadedPhotoPreview, setUploadedPhotoPreview] = useState<string | null>(null);
+  const [uploadedPhotoCode, setUploadedPhotoCode] = useState<string | null>(null);
 
   // Input & Scanned State
   const [manualCode, setManualCode] = useState('');
@@ -185,7 +190,7 @@ export default function BarcodeScannerModal({
         { code: cleanCode, name: 'Unrecognized Barcode', time: new Date().toLocaleTimeString(), success: false },
         ...prev.slice(0, 19)
       ]);
-      showToast('error', 'Barcode Not Found', `No item matching "${cleanCode}" in master catalog.`);
+      showToast('error', 'Barcode Not Found', `Decoded code "${cleanCode}", but no matching component was found in catalog.`);
     }
   }, [activeMode, relocateStep, scannedItem, findItemByCode, soundEnabled, customQtyStep, inboundNote]);
 
@@ -232,7 +237,7 @@ export default function BarcodeScannerModal({
       setIsCameraActive(true);
       setIsStartingCamera(false);
 
-      // Start custom frame grabber polling loop (120ms interval)
+      // Start WebAssembly frame grabber polling loop (120ms interval)
       scanIntervalRef.current = setInterval(async () => {
         if (!videoRef.current || videoRef.current.readyState < 2 || isProcessingFrameRef.current) return;
         isProcessingFrameRef.current = true;
@@ -291,24 +296,33 @@ export default function BarcodeScannerModal({
     } else {
       stopCameraStream();
       setScannedItem(null);
+      setUploadedPhotoPreview(null);
+      setUploadedPhotoCode(null);
       setRelocateBinTarget('');
       setRelocateStep('scan_item');
     }
   }, [isOpen, startCameraStream, stopCameraStream]);
 
-  // Decode Image File Upload using Multi-Pass Super Decoder
+  // Decode Image File Upload using Multi-Pass WASM Decoder with Instant Preview
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files || e.target.files.length === 0) return;
     const file = e.target.files[0];
     setIsProcessingFile(true);
+    setUploadedPhotoCode(null);
+
+    // Create local object URL for preview
+    const previewUrl = URL.createObjectURL(file);
+    setUploadedPhotoPreview(previewUrl);
 
     try {
       const decodedText = await decodeBarcodeFromImageFile(file);
       if (decodedText) {
-        showToast('success', 'Barcode Decoded From Photo', `Read Code: ${decodedText}`);
+        setUploadedPhotoCode(decodedText);
+        showToast('success', 'Barcode Decoded From Photo', `Read Code: "${decodedText}"`);
         handleCodeScanned(decodedText);
       } else {
-        showToast('error', 'Barcode Not Detected', 'Could not decode barcode from this photo. Ensure the barcode is clear and in focus.');
+        setUploadedPhotoCode(null);
+        showToast('error', 'Barcode Not Detected', 'Could not decode barcode from this photo. Ensure the barcode is clear, well-lit, and in focus.');
       }
     } catch (err: any) {
       console.warn('File decode exception:', err);
@@ -448,10 +462,10 @@ export default function BarcodeScannerModal({
                 </h3>
                 <span className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-[9px] font-mono font-bold uppercase">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                  USB Gun & Camera Ready
+                  WASM & Hardware Accelerated
                 </span>
               </div>
-              <p className="text-[11px] text-slate-400 font-mono">ZXing Engine • Code 128 / Code 39 / EAN / UPC / QR</p>
+              <p className="text-[11px] text-slate-400 font-mono">ZXing-C++ WebAssembly • Code 128 / Code 39 / EAN / UPC / QR</p>
             </div>
           </div>
 
@@ -681,6 +695,48 @@ export default function BarcodeScannerModal({
               </div>
             )}
           </div>
+
+          {/* Uploaded Photo Preview Card (When Photo is Selected) */}
+          {uploadedPhotoPreview && (
+            <div className="p-3.5 bg-slate-100 dark:bg-slate-800/80 rounded-2xl border border-slate-200 dark:border-slate-700 flex items-center justify-between gap-3 animate-fadeIn">
+              <div className="flex items-center gap-3">
+                <img
+                  src={uploadedPhotoPreview}
+                  alt="Uploaded Barcode"
+                  className="w-14 h-14 rounded-xl object-cover border border-slate-300 dark:border-slate-600"
+                />
+                <div>
+                  <span className="text-[10px] font-bold text-slate-400 uppercase block">Uploaded Barcode Photo</span>
+                  {isProcessingFile ? (
+                    <span className="text-xs font-bold text-indigo-500 flex items-center gap-1">
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin" /> Decoding with WASM...
+                    </span>
+                  ) : uploadedPhotoCode ? (
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-mono font-black text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950 px-2 py-0.5 rounded-md border border-emerald-200 dark:border-emerald-800">
+                        ✓ {uploadedPhotoCode}
+                      </span>
+                    </div>
+                  ) : (
+                    <span className="text-xs font-bold text-rose-500">
+                      ✗ No barcode detected in image
+                    </span>
+                  )}
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setUploadedPhotoPreview(null);
+                  setUploadedPhotoCode(null);
+                }}
+                className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 cursor-pointer"
+                title="Clear Upload"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          )}
 
           {/* Manual Input Search Bar & Image File Picker */}
           <div className="flex flex-col sm:flex-row gap-2.5">

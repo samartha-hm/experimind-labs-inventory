@@ -1,26 +1,14 @@
 import {
   readBarcodesFromImageData,
   readBarcodesFromImageFile,
-  ReaderOptions,
-  BarcodeFormat
+  ReaderOptions
 } from 'zxing-wasm';
 
 /**
  * Standard reader configuration with aggressive multi-pass decoding
+ * Note: Leaving formats empty or omitted enables ALL supported 1D & 2D barcode formats
  */
 const DEFAULT_DECODE_OPTIONS: ReaderOptions = {
-  formats: [
-    'Code128',
-    'Code39',
-    'EAN-13',
-    'EAN-8',
-    'UPC-A',
-    'UPC-E',
-    'QRCode',
-    'DataMatrix',
-    'ITF',
-    'Codabar'
-  ],
   tryHarder: true,
   tryRotate: true,
   tryInvert: true,
@@ -124,11 +112,11 @@ export async function decodeBarcodeFromImageFile(file: File): Promise<string | n
     if (wasmResults && wasmResults.length > 0 && wasmResults[0].text) {
       return wasmResults[0].text.trim();
     }
-  } catch (_) {
-    // Continue to DOM-based pass
+  } catch (err) {
+    console.warn('WASM direct blob read note:', err);
   }
 
-  // Pass 2: Direct image element decode with Hardware BarcodeDetector
+  // Pass 2: Load into HTMLImageElement
   try {
     const img = await new Promise<HTMLImageElement>((resolve, reject) => {
       const reader = new FileReader();
@@ -142,49 +130,80 @@ export async function decodeBarcodeFromImageFile(file: File): Promise<string | n
       reader.readAsDataURL(file);
     });
 
-    const res = await scanCanvasOrImage(img);
-    if (res) return res;
+    // Hardware detector pass
+    const hwRes = await scanCanvasOrImage(img);
+    if (hwRes) return hwRes;
 
-    // Pass 3: Scaled and Contrast-Enhanced Canvas
+    // Pass 3: Multi-Resolution & Contrast Stretches
     const origW = img.naturalWidth || img.width;
     const origH = img.naturalHeight || img.height;
-    const maxDim = 1600;
-    const scale = Math.min(1, maxDim / Math.max(origW, origH));
-    const w = Math.floor(origW * scale);
-    const h = Math.floor(origH * scale);
 
-    const canvas = document.createElement('canvas');
-    canvas.width = w;
-    canvas.height = h;
-    const ctx = canvas.getContext('2d', { willReadFrequently: true });
-    if (!ctx) return null;
+    const scales = [1.0, 0.75, 0.5, 1.5];
+    for (const scale of scales) {
+      const w = Math.floor(origW * scale);
+      const h = Math.floor(origH * scale);
+      if (w < 50 || h < 50 || w > 3000 || h > 3000) continue;
 
-    ctx.drawImage(img, 0, 0, w, h);
+      const canvas = document.createElement('canvas');
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext('2d', { willReadFrequently: true });
+      if (!ctx) continue;
 
-    const imgData = ctx.getImageData(0, 0, w, h);
-    const data = imgData.data;
-    let minLum = 255;
-    let maxLum = 0;
-    for (let i = 0; i < data.length; i += 4) {
-      const lum = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
-      if (lum < minLum) minLum = lum;
-      if (lum > maxLum) maxLum = lum;
+      ctx.drawImage(img, 0, 0, w, h);
+      const imgData = ctx.getImageData(0, 0, w, h);
+
+      // Attempt standard scale
+      const res = await readBarcodesFromImageData(imgData, DEFAULT_DECODE_OPTIONS);
+      if (res && res.length > 0 && res[0].text) {
+        return res[0].text.trim();
+      }
+
+      // Dynamic Contrast Stretch
+      const data = imgData.data;
+      let minLum = 255;
+      let maxLum = 0;
+      for (let i = 0; i < data.length; i += 4) {
+        const lum = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
+        if (lum < minLum) minLum = lum;
+        if (lum > maxLum) maxLum = lum;
+      }
+      const range = Math.max(1, maxLum - minLum);
+      for (let i = 0; i < data.length; i += 4) {
+        const lum = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
+        const stretched = Math.min(255, Math.max(0, ((lum - minLum) / range) * 255));
+        data[i] = stretched;
+        data[i + 1] = stretched;
+        data[i + 2] = stretched;
+      }
+
+      const stretchRes = await readBarcodesFromImageData(imgData, DEFAULT_DECODE_OPTIONS);
+      if (stretchRes && stretchRes.length > 0 && stretchRes[0].text) {
+        return stretchRes[0].text.trim();
+      }
     }
-    const range = Math.max(1, maxLum - minLum);
-    for (let i = 0; i < data.length; i += 4) {
-      const lum = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
-      const stretched = Math.min(255, Math.max(0, ((lum - minLum) / range) * 255));
-      data[i] = stretched;
-      data[i + 1] = stretched;
-      data[i + 2] = stretched;
-    }
-    ctx.putImageData(imgData, 0, 0);
 
-    const enhancedResults = await readBarcodesFromImageData(imgData, DEFAULT_DECODE_OPTIONS);
-    if (enhancedResults && enhancedResults.length > 0 && enhancedResults[0].text) {
-      return enhancedResults[0].text.trim();
+    // Pass 4: 90° & 270° Canvas Rotations
+    for (const angle of [90, 270]) {
+      const rotCanvas = document.createElement('canvas');
+      rotCanvas.width = origH;
+      rotCanvas.height = origW;
+      const rotCtx = rotCanvas.getContext('2d', { willReadFrequently: true });
+      if (rotCtx) {
+        rotCtx.translate(origH / 2, origW / 2);
+        rotCtx.rotate((angle * Math.PI) / 180);
+        rotCtx.drawImage(img, -origW / 2, -origH / 2);
+
+        const rotImgData = rotCtx.getImageData(0, 0, origH, origW);
+        const rotRes = await readBarcodesFromImageData(rotImgData, DEFAULT_DECODE_OPTIONS);
+        if (rotRes && rotRes.length > 0 && rotRes[0].text) {
+          return rotRes[0].text.trim();
+        }
+      }
     }
-  } catch (_) {}
+  } catch (err) {
+    console.warn('Image file decode pass exception:', err);
+  }
 
   return null;
 }
