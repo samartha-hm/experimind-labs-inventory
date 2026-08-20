@@ -150,7 +150,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
   const loadAllData = async () => {
     try {
-      const [dbInv, dbKits, dbTx, dbVendors, dbCustomers, dbPos, dbSos, dbWh, dbBins] = await Promise.all([
+      const results = await Promise.allSettled([
         apiFetch('/api/v1/inventory'),
         apiFetch('/api/v1/kit'),
         apiFetch('/api/v1/transaction'),
@@ -162,94 +162,111 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         apiFetch('/api/v1/bin')
       ]);
 
-      setInventory(dbInv.map(mapItemToFrontend));
-      
-      // Map Kits
-      setKits(dbKits.map((k: any) => ({
-        id: k.id,
-        name: k.name,
-        description: k.description || '',
-        imageUrl: k.image_url || undefined,
-        items: (k.bom_items || []).map((b: any) => ({
-          componentId: b.inventory_item_id || b.componentId,
-          qty: Number(b.quantity) || Number(b.qty) || 1
-        }))
-      })));
+      const [resInv, resKits, resTx, resVendors, resCustomers, resPos, resSos, resWh, resBins] = results;
 
-      // Map Transactions
-      setTransactions(dbTx.map((t: any) => ({
-        id: t.id,
-        timestamp: t.occurred_at || t.timestamp,
-        type: t.type,
-        description: t.description || '',
-        items: (t.lines || []).map((l: any) => ({
-          componentId: l.inventory_item_id || l.componentId,
-          componentName: l.inventory_item?.name || 'Unknown Component',
-          qtyDiff: Number(l.quantity_change) || 0
-        }))
-      })));
+      if (resInv.status === 'fulfilled' && Array.isArray(resInv.value)) {
+        setInventory(resInv.value.map(mapItemToFrontend));
+      }
 
-      // Map auxiliary collections directly
-      setVendors(dbVendors.map((v: any) => ({
-        id: v.id,
-        code: v.vendor_code,
-        name: v.name,
-        contactName: v.contact_name,
-        email: v.email,
-        phone: v.phone,
-        paymentTerms: v.payment_terms || 'Net 30',
-        address: typeof v.address === 'object' ? (v.address?.city || 'General') : (v.address || '')
-      })));
+      if (resKits.status === 'fulfilled' && Array.isArray(resKits.value)) {
+        setKits(resKits.value.map((k: any) => ({
+          id: k.id,
+          name: k.name,
+          description: k.description || '',
+          imageUrl: k.image_url || undefined,
+          items: (k.bom_items || []).map((b: any) => ({
+            componentId: b.inventory_item_id || b.componentId,
+            qty: Number(b.quantity) || Number(b.qty) || 1
+          }))
+        })));
+      }
 
-      setCustomers(dbCustomers.map((c: any) => ({
-        id: c.id,
-        code: c.customer_code,
-        name: c.name,
-        contactName: c.contact_name,
-        email: c.email,
-        phone: c.phone,
-        paymentTerms: 'Net 30',
-        address: typeof c.billing_address === 'object' ? (c.billing_address?.city || 'General') : (c.billing_address || ''),
-        creditLimit: Number(c.credit_limit) || 10000
-      })));
+      if (resTx.status === 'fulfilled' && Array.isArray(resTx.value)) {
+        setTransactions(resTx.value.map((t: any) => ({
+          id: t.id,
+          timestamp: t.occurred_at || t.timestamp,
+          type: t.type,
+          description: t.description || '',
+          items: (t.lines || []).map((l: any) => ({
+            componentId: l.inventory_item_id || l.componentId,
+            componentName: l.inventory_item?.name || 'Unknown Component',
+            qtyDiff: Number(l.quantity_change) || 0
+          }))
+        })));
+      }
 
-      setPurchaseOrders(dbPos.map((po: any) => ({
-        id: po.id,
-        poNumber: po.po_number,
-        vendorName: po.vendor?.name || 'Supplier',
-        orderDate: po.order_date,
-        expectedDate: po.expected_date,
-        status: po.status,
-        totalAmount: Number(po.total_amount) || 0
-      })));
+      if (resVendors.status === 'fulfilled' && Array.isArray(resVendors.value)) {
+        setVendors(resVendors.value.map((v: any) => ({
+          id: v.id,
+          code: v.vendor_code,
+          name: v.name,
+          contactName: v.contact_name,
+          email: v.email,
+          phone: v.phone,
+          paymentTerms: v.payment_terms || 'Net 30',
+          address: typeof v.address === 'object' ? (v.address?.city || 'General') : (v.address || '')
+        })));
+      }
 
-      setSalesOrders(dbSos.map((so: any) => ({
-        id: so.id,
-        soNumber: so.so_number,
-        customerName: so.customer?.name || 'Customer',
-        orderDate: so.order_date,
-        requiredDate: so.required_date,
-        status: so.status,
-        totalAmount: Number(so.total_amount) || 0
-      })));
+      if (resCustomers.status === 'fulfilled' && Array.isArray(resCustomers.value)) {
+        setCustomers(resCustomers.value.map((c: any) => ({
+          id: c.id,
+          code: c.customer_code,
+          name: c.name,
+          contactName: c.contact_name,
+          email: c.email,
+          phone: c.phone,
+          paymentTerms: 'Net 30',
+          address: typeof c.billing_address === 'object' ? (c.billing_address?.city || 'General') : (c.billing_address || ''),
+          creditLimit: Number(c.credit_limit) || 10000
+        })));
+      }
 
-      setWarehouses(dbWh.map((wh: any) => ({
-        id: wh.id,
-        code: wh.code,
-        name: wh.name,
-        address: typeof wh.address === 'object' ? (wh.address?.street || 'Main Storage') : (wh.address || ''),
-        isDefault: !!wh.is_default,
-        binCount: 0,
-        totalCapacityPct: 0
-      })));
+      if (resPos.status === 'fulfilled' && Array.isArray(resPos.value)) {
+        setPurchaseOrders(resPos.value.map((po: any) => ({
+          id: po.id,
+          poNumber: po.po_number,
+          vendorName: po.vendor?.name || 'Supplier',
+          orderDate: po.order_date,
+          expectedDate: po.expected_date,
+          status: po.status,
+          totalAmount: Number(po.total_amount) || 0
+        })));
+      }
 
-      setBins(dbBins.map((bin: any) => ({
-        id: bin.id,
-        code: bin.code,
-        warehouseCode: bin.warehouse?.code || '',
-        description: bin.description || '',
-        isActive: true
-      })));
+      if (resSos.status === 'fulfilled' && Array.isArray(resSos.value)) {
+        setSalesOrders(resSos.value.map((so: any) => ({
+          id: so.id,
+          soNumber: so.so_number,
+          customerName: so.customer?.name || 'Customer',
+          orderDate: so.order_date,
+          requiredDate: so.required_date,
+          status: so.status,
+          totalAmount: Number(so.total_amount) || 0
+        })));
+      }
+
+      if (resWh.status === 'fulfilled' && Array.isArray(resWh.value)) {
+        setWarehouses(resWh.value.map((wh: any) => ({
+          id: wh.id,
+          code: wh.code,
+          name: wh.name,
+          address: typeof wh.address === 'object' ? (wh.address?.street || 'Main Storage') : (wh.address || ''),
+          isDefault: !!wh.is_default,
+          binCount: 0,
+          totalCapacityPct: 0
+        })));
+      }
+
+      if (resBins.status === 'fulfilled' && Array.isArray(resBins.value)) {
+        setBins(resBins.value.map((bin: any) => ({
+          id: bin.id,
+          code: bin.code,
+          warehouseCode: bin.warehouse?.code || '',
+          description: bin.description || '',
+          isActive: true
+        })));
+      }
 
     } catch (e) {
       console.error('Error loading data from PostgreSQL:', e);
