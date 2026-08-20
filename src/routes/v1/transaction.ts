@@ -9,7 +9,7 @@ const service = new TransactionService();
 
 export class CreateTransactionDto {
   @IsOptional()
-  @IsUUID()
+  @IsString()
   user_id?: string;
 
   @IsOptional()
@@ -93,7 +93,12 @@ router.post("/", requireRole("staff", "manager", "admin"), async (req, res) => {
     const { lines, items, ...txData } = req.body;
 
     const user = (req as any).user;
-    const userId = txData.user_id || user?.id || "00000000-0000-0000-0000-000000000001";
+    let userId = txData.user_id || user?.id || "00000000-0000-0000-0000-000000000001";
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(userId)) {
+      userId = "00000000-0000-0000-0000-000000000001";
+    }
+
     const referenceType = txData.reference_type || txData.type || "adjustment";
 
     const linesInput = lines || (items || []).map((i: any) => ({
