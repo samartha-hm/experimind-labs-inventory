@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { Html5Qrcode, Html5QrcodeSupportedFormats } from 'html5-qrcode';
 import {
@@ -9,24 +9,27 @@ import {
   Minus,
   Volume2,
   VolumeX,
-  Repeat,
   CheckCircle2,
   AlertTriangle,
   Barcode,
   Search,
   Check,
   Package,
-  Layers,
   MapPin,
   FileSpreadsheet,
   Trash2,
-  Sparkles,
-  ArrowRight,
   UploadCloud,
+  RefreshCw,
+  Layers,
+  ArrowRight,
+  TrendingUp,
+  Boxes,
   Zap,
   Info,
-  RefreshCw,
-  ExternalLink
+  Sliders,
+  DollarSign,
+  Clock,
+  Sparkles
 } from 'lucide-react';
 import { useData } from '@/src/DataContext';
 import { useToast } from '@/src/contexts/ToastContext';
@@ -52,6 +55,7 @@ interface BarcodeScannerModalProps {
 }
 
 const QUICK_BARCODES = ['EL-1', 'EL-2', 'EL-3', 'EL-4', 'EL-5', 'EL-6', 'EL-7', 'EL-8', 'EL-9', 'EL-10'];
+const STEP_PRESETS = [1, 5, 10, 25, 50, 100];
 
 export default function BarcodeScannerModal({
   isOpen,
@@ -64,15 +68,17 @@ export default function BarcodeScannerModal({
   // Mode Selection
   const [activeMode, setActiveMode] = useState<ScanOperationMode>(initialMode);
   const [soundEnabled, setSoundEnabled] = useState(true);
-  const [continuousMode, setContinuousMode] = useState(false);
   const [customQtyStep, setCustomQtyStep] = useState<number>(1);
 
   // Scanner Hardware & Stream State
-  const scannerInstanceRef = useRef<Html5Qrcode | null>(null);
+  const scannerRef = useRef<Html5Qrcode | null>(null);
+  const viewportMountedRef = useRef<boolean>(false);
   const [isCameraActive, setIsCameraActive] = useState(false);
+  const [isStartingCamera, setIsStartingCamera] = useState(false);
   const [availableCameras, setAvailableCameras] = useState<{ id: string; label: string }[]>([]);
   const [selectedCameraId, setSelectedCameraId] = useState<string>('');
   const [cameraError, setCameraError] = useState<string | null>(null);
+  const [isProcessingFile, setIsProcessingFile] = useState(false);
 
   // Input & Scanned State
   const [manualCode, setManualCode] = useState('');
@@ -93,44 +99,61 @@ export default function BarcodeScannerModal({
     isOpen
   );
 
-  // Stop camera helper
-  const stopCameraStream = async () => {
-    if (scannerInstanceRef.current) {
+  // Safely stop camera stream
+  const stopCameraStream = useCallback(async () => {
+    if (scannerRef.current) {
       try {
-        if (scannerInstanceRef.current.isScanning) {
-          await scannerInstanceRef.current.stop();
+        if (scannerRef.current.isScanning) {
+          await scannerRef.current.stop();
         }
-        await scannerInstanceRef.current.clear();
+        await scannerRef.current.clear();
       } catch (_) {}
-      scannerInstanceRef.current = null;
+      scannerRef.current = null;
     }
     setIsCameraActive(false);
-  };
+    setIsStartingCamera(false);
+  }, []);
 
-  // Start Html5Qrcode Scanner
-  const startCameraStream = async (cameraIdToUse?: string) => {
+  // Start Html5Qrcode Scanner safely after DOM node is confirmed
+  const startCameraStream = useCallback(async (cameraIdToUse?: string) => {
+    if (!isOpen) return;
     setCameraError(null);
+    setIsStartingCamera(true);
+
+    // Wait until viewport DOM element is guaranteed to exist
+    let attempts = 0;
+    while (!document.getElementById('html5-barcode-viewport') && attempts < 20) {
+      await new Promise((r) => setTimeout(r, 50));
+      attempts++;
+    }
+
+    const viewportElem = document.getElementById('html5-barcode-viewport');
+    if (!viewportElem) {
+      setCameraError('Camera viewport element initializing...');
+      setIsStartingCamera(false);
+      return;
+    }
+
     try {
       await stopCameraStream();
 
-      // Enumerate cameras if not already populated
+      // Enumerate cameras
       let targetCamId = cameraIdToUse || selectedCameraId;
       try {
         const cameras = await Html5Qrcode.getCameras();
         if (cameras && cameras.length > 0) {
-          setAvailableCameras(cameras.map(c => ({ id: c.id, label: c.label || `Camera ${c.id.slice(0, 5)}` })));
+          setAvailableCameras(cameras.map(c => ({ id: c.id, label: c.label || `Camera ${c.id.slice(0, 6)}` })));
           if (!targetCamId) {
-            // Prefer environment / back camera if on mobile, or first camera
             const backCam = cameras.find(c => c.label.toLowerCase().includes('back') || c.label.toLowerCase().includes('environment'));
             targetCamId = backCam ? backCam.id : cameras[0].id;
             setSelectedCameraId(targetCamId);
           }
         }
       } catch (camErr) {
-        console.warn("Camera enumeration note:", camErr);
+        console.warn('Camera enumeration note:', camErr);
       }
 
-      const scanner = new Html5Qrcode("html5-barcode-viewport", {
+      const scanner = new Html5Qrcode('html5-barcode-viewport', {
         verbose: false,
         formatsToSupport: [
           Html5QrcodeSupportedFormats.CODE_128,
@@ -146,18 +169,18 @@ export default function BarcodeScannerModal({
         ]
       });
 
-      scannerInstanceRef.current = scanner;
+      scannerRef.current = scanner;
 
       const config = {
         fps: 25,
         qrbox: { width: 340, height: 160 },
-        aspectRatio: 1.777778, // 16:9 widescreen
+        aspectRatio: 1.777778,
         experimentalFeatures: {
           useBarCodeDetectorIfSupported: true
         }
       };
 
-      const cameraConstraint = targetCamId ? { deviceId: { exact: targetCamId } } : { facingMode: "environment" };
+      const cameraConstraint = targetCamId ? { deviceId: { exact: targetCamId } } : { facingMode: 'environment' };
 
       await scanner.start(
         cameraConstraint,
@@ -167,41 +190,50 @@ export default function BarcodeScannerModal({
             handleCodeScanned(decodedText);
           }
         },
-        () => {
-          // Frame not detected (silent polling)
-        }
+        () => {}
       );
 
       setIsCameraActive(true);
+      setIsStartingCamera(false);
     } catch (err: any) {
-      console.warn("Camera start failed, trying fallback constraints:", err);
+      console.warn('Primary camera stream error, attempting standard constraint fallback:', err);
       try {
-        if (scannerInstanceRef.current) {
-          await scannerInstanceRef.current.start(
-            { facingMode: "user" },
+        if (scannerRef.current) {
+          await scannerRef.current.start(
+            { facingMode: 'user' },
             { fps: 20, qrbox: { width: 300, height: 150 } },
             (decodedText) => handleCodeScanned(decodedText),
             () => {}
           );
           setIsCameraActive(true);
+          setIsStartingCamera(false);
           return;
         }
       } catch (fallbackErr: any) {
-        setCameraError(fallbackErr.message || "Camera access permission denied or device busy.");
+        setCameraError(fallbackErr.message || 'Camera access permission denied or device busy.');
         setIsCameraActive(false);
+        setIsStartingCamera(false);
       }
     }
-  };
+  }, [isOpen, selectedCameraId, stopCameraStream]);
+
+  // Viewport DOM mount handler
+  const setViewportRef = useCallback((node: HTMLDivElement | null) => {
+    if (node && !viewportMountedRef.current) {
+      viewportMountedRef.current = true;
+      startCameraStream();
+    }
+  }, [startCameraStream]);
 
   // Lifecycle
   useEffect(() => {
     if (isOpen) {
-      // Delay camera start slightly for modal DOM mount
-      const t = setTimeout(() => {
+      viewportMountedRef.current = false;
+      const timer = setTimeout(() => {
         startCameraStream();
-      }, 150);
+      }, 100);
       return () => {
-        clearTimeout(t);
+        clearTimeout(timer);
         stopCameraStream();
       };
     } else {
@@ -210,22 +242,59 @@ export default function BarcodeScannerModal({
       setRelocateBinTarget('');
       setRelocateStep('scan_item');
     }
-  }, [isOpen]);
+  }, [isOpen, startCameraStream, stopCameraStream]);
 
-  // Decode Image File Upload
+  // Decode Image File Upload (Enhanced)
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files.length > 0) {
-      const file = e.target.files[0];
-      try {
-        const html5QrCode = new Html5Qrcode("html5-file-decoder-temp");
-        const decodedText = await html5QrCode.scanFile(file, true);
-        if (decodedText) {
-          handleCodeScanned(decodedText);
-        }
-        await html5QrCode.clear();
-      } catch (err: any) {
-        showToast('error', 'Barcode Scan Failed', 'Could not decode a clear barcode from the uploaded image.');
+    if (!e.target.files || e.target.files.length === 0) return;
+    const file = e.target.files[0];
+    setIsProcessingFile(true);
+
+    try {
+      // Ensure target element is available
+      const tempElemId = 'html5-file-decoder-target';
+      let targetElem = document.getElementById(tempElemId);
+      if (!targetElem) {
+        targetElem = document.createElement('div');
+        targetElem.id = tempElemId;
+        targetElem.style.position = 'absolute';
+        targetElem.style.left = '-9999px';
+        targetElem.style.width = '400px';
+        targetElem.style.height = '400px';
+        document.body.appendChild(targetElem);
       }
+
+      const fileScanner = new Html5Qrcode(tempElemId, {
+        verbose: false,
+        formatsToSupport: [
+          Html5QrcodeSupportedFormats.CODE_128,
+          Html5QrcodeSupportedFormats.CODE_39,
+          Html5QrcodeSupportedFormats.EAN_13,
+          Html5QrcodeSupportedFormats.EAN_8,
+          Html5QrcodeSupportedFormats.UPC_A,
+          Html5QrcodeSupportedFormats.UPC_E,
+          Html5QrcodeSupportedFormats.QR_CODE,
+          Html5QrcodeSupportedFormats.DATA_MATRIX,
+          Html5QrcodeSupportedFormats.ITF,
+          Html5QrcodeSupportedFormats.CODABAR,
+        ]
+      });
+
+      const decodedText = await fileScanner.scanFile(file, true);
+      await fileScanner.clear();
+      
+      if (decodedText) {
+        showToast('success', 'Photo Decoded', `Detected Barcode: ${decodedText}`);
+        handleCodeScanned(decodedText);
+      } else {
+        showToast('error', 'Barcode Not Found', 'Could not read a recognizable 1D/2D barcode in this photo.');
+      }
+    } catch (err: any) {
+      console.warn('File decode error:', err);
+      showToast('error', 'Barcode Not Detected', 'Please ensure the barcode in the photo is in focus and well-lit.');
+    } finally {
+      setIsProcessingFile(false);
+      if (e.target) e.target.value = '';
     }
   };
 
@@ -254,7 +323,7 @@ export default function BarcodeScannerModal({
     const cleanCode = rawCode.trim();
     if (!cleanCode) return;
 
-    // Relocate Mode Step 2: Bin scan
+    // Relocate Mode Step 2: Destination Bin scan
     if (activeMode === 'relocate' && relocateStep === 'scan_bin' && scannedItem) {
       await handleExecuteBinRelocation(scannedItem.id, cleanCode);
       return;
@@ -266,27 +335,27 @@ export default function BarcodeScannerModal({
       setScannedItem(matchedItem);
       if (soundEnabled) playScanBeep('match');
 
-      // Append to Recent Scans
+      // Append to Recent Scans Feed
       setRecentScanLog(prev => [
         { code: cleanCode, name: matchedItem.name, time: new Date().toLocaleTimeString(), success: true },
         ...prev.slice(0, 19)
       ]);
 
-      // Mode-specific Automatic Execution
+      // Mode-specific Automatic Workflow Execution
       if (activeMode === 'inbound') {
         const delta = Math.max(1, customQtyStep);
-        await handleAdjustStock(matchedItem, delta, 'Inbound scan receipt');
+        await handleAdjustStock(matchedItem, delta, inboundNote || `Inbound scan receipt (+${delta} ${matchedItem.unit})`);
       } else if (activeMode === 'outbound') {
         const delta = -Math.max(1, customQtyStep);
-        await handleAdjustStock(matchedItem, delta, 'Outbound scan dispatch');
+        await handleAdjustStock(matchedItem, delta, `Outbound scan picking/dispatch (-${Math.abs(delta)} ${matchedItem.unit})`);
       } else if (activeMode === 'batch') {
         handleAddToBatch(matchedItem, Math.max(1, customQtyStep));
       } else if (activeMode === 'relocate') {
         setRelocateStep('scan_bin');
-        showToast('info', 'Item Identified', `Now scan or select target Bin location for "${matchedItem.name}"`);
+        showToast('info', 'Component Identified', `Step 2: Scan or type destination Bin location for "${matchedItem.name}"`);
       } else {
-        // Inspect Mode
-        showToast('success', 'Component Identified', `${matchedItem.name} (Barcode: ${matchedItem.barcode || matchedItem.id})`);
+        // Inspect & Monitor Mode
+        showToast('success', 'Component Matched', `${matchedItem.name} (Barcode: ${matchedItem.barcode || matchedItem.id})`);
       }
     } else {
       setScannedItem(null);
@@ -295,7 +364,7 @@ export default function BarcodeScannerModal({
         { code: cleanCode, name: 'Unrecognized Barcode', time: new Date().toLocaleTimeString(), success: false },
         ...prev.slice(0, 19)
       ]);
-      showToast('error', 'Barcode Not In Catalog', `No component matches "${cleanCode}".`);
+      showToast('error', 'Barcode Not In Catalog', `No component matches barcode "${cleanCode}".`);
     }
   };
 
@@ -311,7 +380,7 @@ export default function BarcodeScannerModal({
       id: `tx_${Date.now()}`,
       timestamp: new Date().toISOString(),
       type: delta > 0 ? 'add_stock' : 'adjust',
-      description: noteReason || (delta > 0 ? `Inbound +${delta} via Barcode Gun` : `Outbound ${delta} via Barcode Gun`),
+      description: noteReason || (delta > 0 ? `Inbound +${delta} via Barcode Scanner` : `Outbound ${delta} via Barcode Scanner`),
       items: [{ componentId: item.id, componentName: item.name, qtyDiff: delta }],
       diffs: [{ field: 'stockQty', oldValue: oldQty, newValue: newQty }]
     });
@@ -347,7 +416,7 @@ export default function BarcodeScannerModal({
       ];
     });
     if (soundEnabled) playScanBeep('click');
-    showToast('info', 'Batch Added', `+${qty} ${item.name} queued in session`);
+    showToast('info', 'Batch Added', `+${qty} ${item.name} added to batch queue`);
   };
 
   // Commit Batch Session to Database
@@ -356,10 +425,10 @@ export default function BarcodeScannerModal({
     for (const b of batchList) {
       const item = inventory.find(i => i.id === b.itemId);
       if (item) {
-        await handleAdjustStock(item, b.quantity, `Batch Inbound Audit Scan (${b.quantity} ${b.unit})`);
+        await handleAdjustStock(item, b.quantity, `Batch Audit Scan (${b.quantity} ${b.unit})`);
       }
     }
-    showToast('success', 'Batch Session Committed', `Updated ${batchList.length} component stock levels.`);
+    showToast('success', 'Batch Committed', `Successfully updated ${batchList.length} components in master inventory.`);
     setBatchList([]);
   };
 
@@ -374,7 +443,7 @@ export default function BarcodeScannerModal({
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement('a');
     link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `barcode_batch_${Date.now()}.csv`);
+    link.setAttribute('download', `inventory_batch_scan_${Date.now()}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -394,13 +463,13 @@ export default function BarcodeScannerModal({
       id: `tx_${Date.now()}`,
       timestamp: new Date().toISOString(),
       type: 'adjust',
-      description: `Relocated ${item.name} from "${item.binLocation || 'Unassigned'}" to "${newBinCode}" via Barcode Scanner`,
+      description: `Relocated ${item.name} to Bin "${newBinCode}" via Barcode Scanner`,
       items: [{ componentId: item.id, componentName: item.name, qtyDiff: 0 }],
       diffs: [{ field: 'binLocation', oldValue: item.binLocation || null, newValue: newBinCode }]
     });
 
     if (soundEnabled) playScanBeep('success');
-    showToast('success', 'Location Updated', `Moved "${item.name}" to Bin "${newBinCode}"`);
+    showToast('success', 'Bin Relocation Complete', `Moved "${item.name}" to Bin "${newBinCode}"`);
   };
 
   // Parent composite kits requiring this part
@@ -413,33 +482,36 @@ export default function BarcodeScannerModal({
 
   return createPortal(
     <div className="fixed inset-0 bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-3 md:p-6 z-[9999] overflow-y-auto animate-fadeIn">
-      <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh] my-auto relative">
+      <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl w-full max-w-3xl overflow-hidden flex flex-col max-h-[92vh] my-auto relative">
         
         {/* Top Header Bar */}
-        <div className="p-4 bg-slate-950 text-white flex items-center justify-between border-b border-slate-800 sticky top-0 z-20 shrink-0">
+        <div className="p-4 md:px-6 bg-slate-950 text-white flex items-center justify-between border-b border-slate-800 sticky top-0 z-20 shrink-0">
           <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-indigo-600/30 rounded-2xl text-indigo-400 border border-indigo-500/40 shadow-inner">
-              <QrCode className="w-5 h-5 animate-pulse" />
+            <div className="p-2.5 bg-gradient-to-tr from-indigo-600 to-indigo-500 rounded-2xl text-white shadow-lg shadow-indigo-600/30 border border-indigo-400/30">
+              <QrCode className="w-5 h-5" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h3 className="text-sm font-black tracking-wide text-white">Universal Barcode & QR Scanner Hub</h3>
-                <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-[9px] font-mono font-bold uppercase">
-                  Hardware Gun Active
+                <h3 className="text-sm md:text-base font-black tracking-tight text-white">
+                  Universal Barcode & QR Scanner Hub
+                </h3>
+                <span className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-[9px] font-mono font-bold uppercase">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                  USB Gun Active
                 </span>
               </div>
-              <p className="text-[11px] text-slate-400 font-mono">ZXing Engine • 1D Linear + 2D Matrix Live Decoder</p>
+              <p className="text-[11px] text-slate-400 font-mono">ZXing Live Engine • Code 128 / Code 39 / EAN / UPC / QR</p>
             </div>
           </div>
 
           <div className="flex items-center gap-2">
-            {/* Sound Toggle */}
+            {/* Audio Toggle */}
             <button
               type="button"
               onClick={() => setSoundEnabled(!soundEnabled)}
-              title={soundEnabled ? 'Mute Audio Chime' : 'Enable Audio Chime'}
+              title={soundEnabled ? 'Mute Scan Sound' : 'Enable Scan Sound'}
               className={`p-2 rounded-xl transition-colors cursor-pointer ${
-                soundEnabled ? 'bg-slate-800 text-amber-400' : 'bg-slate-900 text-slate-500'
+                soundEnabled ? 'bg-slate-800 text-amber-400 hover:bg-slate-700' : 'bg-slate-900 text-slate-500 hover:bg-slate-800'
               }`}
             >
               {soundEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
@@ -457,101 +529,181 @@ export default function BarcodeScannerModal({
           </div>
         </div>
 
-        {/* Operational Mode Navigation Tabs */}
-        <div className="bg-slate-900 border-b border-slate-800 px-4 py-2 flex items-center gap-1.5 overflow-x-auto custom-scrollbar shrink-0">
+        {/* 5 Distinct Industrial Operation Modes (Styled Navigation) */}
+        <div className="bg-slate-900/95 border-b border-slate-800 px-3 md:px-6 py-2.5 flex items-center gap-2 overflow-x-auto custom-scrollbar shrink-0">
+          
+          {/* Mode 1: Inspect & Monitor */}
           <button
             type="button"
             onClick={() => setActiveMode('inspect')}
-            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 shrink-0 ${
+            className={`px-3 py-2 rounded-2xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 shrink-0 ${
               activeMode === 'inspect'
-                ? 'bg-indigo-600 text-white shadow-md'
-                : 'bg-slate-800/80 text-slate-400 hover:text-slate-200'
+                ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
+                : 'bg-slate-800/80 text-slate-400 hover:text-slate-200 hover:bg-slate-800'
             }`}
           >
-            <Search className="w-3.5 h-3.5" /> 1. Inspect & Monitor
+            <Search className="w-3.5 h-3.5" />
+            <span>1. Inspect & Monitor</span>
           </button>
 
+          {/* Mode 2: Inbound */}
           <button
             type="button"
             onClick={() => setActiveMode('inbound')}
-            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 shrink-0 ${
+            className={`px-3 py-2 rounded-2xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 shrink-0 ${
               activeMode === 'inbound'
-                ? 'bg-emerald-600 text-white shadow-md'
-                : 'bg-slate-800/80 text-slate-400 hover:text-slate-200'
+                ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/30'
+                : 'bg-slate-800/80 text-slate-400 hover:text-slate-200 hover:bg-slate-800'
             }`}
           >
-            <Plus className="w-3.5 h-3.5" /> 2. Inbound (+ Add Stock)
+            <Plus className="w-3.5 h-3.5" />
+            <span>2. Inbound (+ Add Stock)</span>
           </button>
 
+          {/* Mode 3: Outbound */}
           <button
             type="button"
             onClick={() => setActiveMode('outbound')}
-            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 shrink-0 ${
+            className={`px-3 py-2 rounded-2xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 shrink-0 ${
               activeMode === 'outbound'
-                ? 'bg-rose-600 text-white shadow-md'
-                : 'bg-slate-800/80 text-slate-400 hover:text-slate-200'
+                ? 'bg-rose-600 text-white shadow-md shadow-rose-600/30'
+                : 'bg-slate-800/80 text-slate-400 hover:text-slate-200 hover:bg-slate-800'
             }`}
           >
-            <Minus className="w-3.5 h-3.5" /> 3. Outbound (- Deduct)
+            <Minus className="w-3.5 h-3.5" />
+            <span>3. Outbound (- Deduct)</span>
           </button>
 
+          {/* Mode 4: Batch Session */}
           <button
             type="button"
             onClick={() => setActiveMode('batch')}
-            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 shrink-0 ${
+            className={`px-3 py-2 rounded-2xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 shrink-0 ${
               activeMode === 'batch'
-                ? 'bg-purple-600 text-white shadow-md'
-                : 'bg-slate-800/80 text-slate-400 hover:text-slate-200'
+                ? 'bg-purple-600 text-white shadow-md shadow-purple-600/30'
+                : 'bg-slate-800/80 text-slate-400 hover:text-slate-200 hover:bg-slate-800'
             }`}
           >
-            <FileSpreadsheet className="w-3.5 h-3.5" /> 4. Batch Session {batchList.length > 0 && `(${batchList.length})`}
+            <FileSpreadsheet className="w-3.5 h-3.5" />
+            <span>4. Batch Session {batchList.length > 0 && `(${batchList.length})`}</span>
           </button>
 
+          {/* Mode 5: Bin Relocate */}
           <button
             type="button"
-            onClick={() => setActiveMode('relocate')}
-            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 shrink-0 ${
+            onClick={() => {
+              setActiveMode('relocate');
+              setRelocateStep('scan_item');
+            }}
+            className={`px-3 py-2 rounded-2xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 shrink-0 ${
               activeMode === 'relocate'
-                ? 'bg-amber-600 text-white shadow-md'
-                : 'bg-slate-800/80 text-slate-400 hover:text-slate-200'
+                ? 'bg-amber-600 text-white shadow-md shadow-amber-600/30'
+                : 'bg-slate-800/80 text-slate-400 hover:text-slate-200 hover:bg-slate-800'
             }`}
           >
-            <MapPin className="w-3.5 h-3.5" /> 5. Bin Relocate
+            <MapPin className="w-3.5 h-3.5" />
+            <span>5. Bin Relocate</span>
           </button>
         </div>
 
-        {/* Main Body */}
-        <div className="p-4 md:p-6 overflow-y-auto space-y-4 text-xs text-slate-700 dark:text-slate-300">
+        {/* Scrollable Content Container */}
+        <div className="p-4 md:p-6 overflow-y-auto space-y-5 text-xs text-slate-700 dark:text-slate-300">
           
-          {/* Camera Viewport & Stream Status */}
-          <div className="relative w-full h-56 bg-slate-950 rounded-2xl overflow-hidden border border-slate-800 flex items-center justify-center shadow-inner">
+          {/* Active Mode Banner & Quick Step Configurator */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 bg-slate-50 dark:bg-slate-800/70 rounded-2xl border border-slate-200 dark:border-slate-700/80">
+            <div className="flex items-center gap-2.5">
+              <div className={`p-2 rounded-xl text-white ${
+                activeMode === 'inspect' ? 'bg-indigo-600' :
+                activeMode === 'inbound' ? 'bg-emerald-600' :
+                activeMode === 'outbound' ? 'bg-rose-600' :
+                activeMode === 'batch' ? 'bg-purple-600' : 'bg-amber-600'
+              }`}>
+                {activeMode === 'inspect' && <Search className="w-4 h-4" />}
+                {activeMode === 'inbound' && <Plus className="w-4 h-4" />}
+                {activeMode === 'outbound' && <Minus className="w-4 h-4" />}
+                {activeMode === 'batch' && <Boxes className="w-4 h-4" />}
+                {activeMode === 'relocate' && <MapPin className="w-4 h-4" />}
+              </div>
+              <div>
+                <h4 className="font-bold text-slate-900 dark:text-white text-xs">
+                  {activeMode === 'inspect' && 'Mode 1: Component Inspection & Real-time Stock Monitor'}
+                  {activeMode === 'inbound' && 'Mode 2: Fast Inbound Stock Receipt (+ Add)'}
+                  {activeMode === 'outbound' && 'Mode 3: Fast Outbound Stock Picking & Dispatch (- Deduct)'}
+                  {activeMode === 'batch' && 'Mode 4: Multi-Scan Continuous Batch Audit Session'}
+                  {activeMode === 'relocate' && 'Mode 5: Warehouse Bin Location Relocation Transfer'}
+                </h4>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                  {activeMode === 'inspect' && 'Instant lookup of part specs, storage bin, stock health, and composite kit dependencies.'}
+                  {activeMode === 'inbound' && 'Scanned barcode immediately adds step quantity to inventory and creates receipt audit log.'}
+                  {activeMode === 'outbound' && 'Scanned barcode deducts step quantity with negative stock prevention.'}
+                  {activeMode === 'batch' && 'Continuously accumulate scans into a batch list with CSV export and bulk commit.'}
+                  {activeMode === 'relocate' && 'Step 1: Scan Component $\\to$ Step 2: Scan Target Bin to update storage location.'}
+                </p>
+              </div>
+            </div>
+
+            {/* Step Quantity Selector (for Inbound, Outbound, and Batch) */}
+            {(activeMode === 'inbound' || activeMode === 'outbound' || activeMode === 'batch') && (
+              <div className="flex items-center gap-1.5 self-end sm:self-auto bg-white dark:bg-slate-900 p-1.5 rounded-xl border border-slate-200 dark:border-slate-700 shrink-0">
+                <span className="text-[10px] font-bold text-slate-400 uppercase px-1">Step:</span>
+                {STEP_PRESETS.map((preset) => (
+                  <button
+                    key={preset}
+                    type="button"
+                    onClick={() => setCustomQtyStep(preset)}
+                    className={`px-2 py-0.5 rounded-lg text-[11px] font-bold font-mono transition-colors cursor-pointer ${
+                      customQtyStep === preset
+                        ? 'bg-indigo-600 text-white'
+                        : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
+                    }`}
+                  >
+                    {preset}
+                  </button>
+                ))}
+                <input
+                  type="number"
+                  min="1"
+                  value={customQtyStep}
+                  onChange={(e) => setCustomQtyStep(Math.max(1, parseInt(e.target.value, 10) || 1))}
+                  className="w-12 text-center py-0.5 px-1 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-md text-xs font-bold text-slate-900 dark:text-white"
+                  title="Custom step amount"
+                />
+              </div>
+            )}
+          </div>
+
+          {/* Camera Viewport & Stream Status Box */}
+          <div className="relative w-full h-60 bg-slate-950 rounded-3xl overflow-hidden border border-slate-800 shadow-xl flex items-center justify-center">
             
             {/* Html5Qrcode Mounted DOM Container */}
-            <div id="html5-barcode-viewport" className="w-full h-full object-cover" />
-            <div id="html5-file-decoder-temp" className="hidden" />
+            <div
+              id="html5-barcode-viewport"
+              ref={setViewportRef}
+              className="w-full h-full object-cover"
+            />
 
-            {/* Pulsing Laser Alignment Guide */}
+            {/* High-Tech Animated Laser Line */}
             <div className="absolute inset-x-8 top-1/2 -translate-y-1/2 h-0.5 bg-rose-500 shadow-lg shadow-rose-500/80 animate-pulse pointer-events-none z-10" />
 
-            {/* Aiming Reticle Box */}
-            <div className="absolute inset-x-12 inset-y-8 border-2 border-dashed border-indigo-400/70 rounded-xl pointer-events-none flex items-center justify-center z-10">
-              <span className="text-[10px] font-mono text-indigo-200 bg-slate-950/85 px-3 py-1 rounded-md border border-indigo-500/40 uppercase tracking-wider">
+            {/* Framing Reticle */}
+            <div className="absolute inset-x-12 inset-y-8 border-2 border-dashed border-indigo-400/70 rounded-2xl pointer-events-none flex items-center justify-center z-10">
+              <span className="text-[10px] font-mono text-indigo-200 bg-slate-950/85 px-3 py-1 rounded-lg border border-indigo-500/40 uppercase tracking-widest shadow-md">
                 {activeMode === 'relocate' && relocateStep === 'scan_bin'
                   ? '🎯 SCAN DESTINATION BIN/SHELF'
-                  : '🎯 ALIGN BARCODE / QR IN BOX'}
+                  : '🎯 ALIGN BARCODE / QR HERE'}
               </span>
             </div>
 
-            {/* Top-Right Camera Switcher & Status */}
+            {/* Top-Right Camera Switcher */}
             {availableCameras.length > 1 && (
-              <div className="absolute top-2 right-2 z-20">
+              <div className="absolute top-3 right-3 z-20">
                 <select
                   value={selectedCameraId}
                   onChange={(e) => {
                     setSelectedCameraId(e.target.value);
                     startCameraStream(e.target.value);
                   }}
-                  className="text-[10px] bg-slate-900/90 text-slate-200 border border-slate-700 rounded-lg px-2 py-1 focus:outline-none"
+                  className="text-[11px] font-bold bg-slate-900/90 text-slate-200 border border-slate-700 rounded-xl px-2.5 py-1.5 focus:outline-none shadow-lg cursor-pointer"
                 >
                   {availableCameras.map(c => (
                     <option key={c.id} value={c.id}>{c.label}</option>
@@ -560,26 +712,26 @@ export default function BarcodeScannerModal({
               </div>
             )}
 
-            {/* Error or Start Button Overlay */}
-            {!isCameraActive && (
+            {/* Camera Overlay when initializing or error */}
+            {(!isCameraActive || isStartingCamera) && (
               <div className="absolute inset-0 bg-slate-950/95 flex flex-col items-center justify-center p-4 text-center space-y-3 z-30">
                 <Camera className="w-10 h-10 text-indigo-400 animate-bounce" />
                 <p className="text-xs font-semibold text-slate-300">
-                  {cameraError || 'WebCam Stream Initializing...'}
+                  {cameraError || (isStartingCamera ? 'Connecting Camera Stream...' : 'Camera Stream Paused')}
                 </p>
                 <button
                   type="button"
                   onClick={() => startCameraStream()}
                   className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-bold text-xs shadow-md transition-all cursor-pointer flex items-center gap-1.5"
                 >
-                  <RefreshCw className="w-3.5 h-3.5" /> Start / Reconnect Camera
+                  <RefreshCw className="w-3.5 h-3.5" /> Reconnect WebCam
                 </button>
               </div>
             )}
           </div>
 
-          {/* Manual Barcode Input & Image Upload Controls */}
-          <div className="flex flex-col sm:flex-row gap-2">
+          {/* Manual Input Search Bar & Image File Picker */}
+          <div className="flex flex-col sm:flex-row gap-2.5">
             <form
               onSubmit={(e) => {
                 e.preventDefault();
@@ -590,31 +742,37 @@ export default function BarcodeScannerModal({
               <Barcode className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
               <input
                 type="text"
-                placeholder="Scan or enter Barcode/SKU string (e.g. EL-1, EL-2, EL-10)..."
+                placeholder="Scan or type Barcode / SKU (e.g. EL-1, EL-2, EL-10)..."
                 value={manualCode}
                 onChange={(e) => setManualCode(e.target.value)}
-                className="w-full pl-10 pr-24 py-2.5 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:border-indigo-500 font-mono font-bold"
+                className="w-full pl-10 pr-24 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs font-mono font-bold text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
               />
               <button
                 type="submit"
-                className="absolute right-1.5 top-1/2 -translate-y-1/2 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-bold text-xs transition-all shadow-xs flex items-center gap-1 cursor-pointer"
+                className="absolute right-2 top-1/2 -translate-y-1/2 px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold text-xs transition-all shadow-xs flex items-center gap-1 cursor-pointer"
               >
-                <Search className="w-3 h-3" /> Lookup
+                <Search className="w-3.5 h-3.5" /> Lookup
               </button>
             </form>
 
-            <label className="px-3.5 py-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer shrink-0">
+            <label className="px-4 py-3 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer shrink-0 shadow-xs">
               <UploadCloud className="w-4 h-4 text-indigo-500" />
-              <span>Scan Photo</span>
-              <input type="file" accept="image/*" onChange={handleFileUpload} className="hidden" />
+              <span>{isProcessingFile ? 'Decoding...' : 'Upload Barcode Image'}</span>
+              <input
+                type="file"
+                accept="image/*"
+                onChange={handleFileUpload}
+                disabled={isProcessingFile}
+                className="hidden"
+              />
             </label>
           </div>
 
-          {/* Quick Barcode Demo Samples */}
+          {/* Quick Demo Barcode Chips */}
           <div className="space-y-1.5">
             <div className="flex items-center justify-between text-[10px] font-bold text-slate-400 uppercase tracking-wider">
               <span>Quick Catalog Samples:</span>
-              <span className="text-indigo-500 font-mono">Click to test instant match</span>
+              <span className="text-indigo-500 font-mono">Click to test instant lookup</span>
             </div>
             <div className="flex flex-wrap gap-1.5">
               {QUICK_BARCODES.map((code) => (
@@ -622,7 +780,7 @@ export default function BarcodeScannerModal({
                   key={code}
                   type="button"
                   onClick={() => handleCodeScanned(code)}
-                  className="px-2.5 py-1 bg-slate-100 dark:bg-slate-800 hover:bg-indigo-50 dark:hover:bg-indigo-950 hover:text-indigo-600 dark:hover:text-indigo-300 rounded-lg text-[11px] font-mono font-bold text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 transition-colors cursor-pointer"
+                  className="px-2.5 py-1 bg-slate-100 dark:bg-slate-800 hover:bg-indigo-50 dark:hover:bg-indigo-950 hover:text-indigo-600 dark:hover:text-indigo-300 rounded-xl text-[11px] font-mono font-bold text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 transition-colors cursor-pointer"
                 >
                   {code}
                 </button>
@@ -631,18 +789,18 @@ export default function BarcodeScannerModal({
           </div>
 
           {/* MODE 1: INSPECT & MONITOR DETAILED PART CARD */}
-          {scannedItem && activeMode === 'inspect' && (
-            <div className="p-4 bg-white dark:bg-slate-800/90 border border-indigo-200 dark:border-indigo-800/80 rounded-2xl space-y-4 shadow-sm animate-fadeIn">
-              <div className="flex items-start justify-between gap-3">
+          {scannedItem && (
+            <div className="p-5 bg-white dark:bg-slate-800/90 border border-indigo-200 dark:border-indigo-800/80 rounded-3xl space-y-4 shadow-sm animate-fadeIn">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div className="flex items-center gap-3.5">
                   {scannedItem.imageUrl ? (
                     <img
                       src={scannedItem.imageUrl}
                       alt={scannedItem.name}
-                      className="w-14 h-14 rounded-2xl object-cover border border-slate-200 dark:border-slate-700 shadow-xs"
+                      className="w-16 h-16 rounded-2xl object-cover border border-slate-200 dark:border-slate-700 shadow-xs"
                     />
                   ) : (
-                    <div className="w-14 h-14 rounded-2xl bg-indigo-100 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 font-bold flex items-center justify-center text-lg border border-indigo-200">
+                    <div className="w-16 h-16 rounded-2xl bg-indigo-100 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 font-bold flex items-center justify-center text-xl border border-indigo-200">
                       {scannedItem.name.charAt(0)}
                     </div>
                   )}
@@ -662,31 +820,31 @@ export default function BarcodeScannerModal({
                   </div>
                 </div>
 
-                <div className="text-right">
+                <div className="text-left sm:text-right">
                   <span className="text-[10px] font-bold text-slate-400 uppercase">Available Stock</span>
-                  <div className="text-xl font-black text-slate-900 dark:text-white">
+                  <div className="text-2xl font-black text-slate-900 dark:text-white">
                     {scannedItem.stockQty} <span className="text-xs font-normal text-slate-400">{scannedItem.unit}</span>
                   </div>
                   <span className={`text-[10px] font-bold ${scannedItem.stockQty < scannedItem.threshold ? 'text-amber-500' : 'text-emerald-500'}`}>
-                    {scannedItem.stockQty < scannedItem.threshold ? '⚠️ Below Threshold' : '✓ Normal Level'}
+                    {scannedItem.stockQty < scannedItem.threshold ? '⚠️ Below Threshold' : '✓ Normal Stock'}
                   </span>
                 </div>
               </div>
 
-              {/* Storage & Parent Kits Meta */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-2 border-t border-slate-100 dark:border-slate-700/80 text-[11px]">
-                <div className="p-2.5 bg-slate-50 dark:bg-slate-900/60 rounded-xl border border-slate-200/60 dark:border-slate-700 flex items-center gap-2">
+              {/* Storage Bin & Composite Kit Dependencies */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-2 border-t border-slate-100 dark:border-slate-700/80 text-[11px]">
+                <div className="p-3 bg-slate-50 dark:bg-slate-900/60 rounded-2xl border border-slate-200/60 dark:border-slate-700 flex items-center gap-2.5">
                   <MapPin className="w-4 h-4 text-rose-500 shrink-0" />
                   <div>
-                    <span className="text-[9px] font-bold text-slate-400 uppercase block">Storage Bin / Shelf:</span>
+                    <span className="text-[9px] font-bold text-slate-400 uppercase block">Storage Bin Location:</span>
                     <strong className="text-slate-800 dark:text-slate-200">{scannedItem.binLocation || 'Rack 1, Shelf A (Default)'}</strong>
                   </div>
                 </div>
 
-                <div className="p-2.5 bg-slate-50 dark:bg-slate-900/60 rounded-xl border border-slate-200/60 dark:border-slate-700 flex items-center gap-2">
+                <div className="p-3 bg-slate-50 dark:bg-slate-900/60 rounded-2xl border border-slate-200/60 dark:border-slate-700 flex items-center gap-2.5">
                   <Package className="w-4 h-4 text-purple-500 shrink-0" />
                   <div>
-                    <span className="text-[9px] font-bold text-slate-400 uppercase block">Kit Assemblies Using Part:</span>
+                    <span className="text-[9px] font-bold text-slate-400 uppercase block">Associated Kits (BOM):</span>
                     <strong className="text-slate-800 dark:text-slate-200">
                       {parentKits.length > 0 ? `${parentKits.length} Kits (${parentKits.map(k => k.name).slice(0, 2).join(', ')})` : 'Standalone Component'}
                     </strong>
@@ -694,91 +852,46 @@ export default function BarcodeScannerModal({
                 </div>
               </div>
 
-              {/* Quick Actions in Inspect Mode */}
-              <div className="flex items-center justify-between pt-2">
-                <span className="text-[11px] text-slate-500 font-medium">Quick Quantity Adjust:</span>
-                <div className="flex items-center gap-1.5">
+              {/* Direct Quantity Adjust in Card View */}
+              <div className="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-slate-700/80">
+                <span className="text-xs text-slate-500 font-medium">Quick Adjust Quantity:</span>
+                <div className="flex items-center gap-2">
                   <button
                     type="button"
-                    onClick={() => handleAdjustStock(scannedItem, -1)}
+                    onClick={() => handleAdjustStock(scannedItem, -customQtyStep)}
                     disabled={scannedItem.stockQty <= 0}
-                    className="px-3 py-1.5 bg-rose-100 dark:bg-rose-900/50 hover:bg-rose-200 text-rose-700 dark:text-rose-300 rounded-xl font-bold transition-colors disabled:opacity-50 cursor-pointer flex items-center gap-1"
+                    className="px-3.5 py-1.5 bg-rose-100 dark:bg-rose-900/50 hover:bg-rose-200 text-rose-700 dark:text-rose-300 rounded-xl font-bold transition-colors disabled:opacity-40 cursor-pointer flex items-center gap-1"
                   >
-                    <Minus className="w-3.5 h-3.5" /> -1
+                    <Minus className="w-3.5 h-3.5" /> -{customQtyStep}
                   </button>
                   <button
                     type="button"
-                    onClick={() => handleAdjustStock(scannedItem, 1)}
-                    className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold transition-colors cursor-pointer flex items-center gap-1 shadow-xs"
+                    onClick={() => handleAdjustStock(scannedItem, customQtyStep)}
+                    className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold transition-colors cursor-pointer flex items-center gap-1 shadow-xs"
                   >
-                    <Plus className="w-3.5 h-3.5" /> +1
+                    <Plus className="w-3.5 h-3.5" /> +{customQtyStep}
                   </button>
                 </div>
               </div>
-            </div>
-          )}
-
-          {/* MODE 2: INBOUND / STOCK RECEIVING PANEL */}
-          {activeMode === 'inbound' && (
-            <div className="p-4 bg-emerald-50/70 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded-2xl space-y-3 animate-fadeIn">
-              <div className="flex items-center justify-between">
-                <span className="font-bold text-emerald-800 dark:text-emerald-300 text-xs flex items-center gap-1.5">
-                  <Plus className="w-4 h-4" /> Inbound Receiving Configuration
-                </span>
-                <div className="flex items-center gap-2">
-                  <span className="text-[10px] text-slate-500 font-bold">Step Qty:</span>
-                  <input
-                    type="number"
-                    min="1"
-                    value={customQtyStep}
-                    onChange={(e) => setCustomQtyStep(Math.max(1, parseInt(e.target.value, 10) || 1))}
-                    className="w-16 text-center py-1 px-1 bg-white dark:bg-slate-900 border border-emerald-300 dark:border-emerald-700 rounded-lg text-xs font-bold text-slate-900 dark:text-white"
-                  />
-                </div>
-              </div>
-              <p className="text-[11px] text-emerald-700 dark:text-emerald-400">
-                Every scanned barcode will automatically increment stock by <strong>+{customQtyStep} units</strong> and write an audited Inbound receiving transaction.
-              </p>
-            </div>
-          )}
-
-          {/* MODE 3: OUTBOUND / DISPATCH PANEL */}
-          {activeMode === 'outbound' && (
-            <div className="p-4 bg-rose-50/70 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 rounded-2xl space-y-3 animate-fadeIn">
-              <div className="flex items-center justify-between">
-                <span className="font-bold text-rose-800 dark:text-rose-300 text-xs flex items-center gap-1.5">
-                  <Minus className="w-4 h-4" /> Outbound Dispatch Configuration
-                </span>
-                <div className="flex items-center gap-2">
-                  <span className="text-[10px] text-slate-500 font-bold">Step Qty:</span>
-                  <input
-                    type="number"
-                    min="1"
-                    value={customQtyStep}
-                    onChange={(e) => setCustomQtyStep(Math.max(1, parseInt(e.target.value, 10) || 1))}
-                    className="w-16 text-center py-1 px-1 bg-white dark:bg-slate-900 border border-rose-300 dark:border-rose-700 rounded-lg text-xs font-bold text-slate-900 dark:text-white"
-                  />
-                </div>
-              </div>
-              <p className="text-[11px] text-rose-700 dark:text-rose-400">
-                Every scanned barcode will deduct <strong>-{customQtyStep} units</strong> with automatic safety limit warnings.
-              </p>
             </div>
           )}
 
           {/* MODE 4: BATCH MULTI-SCAN SESSION TABLE */}
           {activeMode === 'batch' && (
-            <div className="space-y-3 animate-fadeIn">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className="font-bold text-slate-800 dark:text-slate-200 text-xs">Accumulated Batch Session ({batchList.length} items)</span>
+            <div className="space-y-3 animate-fadeIn p-4 bg-slate-50 dark:bg-slate-800/60 rounded-3xl border border-slate-200 dark:border-slate-700">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div>
+                  <h4 className="font-bold text-slate-900 dark:text-white text-xs">
+                    Continuous Multi-Scan Batch ({batchList.length} unique items)
+                  </h4>
+                  <p className="text-[10px] text-slate-400">Items accumulate automatically as you scan with the camera or USB gun.</p>
                 </div>
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
                     onClick={handleExportBatchCSV}
                     disabled={batchList.length === 0}
-                    className="px-2.5 py-1 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-700 dark:text-slate-200 rounded-lg font-bold text-[11px] transition-colors disabled:opacity-40 cursor-pointer flex items-center gap-1"
+                    className="px-3 py-1.5 bg-white dark:bg-slate-900 hover:bg-slate-100 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 rounded-xl font-bold text-xs transition-colors disabled:opacity-40 cursor-pointer flex items-center gap-1 shadow-2xs"
                   >
                     <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" /> Export CSV
                   </button>
@@ -786,7 +899,7 @@ export default function BarcodeScannerModal({
                     type="button"
                     onClick={handleCommitBatch}
                     disabled={batchList.length === 0}
-                    className="px-3 py-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-bold text-[11px] transition-colors disabled:opacity-40 cursor-pointer shadow-xs flex items-center gap-1"
+                    className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold text-xs transition-colors disabled:opacity-40 cursor-pointer shadow-md flex items-center gap-1.5"
                   >
                     <Check className="w-3.5 h-3.5" /> Commit All Batch ({batchList.reduce((sum, b) => sum + b.quantity, 0)} units)
                   </button>
@@ -795,18 +908,18 @@ export default function BarcodeScannerModal({
 
               {batchList.length === 0 ? (
                 <div className="p-6 text-center border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-2xl text-slate-400 text-xs">
-                  Scan barcodes with the camera or USB gun to accumulate items into this batch session.
+                  No items in batch yet. Scan barcodes continuously to accumulate counts.
                 </div>
               ) : (
-                <div className="max-h-48 overflow-y-auto rounded-xl border border-slate-200 dark:border-slate-700 divide-y divide-slate-100 dark:divide-slate-800">
+                <div className="max-h-48 overflow-y-auto rounded-2xl border border-slate-200 dark:border-slate-700 divide-y divide-slate-100 dark:divide-slate-800 bg-white dark:bg-slate-900">
                   {batchList.map((b) => (
-                    <div key={b.itemId} className="p-2.5 bg-white dark:bg-slate-800/80 flex items-center justify-between text-xs">
-                      <div className="flex items-center gap-2">
+                    <div key={b.itemId} className="p-3 flex items-center justify-between text-xs">
+                      <div className="flex items-center gap-2.5">
                         <span className="font-mono font-bold text-indigo-600 dark:text-indigo-400">{b.code}</span>
-                        <span className="font-bold text-slate-800 dark:text-slate-200 truncate max-w-[180px]">{b.name}</span>
+                        <span className="font-bold text-slate-800 dark:text-slate-200 truncate max-w-[200px]">{b.name}</span>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <span className="font-mono font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-950 px-2 py-0.5 rounded-md">
+                      <div className="flex items-center gap-3">
+                        <span className="font-mono font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-950 px-2.5 py-1 rounded-lg border border-emerald-200 dark:border-emerald-800">
                           +{b.quantity} {b.unit}
                         </span>
                         <button
@@ -814,7 +927,7 @@ export default function BarcodeScannerModal({
                           onClick={() => setBatchList(prev => prev.filter(x => x.itemId !== b.itemId))}
                           className="p-1 text-slate-400 hover:text-rose-600 cursor-pointer"
                         >
-                          <Trash2 className="w-3.5 h-3.5" />
+                          <Trash2 className="w-4 h-4" />
                         </button>
                       </div>
                     </div>
@@ -826,29 +939,39 @@ export default function BarcodeScannerModal({
 
           {/* MODE 5: BIN RELOCATION PANEL */}
           {activeMode === 'relocate' && (
-            <div className="p-4 bg-amber-50/70 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-2xl space-y-3 animate-fadeIn">
+            <div className="p-4 bg-amber-50/80 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-3xl space-y-3 animate-fadeIn">
               <div className="flex items-center gap-2">
-                <MapPin className="w-4 h-4 text-amber-600" />
-                <span className="font-bold text-amber-900 dark:text-amber-300 text-xs">
-                  {relocateStep === 'scan_item' ? 'Step 1: Scan Component Barcode' : `Step 2: Scan Target Bin for "${scannedItem?.name}"`}
-                </span>
+                <MapPin className="w-5 h-5 text-amber-600" />
+                <div>
+                  <h4 className="font-bold text-amber-950 dark:text-amber-300 text-xs">
+                    {relocateStep === 'scan_item'
+                      ? 'Step 1: Scan Component Barcode to Move'
+                      : `Step 2: Scan Destination Bin for "${scannedItem?.name}"`}
+                  </h4>
+                  <p className="text-[10px] text-amber-800 dark:text-amber-400">
+                    {relocateStep === 'scan_item'
+                      ? 'Point the camera or scan the part sticker to select the item.'
+                      : 'Scan the shelf/bin sticker or enter the new location below.'}
+                  </p>
+                </div>
               </div>
+
               {relocateStep === 'scan_bin' && scannedItem && (
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 pt-2">
                   <input
                     type="text"
                     placeholder="Enter or scan target bin barcode (e.g. Rack 2, Shelf 3)..."
                     value={relocateBinTarget}
                     onChange={(e) => setRelocateBinTarget(e.target.value)}
-                    className="flex-1 px-3 py-1.5 bg-white dark:bg-slate-900 border border-amber-300 dark:border-amber-700 rounded-xl text-xs text-slate-900 dark:text-white font-bold"
+                    className="flex-1 px-3 py-2 bg-white dark:bg-slate-900 border border-amber-300 dark:border-amber-700 rounded-xl text-xs text-slate-900 dark:text-white font-bold"
                   />
                   <button
                     type="button"
                     onClick={() => handleExecuteBinRelocation(scannedItem.id, relocateBinTarget)}
                     disabled={!relocateBinTarget.trim()}
-                    className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl font-bold text-xs shadow-xs disabled:opacity-40 cursor-pointer"
+                    className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl font-bold text-xs shadow-md disabled:opacity-40 cursor-pointer"
                   >
-                    Confirm Move
+                    Confirm Relocate
                   </button>
                 </div>
               )}
@@ -857,8 +980,8 @@ export default function BarcodeScannerModal({
 
           {/* Recent Live Scan Session Feed */}
           {recentScanLog.length > 0 && (
-            <div className="space-y-1.5 pt-2 border-t border-slate-100 dark:border-slate-800">
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Live Scan Feed:</span>
+            <div className="space-y-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Live Activity Feed:</span>
               <div className="space-y-1 max-h-28 overflow-y-auto custom-scrollbar">
                 {recentScanLog.map((s, idx) => (
                   <div
