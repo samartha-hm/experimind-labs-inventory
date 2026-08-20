@@ -21,8 +21,8 @@ async function bootstrap() {
     org = orgRepo.create({
       id: "00000000-0000-0000-0000-000000000000",
       name: "ExperiMind Labs Primary HQ",
-      slug: "primary-hq",
-    });
+      currency: "INR",
+    } as any);
     await orgRepo.save(org);
     console.log("✅ Created default Organization: Primary HQ");
   }
