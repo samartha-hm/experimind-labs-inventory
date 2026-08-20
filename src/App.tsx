@@ -69,11 +69,13 @@ function MainApp() {
     return kits.find(k => k.id === targetKitId) || kits[0];
   }, [kits, selectedKitId]);
 
-  const handleUpdateStock = async (id: string, delta: number) => {
+  const handleUpdateStock = async (id: string, targetQtyOrDelta: number, isDelta = false) => {
     const item = inventory.find(i => i.id === id);
     if (!item) return;
     const oldQty = item.stockQty;
-    const newQty = Math.max(0, oldQty + delta);
+    const newQty = isDelta ? Math.max(0, oldQty + targetQtyOrDelta) : Math.max(0, targetQtyOrDelta);
+    const delta = newQty - oldQty;
+    if (delta === 0) return;
     
     await updateInventoryItem(id, { stockQty: newQty });
     

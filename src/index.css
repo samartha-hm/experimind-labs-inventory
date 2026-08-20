@@ -79,6 +79,19 @@
   }
 }
 
+/* Global Form Controls & Theme Color Integrity */
+input:not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not([type="button"]):not([type="file"]),
+textarea,
+select {
+  color: #0f172a;
+}
+
+.dark input:not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not([type="button"]):not([type="file"]),
+.dark textarea,
+.dark select {
+  color: #f8fafc;
+}
+
 /* Keyframe Animations */
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(4px); }
