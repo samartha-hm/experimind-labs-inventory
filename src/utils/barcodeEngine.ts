@@ -3,7 +3,7 @@ import { DecodeHintType } from '@zxing/library';
 
 // Monkey patch HTMLCanvasElementLuminanceSource to prevent 'Could not create a Canvas element' bug during 1D barcode rotation
 if (typeof window !== 'undefined' && HTMLCanvasElementLuminanceSource) {
-  HTMLCanvasElementLuminanceSource.prototype.getTempCanvasElement = function () {
+  (HTMLCanvasElementLuminanceSource.prototype as any).getTempCanvasElement = function () {
     if (!this.tempCanvasElement) {
       const doc = (this.canvas && this.canvas.ownerDocument) ? this.canvas.ownerDocument : document;
       const tempCanvas = doc.createElement('canvas');
