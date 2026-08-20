@@ -14,27 +14,40 @@ export class KitService {
     return AppDataSource.getRepository(InventoryItem);
   }
 
-  async list(): Promise<any[]> {
+  async list(organizationId?: string): Promise<any[]> {
+    const where: any = {};
+    if (organizationId) {
+      where.organization_id = organizationId;
+    }
     const kits = await this.kitRepo.find({
+      where,
       relations: ["boms", "boms.inventory_item"]
     });
     return kits.map(k => this.mapKit(k));
   }
 
-  async create(dto: any): Promise<any> {
+  async create(dto: any, organizationId?: string): Promise<any> {
     const { bom_items, ...kitData } = dto;
-    const entity = this.kitRepo.create(kitData as any) as unknown as Kit;
+    const orgId = organizationId || kitData.organization_id || "00000000-0000-0000-0000-000000000000";
+    const entity = this.kitRepo.create({
+      ...kitData,
+      organization_id: orgId,
+    } as any) as unknown as Kit;
     const saved = await this.kitRepo.save(entity) as unknown as Kit;
     if (bom_items && Array.isArray(bom_items)) {
       for (const item of bom_items) {
         await this.addToBom(saved.id, item.inventory_item_id, item.quantity);
       }
     }
-    return this.findById(saved.id);
+    return this.findById(saved.id, orgId);
   }
 
-  async update(id: string, changes: any): Promise<any> {
+  async update(id: string, changes: any, organizationId?: string): Promise<any> {
     const { bom_items, ...kitData } = changes;
+    const existing = await this.findById(id, organizationId);
+    if (!existing) {
+      throw new Error(`Kit ${id} not found or access denied.`);
+    }
     
     // Only update kitData if there are actual fields to update
     if (Object.keys(kitData).length > 0) {
@@ -51,16 +64,24 @@ export class KitService {
       }
     }
 
-    return this.findById(id);
+    return this.findById(id, organizationId);
   }
 
-  async delete(id: string): Promise<void> {
+  async delete(id: string, organizationId?: string): Promise<void> {
+    const existing = await this.findById(id, organizationId);
+    if (!existing) {
+      throw new Error(`Kit ${id} not found or access denied.`);
+    }
     await this.kitRepo.delete(id);
   }
 
-  async findById(id: string): Promise<any | null> {
+  async findById(id: string, organizationId?: string): Promise<any | null> {
+    const where: any = { id };
+    if (organizationId) {
+      where.organization_id = organizationId;
+    }
     const kit = await this.kitRepo.findOne({
-      where: { id },
+      where,
       relations: ["boms", "boms.inventory_item"]
     });
     return kit ? this.mapKit(kit) : null;
@@ -85,31 +106,26 @@ export class KitService {
   }
 
   async addToBom(kitId: string, inventoryItemId: string, qtyPerKit: number): Promise<KitBom> {
-    // Verify kit exists
     const kit = await this.kitRepo.findOneBy({ id: kitId });
     if (!kit) {
       throw new Error("Kit not found");
     }
 
-    // Verify inventory item exists
     const inventoryItem = await this.inventoryRepo.findOneBy({ id: inventoryItemId });
     if (!inventoryItem) {
       throw new Error("Inventory item not found");
     }
 
-    // Check if this BOM item already exists
     const existing = await this.bomRepo.findOneBy({
       kit: { id: kitId },
       inventory_item: { id: inventoryItemId }
     });
 
     if (existing) {
-      // Update quantity if exists
       existing.qty_per_kit = qtyPerKit;
       return this.bomRepo.save(existing);
     }
 
-    // Create new BOM item
     const bomItem = this.bomRepo.create({
       kit,
       inventory_item: inventoryItem,

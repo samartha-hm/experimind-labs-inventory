@@ -9,8 +9,34 @@ export default function RevisionHistoryTab() {
   const { past, undo } = useUndoRedo();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedType, setSelectedType] = useState('all');
+  const [dbAuditLogs, setDbAuditLogs] = useState<any[]>([]);
 
-  const filteredTransactions = transactions.filter((tx) => {
+  React.useEffect(() => {
+    let isMounted = true;
+    fetch('/api/v1/audit-log', { credentials: 'include' })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (isMounted && data && Array.isArray(data.logs)) {
+          const mappedLogs = data.logs.map((log: any) => ({
+            id: log.id,
+            timestamp: log.created_at,
+            type: log.action.toLowerCase(),
+            description: `${log.action} on ${log.entity_name} (${log.entity_id})`,
+            userName: 'System User',
+            userRole: 'staff',
+            items: log.changes?.delta ? [{ componentName: log.entity_name, qtyDiff: log.changes.delta }] : [],
+            diffs: log.changes?.before ? [{ field: 'state', oldValue: JSON.stringify(log.changes.before), newValue: JSON.stringify(log.changes.after) }] : []
+          }));
+          setDbAuditLogs(mappedLogs);
+        }
+      })
+      .catch(() => {});
+    return () => { isMounted = false; };
+  }, []);
+
+  const combinedTransactions = [...dbAuditLogs, ...transactions].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+
+  const filteredTransactions = combinedTransactions.filter((tx) => {
     const matchesSearch = tx.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (tx.kitName || '').toLowerCase().includes(searchTerm.toLowerCase());
     

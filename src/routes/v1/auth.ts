@@ -80,10 +80,9 @@ router.post("/forgot-password", async (req, res) => {
     return res.status(400).json({ error: "Email is required" });
   }
   try {
-    const rawResetToken = await authService.generateForgotPasswordToken(email);
+    await authService.generateForgotPasswordToken(email);
     res.json({
-      message: "If your email is registered, a password reset token has been generated.",
-      resetToken: rawResetToken,
+      message: "If your email is registered in our system, password reset instructions have been sent.",
     });
   } catch (e: any) {
     res.status(400).json({ error: e.message });
@@ -115,9 +114,12 @@ router.post("/refresh-token", async (req, res) => {
     return res.status(400).json({ error: "refreshToken cookie or body field is required" });
   }
   try {
-    const tokens = await authService.refreshAccessToken(refreshToken);
-    res.cookie("refreshToken", tokens.refreshToken, COOKIE_OPTIONS);
-    res.json(tokens);
+    const result = await authService.refreshAccessToken(refreshToken);
+    res.cookie("refreshToken", result.refreshToken, COOKIE_OPTIONS);
+    res.json({
+      token: result.token,
+      user: result.user,
+    });
   } catch (e: any) {
     res.status(401).json({ error: e.message });
   }
@@ -127,6 +129,12 @@ router.post("/refresh-token", async (req, res) => {
  * POST /api/v1/auth/logout
  */
 router.post("/logout", async (req, res) => {
+  const refreshToken = req.cookies?.refreshToken || req.body?.refreshToken;
+  if (refreshToken) {
+    try {
+      await authService.revokeRefreshToken(refreshToken);
+    } catch (_) {}
+  }
   res.clearCookie("refreshToken", COOKIE_OPTIONS);
   res.json({ message: "Successfully logged out." });
 });

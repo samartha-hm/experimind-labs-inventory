@@ -11,41 +11,35 @@ export class PurchaseOrderService {
   private get poLineRepo() {
     return AppDataSource.getRepository(PurchaseOrderLine);
   }
-  private get vendorRepo() {
-    return AppDataSource.getRepository(Vendor);
-  }
-  private get inventoryRepo() {
-    return AppDataSource.getRepository(InventoryItem);
+
+  async list(organizationId?: string): Promise<PurchaseOrder[]> {
+    const where: any = {};
+    if (organizationId) {
+      where.organization_id = organizationId;
+    }
+    return this.poRepo.find({
+      where,
+      relations: ["vendor", "lines", "lines.inventory_item"]
+    });
   }
 
-  async list(): Promise<PurchaseOrder[]> {
-    return this.poRepo.find({ relations: ["vendor", "lines", "lines.inventory_item"] });
-  }
-
-  async create(dto: Partial<PurchaseOrder> & { lines?: Partial<PurchaseOrderLine>[] }): Promise<PurchaseOrder> {
-    const po = this.poRepo.create(dto);
+  async create(dto: Partial<PurchaseOrder> & { lines?: Partial<PurchaseOrderLine>[] }, organizationId?: string): Promise<PurchaseOrder> {
+    const orgId = organizationId || (dto as any).organization_id || "00000000-0000-0000-0000-000000000000";
+    const { lines, ...poData } = dto;
+    const po = this.poRepo.create({
+      ...poData,
+      organization_id: orgId,
+    });
     const savedPo = await this.poRepo.save(po);
 
-    // Handle line items if provided
-    if (dto.lines && dto.lines.length > 0) {
-      const linePromises = dto.lines.map(async (line) => {
-        const poLine = this.poLineRepo.create({
-          ...line,
-          purchase_order: savedPo
-        });
-        return this.poLineRepo.save(poLine);
-      });
-      await Promise.all(linePromises);
-
-      // Reload the PO with lines
-      const updatedPo = await this.poRepo.findOne({
-        where: { id: savedPo.id },
-        relations: ["vendor", "lines", "lines.inventory_item"]
-      });
-      return updatedPo!;
+    if (lines && lines.length > 0) {
+      const lineEntities = lines.map((line) => this.poLineRepo.create({
+        ...line,
+        purchase_order: savedPo,
+      }));
+      await this.poLineRepo.save(lineEntities);
     }
 
-    // Reload the PO with relations
     const populatedPo = await this.poRepo.findOne({
       where: { id: savedPo.id },
       relations: ["vendor", "lines", "lines.inventory_item"]
@@ -53,29 +47,41 @@ export class PurchaseOrderService {
     return populatedPo!;
   }
 
-  async update(id: string, changes: Partial<PurchaseOrder>): Promise<PurchaseOrder> {
-    await this.poRepo.update(id, changes);
-    const updated = await this.poRepo.findOneByOrFail({ id });
-    return updated;
+  async update(id: string, changes: Partial<PurchaseOrder>, organizationId?: string): Promise<PurchaseOrder> {
+    const existing = await this.findById(id, organizationId);
+    if (!existing) {
+      throw new Error(`Purchase order ${id} not found or access denied.`);
+    }
+    Object.assign(existing, changes);
+    return this.poRepo.save(existing);
   }
 
-  async delete(id: string): Promise<void> {
-    // Delete lines first due to foreign key constraint
+  async delete(id: string, organizationId?: string): Promise<void> {
+    const existing = await this.findById(id, organizationId);
+    if (!existing) {
+      throw new Error(`Purchase order ${id} not found or access denied.`);
+    }
     await this.poLineRepo.delete({ purchase_order: { id } });
     await this.poRepo.delete(id);
   }
 
-  async findById(id: string): Promise<PurchaseOrder | null> {
+  async findById(id: string, organizationId?: string): Promise<PurchaseOrder | null> {
+    const where: any = { id };
+    if (organizationId) {
+      where.organization_id = organizationId;
+    }
     return this.poRepo.findOne({
-      where: { id },
+      where,
       relations: ["vendor", "lines", "lines.inventory_item"]
     });
   }
 
-  async receiveItems(poId: string, receptions: { lineId: string; quantityReceived: number }[]): Promise<PurchaseOrder> {
-    const po = await this.poRepo.findOneByOrFail({ id: poId });
+  async receiveItems(poId: string, receptions: { lineId: string; quantityReceived: number }[], organizationId?: string): Promise<PurchaseOrder> {
+    const po = await this.findById(poId, organizationId);
+    if (!po) {
+      throw new Error(`Purchase order ${poId} not found or access denied.`);
+    }
 
-    // Update each line item's received quantity
     for (const reception of receptions) {
       await this.poLineRepo.update(
         { id: reception.lineId },
@@ -83,16 +89,15 @@ export class PurchaseOrderService {
       );
     }
 
-    // Check if all items are received
     const lines = await this.poLineRepo.find({ where: { purchase_order: { id: poId } } });
     const allReceived = lines.every(line => line.qty_received >= line.qty_ordered);
 
     if (allReceived) {
       await this.poRepo.update(poId, { status: "received" });
     } else {
-      await this.poRepo.update(poId, { status: "approved" }); // or keep as approved if partial
+      await this.poRepo.update(poId, { status: "approved" });
     }
 
-    return this.poRepo.findOneByOrFail({ id: poId });
+    return (await this.findById(poId, organizationId))!;
   }
 }

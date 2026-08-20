@@ -28,6 +28,8 @@ import webhookRoutes from "./src/routes/v1/webhook.ts";
 import userRoutes from "./src/routes/v1/users.ts";
 import orderRoutes from "./src/routes/v1/orders.ts";
 
+import auditLogRoutes from "./src/routes/v1/audit-log.ts";
+
 // Initialize Postgres (with retry)
 async function connectDatabase(retries = 3): Promise<void> {
   for (let attempt = 1; attempt <= retries; attempt++) {
@@ -51,6 +53,9 @@ async function startServer() {
   await connectDatabase();
   const app = express();
   const PORT = env.port;
+
+  // Trust Reverse Proxies (Nginx / Cloudflare / Ingress)
+  app.set("trust proxy", 1);
 
   // Security Headers & CORS
   app.use(helmet({ contentSecurityPolicy: false }));
@@ -87,11 +92,11 @@ async function startServer() {
 
   app.get("/readyz", async (_req, res) => {
     try {
-      const isConnected = AppDataSource.isInitialized;
-      if (isConnected) {
-        return res.status(200).json({ status: "ready", db: "connected" });
+      if (!AppDataSource.isInitialized) {
+        return res.status(503).json({ status: "not_ready", db: "disconnected" });
       }
-      return res.status(503).json({ status: "not_ready", db: "disconnected" });
+      await AppDataSource.query("SELECT 1");
+      return res.status(200).json({ status: "ready", db: "connected" });
     } catch (err: any) {
       return res.status(503).json({ status: "error", error: err.message });
     }
@@ -115,6 +120,7 @@ async function startServer() {
   app.use("/api/v1/transaction", authenticateJwt, requireTenant, transactionRoutes);
   app.use("/api/v1/report", authenticateJwt, requireTenant, reportRoutes);
   app.use("/api/v1/setting", authenticateJwt, requireTenant, settingRoutes);
+  app.use("/api/v1/audit-log", authenticateJwt, requireTenant, auditLogRoutes);
 
   // ===== Existing AI analysis endpoint (unchanged) =====
   app.post("/api/analyze", async (req, res) => {

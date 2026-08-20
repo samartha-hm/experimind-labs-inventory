@@ -325,53 +325,35 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const updateInventoryItem = async (id: string, updates: Partial<InventoryItem>) => {
     try {
       const oldItem = inventory.find(i => i.id === id);
-      const payload = mapItemToBackend(updates);
-      const updated = await apiFetch(`/api/v1/inventory/${id}`, {
-        method: 'PUT',
-        body: JSON.stringify(payload)
-      });
-      const newItem = mapItemToFrontend(updated);
-      setInventory(prev => prev.map(item => item.id === id ? newItem : item));
+      let updatedBackend: any = null;
 
-      if (oldItem) {
-        const diffs: any[] = [];
-        (Object.keys(updates) as (keyof InventoryItem)[]).forEach(field => {
-          if (oldItem[field] !== updates[field]) {
-            diffs.push({ field, oldValue: oldItem[field], newValue: updates[field] });
-          }
-        });
+      // Concurrency-safe delta stock mutation via /adjust endpoint
+      if (typeof updates.stockQty === 'number' && oldItem) {
+        const delta = updates.stockQty - oldItem.stockQty;
+        if (delta !== 0) {
+          updatedBackend = await apiFetch(`/api/v1/inventory/${id}/adjust`, {
+            method: 'POST',
+            body: JSON.stringify({ delta, reason: 'Stock adjustment' })
+          });
+        }
+      }
 
-        logTransaction({
-          id: `tx_${Date.now()}`,
-          timestamp: new Date().toISOString(),
-          type: 'adjust',
-          description: `Updated properties for "${newItem.name}"`,
-          items: [{ componentId: id, componentName: newItem.name, qtyDiff: 0 }],
-          diffs
-        });
-
-        addAction({
-          id: `upd_item_${Date.now()}`,
-          name: `Update ${oldItem.name}`,
-          undo: async () => {
-            const oldPayload = mapItemToBackend(oldItem);
-            const reverted = await apiFetch(`/api/v1/inventory/${id}`, {
-              method: 'PUT',
-              body: JSON.stringify(oldPayload)
-            });
-            setInventory(prev => prev.map(item => item.id === id ? mapItemToFrontend(reverted) : item));
-          },
-          redo: async () => {
-            const updatedAgain = await apiFetch(`/api/v1/inventory/${id}`, {
-              method: 'PUT',
-              body: JSON.stringify(payload)
-            });
-            setInventory(prev => prev.map(item => item.id === id ? mapItemToFrontend(updatedAgain) : item));
-          }
+      // Non-stock metadata updates via PUT
+      const { stockQty, ...otherUpdates } = updates;
+      if (Object.keys(otherUpdates).length > 0) {
+        const payload = mapItemToBackend(otherUpdates);
+        updatedBackend = await apiFetch(`/api/v1/inventory/${id}`, {
+          method: 'PUT',
+          body: JSON.stringify(payload)
         });
       }
+
+      if (updatedBackend) {
+        const newItem = mapItemToFrontend(updatedBackend);
+        setInventory(prev => prev.map(item => item.id === id ? newItem : item));
+      }
     } catch (e: any) {
-      alert(`Update Item Error: ${e.message}`);
+      alert(`Update Error: ${e.message}`);
     }
   };
 

@@ -16,6 +16,9 @@ export class PurchaseOrder {
   @PrimaryGeneratedColumn("uuid")
   id: string;
 
+  @Column({ type: "uuid", default: "00000000-0000-0000-0000-000000000000" })
+  organization_id: string;
+
   @Column({ type: "varchar", unique: true })
   po_number: string;
 

@@ -3,6 +3,7 @@ import { KitService } from "../../services/KitService";
 import { validate, IsString, IsOptional, IsUrl, MaxLength, IsArray } from "class-validator";
 import { plainToInstance } from "class-transformer";
 import { requireRole } from "../../middleware/requireRole.ts";
+import { requireTenant } from "../../middleware/tenant.ts";
 
 const router = Router();
 const service = new KitService();
@@ -57,9 +58,10 @@ async function validateDto<T extends object>(dto: T, cls: new () => T): Promise<
 }
 
 // GET /api/v1/kit (Viewer+)
-router.get("/", requireRole("viewer", "staff", "manager", "admin"), async (req, res) => {
+router.get("/", requireTenant, requireRole("viewer", "staff", "manager", "admin"), async (req, res) => {
   try {
-    const list = await service.list();
+    const orgId = (req as any).orgId;
+    const list = await service.list(orgId);
     res.json(list);
   } catch (e: any) {
     res.status(400).json({ error: e.message });
@@ -67,9 +69,10 @@ router.get("/", requireRole("viewer", "staff", "manager", "admin"), async (req, 
 });
 
 // GET /api/v1/kit/:id (Viewer+)
-router.get("/:id", requireRole("viewer", "staff", "manager", "admin"), async (req, res) => {
+router.get("/:id", requireTenant, requireRole("viewer", "staff", "manager", "admin"), async (req, res) => {
   try {
-    const kit = await service.findById(req.params.id);
+    const orgId = (req as any).orgId;
+    const kit = await service.findById(req.params.id, orgId);
     if (!kit) {
       return res.status(404).json({ error: "Kit not found" });
     }
@@ -80,10 +83,11 @@ router.get("/:id", requireRole("viewer", "staff", "manager", "admin"), async (re
 });
 
 // POST /api/v1/kit (Staff+)
-router.post("/", requireRole("staff", "manager", "admin"), async (req, res) => {
+router.post("/", requireTenant, requireRole("staff", "manager", "admin"), async (req, res) => {
   try {
+    const orgId = (req as any).orgId;
     const validData = await validateDto(req.body, CreateKitDto);
-    const created = await service.create(validData);
+    const created = await service.create(validData, orgId);
     res.status(201).json(created);
   } catch (e: any) {
     res.status(400).json({ error: e.message });
@@ -91,10 +95,11 @@ router.post("/", requireRole("staff", "manager", "admin"), async (req, res) => {
 });
 
 // PUT /api/v1/kit/:id (Staff+)
-router.put("/:id", requireRole("staff", "manager", "admin"), async (req, res) => {
+router.put("/:id", requireTenant, requireRole("staff", "manager", "admin"), async (req, res) => {
   try {
+    const orgId = (req as any).orgId;
     const validData = await validateDto(req.body, UpdateKitDto);
-    const updated = await service.update(req.params.id, validData);
+    const updated = await service.update(req.params.id, validData, orgId);
     res.json(updated);
   } catch (e: any) {
     res.status(400).json({ error: e.message });
@@ -102,9 +107,10 @@ router.put("/:id", requireRole("staff", "manager", "admin"), async (req, res) =>
 });
 
 // DELETE /api/v1/kit/:id (Admin only)
-router.delete("/:id", requireRole("admin"), async (req, res) => {
+router.delete("/:id", requireTenant, requireRole("admin"), async (req, res) => {
   try {
-    await service.delete(req.params.id);
+    const orgId = (req as any).orgId;
+    await service.delete(req.params.id, orgId);
     res.json({ message: "Deleted" });
   } catch (e: any) {
     res.status(400).json({ error: e.message });
@@ -112,7 +118,7 @@ router.delete("/:id", requireRole("admin"), async (req, res) => {
 });
 
 // GET /api/v1/kit/:id/bom (Viewer+)
-router.get("/:id/bom", requireRole("viewer", "staff", "manager", "admin"), async (req, res) => {
+router.get("/:id/bom", requireTenant, requireRole("viewer", "staff", "manager", "admin"), async (req, res) => {
   try {
     const bomItems = await service.getBom(req.params.id);
     res.json(bomItems);
@@ -122,7 +128,7 @@ router.get("/:id/bom", requireRole("viewer", "staff", "manager", "admin"), async
 });
 
 // POST /api/v1/kit/:id/bom (Staff+)
-router.post("/:id/bom", requireRole("staff", "manager", "admin"), async (req, res) => {
+router.post("/:id/bom", requireTenant, requireRole("staff", "manager", "admin"), async (req, res) => {
   try {
     const bomItem = await service.addToBom(
       req.params.id,
@@ -136,7 +142,7 @@ router.post("/:id/bom", requireRole("staff", "manager", "admin"), async (req, re
 });
 
 // DELETE /api/v1/kit/bom/:bomId (Admin only)
-router.delete("/bom/:bomId", requireRole("admin"), async (req, res) => {
+router.delete("/bom/:bomId", requireTenant, requireRole("admin"), async (req, res) => {
   try {
     await service.removeFromBom(req.params.bomId);
     res.json({ message: "BOM item removed" });

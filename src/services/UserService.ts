@@ -7,39 +7,52 @@ export class UserService {
     return AppDataSource.getRepository(User);
   }
 
-  async listUsers(): Promise<User[]> {
+  async listUsers(organizationId?: string): Promise<User[]> {
+    const where: any = {};
+    if (organizationId) {
+      where.organization_id = organizationId;
+    }
     return this.repo.find({
+      where,
       select: ["id", "email", "name", "role", "is_active", "created_at", "updated_at"],
     });
   }
 
-  async inviteUser(email: string, name: string, role: string, actorId: string): Promise<User> {
+  async inviteUser(email: string, name: string, role: string, actorId: string, organizationId?: string): Promise<User> {
     const existing = await this.repo.findOneBy({ email: email.toLowerCase().trim() });
     if (existing) {
       throw new Error(`User with email '${email}' already exists.`);
     }
 
+    const orgId = organizationId || "00000000-0000-0000-0000-000000000000";
+
     const user = this.repo.create({
       email: email.toLowerCase().trim(),
       name,
       role: role || "viewer",
+      organization_id: orgId,
       is_active: true,
     });
     const saved = await this.repo.save(user);
 
     // Audit log
-    await this.logUserAudit(actorId, "USER_INVITED", saved.id, null, { email, role });
+    await this.logUserAudit(actorId, orgId, "USER_INVITED", saved.id, null, { email, role });
     return saved;
   }
 
-  async updateUserRole(targetUserId: string, newRole: string, actorId: string): Promise<User> {
+  async updateUserRole(targetUserId: string, newRole: string, actorId: string, organizationId?: string): Promise<User> {
     if (targetUserId === actorId) {
       throw new Error("Users cannot modify their own security role.");
     }
 
-    const user = await this.repo.findOneBy({ id: targetUserId });
+    const where: any = { id: targetUserId };
+    if (organizationId) {
+      where.organization_id = organizationId;
+    }
+
+    const user = await this.repo.findOneBy(where);
     if (!user) {
-      throw new Error("Target user not found.");
+      throw new Error("Target user not found or access denied.");
     }
 
     const oldRole = user.role;
@@ -47,18 +60,23 @@ export class UserService {
     const updated = await this.repo.save(user);
 
     // Audit log
-    await this.logUserAudit(actorId, "ROLE_CHANGED", user.id, { role: oldRole }, { role: newRole });
+    await this.logUserAudit(actorId, organizationId || user.organization_id || "00000000-0000-0000-0000-000000000000", "ROLE_CHANGED", user.id, { role: oldRole }, { role: newRole });
     return updated;
   }
 
-  async updateUserStatus(targetUserId: string, isActive: boolean, actorId: string): Promise<User> {
+  async updateUserStatus(targetUserId: string, isActive: boolean, actorId: string, organizationId?: string): Promise<User> {
     if (targetUserId === actorId) {
       throw new Error("Users cannot deactivate their own account.");
     }
 
-    const user = await this.repo.findOneBy({ id: targetUserId });
+    const where: any = { id: targetUserId };
+    if (organizationId) {
+      where.organization_id = organizationId;
+    }
+
+    const user = await this.repo.findOneBy(where);
     if (!user) {
-      throw new Error("Target user not found.");
+      throw new Error("Target user not found or access denied.");
     }
 
     const oldStatus = user.is_active;
@@ -66,14 +84,14 @@ export class UserService {
     const updated = await this.repo.save(user);
 
     // Audit log
-    await this.logUserAudit(actorId, "STATUS_CHANGED", user.id, { is_active: oldStatus }, { is_active: isActive });
+    await this.logUserAudit(actorId, organizationId || user.organization_id || "00000000-0000-0000-0000-000000000000", "STATUS_CHANGED", user.id, { is_active: oldStatus }, { is_active: isActive });
     return updated;
   }
 
-  private async logUserAudit(actorId: string, action: string, targetId: string, before: any, after: any) {
+  private async logUserAudit(actorId: string, organizationId: string, action: string, targetId: string, before: any, after: any) {
     const auditRepo = AppDataSource.getRepository(AuditLog);
     const audit = auditRepo.create({
-      organization_id: "00000000-0000-0000-0000-000000000000",
+      organization_id: organizationId || "00000000-0000-0000-0000-000000000000",
       actor_id: actorId,
       action,
       entity_type: "User",

@@ -1,7 +1,5 @@
 import { SalesOrder } from "../entity/SalesOrder";
 import { SalesOrderLine } from "../entity/SalesOrderLine";
-import { Customer } from "../entity/Customer";
-import { InventoryItem } from "../entity/InventoryItem";
 import { AppDataSource } from "../db";
 
 export class SalesOrderService {
@@ -11,41 +9,35 @@ export class SalesOrderService {
   private get soLineRepo() {
     return AppDataSource.getRepository(SalesOrderLine);
   }
-  private get customerRepo() {
-    return AppDataSource.getRepository(Customer);
-  }
-  private get inventoryRepo() {
-    return AppDataSource.getRepository(InventoryItem);
+
+  async list(organizationId?: string): Promise<SalesOrder[]> {
+    const where: any = {};
+    if (organizationId) {
+      where.organization_id = organizationId;
+    }
+    return this.soRepo.find({
+      where,
+      relations: ["customer", "lines", "lines.inventory_item"]
+    });
   }
 
-  async list(): Promise<SalesOrder[]> {
-    return this.soRepo.find({ relations: ["customer", "lines", "lines.inventory_item"] });
-  }
-
-  async create(dto: Partial<SalesOrder> & { lines?: Partial<SalesOrderLine>[] }): Promise<SalesOrder> {
-    const so = this.soRepo.create(dto);
+  async create(dto: Partial<SalesOrder> & { lines?: Partial<SalesOrderLine>[] }, organizationId?: string): Promise<SalesOrder> {
+    const orgId = organizationId || (dto as any).organization_id || "00000000-0000-0000-0000-000000000000";
+    const { lines, ...soData } = dto;
+    const so = this.soRepo.create({
+      ...soData,
+      organization_id: orgId,
+    });
     const savedSo = await this.soRepo.save(so);
 
-    // Handle line items if provided
-    if (dto.lines && dto.lines.length > 0) {
-      const linePromises = dto.lines.map(async (line) => {
-        const soLine = this.soLineRepo.create({
-          ...line,
-          sales_order: savedSo
-        });
-        return this.soLineRepo.save(soLine);
-      });
-      await Promise.all(linePromises);
-
-      // Reload the SO with lines
-      const updatedSo = await this.soRepo.findOne({
-        where: { id: savedSo.id },
-        relations: ["customer", "lines", "lines.inventory_item"]
-      });
-      return updatedSo!;
+    if (lines && lines.length > 0) {
+      const lineEntities = lines.map((line) => this.soLineRepo.create({
+        ...line,
+        sales_order: savedSo,
+      }));
+      await this.soLineRepo.save(lineEntities);
     }
 
-    // Reload the SO with relations
     const populatedSo = await this.soRepo.findOne({
       where: { id: savedSo.id },
       relations: ["customer", "lines", "lines.inventory_item"]
@@ -53,29 +45,41 @@ export class SalesOrderService {
     return populatedSo!;
   }
 
-  async update(id: string, changes: Partial<SalesOrder>): Promise<SalesOrder> {
-    await this.soRepo.update(id, changes);
-    const updated = await this.soRepo.findOneByOrFail({ id });
-    return updated;
+  async update(id: string, changes: Partial<SalesOrder>, organizationId?: string): Promise<SalesOrder> {
+    const existing = await this.findById(id, organizationId);
+    if (!existing) {
+      throw new Error(`Sales order ${id} not found or access denied.`);
+    }
+    Object.assign(existing, changes);
+    return this.soRepo.save(existing);
   }
 
-  async delete(id: string): Promise<void> {
-    // Delete lines first due to foreign key constraint
+  async delete(id: string, organizationId?: string): Promise<void> {
+    const existing = await this.findById(id, organizationId);
+    if (!existing) {
+      throw new Error(`Sales order ${id} not found or access denied.`);
+    }
     await this.soLineRepo.delete({ sales_order: { id } });
     await this.soRepo.delete(id);
   }
 
-  async findById(id: string): Promise<SalesOrder | null> {
+  async findById(id: string, organizationId?: string): Promise<SalesOrder | null> {
+    const where: any = { id };
+    if (organizationId) {
+      where.organization_id = organizationId;
+    }
     return this.soRepo.findOne({
-      where: { id },
+      where,
       relations: ["customer", "lines", "lines.inventory_item"]
     });
   }
 
-  async shipItems(soId: string, shipments: { lineId: string; quantityShipped: number }[]): Promise<SalesOrder> {
-    const so = await this.soRepo.findOneByOrFail({ id: soId });
+  async shipItems(soId: string, shipments: { lineId: string; quantityShipped: number }[], organizationId?: string): Promise<SalesOrder> {
+    const so = await this.findById(soId, organizationId);
+    if (!so) {
+      throw new Error(`Sales order ${soId} not found or access denied.`);
+    }
 
-    // Update each line item's shipped quantity
     for (const shipment of shipments) {
       await this.soLineRepo.update(
         { id: shipment.lineId },
@@ -83,16 +87,15 @@ export class SalesOrderService {
       );
     }
 
-    // Check if all items are shipped
     const lines = await this.soLineRepo.find({ where: { sales_order: { id: soId } } });
     const allShipped = lines.every(line => line.qty_shipped >= line.qty_ordered);
 
     if (allShipped) {
       await this.soRepo.update(soId, { status: "shipped" });
     } else {
-      await this.soRepo.update(soId, { status: "packed" }); // or keep as picked if partial
+      await this.soRepo.update(soId, { status: "packed" });
     }
 
-    return this.soRepo.findOneByOrFail({ id: soId });
+    return (await this.findById(soId, organizationId))!;
   }
 }

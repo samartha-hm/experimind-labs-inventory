@@ -3,6 +3,7 @@ import { SalesOrderService } from "../../services/SalesOrderService";
 import { validate, IsString, IsOptional, IsUUID, IsDateString, IsEnum, IsInt, Min, IsArray } from "class-validator";
 import { plainToInstance } from "class-transformer";
 import { requireRole } from "../../middleware/requireRole.ts";
+import { requireTenant } from "../../middleware/tenant.ts";
 
 const router = Router();
 const service = new SalesOrderService();
@@ -75,9 +76,10 @@ async function validateDto<T extends object>(dto: T, cls: new () => T): Promise<
 }
 
 // GET /api/v1/sales-order (Viewer+)
-router.get("/", requireRole("viewer", "staff", "manager", "admin"), async (req, res) => {
+router.get("/", requireTenant, requireRole("viewer", "staff", "manager", "admin"), async (req, res) => {
   try {
-    const list = await service.list();
+    const orgId = (req as any).orgId;
+    const list = await service.list(orgId);
     res.json(list);
   } catch (e: any) {
     res.status(400).json({ error: e.message });
@@ -85,9 +87,10 @@ router.get("/", requireRole("viewer", "staff", "manager", "admin"), async (req, 
 });
 
 // GET /api/v1/sales-order/:id (Viewer+)
-router.get("/:id", requireRole("viewer", "staff", "manager", "admin"), async (req, res) => {
+router.get("/:id", requireTenant, requireRole("viewer", "staff", "manager", "admin"), async (req, res) => {
   try {
-    const so = await service.findById(req.params.id);
+    const orgId = (req as any).orgId;
+    const so = await service.findById(req.params.id, orgId);
     if (!so) {
       return res.status(404).json({ error: "Sales order not found" });
     }
@@ -98,8 +101,9 @@ router.get("/:id", requireRole("viewer", "staff", "manager", "admin"), async (re
 });
 
 // POST /api/v1/sales-order (Staff+)
-router.post("/", requireRole("staff", "manager", "admin"), async (req, res) => {
+router.post("/", requireTenant, requireRole("staff", "manager", "admin"), async (req, res) => {
   try {
+    const orgId = (req as any).orgId;
     await validateDto(req.body, CreateSalesOrderDto);
     const { lines, ...soData } = req.body;
 
@@ -112,7 +116,7 @@ router.post("/", requireRole("staff", "manager", "admin"), async (req, res) => {
     const created = await service.create({
       ...processedData,
       lines: lines || []
-    });
+    }, orgId);
     res.status(201).json(created);
   } catch (e: any) {
     res.status(400).json({ error: e.message });
@@ -120,8 +124,9 @@ router.post("/", requireRole("staff", "manager", "admin"), async (req, res) => {
 });
 
 // PUT /api/v1/sales-order/:id (Staff+)
-router.put("/:id", requireRole("staff", "manager", "admin"), async (req, res) => {
+router.put("/:id", requireTenant, requireRole("staff", "manager", "admin"), async (req, res) => {
   try {
+    const orgId = (req as any).orgId;
     await validateDto(req.body, UpdateSalesOrderDto);
     const { lines, ...soData } = req.body;
 
@@ -131,7 +136,7 @@ router.put("/:id", requireRole("staff", "manager", "admin"), async (req, res) =>
       ...(soData.required_date ? { required_date: new Date(soData.required_date) } : {})
     };
 
-    const updated = await service.update(req.params.id, processedData);
+    const updated = await service.update(req.params.id, processedData, orgId);
     res.json(updated);
   } catch (e: any) {
     res.status(400).json({ error: e.message });
@@ -139,9 +144,10 @@ router.put("/:id", requireRole("staff", "manager", "admin"), async (req, res) =>
 });
 
 // DELETE /api/v1/sales-order/:id (Admin only)
-router.delete("/:id", requireRole("admin"), async (req, res) => {
+router.delete("/:id", requireTenant, requireRole("admin"), async (req, res) => {
   try {
-    await service.delete(req.params.id);
+    const orgId = (req as any).orgId;
+    await service.delete(req.params.id, orgId);
     res.json({ message: "Deleted" });
   } catch (e: any) {
     res.status(400).json({ error: e.message });
@@ -149,14 +155,15 @@ router.delete("/:id", requireRole("admin"), async (req, res) => {
 });
 
 // POST /api/v1/sales-order/:id/ship (Staff+)
-router.post("/:id/ship", requireRole("staff", "manager", "admin"), async (req, res) => {
+router.post("/:id/ship", requireTenant, requireRole("staff", "manager", "admin"), async (req, res) => {
   try {
+    const orgId = (req as any).orgId;
     const { shipments } = req.body;
     if (!Array.isArray(shipments)) {
       return res.status(400).json({ error: "shipments must be an array" });
     }
 
-    const updatedSo = await service.shipItems(req.params.id, shipments);
+    const updatedSo = await service.shipItems(req.params.id, shipments, orgId);
     res.json(updatedSo);
   } catch (e: any) {
     res.status(400).json({ error: e.message });

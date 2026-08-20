@@ -16,7 +16,8 @@
     "db:seed:real": "tsx scripts/seed_real_inventory.ts",
     "typeorm": "ts-node -r tsconfig-paths/register ./node_modules/typeorm/cli.js",
     "migrate": "ts-node scripts/migrate.ts",
-    "create-database": "node create-database.cjs"
+    "create-database": "node create-database.cjs",
+    "bootstrap:admin": "tsx scripts/bootstrap_admin.ts"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",

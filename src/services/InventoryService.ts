@@ -31,23 +31,53 @@ export class InventoryService {
     return qb.getMany();
   }
 
-  async create(dto: Partial<InventoryItem>): Promise<InventoryItem> {
-    const entity = this.repo.create(dto);
+  async getById(id: string, organizationId?: string): Promise<InventoryItem | null> {
+    const where: any = { id };
+    if (organizationId) {
+      where.organization_id = organizationId;
+    }
+    return this.repo.findOne({ where });
+  }
+
+  async create(dto: Partial<InventoryItem>, organizationId?: string): Promise<InventoryItem> {
+    const entity = this.repo.create({
+      ...dto,
+      organization_id: organizationId || dto.organization_id || "00000000-0000-0000-0000-000000000000",
+    });
     return this.repo.save(entity);
   }
 
   async update(
     id: string,
-    changes: Partial<InventoryItem>
+    changes: Partial<InventoryItem>,
+    organizationId?: string
   ): Promise<InventoryItem> {
-    await this.repo.update(id, changes);
-    const updated = await this.repo.findOneByOrFail({ id });
-    return updated;
+    const where: any = { id };
+    if (organizationId) {
+      where.organization_id = organizationId;
+    }
+    const item = await this.repo.findOne({ where });
+    if (!item) {
+      throw new Error(`Inventory item ${id} not found or access denied.`);
+    }
+
+    const { quantity, ...allowedChanges } = changes as any;
+    Object.assign(item, allowedChanges);
+    return this.repo.save(item);
   }
 
-  /**
-   * Thread-safe stock mutation with pessimistic row locking and audit logging.
-   */
+  async delete(id: string, organizationId?: string): Promise<void> {
+    const where: any = { id };
+    if (organizationId) {
+      where.organization_id = organizationId;
+    }
+    const item = await this.repo.findOne({ where });
+    if (!item) {
+      throw new Error(`Inventory item ${id} not found or access denied.`);
+    }
+    await this.repo.remove(item);
+  }
+
   async adjustStockWithTransaction(
     itemId: string,
     quantityDelta: number,
@@ -60,55 +90,49 @@ export class InventoryService {
     await queryRunner.startTransaction();
 
     try {
-      // Pessimistic write lock to prevent race conditions & overselling
       const item = await queryRunner.manager.findOne(InventoryItem, {
-        where: { id: itemId, organization_id: organizationId },
+        where: { id: itemId },
         lock: { mode: "pessimistic_write" },
       });
 
       if (!item) {
-        throw new Error(`Inventory item ${itemId} not found`);
+        throw new Error(`Item ${itemId} not found`);
       }
 
-      const previousQty = item.quantity;
-      const newQuantity = previousQty + quantityDelta;
+      if (organizationId && item.organization_id !== organizationId) {
+        throw new Error(`Access denied for item ${itemId} under org ${organizationId}`);
+      }
+
+      const oldQuantity = item.quantity;
+      const newQuantity = oldQuantity + quantityDelta;
 
       if (newQuantity < 0 && !item.is_common) {
-        throw new Error(`Insufficient stock for item '${item.name}' (${item.sku}). Requested delta: ${quantityDelta}, Available: ${previousQty}`);
+        throw new Error(
+          `Insufficient stock for ${item.name}. Available: ${oldQuantity}, requested change: ${quantityDelta}`
+        );
       }
 
-      item.quantity = newQuantity;
-      const updatedItem = await queryRunner.manager.save(item);
+      item.quantity = Math.max(0, newQuantity);
+      const savedItem = await queryRunner.manager.save(InventoryItem, item);
 
-      // Record immutable audit log
-      const audit = queryRunner.manager.create(AuditLog, {
-        organization_id: organizationId,
-        actor_id: actorId,
-        action: "STOCK_ADJUSTMENT",
+      const auditLog = queryRunner.manager.create(AuditLog, {
+        organization_id: organizationId || "00000000-0000-0000-0000-000000000000",
+        actor_id: actorId || "00000000-0000-0000-0000-000000000001",
+        action: "UPDATE_STOCK",
         entity_type: "InventoryItem",
         entity_id: itemId,
-        before: { quantity: previousQty, reason },
-        after: { quantity: newQuantity, delta: quantityDelta },
+        before: { quantity: oldQuantity },
+        after: { quantity: item.quantity, delta: quantityDelta, reason },
       });
-      await queryRunner.manager.save(audit);
+      await queryRunner.manager.save(AuditLog, auditLog);
 
       await queryRunner.commitTransaction();
-      return updatedItem;
+      return savedItem;
     } catch (err) {
       await queryRunner.rollbackTransaction();
       throw err;
     } finally {
       await queryRunner.release();
     }
-  }
-
-  async delete(id: string): Promise<void> {
-    await this.repo.delete(id);
-  }
-
-  async getBySku(sku: string, organizationId?: string): Promise<InventoryItem | null> {
-    const where: any = { sku };
-    if (organizationId) where.organization_id = organizationId;
-    return this.repo.findOneBy(where);
   }
 }

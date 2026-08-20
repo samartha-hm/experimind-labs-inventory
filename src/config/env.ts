@@ -1,16 +1,10 @@
 import dotenv from "dotenv";
 dotenv.config();
 
-// Required environment variables in non-test mode
-const requiredKeys = ["DATABASE_URL", "JWT_SECRET"];
-
-if (process.env.NODE_ENV !== "test") {
-  for (const key of requiredKeys) {
-    if (!process.env[key]) {
-      throw new Error(`[FATAL] Missing required environment variable: ${key}`);
-    }
+if (process.env.NODE_ENV === "production") {
+  if (!process.env.JWT_SECRET || process.env.JWT_SECRET.includes("super-secret-jwt-key")) {
+    throw new Error("[FATAL] In production mode, process.env.JWT_SECRET must be set to a secure 32+ char secret.");
   }
-
   if ((process.env.JWT_SECRET?.length ?? 0) < 32) {
     throw new Error("[FATAL] JWT_SECRET must be at least 32 characters long for production security.");
   }

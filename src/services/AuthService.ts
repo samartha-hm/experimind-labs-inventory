@@ -155,7 +155,7 @@ export class AuthService {
     await this.userRepo.save(user);
   }
 
-  async refreshAccessToken(rawRefreshToken: string): Promise<{ token: string; refreshToken: string }> {
+  async refreshAccessToken(rawRefreshToken: string): Promise<{ token: string; refreshToken: string; user: { id: string; email: string; name: string; role: string } }> {
     const tokenHash = hashToken(rawRefreshToken);
     const tokenRecord = await this.tokenRepo.findOne({
       where: { token_hash: tokenHash, is_revoked: false },
@@ -178,7 +178,26 @@ export class AuthService {
     const newAccessToken = this.generateAccessToken(user);
     const newRefreshToken = await this.generateRefreshToken(user.id);
 
-    return { token: newAccessToken, refreshToken: newRefreshToken };
+    return {
+      token: newAccessToken,
+      refreshToken: newRefreshToken,
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role,
+      },
+    };
+  }
+
+  async revokeRefreshToken(rawRefreshToken: string): Promise<void> {
+    if (!rawRefreshToken) return;
+    const tokenHash = hashToken(rawRefreshToken);
+    const tokenRecord = await this.tokenRepo.findOne({ where: { token_hash: tokenHash } });
+    if (tokenRecord) {
+      tokenRecord.is_revoked = true;
+      await this.tokenRepo.save(tokenRecord);
+    }
   }
 
   private generateAccessToken(user: User): string {

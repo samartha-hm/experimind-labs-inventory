@@ -1,7 +1,5 @@
 import { Transaction } from "../entity/Transaction";
 import { TransactionLine } from "../entity/TransactionLine";
-import { InventoryItem } from "../entity/InventoryItem";
-import { User } from "../entity/User";
 import { AppDataSource } from "../db";
 
 export class TransactionService {
@@ -11,24 +9,22 @@ export class TransactionService {
   private get txLineRepo() {
     return AppDataSource.getRepository(TransactionLine);
   }
-  private get inventoryRepo() {
-    return AppDataSource.getRepository(InventoryItem);
-  }
-  private get userRepo() {
-    return AppDataSource.getRepository(User);
-  }
 
   async list(filters: {
     userId?: string;
     referenceType?: string;
     startDate?: string;
-    endDate?: string
+    endDate?: string;
+    organizationId?: string;
   }): Promise<Transaction[]> {
     const qb = this.txRepo.createQueryBuilder("transaction")
       .leftJoinAndSelect("transaction.user", "user")
       .leftJoinAndSelect("transaction.lines", "lines")
       .leftJoinAndSelect("lines.inventory_item", "item");
 
+    if (filters.organizationId) {
+      qb.andWhere("transaction.organization_id = :orgId", { orgId: filters.organizationId });
+    }
     if (filters.userId) {
       qb.andWhere("user.id = :userId", { userId: filters.userId });
     }
@@ -45,30 +41,23 @@ export class TransactionService {
     return qb.getMany();
   }
 
-  async create(dto: Partial<Transaction> & { lines?: Partial<TransactionLine>[] }): Promise<Transaction> {
-    const tx = this.txRepo.create(dto);
+  async create(dto: Partial<Transaction> & { lines?: Partial<TransactionLine>[] }, organizationId?: string): Promise<Transaction> {
+    const orgId = organizationId || (dto as any).organization_id || "00000000-0000-0000-0000-000000000000";
+    const { lines, ...txData } = dto;
+    const tx = this.txRepo.create({
+      ...txData,
+      organization_id: orgId,
+    });
     const savedTx = await this.txRepo.save(tx);
 
-    // Handle line items if provided
-    if (dto.lines && dto.lines.length > 0) {
-      const linePromises = dto.lines.map(async (line) => {
-        const txLine = this.txLineRepo.create({
-          ...line,
-          transaction: savedTx
-        });
-        return this.txLineRepo.save(txLine);
-      });
-      await Promise.all(linePromises);
-
-      // Reload the transaction with lines
-      const updatedTx = await this.txRepo.findOne({
-        where: { id: savedTx.id },
-        relations: ["user", "lines", "lines.inventory_item"]
-      });
-      return updatedTx!;
+    if (lines && lines.length > 0) {
+      const lineEntities = lines.map((line) => this.txLineRepo.create({
+        ...line,
+        transaction: savedTx,
+      }));
+      await this.txLineRepo.save(lineEntities);
     }
 
-    // Reload the transaction with relations
     const populatedTx = await this.txRepo.findOne({
       where: { id: savedTx.id },
       relations: ["user", "lines", "lines.inventory_item"]
@@ -76,63 +65,14 @@ export class TransactionService {
     return populatedTx!;
   }
 
-  async getById(id: string): Promise<Transaction | null> {
-    return this.txRepo.findOne({
-      where: { id },
-      relations: ["user", "lines", "lines.inventory_item"]
-    });
-  }
-
-  // Convenience method to create a stock adjustment transaction
-  async createStockAdjustment(
-    userId: string,
-    referenceType: string,
-    referenceUuid: string | null,
-    adjustments: { inventoryItemId: string; quantityChange: number; unitCost: number }[],
-    notes?: string
-  ): Promise<Transaction> {
-    // Lookup user if provided
-    const user = userId ? await this.userRepo.findOneBy({ id: userId }) : null;
-
-    // Create transaction
-    const transaction = this.txRepo.create({
-      user: user || undefined,
-      reference_type: referenceType,
-      reference_uuid: referenceUuid,
-      occurred_at: new Date(),
-      notes
-    });
-
-    const savedTransaction = await this.txRepo.save(transaction);
-
-    // Create transaction lines
-    const linePromises = adjustments.map(adjustment => {
-      // Verify inventory item exists
-      return this.inventoryRepo.findOneByOrFail({ id: adjustment.inventoryItemId }).then(item => {
-        const line = this.txLineRepo.create({
-          transaction: savedTransaction,
-          inventory_item: item,
-          quantity_change: adjustment.quantityChange,
-          unit_cost: adjustment.unitCost
-        });
-        return this.txLineRepo.save(line);
-      });
-    });
-
-    await Promise.all(linePromises);
-
-    // Update inventory quantities
-    for (const adjustment of adjustments) {
-      await this.inventoryRepo.update(
-        { id: adjustment.inventoryItemId },
-        { quantity: () => `quantity + ${adjustment.quantityChange}` }
-      );
+  async getById(id: string, organizationId?: string): Promise<Transaction | null> {
+    const where: any = { id };
+    if (organizationId) {
+      where.organization_id = organizationId;
     }
-
-    // Reload and return the transaction with relations
     return this.txRepo.findOne({
-      where: { id: savedTransaction.id },
+      where,
       relations: ["user", "lines", "lines.inventory_item"]
-    }) as Promise<Transaction | null>;
+    });
   }
 }

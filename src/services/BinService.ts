@@ -1,5 +1,4 @@
 import { Bin } from "../entity/Bin";
-import { Warehouse } from "../entity/Warehouse";
 import { AppDataSource } from "../db";
 
 export class BinService {
@@ -7,30 +6,37 @@ export class BinService {
     return AppDataSource.getRepository(Bin);
   }
 
-  async list(warehouseId?: string): Promise<Bin[]> {
+  async list(warehouseId?: string, _organizationId?: string): Promise<Bin[]> {
     const qb = this.repo.createQueryBuilder("bin");
     if (warehouseId) {
-      qb.where("bin.warehouseId = :warehouseId", { warehouseId });
+      qb.andWhere("bin.warehouse_id = :warehouseId", { warehouseId });
     }
     return qb.getMany();
   }
 
-  async create(dto: Partial<Bin>): Promise<Bin> {
+  async create(dto: Partial<Bin>, _organizationId?: string): Promise<Bin> {
     const entity = this.repo.create(dto);
     return this.repo.save(entity);
   }
 
-  async update(id: string, changes: Partial<Bin>): Promise<Bin> {
-    await this.repo.update(id, changes);
-    const updated = await this.repo.findOneByOrFail({ id });
-    return updated;
+  async update(id: string, changes: Partial<Bin>, _organizationId?: string): Promise<Bin> {
+    const existing = await this.findById(id);
+    if (!existing) {
+      throw new Error(`Bin '${id}' not found.`);
+    }
+    Object.assign(existing, changes);
+    return this.repo.save(existing);
   }
 
-  async delete(id: string): Promise<void> {
-    await this.repo.delete(id);
+  async delete(id: string, _organizationId?: string): Promise<void> {
+    const existing = await this.findById(id);
+    if (!existing) {
+      throw new Error(`Bin '${id}' not found.`);
+    }
+    await this.repo.remove(existing);
   }
 
-  async findById(id: string): Promise<Bin | null> {
+  async findById(id: string, _organizationId?: string): Promise<Bin | null> {
     return this.repo.findOneBy({ id });
   }
 }

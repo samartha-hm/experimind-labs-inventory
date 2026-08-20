@@ -3,6 +3,7 @@ import { InventoryService } from "../../services/InventoryService";
 import { validate, IsString, IsOptional, IsInt, IsNumber, Min, IsUUID, IsBoolean, MaxLength, IsUrl } from "class-validator";
 import { plainToInstance } from "class-transformer";
 import { requireRole } from "../../middleware/requireRole.ts";
+import { requireTenant } from "../../middleware/tenant.ts";
 
 const router = Router();
 const service = new InventoryService();
@@ -109,11 +110,6 @@ export class UpdateInventoryDto {
   price_markup_pct?: number;
 
   @IsOptional()
-  @IsInt()
-  @Min(0)
-  quantity?: number;
-
-  @IsOptional()
   @IsString()
   @MaxLength(20)
   unit?: string;
@@ -174,14 +170,16 @@ async function validateDto<T extends object>(dto: T, cls: new () => T): Promise<
 }
 
 // GET /api/v1/inventory?... (Viewers, Staff, Admins)
-router.get("/", requireRole("viewer", "staff", "admin"), async (req, res) => {
+router.get("/", requireTenant, requireRole("viewer", "staff", "admin"), async (req, res) => {
   try {
+    const orgId = (req as any).orgId;
     const filters = {
       sku: req.query.sku as string,
       name: req.query.name as string,
       lowStock: req.query.lowStock === "true",
       outOfStock: req.query.outOfStock === "true",
       warehouseId: req.query.warehouseId as string,
+      organizationId: orgId,
     };
     const list = await service.list(filters);
     res.json(list);
@@ -190,22 +188,60 @@ router.get("/", requireRole("viewer", "staff", "admin"), async (req, res) => {
   }
 });
 
-// POST /api/v1/inventory (Staff, Admins)
-router.post("/", requireRole("staff", "admin"), async (req, res) => {
+// GET /api/v1/inventory/:id (Viewers, Staff, Admins)
+router.get("/:id", requireTenant, requireRole("viewer", "staff", "admin"), async (req, res) => {
   try {
+    const orgId = (req as any).orgId;
+    const item = await service.getById(req.params.id, orgId);
+    if (!item) {
+      return res.status(404).json({ error: "Item not found" });
+    }
+    res.json(item);
+  } catch (e: any) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
+// POST /api/v1/inventory (Staff, Admins)
+router.post("/", requireTenant, requireRole("staff", "admin"), async (req, res) => {
+  try {
+    const orgId = (req as any).orgId;
     await validateDto(req.body, CreateInventoryDto);
-    const created = await service.create(req.body);
+    const created = await service.create(req.body, orgId);
     res.status(201).json(created);
   } catch (e: any) {
     res.status(400).json({ error: e.message });
   }
 });
 
-// PUT /api/v1/inventory/:id (Staff, Admins)
-router.put("/:id", requireRole("staff", "admin"), async (req, res) => {
+// POST /api/v1/inventory/:id/adjust (Staff, Admins) - Concurrency-safe stock mutation
+router.post("/:id/adjust", requireTenant, requireRole("staff", "admin"), async (req, res) => {
   try {
+    const { delta, reason } = req.body;
+    if (typeof delta !== "number") {
+      return res.status(400).json({ error: "delta numeric property is required" });
+    }
+    const actorId = (req as any).user?.id || "00000000-0000-0000-0000-000000000001";
+    const orgId = (req as any).orgId;
+    const updated = await service.adjustStockWithTransaction(
+      req.params.id,
+      delta,
+      actorId,
+      orgId,
+      reason || "Manual stock adjustment"
+    );
+    res.json(updated);
+  } catch (e: any) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
+// PUT /api/v1/inventory/:id (Staff, Admins)
+router.put("/:id", requireTenant, requireRole("staff", "admin"), async (req, res) => {
+  try {
+    const orgId = (req as any).orgId;
     await validateDto(req.body, UpdateInventoryDto);
-    const updated = await service.update(req.params.id, req.body);
+    const updated = await service.update(req.params.id, req.body, orgId);
     res.json(updated);
   } catch (e: any) {
     res.status(400).json({ error: e.message });
@@ -213,9 +249,10 @@ router.put("/:id", requireRole("staff", "admin"), async (req, res) => {
 });
 
 // DELETE /api/v1/inventory/:id (Admins only)
-router.delete("/:id", requireRole("admin"), async (req, res) => {
+router.delete("/:id", requireTenant, requireRole("admin"), async (req, res) => {
   try {
-    await service.delete(req.params.id);
+    const orgId = (req as any).orgId;
+    await service.delete(req.params.id, orgId);
     res.json({ message: "Deleted" });
   } catch (e: any) {
     res.status(400).json({ error: e.message });
