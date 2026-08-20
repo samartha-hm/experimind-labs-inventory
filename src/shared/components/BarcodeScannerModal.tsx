@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import { BrowserMultiFormatReader, IScannerControls } from '@zxing/browser';
 import {
   QrCode,
   Camera,
@@ -33,7 +32,7 @@ import { useData } from '@/src/DataContext';
 import { useToast } from '@/src/contexts/ToastContext';
 import { InventoryItem } from '@/src/types';
 import { playScanBeep, useBarcodeGunListener } from '@/src/utils/barcode';
-import { createZXingReader, decodeBarcodeFromImageFile } from '@/src/utils/barcodeEngine';
+import { scanCanvasOrImage, decodeBarcodeFromImageFile } from '@/src/utils/barcodeEngine';
 
 export type ScanOperationMode = 'inspect' | 'inbound' | 'outbound' | 'batch' | 'relocate';
 
@@ -71,8 +70,11 @@ export default function BarcodeScannerModal({
 
   // Scanner Hardware & Stream State
   const videoRef = useRef<HTMLVideoElement>(null);
-  const controlsRef = useRef<IScannerControls | null>(null);
-  const readerRef = useRef<BrowserMultiFormatReader | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const frameCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const scanIntervalRef = useRef<any>(null);
+  const isProcessingFrameRef = useRef<boolean>(false);
+  const lastScannedCodeRef = useRef<string>('');
   
   const [isCameraActive, setIsCameraActive] = useState(false);
   const [isStartingCamera, setIsStartingCamera] = useState(false);
@@ -100,114 +102,25 @@ export default function BarcodeScannerModal({
     isOpen
   );
 
-  // Safely stop video stream and reader
+  // Safely stop video stream and scanning loop
   const stopCameraStream = useCallback(() => {
-    if (controlsRef.current) {
-      try {
-        controlsRef.current.stop();
-      } catch (_) {}
-      controlsRef.current = null;
+    if (scanIntervalRef.current) {
+      clearInterval(scanIntervalRef.current);
+      scanIntervalRef.current = null;
     }
-    if (videoRef.current && videoRef.current.srcObject) {
-      const stream = videoRef.current.srcObject as MediaStream;
-      stream.getTracks().forEach(track => track.stop());
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current = null;
+    }
+    if (videoRef.current) {
       videoRef.current.srcObject = null;
     }
     setIsCameraActive(false);
     setIsStartingCamera(false);
   }, []);
 
-  // Start ZXing Camera Stream directly on videoRef
-  const startCameraStream = useCallback(async (deviceIdToUse?: string) => {
-    if (!isOpen || !videoRef.current) return;
-    setCameraError(null);
-    setIsStartingCamera(true);
-
-    try {
-      stopCameraStream();
-
-      // Enumerate available video inputs
-      try {
-        const devices = await BrowserMultiFormatReader.listVideoInputDevices();
-        setAvailableCameras(devices);
-        if (!deviceIdToUse && devices.length > 0) {
-          const backCam = devices.find(d => d.label.toLowerCase().includes('back') || d.label.toLowerCase().includes('environment'));
-          deviceIdToUse = backCam ? backCam.deviceId : devices[0].deviceId;
-          setSelectedCameraId(deviceIdToUse);
-        }
-      } catch (devErr) {
-        console.warn('Camera device listing note:', devErr);
-      }
-
-      const reader = createZXingReader();
-      readerRef.current = reader;
-
-      const targetDeviceId = deviceIdToUse || selectedCameraId || undefined;
-
-      const controls = await reader.decodeFromVideoDevice(
-        targetDeviceId,
-        videoRef.current,
-        (result, error) => {
-          if (result && result.getText()) {
-            handleCodeScanned(result.getText());
-          }
-        }
-      );
-
-      controlsRef.current = controls;
-      setIsCameraActive(true);
-      setIsStartingCamera(false);
-    } catch (err: any) {
-      console.warn('ZXing camera start error:', err);
-      setCameraError(err.message || 'Camera access not permitted or device busy.');
-      setIsCameraActive(false);
-      setIsStartingCamera(false);
-    }
-  }, [isOpen, selectedCameraId, stopCameraStream]);
-
-  // Lifecycle
-  useEffect(() => {
-    if (isOpen) {
-      const timer = setTimeout(() => {
-        startCameraStream();
-      }, 100);
-      return () => {
-        clearTimeout(timer);
-        stopCameraStream();
-      };
-    } else {
-      stopCameraStream();
-      setScannedItem(null);
-      setRelocateBinTarget('');
-      setRelocateStep('scan_item');
-    }
-  }, [isOpen, startCameraStream, stopCameraStream]);
-
-  // Decode Image File Upload using Multi-Pass Super Decoder
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!e.target.files || e.target.files.length === 0) return;
-    const file = e.target.files[0];
-    setIsProcessingFile(true);
-
-    try {
-      const decodedText = await decodeBarcodeFromImageFile(file);
-      if (decodedText) {
-        showToast('success', 'Barcode Decoded From Photo', `Read Code: ${decodedText}`);
-        handleCodeScanned(decodedText);
-      } else {
-        showToast('error', 'Barcode Not Detected', 'Could not decode barcode from this image. Try capturing closer with better lighting.');
-      }
-    } catch (err: any) {
-      console.warn('File decode exception:', err);
-      showToast('error', 'Decode Error', 'Failed to process image file.');
-    } finally {
-      setIsProcessingFile(false);
-      if (e.target) e.target.value = '';
-    }
-  };
-
   // Find matching catalog item by exact barcode, SKU, or ID
-  const findItemByCode = (code: string): InventoryItem | undefined => {
+  const findItemByCode = useCallback((code: string): InventoryItem | undefined => {
     const clean = code.trim().toLowerCase();
     return inventory.find((item) => {
       const itemBarcode = (item.barcode || '').trim().toLowerCase();
@@ -224,10 +137,10 @@ export default function BarcodeScannerModal({
         (item.barcode && item.barcode.toLowerCase() === `el-${clean}`)
       );
     });
-  };
+  }, [inventory]);
 
   // Main Barcode Processing Pipeline
-  const handleCodeScanned = async (rawCode: string) => {
+  const handleCodeScanned = useCallback(async (rawCode: string) => {
     const cleanCode = rawCode.trim();
     if (!cleanCode) return;
 
@@ -272,7 +185,137 @@ export default function BarcodeScannerModal({
         { code: cleanCode, name: 'Unrecognized Barcode', time: new Date().toLocaleTimeString(), success: false },
         ...prev.slice(0, 19)
       ]);
-      showToast('error', 'Barcode Not Found', `No item matching "${cleanCode}" in master inventory.`);
+      showToast('error', 'Barcode Not Found', `No item matching "${cleanCode}" in master catalog.`);
+    }
+  }, [activeMode, relocateStep, scannedItem, findItemByCode, soundEnabled, customQtyStep, inboundNote]);
+
+  // Start Camera Stream directly with native getUserMedia and custom frame grabber
+  const startCameraStream = useCallback(async (deviceIdToUse?: string) => {
+    if (!isOpen || !videoRef.current) return;
+    setCameraError(null);
+    setIsStartingCamera(true);
+
+    try {
+      stopCameraStream();
+
+      // Enumerate available video inputs
+      try {
+        if (navigator.mediaDevices && navigator.mediaDevices.enumerateDevices) {
+          const devices = await navigator.mediaDevices.enumerateDevices();
+          const videoDevices = devices.filter(d => d.kind === 'videoinput');
+          setAvailableCameras(videoDevices);
+          if (!deviceIdToUse && videoDevices.length > 0) {
+            const backCam = videoDevices.find(d => d.label.toLowerCase().includes('back') || d.label.toLowerCase().includes('environment'));
+            deviceIdToUse = backCam ? backCam.deviceId : videoDevices[0].deviceId;
+            setSelectedCameraId(deviceIdToUse);
+          }
+        }
+      } catch (devErr) {
+        console.warn('Camera device listing note:', devErr);
+      }
+
+      const constraints: MediaStreamConstraints = {
+        video: deviceIdToUse
+          ? { deviceId: { exact: deviceIdToUse }, width: { ideal: 1280 }, height: { ideal: 720 } }
+          : { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } },
+        audio: false,
+      };
+
+      const mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
+      streamRef.current = mediaStream;
+
+      if (videoRef.current) {
+        videoRef.current.srcObject = mediaStream;
+        await videoRef.current.play().catch(() => {});
+      }
+
+      setIsCameraActive(true);
+      setIsStartingCamera(false);
+
+      // Start custom frame grabber polling loop (120ms interval)
+      scanIntervalRef.current = setInterval(async () => {
+        if (!videoRef.current || videoRef.current.readyState < 2 || isProcessingFrameRef.current) return;
+        isProcessingFrameRef.current = true;
+
+        try {
+          const video = videoRef.current;
+          const w = video.videoWidth || 640;
+          const h = video.videoHeight || 480;
+
+          if (!frameCanvasRef.current) {
+            frameCanvasRef.current = document.createElement('canvas');
+          }
+          const canvas = frameCanvasRef.current;
+          if (canvas.width !== w || canvas.height !== h) {
+            canvas.width = w;
+            canvas.height = h;
+          }
+          const ctx = canvas.getContext('2d', { willReadFrequently: true });
+          if (ctx) {
+            ctx.drawImage(video, 0, 0, w, h);
+            const detectedCode = await scanCanvasOrImage(canvas);
+            if (detectedCode && detectedCode !== lastScannedCodeRef.current) {
+              lastScannedCodeRef.current = detectedCode;
+              // Reset debounce after 1.5 seconds
+              setTimeout(() => {
+                lastScannedCodeRef.current = '';
+              }, 1500);
+              handleCodeScanned(detectedCode);
+            }
+          }
+        } catch (_) {
+          // Silent polling
+        } finally {
+          isProcessingFrameRef.current = false;
+        }
+      }, 120);
+
+    } catch (err: any) {
+      console.warn('Camera stream error:', err);
+      setCameraError(err.message || 'Camera permission denied or camera device busy.');
+      setIsCameraActive(false);
+      setIsStartingCamera(false);
+    }
+  }, [isOpen, stopCameraStream, handleCodeScanned]);
+
+  // Lifecycle
+  useEffect(() => {
+    if (isOpen) {
+      const timer = setTimeout(() => {
+        startCameraStream();
+      }, 100);
+      return () => {
+        clearTimeout(timer);
+        stopCameraStream();
+      };
+    } else {
+      stopCameraStream();
+      setScannedItem(null);
+      setRelocateBinTarget('');
+      setRelocateStep('scan_item');
+    }
+  }, [isOpen, startCameraStream, stopCameraStream]);
+
+  // Decode Image File Upload using Multi-Pass Super Decoder
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files || e.target.files.length === 0) return;
+    const file = e.target.files[0];
+    setIsProcessingFile(true);
+
+    try {
+      const decodedText = await decodeBarcodeFromImageFile(file);
+      if (decodedText) {
+        showToast('success', 'Barcode Decoded From Photo', `Read Code: ${decodedText}`);
+        handleCodeScanned(decodedText);
+      } else {
+        showToast('error', 'Barcode Not Detected', 'Could not decode barcode from this photo. Ensure the barcode is clear and in focus.');
+      }
+    } catch (err: any) {
+      console.warn('File decode exception:', err);
+      showToast('error', 'Decode Error', 'Failed to process image file.');
+    } finally {
+      setIsProcessingFile(false);
+      if (e.target) e.target.value = '';
     }
   };
 
