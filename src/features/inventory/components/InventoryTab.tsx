@@ -28,10 +28,13 @@ import {
   Printer,
   Copy,
   Barcode,
+  Check,
 } from 'lucide-react';
 import { InventoryItem, KitBOM } from '@/src/types';
 import EditPartModal from '@/src/features/inventory/components/EditPartModal';
 import { uploadImage } from '@/src/utils/storage';
+import { useData } from '@/src/DataContext';
+import { useToast } from '@/src/contexts/ToastContext';
 
 interface InventoryTabProps {
   inventory: InventoryItem[];
@@ -58,8 +61,12 @@ export default function InventoryTab({
   onOpenBarcodeStudio,
   onOpenBarcodeScanner,
 }: InventoryTabProps) {
+  const { bins = [], logTransaction } = useData() as any;
+  const { showToast } = useToast();
+
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
+  const [selectedLocation, setSelectedLocation] = useState<string>('All');
   const [sortKey, setSortKey] = useState<string>('name-asc');
   const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
   const [drawerItem, setDrawerItem] = useState<InventoryItem | null>(null);
@@ -71,6 +78,7 @@ export default function InventoryTab({
   const [newStock, setNewStock] = useState('0');
   const [newUnit, setNewUnit] = useState('pcs');
   const [newThreshold, setNewThreshold] = useState('10');
+  const [newBinLocation, setNewBinLocation] = useState('');
   const [newAssignedKitName, setNewAssignedKitName] = useState('');
   const [newIsCommon, setNewIsCommon] = useState(false);
   const [newImageFile, setNewImageFile] = useState<File | null>(null);
@@ -78,6 +86,10 @@ export default function InventoryTab({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
   const [itemSteps, setItemSteps] = useState<Record<string, number>>({});
+
+  // Quick Relocate Modal State
+  const [quickRelocateItem, setQuickRelocateItem] = useState<InventoryItem | null>(null);
+  const [targetBinLocation, setTargetBinLocation] = useState<string>('');
 
   const getItemStep = (id: string) => itemSteps[id] ?? 1;
   const setItemStep = (id: string, val: number) => {
@@ -137,15 +149,34 @@ export default function InventoryTab({
     return Array.from(cats);
   }, [inventory, PREDEFINED_CATEGORIES]);
 
+  const allBinLocations = useMemo(() => {
+    const locs = new Set<string>();
+    bins.forEach((b: any) => locs.add(b.code));
+    inventory.forEach((i) => {
+      if (i.binLocation && i.binLocation.trim() !== '') {
+        locs.add(i.binLocation.trim());
+      }
+    });
+    return Array.from(locs);
+  }, [bins, inventory]);
+
   const filteredAndSortedInventory = useMemo(() => {
     const filtered = inventory.filter((item) => {
       const matchesSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         item.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (item.barcode && item.barcode.toLowerCase().includes(searchTerm.toLowerCase()));
+        (item.barcode && item.barcode.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (item.binLocation && item.binLocation.toLowerCase().includes(searchTerm.toLowerCase()));
+
       const matchesCategory =
         selectedCategory === 'All' || selectedCategory === 'ALL' ||
         (item.category && item.category.trim().toLowerCase() === selectedCategory.toLowerCase());
-      return matchesSearch && matchesCategory;
+
+      const matchesLocation =
+        selectedLocation === 'All' || selectedLocation === 'ALL' ||
+        (selectedLocation === 'Unassigned' && (!item.binLocation || item.binLocation.trim() === '')) ||
+        (item.binLocation && item.binLocation.trim().toLowerCase() === selectedLocation.toLowerCase());
+
+      return matchesSearch && matchesCategory && matchesLocation;
     });
 
     return [...filtered].sort((a, b) => {
@@ -164,6 +195,8 @@ export default function InventoryTab({
           return (b.basePrice || 0) - (a.basePrice || 0);
         case 'category-asc':
           return (a.category || '').localeCompare(b.category || '');
+        case 'bin-asc':
+          return (a.binLocation || '').localeCompare(b.binLocation || '');
         case 'sku-asc':
           return (a.barcode || a.id || '').localeCompare(b.barcode || b.id || '');
         case 'low-stock': {
@@ -175,7 +208,7 @@ export default function InventoryTab({
           return 0;
       }
     });
-  }, [inventory, searchTerm, selectedCategory, sortKey]);
+  }, [inventory, searchTerm, selectedCategory, selectedLocation, sortKey]);
 
   const handleCreateComponent = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -196,6 +229,7 @@ export default function InventoryTab({
       stockQty: parseInt(newStock) || 0,
       unit: newUnit.trim() || 'pcs',
       threshold: parseInt(newThreshold) || 10,
+      binLocation: newBinLocation.trim() || undefined,
       assignedKitName: newAssignedKitName.trim() || undefined,
       isCommon: newIsCommon,
       imageUrl: imageUrl || undefined,
@@ -207,35 +241,59 @@ export default function InventoryTab({
     setNewStock('0');
     setNewUnit('pcs');
     setNewThreshold('10');
+    setNewBinLocation('');
     setNewAssignedKitName('');
     setNewIsCommon(false);
     setNewImageFile(null);
+    showToast('success', 'Component Added', `Created "${newName.trim()}"`);
+  };
+
+  const handleSaveQuickRelocate = async () => {
+    if (!quickRelocateItem) return;
+    const cleanBin = targetBinLocation.trim() || undefined;
+    const oldBin = quickRelocateItem.binLocation;
+
+    await onUpdateComponent(quickRelocateItem.id, { binLocation: cleanBin });
+
+    if (logTransaction) {
+      await logTransaction({
+        id: `tx_${Date.now()}`,
+        timestamp: new Date().toISOString(),
+        type: 'adjust',
+        description: `Relocated "${quickRelocateItem.name}" from [${oldBin || 'Unassigned'}] to [${cleanBin || 'Unassigned'}]`,
+        items: [{ componentId: quickRelocateItem.id, componentName: quickRelocateItem.name, qtyDiff: 0 }],
+        diffs: [{ field: 'binLocation', oldValue: oldBin || null, newValue: cleanBin || null }]
+      });
+    }
+
+    showToast('success', 'Storage Location Updated', `Moved "${quickRelocateItem.name}" to ${cleanBin || 'Unassigned'}`);
+    setQuickRelocateItem(null);
   };
 
   return (
-    <div className="space-y-6 relative w-full">
+    <div className="space-y-6 relative w-full animate-fadeIn">
       {/* Top Banner */}
-      <div className="bg-white/90 backdrop-blur-md p-6 rounded-3xl border border-slate-200/80 shadow-sm hover:shadow-md transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="bg-white/90 dark:bg-slate-900/90 backdrop-blur-md p-6 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-sm hover:shadow-md transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-xl font-black text-slate-900 flex items-center gap-2.5 tracking-tight">
-            <div className="p-2.5 bg-indigo-50 text-indigo-600 rounded-2xl border border-indigo-100/80">
+          <h2 className="text-xl font-black text-slate-900 dark:text-white flex items-center gap-2.5 tracking-tight">
+            <div className="p-2.5 bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 rounded-2xl border border-indigo-100/80 dark:border-indigo-800">
               <Box className="w-5 h-5" />
             </div>
             Items & Master Catalog
           </h2>
-          <p className="text-xs text-slate-500 mt-1 font-medium">
-            Manage components, differentiated stock states, safety limits, and bin locations.
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 font-medium">
+            Manage components, stock math, safety limits, and physical warehouse bin storage locations.
           </p>
         </div>
 
         <div className="flex items-center gap-3 self-start sm:self-auto shrink-0">
-          <div className="bg-slate-100/90 p-1 rounded-2xl border border-slate-200/80 flex items-center gap-1">
+          <div className="bg-slate-100/90 dark:bg-slate-800/90 p-1 rounded-2xl border border-slate-200/80 dark:border-slate-700 flex items-center gap-1">
             <button
               onClick={() => setViewMode('grid')}
               className={`p-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
                 viewMode === 'grid'
-                  ? 'bg-white text-indigo-600 shadow-sm border border-slate-200/60'
-                  : 'text-slate-500 hover:text-slate-900'
+                  ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-xs border border-slate-200/60 dark:border-slate-700'
+                  : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
               }`}
               title="Grid Cards"
             >
@@ -246,8 +304,8 @@ export default function InventoryTab({
               onClick={() => setViewMode('table')}
               className={`p-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
                 viewMode === 'table'
-                  ? 'bg-white text-indigo-600 shadow-sm border border-slate-200/60'
-                  : 'text-slate-500 hover:text-slate-900'
+                  ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-xs border border-slate-200/60 dark:border-slate-700'
+                  : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
               }`}
               title="Compact Table"
             >
@@ -259,7 +317,7 @@ export default function InventoryTab({
           {onOpenBarcodeScanner && (
             <button
               onClick={onOpenBarcodeScanner}
-              className="bg-slate-900 hover:bg-slate-800 text-white font-bold px-4 py-2.5 rounded-2xl shadow-sm transition-all flex items-center gap-1.5 cursor-pointer text-xs shrink-0"
+              className="bg-slate-900 hover:bg-slate-800 text-white font-bold px-4 py-2.5 rounded-2xl shadow-xs transition-all flex items-center gap-1.5 cursor-pointer text-xs shrink-0"
             >
               <QrCode className="w-4 h-4 text-indigo-400" />
               <span>Scan Barcode</span>
@@ -269,9 +327,9 @@ export default function InventoryTab({
           {onOpenBarcodeStudio && (
             <button
               onClick={onOpenBarcodeStudio}
-              className="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold px-4 py-2.5 rounded-2xl border border-indigo-200/80 transition-all flex items-center gap-1.5 cursor-pointer text-xs shrink-0"
+              className="bg-indigo-50 dark:bg-indigo-950/60 hover:bg-indigo-100 text-indigo-700 dark:text-indigo-300 font-bold px-4 py-2.5 rounded-2xl border border-indigo-200/80 dark:border-indigo-800 transition-all flex items-center gap-1.5 cursor-pointer text-xs shrink-0"
             >
-              <Printer className="w-4 h-4 text-indigo-600" />
+              <Printer className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
               <span>Label Studio</span>
             </button>
           )}
@@ -285,28 +343,46 @@ export default function InventoryTab({
         </div>
       </div>
 
-      {/* Category Pills & Search & Sort */}
-      <div className="bg-white/80 backdrop-blur-md p-4 rounded-3xl border border-slate-200/80 shadow-xs space-y-3">
+      {/* Category Pills & Search & Location Filter Bar */}
+      <div className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-md p-4 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-3">
         <div className="flex flex-col md:flex-row items-center gap-3">
           <div className="relative flex-1 w-full">
             <Search className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
               type="text"
-              placeholder="Search items by name, SKU, or category..."
+              placeholder="Search items by name, SKU, category, or bin location..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-11 pr-4 py-2.5 bg-slate-50 border border-slate-200/80 rounded-2xl text-xs font-medium text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:bg-white transition-all"
+              className="w-full pl-11 pr-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700 rounded-2xl text-xs font-medium text-slate-800 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:bg-white dark:focus:bg-slate-900 transition-all"
             />
           </div>
 
-          <div className="flex items-center gap-2 w-full md:w-auto shrink-0">
-            <div className="flex items-center gap-2 bg-slate-50 border border-slate-200/80 px-3 py-2 rounded-2xl text-xs w-full md:w-auto">
+          <div className="flex flex-wrap items-center gap-2 w-full md:w-auto shrink-0">
+            {/* Storage Bin Location Filter */}
+            <div className="flex items-center gap-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700 px-3 py-2 rounded-2xl text-xs">
+              <MapPin className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+              <span className="font-bold text-slate-600 dark:text-slate-400 shrink-0 hidden sm:inline">Bin:</span>
+              <select
+                value={selectedLocation}
+                onChange={(e) => setSelectedLocation(e.target.value)}
+                className="bg-transparent font-bold text-slate-800 dark:text-slate-200 focus:outline-none cursor-pointer text-xs"
+              >
+                <option value="All">All Locations</option>
+                <option value="Unassigned">Unassigned Only</option>
+                {allBinLocations.map((loc) => (
+                  <option key={loc} value={loc}>{loc}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Sort Dropdown */}
+            <div className="flex items-center gap-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700 px-3 py-2 rounded-2xl text-xs">
               <SlidersHorizontal className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
-              <span className="font-bold text-slate-600 shrink-0 hidden sm:inline">Sort:</span>
+              <span className="font-bold text-slate-600 dark:text-slate-400 shrink-0 hidden sm:inline">Sort:</span>
               <select
                 value={sortKey}
                 onChange={(e) => setSortKey(e.target.value)}
-                className="bg-transparent font-bold text-slate-800 focus:outline-none cursor-pointer w-full"
+                className="bg-transparent font-bold text-slate-800 dark:text-slate-200 focus:outline-none cursor-pointer text-xs"
               >
                 <option value="name-asc">Name (A → Z)</option>
                 <option value="name-desc">Name (Z → A)</option>
@@ -314,6 +390,7 @@ export default function InventoryTab({
                 <option value="stock-desc">Stock Qty (High → Low)</option>
                 <option value="price-asc">Price (Low → High)</option>
                 <option value="price-desc">Price (High → Low)</option>
+                <option value="bin-asc">Storage Bin Location</option>
                 <option value="category-asc">Category</option>
                 <option value="sku-asc">SKU / Barcode</option>
                 <option value="low-stock">Low Stock Warning</option>
@@ -322,13 +399,14 @@ export default function InventoryTab({
           </div>
         </div>
 
+        {/* Category Pills Bar */}
         <div className="flex items-center gap-2 overflow-x-auto pb-1 custom-scrollbar">
           <button
             onClick={() => setSelectedCategory('All')}
             className={`px-3.5 py-1.5 rounded-xl font-bold text-xs transition-all whitespace-nowrap cursor-pointer ${
               selectedCategory === 'All'
-                ? 'bg-slate-900 text-white shadow-sm'
-                : 'bg-slate-100/80 text-slate-600 hover:bg-slate-200/70 border border-slate-200/60'
+                ? 'bg-slate-900 text-white shadow-xs'
+                : 'bg-slate-100/80 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200/70 border border-slate-200/60 dark:border-slate-700'
             }`}
           >
             All Items ({inventory.length})
@@ -341,8 +419,8 @@ export default function InventoryTab({
                 onClick={() => setSelectedCategory(cat)}
                 className={`px-3.5 py-1.5 rounded-xl font-bold text-xs transition-all whitespace-nowrap cursor-pointer flex items-center gap-1.5 ${
                   selectedCategory === cat
-                    ? 'bg-slate-900 text-white shadow-sm'
-                    : 'bg-slate-100/80 text-slate-600 hover:bg-slate-200/70 border border-slate-200/60'
+                    ? 'bg-slate-900 text-white shadow-xs'
+                    : 'bg-slate-100/80 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200/70 border border-slate-200/60 dark:border-slate-700'
                 }`}
               >
                 <span className={`w-2 h-2 rounded-full ${catStyle.dot}`} />
@@ -353,13 +431,13 @@ export default function InventoryTab({
         </div>
       </div>
 
-      {/* Add New Item Form */}
+      {/* Add New Item Form Panel */}
       {isAdding && (
-        <form onSubmit={handleCreateComponent} className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-md space-y-4">
-          <h3 className="text-base font-bold text-slate-900 mb-4">Create New Master Catalog Item</h3>
+        <form onSubmit={handleCreateComponent} className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-md space-y-4 animate-fadeIn">
+          <h3 className="text-base font-black text-slate-900 dark:text-white mb-4">Create New Master Catalog Item</h3>
           
           <div className="flex flex-col md:flex-row gap-6">
-            <div className="w-32 h-32 rounded-2xl bg-slate-50 border-2 border-dashed border-slate-200 flex flex-col items-center justify-center shrink-0 overflow-hidden relative group">
+            <div className="w-32 h-32 rounded-2xl bg-slate-50 dark:bg-slate-800 border-2 border-dashed border-slate-200 dark:border-slate-700 flex flex-col items-center justify-center shrink-0 overflow-hidden relative group">
               {newImageFile ? (
                 <img src={URL.createObjectURL(newImageFile)} alt="Preview" className="w-full h-full object-cover" />
               ) : (
@@ -389,93 +467,106 @@ export default function InventoryTab({
             </div>
 
             <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            <div>
-              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Item Name *</label>
-              <input
-                type="text"
-                required
-                placeholder="e.g. ESP32-S3 Microcontroller"
-                value={newName}
-                onChange={(e) => setNewName(e.target.value)}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
-              />
-            </div>
+              <div>
+                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Item Name *</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. ESP32-S3 Microcontroller"
+                  value={newName}
+                  onChange={(e) => setNewName(e.target.value)}
+                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white font-bold focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                />
+              </div>
 
-            <div>
-              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Category</label>
-              <input
-                type="text"
-                placeholder="e.g. Boards & Controllers"
-                value={newCategory}
-                onChange={(e) => setNewCategory(e.target.value)}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
-              />
-            </div>
+              <div>
+                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Category</label>
+                <input
+                  type="text"
+                  list="add-category-options"
+                  placeholder="e.g. Electronics, Stationary..."
+                  value={newCategory}
+                  onChange={(e) => setNewCategory(e.target.value)}
+                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white font-bold focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                />
+                <datalist id="add-category-options">
+                  {allExistingCategories.map((c) => (
+                    <option key={c} value={c} />
+                  ))}
+                </datalist>
+              </div>
 
-            <div>
-              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Initial Qty</label>
-              <input
-                type="number"
-                value={newStock}
-                onChange={(e) => setNewStock(e.target.value)}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
-              />
-            </div>
+              {/* Storage Bin Location */}
+              <div>
+                <label className="block text-[10px] font-bold text-amber-700 dark:text-amber-400 uppercase tracking-wider mb-1 flex items-center gap-1">
+                  <MapPin className="w-3 h-3 text-amber-500" /> Storage Bin Location
+                </label>
+                <input
+                  type="text"
+                  list="create-bin-options"
+                  placeholder="e.g. Rack - Shelf 1, BIN-A1-01..."
+                  value={newBinLocation}
+                  onChange={(e) => setNewBinLocation(e.target.value)}
+                  className="w-full bg-amber-50/50 dark:bg-slate-800 border border-amber-300 dark:border-amber-700 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white font-bold focus:outline-none focus:ring-2 focus:ring-amber-500/20"
+                />
+                <datalist id="create-bin-options">
+                  {bins.map((b: any) => (
+                    <option key={b.id} value={b.code}>{b.code} ({b.description})</option>
+                  ))}
+                  <option value="Rack - Shelf 1" />
+                  <option value="Rack - Shelf 2" />
+                  <option value="Rack 1, Shelf A" />
+                  <option value="Bin A-01" />
+                  <option value="Chemical Cabinet" />
+                </datalist>
+              </div>
 
-            <div>
-              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Reorder Threshold</label>
-              <input
-                type="number"
-                value={newThreshold}
-                onChange={(e) => setNewThreshold(e.target.value)}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
-              />
-            </div>
+              <div>
+                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Initial Stock Qty</label>
+                <input
+                  type="number"
+                  min="0"
+                  value={newStock}
+                  onChange={(e) => setNewStock(e.target.value)}
+                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white font-bold focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                />
+              </div>
 
-            <div>
-              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Unit</label>
-              <input
-                type="text"
-                placeholder="pcs, sets"
-                value={newUnit}
-                onChange={(e) => setNewUnit(e.target.value)}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
-              />
-            </div>
+              <div>
+                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Reorder Safety Threshold</label>
+                <input
+                  type="number"
+                  min="0"
+                  value={newThreshold}
+                  onChange={(e) => setNewThreshold(e.target.value)}
+                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white font-bold focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                />
+              </div>
 
-            <div>
-              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Associated Kit (Optional)</label>
-              <input
-                type="text"
-                list="create-kit-options-list"
-                placeholder="e.g. Prastuti Science Experiment Set"
-                value={newAssignedKitName}
-                onChange={(e) => setNewAssignedKitName(e.target.value)}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
-              />
-              <datalist id="create-kit-options-list">
-                {kits.map((k) => (
-                  <option key={k.id} value={k.name} />
-                ))}
-                <option value="Prastuti Science Experiment Set" />
-                <option value="Electronics Innovation Kit" />
-                <option value="Prastuti Maths Activity Set" />
-              </datalist>
+              <div>
+                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Unit</label>
+                <input
+                  type="text"
+                  placeholder="pcs, sets, rolls"
+                  value={newUnit}
+                  onChange={(e) => setNewUnit(e.target.value)}
+                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white font-bold focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                />
+              </div>
             </div>
           </div>
-          </div>
 
-          <div className="flex gap-3 pt-2">
+          <div className="flex justify-end gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">
             <button
               type="button"
               onClick={() => setIsAdding(false)}
-              className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold px-4 py-2 rounded-xl text-sm transition-all cursor-pointer"
+              className="px-4 py-2 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold rounded-xl text-xs hover:bg-slate-200 cursor-pointer"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-5 py-2 rounded-xl text-sm shadow-md transition-all cursor-pointer"
+              className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl text-xs shadow-md cursor-pointer"
             >
               Save Item
             </button>
@@ -483,462 +574,325 @@ export default function InventoryTab({
         </form>
       )}
 
-      {/* Grid Cards View with Differentiated Cell Layouts */}
-      {viewMode === 'grid' ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {filteredAndSortedInventory.length === 0 ? (
-            <div className="col-span-full bg-white p-12 rounded-3xl border border-slate-200/80 text-center text-slate-400 font-medium">
-              <FolderOpen className="w-10 h-10 mx-auto mb-2 text-slate-300" />
-              No components found matching your filter.
-            </div>
-          ) : (
-            filteredAndSortedInventory.map((item) => {
-              const isZero = item.stockQty === 0 && !item.isCommon;
-              const isLow = item.stockQty < item.threshold && !item.isCommon && !isZero;
-              const isCommon = !!item.isCommon;
-              const catStyle = getCategoryBadgeStyle(item.category);
+      {/* Grid Mode View */}
+      {viewMode === 'grid' && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+          {filteredAndSortedInventory.map((item) => {
+            const isZero = item.stockQty === 0 && !item.isCommon;
+            const isLow = item.stockQty < item.threshold && !item.isCommon && !isZero;
+            const isCommon = item.isCommon;
+            const catStyle = getCategoryBadgeStyle(item.category);
+            const progressPct = Math.min(100, (item.stockQty / (item.threshold * 2 || 1)) * 100);
 
-              // 🔴 OUT OF STOCK CELL LAYOUT
-              if (isZero) {
-                return (
-                  <div
-                    key={item.id}
-                    onClick={() => setDrawerItem(item)}
-                    className="bg-gradient-to-b from-rose-50/70 via-white to-white rounded-3xl border-2 border-rose-300 shadow-md shadow-rose-500/10 hover:shadow-xl hover:border-rose-400 hover:-translate-y-0.5 transition-all duration-200 flex flex-col justify-between cursor-pointer group space-y-3 overflow-hidden"
-                  >
-                    {/* Danger Header Banner */}
-                    <div className="bg-rose-600 text-white px-4 py-1.5 flex items-center justify-between text-[10px] font-black uppercase tracking-wider">
-                      <span className="flex items-center gap-1.5">
-                        <AlertTriangle className="w-3.5 h-3.5 text-white animate-pulse" /> OUT OF STOCK
-                      </span>
-                      <span>CRITICAL SHORTAGE</span>
+            return (
+              <div
+                key={item.id}
+                onClick={() => setDrawerItem(item)}
+                className={`rounded-3xl border p-5 shadow-xs hover:shadow-xl hover:-translate-y-0.5 transition-all duration-200 flex flex-col justify-between cursor-pointer group space-y-3 ${
+                  isZero
+                    ? 'bg-rose-50/40 dark:bg-rose-950/20 border-rose-300 dark:border-rose-800'
+                    : isLow
+                    ? 'bg-amber-50/30 dark:bg-amber-950/20 border-amber-300 dark:border-amber-800'
+                    : 'bg-white dark:bg-slate-900 border-slate-200/80 dark:border-slate-800'
+                }`}
+              >
+                <div className="space-y-2.5">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="w-12 h-12 rounded-2xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center shrink-0 overflow-hidden group-hover:scale-105 transition-transform">
+                      {item.imageUrl ? (
+                        <img src={item.imageUrl} alt={item.name} className="w-full h-full object-cover" />
+                      ) : isCommon ? (
+                        <InfinityIcon className="w-6 h-6 text-indigo-600" />
+                      ) : (
+                        <Box className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                      )}
                     </div>
 
-                    <div className="p-4 space-y-3">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="w-12 h-12 rounded-2xl bg-rose-100/80 border border-rose-200 flex items-center justify-center shrink-0 overflow-hidden text-rose-600">
-                          {item.imageUrl ? (
-                            <img src={item.imageUrl} alt={item.name} className="w-full h-full object-cover" />
-                          ) : (
-                            <AlertCircle className="w-6 h-6" />
-                          )}
-                        </div>
-                        <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full border ${catStyle.bg}`}>
-                          {item.category || 'Uncategorized'}
+                    <div className="flex flex-col items-end gap-1">
+                      {isZero ? (
+                        <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase bg-rose-100 dark:bg-rose-950 text-rose-700 dark:text-rose-300 border border-rose-200">
+                          Out of Stock
                         </span>
-                      </div>
+                      ) : isLow ? (
+                        <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 border border-amber-200">
+                          Low Stock
+                        </span>
+                      ) : isCommon ? (
+                        <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-300">
+                          Unlimited
+                        </span>
+                      ) : (
+                        <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 border border-emerald-200">
+                          In Stock
+                        </span>
+                      )}
 
-                      <div>
-                        <h4 className="font-extrabold text-slate-900 text-sm group-hover:text-rose-600 transition-colors line-clamp-1">
-                          {item.name}
-                        </h4>
-                        <div className="text-[10px] font-mono text-slate-400 mt-0.5">SKU-{item.id.substring(0, 8)}</div>
-                      </div>
-
-                      <div className="p-2.5 bg-rose-100/60 rounded-2xl border border-rose-200/80 flex items-center justify-between">
-                        <span className="text-[10px] font-bold uppercase text-rose-700 tracking-wider">Stock Qty</span>
-                        <span className="text-sm font-black text-rose-700">0 / {item.threshold} {item.unit}</span>
-                      </div>
-                    </div>
-
-                    <div className="p-4 pt-0 flex items-center justify-between" onClick={(e) => e.stopPropagation()}>
-                      <div className="text-xs font-bold text-slate-900">${(item.basePrice || 3.50).toFixed(2)}</div>
+                      {/* Interactive Storage Bin Location Badge */}
                       <button
-                        onClick={() => onUpdateStock(item.id, item.stockQty + 1)}
-                        className="bg-rose-600 hover:bg-rose-700 text-white font-bold px-3 py-1.5 rounded-xl text-xs flex items-center gap-1 shadow-sm cursor-pointer"
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setQuickRelocateItem(item);
+                          setTargetBinLocation(item.binLocation || '');
+                        }}
+                        className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/60 hover:bg-amber-100 border border-amber-200/80 dark:border-amber-800/80 px-2 py-0.5 rounded-md cursor-pointer transition-colors"
+                        title="Click to relocate to a different warehouse bin"
                       >
-                        <Plus className="w-3.5 h-3.5" /> Reorder 1
+                        <MapPin className="w-3 h-3 text-amber-600" />
+                        <span>{item.binLocation || 'Rack - Shelf 1'}</span>
                       </button>
                     </div>
                   </div>
-                );
-              }
 
-              // 🟡 LOW STOCK CELL LAYOUT
-              if (isLow) {
-                const progressPct = Math.min(100, (item.stockQty / item.threshold) * 100);
-                return (
-                  <div
-                    key={item.id}
-                    onClick={() => setDrawerItem(item)}
-                    className="bg-gradient-to-b from-amber-50/50 via-white to-white rounded-3xl border-2 border-amber-300 shadow-md shadow-amber-500/5 hover:shadow-xl hover:border-amber-400 hover:-translate-y-0.5 transition-all duration-200 flex flex-col justify-between cursor-pointer group space-y-3 overflow-hidden"
-                  >
-                    {/* Warning Header Banner */}
-                    <div className="bg-amber-500 text-white px-4 py-1.5 flex items-center justify-between text-[10px] font-black uppercase tracking-wider">
-                      <span className="flex items-center gap-1.5">
-                        <AlertTriangle className="w-3.5 h-3.5 text-white" /> LOW STOCK WARNING
+                  <div>
+                    <h4 className="font-extrabold text-slate-900 dark:text-white text-xs group-hover:text-indigo-600 transition-colors line-clamp-1">
+                      {item.name}
+                    </h4>
+                    <div className="flex items-center gap-1.5 mt-1">
+                      <span className={`text-[9px] font-bold px-2 py-0.5 rounded-md border ${catStyle.bg}`}>
+                        {item.category || 'General'}
                       </span>
-                      <span>REORDER LEVEL</span>
-                    </div>
-
-                    <div className="p-4 space-y-3">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="w-12 h-12 rounded-2xl bg-amber-100/80 border border-amber-200 flex items-center justify-center shrink-0 overflow-hidden text-amber-700">
-                          {item.imageUrl ? (
-                            <img src={item.imageUrl} alt={item.name} className="w-full h-full object-cover" />
-                          ) : (
-                            <Box className="w-6 h-6" />
-                          )}
-                        </div>
-                        <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full border ${catStyle.bg}`}>
-                          {item.category || 'Uncategorized'}
-                        </span>
-                      </div>
-
-                      <div>
-                        <h4 className="font-extrabold text-slate-900 text-sm group-hover:text-amber-600 transition-colors line-clamp-1">
-                          {item.name}
-                        </h4>
-                        <div className="text-[10px] font-mono text-slate-400 mt-0.5">SKU-{item.id.substring(0, 8)}</div>
-                      </div>
-
-                      <div className="space-y-1">
-                        <div className="flex justify-between text-[11px] font-bold">
-                          <span className="text-amber-800 uppercase tracking-wider text-[9px]">Below Safety Limit</span>
-                          <span className="text-amber-800 font-extrabold">{item.stockQty} / {item.threshold} {item.unit}</span>
-                        </div>
-                        <div className="w-full bg-amber-100 h-2 rounded-full overflow-hidden">
-                          <div className="h-full bg-amber-500 rounded-full" style={{ width: `${Math.max(8, progressPct)}%` }} />
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="p-4 pt-0 flex items-center justify-between" onClick={(e) => e.stopPropagation()}>
-                      <div className="text-xs font-bold text-slate-900 dark:text-slate-100">${(item.basePrice || 3.50).toFixed(2)}</div>
-                      <div className="flex items-center gap-1.5">
-                        <button
-                          onClick={() => onUpdateStock(item.id, Math.max(0, item.stockQty - getItemStep(item.id)))}
-                          className="p-1.5 rounded-lg bg-amber-100 dark:bg-amber-950/80 text-amber-800 dark:text-amber-300 hover:bg-amber-200 cursor-pointer transition-colors"
-                          title={`Deduct ${getItemStep(item.id)} ${item.unit}`}
-                        >
-                          <Minus className="w-3.5 h-3.5" />
-                        </button>
-                        <input
-                          type="number"
-                          min="1"
-                          value={getItemStep(item.id)}
-                          onChange={(e) => setItemStep(item.id, parseInt(e.target.value, 10))}
-                          className="w-11 text-center py-1 px-1 bg-white dark:bg-slate-900 border border-amber-300 dark:border-amber-700/80 rounded-lg text-xs font-bold text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-amber-500"
-                          title="Custom step quantity"
-                        />
-                        <button
-                          onClick={() => onUpdateStock(item.id, item.stockQty + getItemStep(item.id))}
-                          className="p-1.5 rounded-lg bg-amber-500 text-white hover:bg-amber-600 cursor-pointer transition-colors shadow-xs"
-                          title={`Add ${getItemStep(item.id)} ${item.unit}`}
-                        >
-                          <Plus className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
+                      <span className="text-[9px] font-mono text-slate-400">{item.barcode || `EL-${item.id}`}</span>
                     </div>
                   </div>
-                );
-              }
 
-              // 🔵 UNLIMITED / COMMON PART CELL LAYOUT
-              if (isCommon) {
-                return (
-                  <div
-                    key={item.id}
-                    onClick={() => setDrawerItem(item)}
-                    className="bg-slate-50/90 rounded-3xl border border-slate-200/80 p-5 shadow-xs hover:shadow-md hover:border-slate-300 hover:-translate-y-0.5 transition-all duration-200 flex flex-col justify-between cursor-pointer group space-y-4"
-                  >
-                    <div className="space-y-3">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="w-12 h-12 rounded-2xl bg-slate-200/80 border border-slate-300 flex items-center justify-center shrink-0 overflow-hidden text-slate-600">
-                          <InfinityIcon className="w-6 h-6 text-indigo-600" />
-                        </div>
-                        <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-slate-200 text-slate-700 border border-slate-300 flex items-center gap-1">
-                          <InfinityIcon className="w-3 h-3 text-indigo-600" /> Constant Stock
-                        </span>
-                      </div>
-
-                      <div>
-                        <h4 className="font-bold text-slate-900 text-sm group-hover:text-indigo-600 transition-colors line-clamp-1">
-                          {item.name}
-                        </h4>
-                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md border mt-1 inline-block ${catStyle.bg}`}>
-                          {item.category || 'Hardware'}
-                        </span>
-                      </div>
-
-                      <div className="p-2 bg-slate-200/50 rounded-xl text-center text-xs font-bold text-slate-600">
-                        Unlimited Consumable Hardware
-                      </div>
-                    </div>
-
-                    <div className="pt-3 border-t border-slate-200/80 flex items-center justify-between">
-                      <span className="text-xs font-mono text-slate-400">SKU-{item.id.substring(0, 8)}</span>
-                      <button onClick={() => setEditingItem(item)} className="p-1 text-slate-400 hover:text-indigo-600">
-                        <Edit2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </div>
-                );
-              }
-
-              // 🟢 HEALTHY STOCK CELL LAYOUT
-              const progressPct = Math.min(100, (item.stockQty / (item.threshold * 2 || 1)) * 100);
-              return (
-                <div
-                  key={item.id}
-                  onClick={() => setDrawerItem(item)}
-                  className="bg-white rounded-3xl border border-slate-200/80 p-5 shadow-xs hover:shadow-lg hover:border-indigo-200 hover:-translate-y-0.5 transition-all duration-200 flex flex-col justify-between cursor-pointer group space-y-4"
-                >
-                  <div className="space-y-3">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="w-12 h-12 rounded-2xl bg-slate-100 border border-slate-200 flex items-center justify-center shrink-0 overflow-hidden group-hover:scale-105 transition-transform">
-                        {item.imageUrl ? (
-                          <img src={item.imageUrl} alt={item.name} className="w-full h-full object-cover" />
-                        ) : (
-                          <Box className="w-5 h-5 text-indigo-600" />
-                        )}
-                      </div>
-
-                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200/60 flex items-center gap-1">
-                        <CheckCircle2 className="w-3 h-3 text-emerald-600" /> In Stock
-                      </span>
-                    </div>
-
-                    <div>
-                      <h4 className="font-bold text-slate-900 text-sm group-hover:text-indigo-600 transition-colors line-clamp-1">
-                        {item.name}
-                      </h4>
-                      <div className="flex items-center gap-2 mt-1">
-                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md border ${catStyle.bg}`}>
-                          {item.category || 'Uncategorized'}
-                        </span>
-                        <span className="text-[10px] font-mono text-slate-400">SKU-{item.id.substring(0, 6)}</span>
-                      </div>
-                    </div>
-
+                  {!isCommon && (
                     <div className="space-y-1 pt-1">
-                      <div className="flex justify-between text-[11px] font-bold">
-                        <span className="text-slate-400 uppercase tracking-wider text-[9px]">Available Stock</span>
-                        <span className="text-slate-900">{item.stockQty} / {item.threshold} {item.unit}</span>
+                      <div className="flex justify-between text-[10px] font-bold">
+                        <span className="text-slate-400 uppercase tracking-wider text-[9px]">Stock</span>
+                        <span className="text-slate-900 dark:text-white">{item.stockQty} / {item.threshold} {item.unit}</span>
                       </div>
-                      <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
-                        <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${Math.max(5, progressPct)}%` }} />
+                      <div className="w-full bg-slate-100 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden">
+                        <div
+                          className={`h-full rounded-full ${isZero ? 'bg-rose-500' : isLow ? 'bg-amber-500' : 'bg-emerald-500'}`}
+                          style={{ width: `${Math.max(5, progressPct)}%` }}
+                        />
                       </div>
                     </div>
-                  </div>
+                  )}
+                </div>
 
-                  <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between" onClick={(e) => e.stopPropagation()}>
-                    <div className="text-xs font-bold text-slate-900 dark:text-slate-100">${(item.basePrice || 3.50).toFixed(2)}</div>
-                    <div className="flex items-center gap-1.5">
-                      <button
-                        onClick={() => onUpdateStock(item.id, Math.max(0, item.stockQty - getItemStep(item.id)))}
-                        className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 cursor-pointer transition-colors"
-                        title={`Deduct ${getItemStep(item.id)} ${item.unit}`}
-                      >
-                        <Minus className="w-3.5 h-3.5" />
-                      </button>
-                      <input
-                        type="number"
-                        min="1"
-                        value={getItemStep(item.id)}
-                        onChange={(e) => setItemStep(item.id, parseInt(e.target.value, 10))}
-                        className="w-11 text-center py-1 px-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-bold text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                        title="Custom step quantity"
-                      />
-                      <button
-                        onClick={() => onUpdateStock(item.id, item.stockQty + getItemStep(item.id))}
-                        className="p-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white cursor-pointer transition-colors shadow-xs"
-                        title={`Add ${getItemStep(item.id)} ${item.unit}`}
-                      >
-                        <Plus className="w-3.5 h-3.5" />
-                      </button>
-                      <button onClick={() => setEditingItem(item)} className="p-1 text-slate-400 hover:text-indigo-600">
-                        <Edit2 className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
+                {/* Stock +/- Stepper Controls & Edit Trigger */}
+                <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between" onClick={(e) => e.stopPropagation()}>
+                  <div className="text-xs font-bold text-slate-900 dark:text-white">${(item.basePrice || 0).toFixed(2)}</div>
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => onUpdateStock(item.id, Math.max(0, item.stockQty - getItemStep(item.id)))}
+                      className="p-1 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 cursor-pointer transition-colors"
+                      title={`Deduct ${getItemStep(item.id)} ${item.unit}`}
+                    >
+                      <Minus className="w-3 h-3" />
+                    </button>
+                    <input
+                      type="number"
+                      min="1"
+                      value={getItemStep(item.id)}
+                      onChange={(e) => setItemStep(item.id, parseInt(e.target.value, 10))}
+                      className="w-9 text-center py-0.5 px-0.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-md text-[10px] font-bold text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                      title="Step value"
+                    />
+                    <button
+                      onClick={() => onUpdateStock(item.id, item.stockQty + getItemStep(item.id))}
+                      className="p-1 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white cursor-pointer transition-colors shadow-xs"
+                      title={`Add ${getItemStep(item.id)} ${item.unit}`}
+                    >
+                      <Plus className="w-3 h-3" />
+                    </button>
+                    <button
+                      onClick={() => setEditingItem(item)}
+                      className="p-1 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-slate-800 rounded-lg ml-1 cursor-pointer"
+                      title="Edit Item Details"
+                    >
+                      <Edit2 className="w-3.5 h-3.5" />
+                    </button>
                   </div>
                 </div>
-              );
-            })
-          )}
+              </div>
+            );
+          })}
         </div>
-      ) : (
-        /* Table View with Differentiated Row Tinting */
-        <div className="bg-white rounded-3xl border border-slate-200/80 shadow-xs overflow-hidden">
+      )}
+
+      {/* Table Mode View */}
+      {viewMode === 'table' && (
+        <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-xs overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="bg-slate-50/80 border-b border-slate-200/80 text-[11px] uppercase tracking-wider font-bold text-slate-400 select-none">
-                  <th
-                    onClick={() => setSortKey(sortKey === 'name-asc' ? 'name-desc' : 'name-asc')}
-                    className="py-4 px-6 cursor-pointer hover:text-indigo-600 transition-colors"
-                  >
-                    Part Information {sortKey === 'name-asc' ? '↑' : sortKey === 'name-desc' ? '↓' : ''}
-                  </th>
-                  <th
-                    onClick={() => setSortKey(sortKey === 'category-asc' ? 'name-asc' : 'category-asc')}
-                    className="py-4 px-6 cursor-pointer hover:text-indigo-600 transition-colors"
-                  >
-                    Category {sortKey === 'category-asc' ? '↑' : ''}
-                  </th>
-                  <th className="py-4 px-6 font-bold">
-                    Barcode / Bin
-                  </th>
-                  <th
-                    onClick={() => setSortKey(sortKey === 'low-stock' ? 'name-asc' : 'low-stock')}
-                    className="py-4 px-6 text-center cursor-pointer hover:text-indigo-600 transition-colors"
-                  >
-                    Status {sortKey === 'low-stock' ? '⚠️' : ''}
-                  </th>
-                  <th
-                    onClick={() => setSortKey(sortKey === 'stock-asc' ? 'stock-desc' : 'stock-asc')}
-                    className="py-4 px-6 text-center w-44 cursor-pointer hover:text-indigo-600 transition-colors"
-                  >
-                    Stock Qty {sortKey === 'stock-asc' ? '↑' : sortKey === 'stock-desc' ? '↓' : ''}
-                  </th>
-                  <th className="py-4 px-6 text-center w-36">Reorder Limit</th>
-                  <th className="py-4 px-6 text-right">Actions</th>
+            <table className="w-full text-left text-xs">
+              <thead className="bg-slate-50 dark:bg-slate-800 border-b border-slate-200/80 dark:border-slate-700 text-slate-500 uppercase font-bold text-[10px]">
+                <tr>
+                  <th className="py-3 px-4">Item</th>
+                  <th className="py-3 px-4">Category</th>
+                  <th className="py-3 px-4">Barcode / SKU</th>
+                  <th className="py-3 px-4">Storage Bin Location</th>
+                  <th className="py-3 px-4 text-center">Status</th>
+                  <th className="py-3 px-4 text-center">Stock Level</th>
+                  <th className="py-3 px-4 text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 text-sm font-medium text-slate-700">
-                {filteredAndSortedInventory.length === 0 ? (
-                  <tr>
-                    <td colSpan={6} className="py-12 text-center text-slate-400 font-medium">
-                      No components found.
-                    </td>
-                  </tr>
-                ) : (
-                  filteredAndSortedInventory.map((item) => {
-                    const isZero = item.stockQty === 0 && !item.isCommon;
-                    const isLow = item.stockQty < item.threshold && !item.isCommon && !isZero;
-                    const catStyle = getCategoryBadgeStyle(item.category);
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                {filteredAndSortedInventory.map((item) => {
+                  const isZero = item.stockQty === 0 && !item.isCommon;
+                  const isLow = item.stockQty < item.threshold && !item.isCommon && !isZero;
+                  const catStyle = getCategoryBadgeStyle(item.category);
 
-                    return (
-                      <tr
-                        key={item.id}
-                        onClick={() => setDrawerItem(item)}
-                        className={`transition-colors group cursor-pointer ${
-                          isZero ? 'bg-rose-50/40 hover:bg-rose-50/80' : isLow ? 'bg-amber-50/40 hover:bg-amber-50/80' : 'hover:bg-slate-50/70'
-                        }`}
-                      >
-                        <td className="py-4 px-6">
-                          <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center shrink-0 overflow-hidden">
-                              {item.imageUrl ? (
-                                <img src={item.imageUrl} alt={item.name} className="w-full h-full object-cover" />
-                              ) : (
-                                <Box className="w-4 h-4 text-slate-400" />
-                              )}
-                            </div>
-                            <div>
-                              <div className="font-bold text-slate-900 group-hover:text-indigo-600 transition-colors">
-                                {item.name}
-                              </div>
-                              <div className="text-[10px] text-slate-400 font-mono">SKU-{item.id.substring(0, 8)}</div>
-                            </div>
-                          </div>
-                        </td>
-
-                        <td className="py-4 px-6">
-                          <span className={`text-xs font-semibold px-2.5 py-1 rounded-lg border ${catStyle.bg}`}>
-                            {item.category || 'Uncategorized'}
+                  return (
+                    <tr
+                      key={item.id}
+                      onClick={() => setDrawerItem(item)}
+                      className="hover:bg-slate-50/70 dark:hover:bg-slate-800/50 cursor-pointer transition-colors"
+                    >
+                      <td className="py-3 px-4 font-bold text-slate-900 dark:text-white">
+                        {item.name}
+                      </td>
+                      <td className="py-3 px-4">
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md border ${catStyle.bg}`}>
+                          {item.category || 'General'}
+                        </span>
+                      </td>
+                      <td className="py-3 px-4 font-mono font-bold text-slate-700 dark:text-slate-300 text-[11px]">
+                        {item.barcode || `EL-${item.id}`}
+                      </td>
+                      <td className="py-3 px-4" onClick={(e) => e.stopPropagation()}>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setQuickRelocateItem(item);
+                            setTargetBinLocation(item.binLocation || '');
+                          }}
+                          className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/60 hover:bg-amber-100 border border-amber-200/80 dark:border-amber-800/80 px-2.5 py-1 rounded-xl cursor-pointer transition-colors"
+                          title="Click to relocate bin"
+                        >
+                          <MapPin className="w-3 h-3 text-amber-600" />
+                          <span>{item.binLocation || 'Rack - Shelf 1'}</span>
+                        </button>
+                      </td>
+                      <td className="py-3 px-4 text-center">
+                        {isZero ? (
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-200">
+                            Out of Stock
                           </span>
-                        </td>
-
-                        <td className="py-4 px-6 font-mono text-xs">
-                          <div className="flex items-center gap-1.5">
-                            <span className="bg-slate-100 border border-slate-200/80 px-2 py-0.5 rounded-md font-bold text-slate-800">
-                              {item.barcode || item.sku || `EL-${item.id}`}
-                            </span>
-                          </div>
-                          {item.binLocation && (
-                            <div className="text-[10px] text-slate-400 font-sans mt-0.5">{item.binLocation}</div>
-                          )}
-                        </td>
-
-                        <td className="py-4 px-6 text-center">
-                          {isZero ? (
-                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-rose-50 text-rose-700 border border-rose-200/60">
-                              Out of Stock
-                            </span>
-                          ) : isLow ? (
-                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-50 text-amber-700 border border-amber-200/60">
-                              Low Stock
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200/60">
-                              In Stock
-                            </span>
-                          )}
-                        </td>
-
-                        <td className="py-4 px-6 text-center" onClick={(e) => e.stopPropagation()}>
-                          <div className="flex items-center justify-center gap-1.5">
-                            <button
-                              onClick={() => onUpdateStock(item.id, Math.max(0, item.stockQty - getItemStep(item.id)))}
-                              className="p-1.5 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700 cursor-pointer transition-colors"
-                              title={`Deduct ${getItemStep(item.id)} ${item.unit}`}
-                            >
-                              <Minus className="w-3.5 h-3.5" />
-                            </button>
-                            <input
-                              type="number"
-                              min="1"
-                              value={getItemStep(item.id)}
-                              onChange={(e) => setItemStep(item.id, parseInt(e.target.value, 10))}
-                              className="w-10 text-center py-0.5 px-1 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-md text-xs font-bold text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                              title="Custom step quantity"
-                            />
-                            <button
-                              onClick={() => onUpdateStock(item.id, item.stockQty + getItemStep(item.id))}
-                              className="p-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white cursor-pointer transition-colors shadow-xs"
-                              title={`Add ${getItemStep(item.id)} ${item.unit}`}
-                            >
-                              <Plus className="w-3.5 h-3.5" />
-                            </button>
-                            <span className="font-mono font-bold text-slate-900 dark:text-slate-100 ml-1.5 min-w-[3rem] text-right">
-                              {item.stockQty} {item.unit}
-                            </span>
-                          </div>
-                        </td>
-
-                        <td className="py-4 px-6 text-center font-bold text-slate-600">
-                          {item.threshold} {item.unit}
-                        </td>
-
-                        <td className="py-4 px-6 text-right" onClick={(e) => e.stopPropagation()}>
-                          <div className="flex items-center justify-end gap-1">
-                            <button
-                              onClick={() => setEditingItem(item)}
-                              className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors cursor-pointer"
-                            >
-                              <Edit2 className="w-4 h-4" />
-                            </button>
-                            <button
-                              onClick={() => {
-                                if (window.confirm(`Delete ${item.name}?`)) onDeleteComponent(item.id);
-                              }}
-                              className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })
-                )}
+                        ) : isLow ? (
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
+                            Low Stock
+                          </span>
+                        ) : (
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                            In Stock
+                          </span>
+                        )}
+                      </td>
+                      <td className="py-3 px-4 text-center font-mono font-bold text-slate-900 dark:text-white">
+                        {item.stockQty} {item.unit}
+                      </td>
+                      <td className="py-3 px-4 text-right" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex items-center justify-end gap-1">
+                          <button
+                            onClick={() => setEditingItem(item)}
+                            className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-slate-800 rounded-lg cursor-pointer"
+                          >
+                            <Edit2 className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => {
+                              if (window.confirm(`Delete ${item.name}?`)) onDeleteComponent(item.id);
+                            }}
+                            className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-slate-800 rounded-lg cursor-pointer"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
         </div>
       )}
 
-      {/* Side Drawer Preview */}
+      {/* QUICK RELOCATE STORAGE BIN MODAL */}
+      {quickRelocateItem && (
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 z-[9999] animate-fadeIn">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl w-full max-w-md p-6 space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+              <h3 className="text-base font-black text-slate-900 dark:text-white flex items-center gap-2">
+                <MapPin className="w-5 h-5 text-amber-500" />
+                Relocate Storage Bin
+              </h3>
+              <button
+                type="button"
+                onClick={() => setQuickRelocateItem(null)}
+                className="p-1 text-slate-400 hover:text-white rounded-xl hover:bg-slate-800 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-200 dark:border-slate-700 space-y-1">
+              <div className="font-bold text-slate-900 dark:text-white text-xs">{quickRelocateItem.name}</div>
+              <div className="text-[11px] text-slate-500 font-mono">
+                Current Location: <strong className="text-indigo-600 dark:text-indigo-400">{quickRelocateItem.binLocation || 'Unassigned'}</strong>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                Select or Enter New Storage Bin Location:
+              </label>
+              <input
+                type="text"
+                list="quick-relocate-options"
+                placeholder="e.g. Rack - Shelf 1, Rack 1, Shelf B..."
+                value={targetBinLocation}
+                onChange={(e) => setTargetBinLocation(e.target.value)}
+                className="w-full p-2.5 bg-slate-50 dark:bg-slate-800 border border-amber-300 dark:border-amber-700 rounded-xl text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500/20"
+              />
+              <datalist id="quick-relocate-options">
+                {bins.map((b: any) => (
+                  <option key={b.id} value={b.code}>{b.code} ({b.description})</option>
+                ))}
+                <option value="Rack - Shelf 1" />
+                <option value="Rack - Shelf 2" />
+                <option value="Rack - Shelf 3" />
+                <option value="Rack 1, Shelf A" />
+                <option value="Rack 1, Shelf B" />
+                <option value="Bin A-01" />
+                <option value="Bin A-02" />
+                <option value="Chemical Cabinet" />
+              </datalist>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
+              <button
+                type="button"
+                onClick={() => setQuickRelocateItem(null)}
+                className="px-4 py-2 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold rounded-xl text-xs hover:bg-slate-200 cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveQuickRelocate}
+                className="px-5 py-2 bg-amber-500 hover:bg-amber-600 text-white font-bold rounded-xl text-xs shadow-md cursor-pointer flex items-center gap-1.5"
+              >
+                <MapPin className="w-3.5 h-3.5" /> Save Location
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Side Drawer Details */}
       {drawerItem && (
-        <div className="fixed inset-y-0 right-0 w-96 bg-white shadow-2xl border-l border-slate-200/80 z-50 p-6 overflow-y-auto space-y-6 animate-in slide-in-from-right duration-200">
-          <div className="flex items-center justify-between border-b border-slate-100 pb-4">
-            <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
-              <Box className="w-5 h-5 text-indigo-600" /> Item Details
+        <div className="fixed inset-y-0 right-0 w-96 bg-white dark:bg-slate-900 shadow-2xl border-l border-slate-200/80 dark:border-slate-800 z-50 p-6 overflow-y-auto space-y-6 animate-in slide-in-from-right duration-200">
+          <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-4">
+            <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+              <Box className="w-5 h-5 text-indigo-600" /> Item Details & Bin
             </h3>
             <button
               onClick={() => setDrawerItem(null)}
-              className="p-1 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg cursor-pointer transition-colors"
+              className="p-1 text-slate-400 hover:text-slate-700 dark:hover:text-white rounded-lg cursor-pointer"
             >
               <X className="w-5 h-5" />
             </button>
@@ -946,7 +900,7 @@ export default function InventoryTab({
 
           <div className="space-y-4">
             <div className="flex items-center gap-4">
-              <div className="w-16 h-16 rounded-2xl bg-slate-100 border border-slate-200 flex items-center justify-center overflow-hidden shrink-0">
+              <div className="w-16 h-16 rounded-2xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center overflow-hidden shrink-0">
                 {drawerItem.imageUrl ? (
                   <img src={drawerItem.imageUrl} alt={drawerItem.name} className="w-full h-full object-cover" />
                 ) : (
@@ -954,54 +908,45 @@ export default function InventoryTab({
                 )}
               </div>
               <div>
-                <h4 className="text-lg font-bold text-slate-900">{drawerItem.name}</h4>
-                <span className="text-xs font-semibold px-2.5 py-0.5 bg-indigo-50 text-indigo-700 rounded-full border border-indigo-100">
-                  {drawerItem.category || 'Uncategorized'}
+                <h4 className="text-base font-bold text-slate-900 dark:text-white">{drawerItem.name}</h4>
+                <span className="text-xs font-semibold px-2.5 py-0.5 bg-indigo-50 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 rounded-full border border-indigo-100 dark:border-indigo-800">
+                  {drawerItem.category || 'General'}
                 </span>
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-3 pt-2">
-              <div className="p-3 bg-slate-50 rounded-2xl border border-slate-100">
+              <div className="p-3 bg-slate-50 dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700">
                 <div className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Current Stock</div>
-                <div className="text-xl font-bold text-slate-900 mt-1">{drawerItem.stockQty} {drawerItem.unit}</div>
+                <div className="text-xl font-bold text-slate-900 dark:text-white mt-1">{drawerItem.stockQty} {drawerItem.unit}</div>
               </div>
 
-              <div className="p-3 bg-slate-50 rounded-2xl border border-slate-100">
+              <div className="p-3 bg-slate-50 dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700">
                 <div className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Reorder Threshold</div>
                 <div className="text-xl font-bold text-amber-600 mt-1">{drawerItem.threshold} {drawerItem.unit}</div>
               </div>
             </div>
 
-            <div className="space-y-3 pt-4 border-t border-slate-100 text-xs text-slate-600">
+            <div className="space-y-3 pt-4 border-t border-slate-100 dark:border-slate-800 text-xs text-slate-600 dark:text-slate-300">
               <div className="flex items-center justify-between">
-                <span className="font-bold text-slate-400 uppercase tracking-wider text-[10px]">Part SKU</span>
-                <span className="font-mono font-bold text-slate-900">SKU-{drawerItem.id.substring(0, 10)}</span>
-              </div>
-
-              {drawerItem.assignedKitName && (
-                <div className="flex items-center justify-between">
-                  <span className="font-bold text-purple-600 uppercase tracking-wider text-[10px]">Associated Kit</span>
-                  <span className="font-bold text-purple-700 bg-purple-50 border border-purple-100 px-2 py-0.5 rounded-lg text-[11px]">
-                    📦 {drawerItem.assignedKitName}
-                  </span>
-                </div>
-              )}
-
-              <div className="flex items-center justify-between">
-                <span className="font-bold text-slate-400 uppercase tracking-wider text-[10px]">Estimated Price</span>
-                <span className="font-bold text-slate-900">${(drawerItem.basePrice || 3.50).toFixed(2)} / unit</span>
-              </div>
-
-              <div className="flex items-center justify-between">
-                <span className="font-bold text-slate-400 uppercase tracking-wider text-[10px]">Total Stock Value</span>
-                <span className="font-bold text-emerald-700">
-                  ${(drawerItem.stockQty * (drawerItem.basePrice || 3.50)).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                <span className="font-bold text-slate-400 uppercase tracking-wider text-[10px]">Storage Bin</span>
+                <span className="font-mono font-bold text-amber-600 dark:text-amber-400">
+                  📍 {drawerItem.binLocation || 'Rack - Shelf 1'}
                 </span>
+              </div>
+
+              <div className="flex items-center justify-between">
+                <span className="font-bold text-slate-400 uppercase tracking-wider text-[10px]">Barcode / SKU</span>
+                <span className="font-mono font-bold text-slate-900 dark:text-white">{drawerItem.barcode || `EL-${drawerItem.id}`}</span>
+              </div>
+
+              <div className="flex items-center justify-between">
+                <span className="font-bold text-slate-400 uppercase tracking-wider text-[10px]">Base Price</span>
+                <span className="font-bold text-slate-900 dark:text-white">${(drawerItem.basePrice || 0).toFixed(2)}</span>
               </div>
             </div>
 
-            <div className="pt-4 border-t border-slate-100 flex gap-2">
+            <div className="pt-4 border-t border-slate-100 dark:border-slate-800 flex gap-2">
               <button
                 onClick={() => {
                   setEditingItem(drawerItem);
@@ -1009,13 +954,14 @@ export default function InventoryTab({
                 }}
                 className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 rounded-xl text-xs transition-all cursor-pointer shadow-xs"
               >
-                Edit Item
+                Edit Item & Properties
               </button>
             </div>
           </div>
         </div>
       )}
 
+      {/* Edit Component Modal */}
       {editingItem && (
         <EditPartModal
           item={editingItem}
