@@ -31,6 +31,7 @@ interface HeaderProps {
   onOpenCreateItemModal?: () => void;
   onOpenCreateKitModal?: () => void;
   onOpenCommandPalette?: () => void;
+  onOpenBarcodeScanner?: () => void;
   onToggleMobileMenu?: () => void;
 }
 
@@ -44,6 +45,7 @@ export default function Header({
   onOpenCreateItemModal,
   onOpenCreateKitModal,
   onOpenCommandPalette,
+  onOpenBarcodeScanner,
   onToggleMobileMenu,
 }: HeaderProps) {
   const { activeTenant, tenants, setActiveTenantId, theme, toggleTheme } = useTenant();
@@ -137,7 +139,13 @@ export default function Header({
         <div className="flex items-center gap-2 shrink-0">
           {/* Barcode Scan Button */}
           <button
-            onClick={() => setIsScannerOpen(true)}
+            onClick={() => {
+              if (onOpenBarcodeScanner) {
+                onOpenBarcodeScanner();
+              } else {
+                setIsScannerOpen(true);
+              }
+            }}
             className="p-2 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 border border-indigo-200/80 dark:border-indigo-800 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs"
             title="Scan Part Barcode / QR Code"
           >
@@ -224,12 +232,6 @@ export default function Header({
           </div>
         </div>
       </div>
-
-      {/* Live WebCam Barcode & QR Scanner Modal */}
-      <BarcodeScannerModal
-        isOpen={isScannerOpen}
-        onClose={() => setIsScannerOpen(false)}
-      />
 
       {/* Tenant Onboarding Modal */}
       <TenantOnboardingModal

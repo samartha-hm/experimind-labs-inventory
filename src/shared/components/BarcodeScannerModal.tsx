@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import {
   QrCode,
   Camera,
@@ -163,8 +164,10 @@ export default function BarcodeScannerModal({ isOpen, onClose }: BarcodeScannerM
     showToast('info', 'Stock Level Updated', `${scannedItem.name} stock set to ${newQty} ${scannedItem.unit}`);
   };
 
-  return (
-    <div className="fixed inset-0 bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-3 md:p-6 z-50 overflow-y-auto animate-fadeIn">
+  if (!isOpen) return null;
+
+  return createPortal(
+    <div className="fixed inset-0 bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-3 md:p-6 z-[9999] overflow-y-auto animate-fadeIn">
       <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl w-full max-w-xl overflow-hidden flex flex-col max-h-[88vh] my-auto relative">
         {/* Header - Sticky */}
         <div className="p-4 bg-slate-950 text-white flex items-center justify-between border-b border-slate-800 sticky top-0 z-20 shrink-0">
@@ -360,6 +363,7 @@ export default function BarcodeScannerModal({ isOpen, onClose }: BarcodeScannerM
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

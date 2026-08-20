@@ -272,6 +272,7 @@ function MainApp() {
           onNavigateTab={setActiveTab}
           onOpenCreateKitModal={() => setIsCreateKitModalOpen(true)}
           onOpenCommandPalette={() => setIsCommandPaletteOpen(true)}
+          onOpenBarcodeScanner={() => setIsBarcodeScannerOpen(true)}
           onToggleMobileMenu={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
         />
 

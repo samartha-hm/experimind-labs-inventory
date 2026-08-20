@@ -54,10 +54,17 @@ export class TransactionService {
     const savedTx = await this.txRepo.save(tx) as unknown as Transaction;
 
     if (lines && lines.length > 0) {
-      const lineEntities = lines.map((line: any) => this.txLineRepo.create({
-        ...line,
-        transaction: savedTx,
-      }));
+      const lineEntities = lines.map((line: any) => {
+        const itemId = line.inventory_item_id || line.componentId || (line.inventory_item && line.inventory_item.id);
+        return this.txLineRepo.create({
+          transaction: savedTx,
+          transaction_id: savedTx.id,
+          inventory_item_id: itemId,
+          inventory_item: itemId ? ({ id: itemId } as any) : undefined,
+          quantity_change: Number(line.quantity_change ?? line.qtyDiff ?? 0),
+          unit_cost: Number(line.unit_cost ?? 0),
+        });
+      });
       await this.txLineRepo.save(lineEntities);
     }
 
