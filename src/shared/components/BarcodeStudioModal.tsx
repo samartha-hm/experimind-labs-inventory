@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { QrCode, Barcode, Printer, Search, XCircle, CheckCircle2, Copy, Sparkles, Box, Check, Filter } from 'lucide-react';
 import { InventoryItem } from '@/src/types';
 import { useToast } from '@/src/contexts/ToastContext';
-import { generateBarcodeSVGData } from '@/src/utils/barcode';
+import BarcodeSvg from './BarcodeSvg';
 
 interface BarcodeStudioModalProps {
   isOpen: boolean;
@@ -17,7 +17,6 @@ export default function BarcodeStudioModal({ isOpen, onClose, inventory }: Barco
   const [searchSKU, setSearchSKU] = useState('');
   const [batchCategory, setBatchCategory] = useState<string>('ALL');
   const [printMode, setPrintMode] = useState<'single' | 'batch'>('single');
-  const [labelSize, setLabelSize] = useState<'50x25' | 'A4_grid'>('50x25');
 
   if (!isOpen) return null;
 
@@ -49,7 +48,7 @@ export default function BarcodeStudioModal({ isOpen, onClose, inventory }: Barco
 
   const handlePrintLabel = () => {
     window.print();
-    showToast('success', 'Sending Labels to Browser Printer', `Printing ${printMode === 'single' ? '1 label for ' + selectedItem.name : filteredInventory.length + ' labels'}`);
+    showToast('success', 'Sending Labels to Browser Printer', `Printing ${printMode === 'single' ? '1 label for ' + selectedItem?.name : filteredInventory.length + ' labels'}`);
   };
 
   return createPortal(
@@ -63,7 +62,7 @@ export default function BarcodeStudioModal({ isOpen, onClose, inventory }: Barco
             </div>
             <div>
               <h3 className="font-black text-slate-800 dark:text-slate-100 text-lg">Barcode & QR Thermal Label Studio</h3>
-              <p className="text-xs text-slate-500 font-medium">Generate vector Code-128 barcodes & printable thermal sticker sheets</p>
+              <p className="text-xs text-slate-500 font-medium">Generate ISO/IEC 15417 Code-128 barcodes & printable thermal stickers</p>
             </div>
           </div>
 
@@ -76,7 +75,7 @@ export default function BarcodeStudioModal({ isOpen, onClose, inventory }: Barco
         <div className="bg-slate-900 rounded-2xl p-4 text-white space-y-3">
           <div className="flex items-center justify-between">
             <div className="text-xs font-bold text-indigo-300 flex items-center gap-1.5">
-              <Barcode className="w-4 h-4 text-amber-400" /> Vector Code-128 Engine & Print Settings
+              <Barcode className="w-4 h-4 text-amber-400" /> Standard Code-128 Vector Generator
             </div>
             <div className="flex items-center gap-2">
               <button
@@ -140,7 +139,7 @@ export default function BarcodeStudioModal({ isOpen, onClose, inventory }: Barco
               <div className="bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 text-xs space-y-2">
                 <div className="flex items-center justify-between text-slate-600 dark:text-slate-300">
                   <span>SKU / Barcode:</span>
-                  <span className="font-mono font-bold text-indigo-600 dark:text-indigo-400">{selectedItem.barcode || selectedItem.sku || selectedItem.id}</span>
+                  <span className="font-mono font-bold text-indigo-600 dark:text-indigo-400">{selectedItem.barcode || selectedItem.sku || `EL-${selectedItem.id}`}</span>
                 </div>
                 <div className="flex items-center justify-between text-slate-600 dark:text-slate-300">
                   <span>Bin Location:</span>
@@ -148,7 +147,7 @@ export default function BarcodeStudioModal({ isOpen, onClose, inventory }: Barco
                 </div>
                 <div className="flex items-center justify-between text-slate-600 dark:text-slate-300">
                   <span>Base Price:</span>
-                  <span className="font-bold text-slate-800 dark:text-slate-100">${selectedItem.basePrice || 0}</span>
+                  <span className="font-bold text-slate-800 dark:text-slate-100">${(selectedItem.basePrice || 0).toFixed(2)}</span>
                 </div>
                 <div className="flex items-center justify-between text-slate-600 dark:text-slate-300">
                   <span>Available Stock:</span>
@@ -159,31 +158,29 @@ export default function BarcodeStudioModal({ isOpen, onClose, inventory }: Barco
 
             {/* Live Rendered Thermal Label Card */}
             <div className="bg-white dark:bg-slate-950 border-2 border-dashed border-slate-300 dark:border-slate-700 rounded-2xl p-5 flex flex-col items-center justify-center text-center space-y-3 shadow-inner">
-              <div className="text-[10px] font-mono text-slate-400 font-bold uppercase tracking-widest">ThermaPrint™ Label 50mm x 25mm</div>
+              <div className="text-[10px] font-mono text-slate-400 font-bold uppercase tracking-widest">ThermaPrint™ Standard Sticker (50x25mm)</div>
               
-              <div className="bg-white text-slate-900 border-2 border-slate-900 p-3.5 rounded-xl space-y-1.5 w-full max-w-[240px] shadow-md">
+              <div className="bg-white text-slate-900 border-2 border-slate-900 p-3 rounded-xl space-y-1 w-full max-w-[260px] shadow-md">
                 <div className="font-black text-xs truncate uppercase tracking-tight text-slate-950">{selectedItem.name}</div>
                 <div className="flex items-center justify-between text-[9px] font-mono font-bold text-slate-700 border-b border-slate-200 pb-1">
                   <span>BIN: {selectedItem.binLocation || 'RACK-A1'}</span>
-                  <span>${selectedItem.basePrice || 0}</span>
+                  <span>${(selectedItem.basePrice || 0).toFixed(2)}</span>
                 </div>
                 
-                {/* SVG Code 128 Barcode Rendering */}
-                {(() => {
-                  const barcodeData = generateBarcodeSVGData(selectedItem.barcode || selectedItem.sku || selectedItem.id);
-                  return (
-                    <div className="py-1.5 flex flex-col items-center justify-center">
-                      <svg viewBox={`0 0 ${barcodeData.width} 40`} className="h-10 w-full max-w-[190px]">
-                        {barcodeData.bars.map((bar, idx) => (
-                          <rect key={idx} x={bar.x} y={0} width={bar.width} height={40} fill="#0f172a" />
-                        ))}
-                      </svg>
-                    </div>
-                  );
-                })()}
+                {/* ISO/IEC 15417 Real Code 128 Barcode */}
+                <div className="py-1 flex flex-col items-center justify-center">
+                  <BarcodeSvg
+                    value={selectedItem.barcode || `EL-${selectedItem.id}`}
+                    format="CODE128"
+                    width={1.6}
+                    height={40}
+                    displayValue={false}
+                    className="h-10 w-auto max-w-[220px]"
+                  />
+                </div>
 
-                <div className="text-[9px] font-mono font-black tracking-widest text-slate-950">
-                  {selectedItem.barcode || selectedItem.sku || selectedItem.id}
+                <div className="text-[10px] font-mono font-black tracking-widest text-slate-950">
+                  {selectedItem.barcode || `EL-${selectedItem.id}`}
                 </div>
               </div>
 
@@ -229,17 +226,21 @@ export default function BarcodeStudioModal({ isOpen, onClose, inventory }: Barco
             {/* Batch Label Sheet Preview Grid */}
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 max-h-64 overflow-y-auto p-2 border border-slate-200 dark:border-slate-800 rounded-2xl bg-slate-50/50 dark:bg-slate-900/50">
               {filteredInventory.map((item) => {
-                const code = item.barcode || item.sku || item.id;
-                const barcodeData = generateBarcodeSVGData(code);
+                const code = item.barcode || `EL-${item.id}`;
                 return (
                   <div key={item.id} className="bg-white text-slate-900 border border-slate-300 p-2 rounded-xl text-center space-y-1 shadow-xs">
                     <div className="font-bold text-[10px] truncate">{item.name}</div>
                     <div className="text-[8px] font-mono text-slate-600">BIN: {item.binLocation || 'A-01'}</div>
-                    <svg viewBox={`0 0 ${barcodeData.width} 30`} className="h-6 w-full">
-                      {barcodeData.bars.map((bar, idx) => (
-                        <rect key={idx} x={bar.x} y={0} width={bar.width} height={30} fill="#0f172a" />
-                      ))}
-                    </svg>
+                    <div className="flex justify-center">
+                      <BarcodeSvg
+                        value={code}
+                        format="CODE128"
+                        width={1.2}
+                        height={26}
+                        displayValue={false}
+                        className="h-6 w-auto max-w-[140px]"
+                      />
+                    </div>
                     <div className="text-[8px] font-mono font-bold">{code}</div>
                   </div>
                 );

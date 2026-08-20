@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import JsBarcode from 'jsbarcode';
 
 /**
  * Web Audio API synthesizer for crisp scanner chimes with haptic feedback
@@ -113,46 +114,40 @@ export function useBarcodeGunListener(onScan: (barcode: string) => void, enabled
 }
 
 /**
- * Generates an SVG 1D Barcode pattern (Code 128 / EAN representation)
+ * Generates an SVG 1D Barcode pattern (Code 128 standard compliant)
  */
 export function generateBarcodeSVGData(code: string): { width: number; bars: { x: number; width: number }[] } {
-  const str = code.toUpperCase().trim() || 'EL-1000';
+  const cleanCode = code.trim() || 'EL-1';
   
-  let bars: { x: number; width: number }[] = [];
-  let currentX = 10;
-  
-  // Quiet zone start
-  bars.push({ x: 0, width: 0 });
+  if (typeof document !== 'undefined') {
+    try {
+      const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      JsBarcode(svg, cleanCode, {
+        format: 'CODE128',
+        width: 2,
+        height: 40,
+        displayValue: false,
+        margin: 2,
+      });
 
-  // Start pattern
-  const pattern = [2, 1, 1, 2, 3, 2];
-  for (const w of pattern) {
-    bars.push({ x: currentX, width: w * 2 });
-    currentX += w * 2 + 1.5;
+      const rects = svg.querySelectorAll('rect');
+      const bars: { x: number; width: number }[] = [];
+      rects.forEach((rect) => {
+        const x = parseFloat(rect.getAttribute('x') || '0');
+        const width = parseFloat(rect.getAttribute('width') || '2');
+        const fill = rect.getAttribute('fill');
+        if (fill && fill !== '#ffffff' && fill !== 'white' && fill !== 'transparent') {
+          bars.push({ x, width });
+        }
+      });
+
+      const viewBox = svg.getAttribute('viewBox') || '0 0 100 40';
+      const parts = viewBox.split(' ');
+      const totalWidth = parts.length === 4 ? parseFloat(parts[2]) : 120;
+
+      return { width: totalWidth, bars };
+    } catch (_) {}
   }
 
-  for (let i = 0; i < str.length; i++) {
-    const charCode = str.charCodeAt(i);
-    const w1 = (charCode % 3) + 1;
-    const w2 = ((charCode * 7) % 4) + 1;
-    const w3 = ((charCode * 11) % 3) + 1;
-
-    bars.push({ x: currentX, width: w1 * 2 });
-    currentX += w1 * 2 + 1.5;
-    
-    bars.push({ x: currentX, width: w2 * 1.5 });
-    currentX += w2 * 1.5 + 1.5;
-
-    bars.push({ x: currentX, width: w3 * 2 });
-    currentX += w3 * 2 + 1.5;
-  }
-
-  // Stop pattern
-  const stopPattern = [2, 3, 3, 1, 1, 1, 2];
-  for (const w of stopPattern) {
-    bars.push({ x: currentX, width: w * 2 });
-    currentX += w * 2 + 1.5;
-  }
-
-  return { width: currentX + 10, bars };
+  return { width: 120, bars: [] };
 }
