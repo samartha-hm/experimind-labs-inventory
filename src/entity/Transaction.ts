@@ -18,6 +18,9 @@ export class Transaction {
   @Column({ type: "uuid", default: "00000000-0000-0000-0000-000000000000" })
   organization_id: string;
 
+  @Column({ type: "uuid", name: "user_id", nullable: true })
+  user_id?: string;
+
   @ManyToOne(() => User, (u) => u.transactions, { nullable: true })
   @JoinColumn({ name: "user_id" })
   user?: User;

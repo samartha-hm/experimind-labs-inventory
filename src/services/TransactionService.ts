@@ -26,7 +26,7 @@ export class TransactionService {
       qb.andWhere("transaction.organization_id = :orgId", { orgId: filters.organizationId });
     }
     if (filters.userId) {
-      qb.andWhere("user.id = :userId", { userId: filters.userId });
+      qb.andWhere("(transaction.user_id = :userId OR user.id = :userId)", { userId: filters.userId });
     }
     if (filters.referenceType) {
       qb.andWhere("transaction.reference_type = :referenceType", { referenceType: filters.referenceType });
@@ -43,15 +43,18 @@ export class TransactionService {
 
   async create(dto: Partial<Transaction> & { lines?: Partial<TransactionLine>[] }, organizationId?: string): Promise<Transaction> {
     const orgId = organizationId || (dto as any).organization_id || "00000000-0000-0000-0000-000000000000";
-    const { lines, ...txData } = dto;
+    const { lines, user_id, ...txData } = dto as any;
+    const resolvedUserId = user_id || (txData.user && txData.user.id) || "00000000-0000-0000-0000-000000000001";
+    
     const tx = this.txRepo.create({
       ...txData,
       organization_id: orgId,
+      user_id: resolvedUserId,
     });
-    const savedTx = await this.txRepo.save(tx);
+    const savedTx = await this.txRepo.save(tx) as unknown as Transaction;
 
     if (lines && lines.length > 0) {
-      const lineEntities = lines.map((line) => this.txLineRepo.create({
+      const lineEntities = lines.map((line: any) => this.txLineRepo.create({
         ...line,
         transaction: savedTx,
       }));
