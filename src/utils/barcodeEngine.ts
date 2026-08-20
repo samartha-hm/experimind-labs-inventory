@@ -1,55 +1,38 @@
-import { BrowserMultiFormatReader, BarcodeFormat, HTMLCanvasElementLuminanceSource } from '@zxing/browser';
-import { DecodeHintType } from '@zxing/library';
-
-// Monkey patch HTMLCanvasElementLuminanceSource to prevent 'Could not create a Canvas element' bug during 1D barcode rotation
-if (typeof window !== 'undefined' && HTMLCanvasElementLuminanceSource) {
-  (HTMLCanvasElementLuminanceSource.prototype as any).getTempCanvasElement = function () {
-    if (!this.tempCanvasElement) {
-      const doc = (this.canvas && this.canvas.ownerDocument) ? this.canvas.ownerDocument : document;
-      const tempCanvas = doc.createElement('canvas');
-      if (this.canvas) {
-        tempCanvas.width = this.canvas.width;
-        tempCanvas.height = this.canvas.height;
-      }
-      this.tempCanvasElement = tempCanvas;
-    }
-    return this.tempCanvasElement;
-  };
-}
-
-// Configured hint map for 1D + 2D formats
-export function getZXingHints(): Map<DecodeHintType, any> {
-  const hints = new Map<DecodeHintType, any>();
-  const formats = [
-    BarcodeFormat.CODE_128,
-    BarcodeFormat.CODE_39,
-    BarcodeFormat.EAN_13,
-    BarcodeFormat.EAN_8,
-    BarcodeFormat.UPC_A,
-    BarcodeFormat.UPC_E,
-    BarcodeFormat.QR_CODE,
-    BarcodeFormat.DATA_MATRIX,
-    BarcodeFormat.ITF,
-    BarcodeFormat.CODABAR,
-  ];
-  hints.set(DecodeHintType.POSSIBLE_FORMATS, formats);
-  hints.set(DecodeHintType.TRY_HARDER, true);
-  return hints;
-}
+import {
+  readBarcodesFromImageData,
+  readBarcodesFromImageFile,
+  ReaderOptions,
+  BarcodeFormat
+} from 'zxing-wasm';
 
 /**
- * Creates a singleton BrowserMultiFormatReader instance
+ * Standard reader configuration with aggressive multi-pass decoding
  */
-let sharedZXingReader: BrowserMultiFormatReader | null = null;
-export function getSharedZXingReader(): BrowserMultiFormatReader {
-  if (!sharedZXingReader) {
-    sharedZXingReader = new BrowserMultiFormatReader(getZXingHints());
-  }
-  return sharedZXingReader;
-}
+const DEFAULT_DECODE_OPTIONS: ReaderOptions = {
+  formats: [
+    'Code128',
+    'Code39',
+    'EAN-13',
+    'EAN-8',
+    'UPC-A',
+    'UPC-E',
+    'QRCode',
+    'DataMatrix',
+    'ITF',
+    'Codabar'
+  ],
+  tryHarder: true,
+  tryRotate: true,
+  tryInvert: true,
+  tryDownscale: true,
+  tryDenoise: true,
+  tryCode39ExtendedMode: true,
+  binarizer: 'LocalAverage',
+  maxNumberOfSymbols: 5,
+};
 
 /**
- * Native BarcodeDetector instance (hardware accelerated when available)
+ * Native Hardware BarcodeDetector instance (GPU-accelerated when available)
  */
 let nativeDetector: any = null;
 function getNativeBarcodeDetector() {
@@ -80,78 +63,104 @@ function getNativeBarcodeDetector() {
 }
 
 /**
- * Decodes a single canvas or image element using hardware BarcodeDetector + ZXing fallback
+ * Decodes a single canvas or image element using Tier-1 Hardware BarcodeDetector + Tier-2 WASM ZXing-C++
  */
 export async function scanCanvasOrImage(
   source: HTMLCanvasElement | HTMLImageElement | ImageBitmap
 ): Promise<string | null> {
-  // Pass 1: Hardware BarcodeDetector
+  // Tier 1: Hardware BarcodeDetector (0ms latency native GPU path)
   const detector = getNativeBarcodeDetector();
   if (detector) {
     try {
       const barcodes = await detector.detect(source);
       if (barcodes && barcodes.length > 0 && barcodes[0].rawValue) {
-        return barcodes[0].rawValue;
+        return barcodes[0].rawValue.trim();
       }
-    } catch (_) {}
+    } catch (_) {
+      // Fall through to WASM
+    }
   }
 
-  // Pass 2: ZXing Reader
-  const reader = getSharedZXingReader();
+  // Tier 2: WASM ZXing-C++ Engine (Multi-rotation, inverted, sub-pixel edge detection)
   try {
+    let imgData: ImageData | null = null;
+
     if (source instanceof HTMLCanvasElement) {
-      const result = await reader.decodeFromCanvas(source);
-      if (result && result.getText()) return result.getText();
+      const ctx = source.getContext('2d', { willReadFrequently: true });
+      if (ctx) {
+        imgData = ctx.getImageData(0, 0, source.width, source.height);
+      }
     } else if (source instanceof HTMLImageElement) {
-      const result = await reader.decodeFromImageElement(source);
-      if (result && result.getText()) return result.getText();
+      const canvas = document.createElement('canvas');
+      canvas.width = source.naturalWidth || source.width;
+      canvas.height = source.naturalHeight || source.height;
+      const ctx = canvas.getContext('2d', { willReadFrequently: true });
+      if (ctx) {
+        ctx.drawImage(source, 0, 0);
+        imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      }
     }
-  } catch (_) {}
+
+    if (imgData) {
+      const results = await readBarcodesFromImageData(imgData, DEFAULT_DECODE_OPTIONS);
+      if (results && results.length > 0 && results[0].text) {
+        return results[0].text.trim();
+      }
+    }
+  } catch (_) {
+    // Silent catch
+  }
 
   return null;
 }
 
 /**
- * Multi-Pass Super Decoder for Uploaded Barcode Photos / Files
+ * Super Decoder for Uploaded Barcode Images / Photos
  */
 export async function decodeBarcodeFromImageFile(file: File): Promise<string | null> {
-  const img = await new Promise<HTMLImageElement>((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      const image = new Image();
-      image.onload = () => resolve(image);
-      image.onerror = reject;
-      image.src = reader.result as string;
-    };
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
-
-  // Pass 1: Direct scan on original image element
-  const directResult = await scanCanvasOrImage(img);
-  if (directResult) return directResult;
-
-  const origW = img.naturalWidth || img.width;
-  const origH = img.naturalHeight || img.height;
-  const maxDim = 1200;
-  const scale = Math.min(1, maxDim / Math.max(origW, origH));
-  const w = Math.floor(origW * scale);
-  const h = Math.floor(origH * scale);
-
-  const canvas = document.createElement('canvas');
-  canvas.width = w;
-  canvas.height = h;
-  const ctx = canvas.getContext('2d');
-  if (!ctx) return null;
-
-  ctx.drawImage(img, 0, 0, w, h);
-
-  // Pass 2: Direct on normalized canvas
-  const canvasRes = await scanCanvasOrImage(canvas);
-  if (canvasRes) return canvasRes;
-
-  // Pass 3: Grayscale + Dynamic Histogram Contrast Stretch
+  // Pass 1: Direct WebAssembly ZXing-C++ on file blob
   try {
+    const wasmResults = await readBarcodesFromImageFile(file, DEFAULT_DECODE_OPTIONS);
+    if (wasmResults && wasmResults.length > 0 && wasmResults[0].text) {
+      return wasmResults[0].text.trim();
+    }
+  } catch (_) {
+    // Continue to DOM-based pass
+  }
+
+  // Pass 2: Direct image element decode with Hardware BarcodeDetector
+  try {
+    const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const image = new Image();
+        image.onload = () => resolve(image);
+        image.onerror = reject;
+        image.src = reader.result as string;
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+
+    const res = await scanCanvasOrImage(img);
+    if (res) return res;
+
+    // Pass 3: Scaled and Contrast-Enhanced Canvas
+    const origW = img.naturalWidth || img.width;
+    const origH = img.naturalHeight || img.height;
+    const maxDim = 1600;
+    const scale = Math.min(1, maxDim / Math.max(origW, origH));
+    const w = Math.floor(origW * scale);
+    const h = Math.floor(origH * scale);
+
+    const canvas = document.createElement('canvas');
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    if (!ctx) return null;
+
+    ctx.drawImage(img, 0, 0, w, h);
+
     const imgData = ctx.getImageData(0, 0, w, h);
     const data = imgData.data;
     let minLum = 255;
@@ -170,37 +179,10 @@ export async function decodeBarcodeFromImageFile(file: File): Promise<string | n
       data[i + 2] = stretched;
     }
     ctx.putImageData(imgData, 0, 0);
-    const stretchRes = await scanCanvasOrImage(canvas);
-    if (stretchRes) return stretchRes;
-  } catch (_) {}
 
-  // Pass 4: 90-Degree Rotation
-  try {
-    const rotCanvas = document.createElement('canvas');
-    rotCanvas.width = h;
-    rotCanvas.height = w;
-    const rotCtx = rotCanvas.getContext('2d');
-    if (rotCtx) {
-      rotCtx.translate(h / 2, w / 2);
-      rotCtx.rotate((90 * Math.PI) / 180);
-      rotCtx.drawImage(img, -w / 2, -h / 2, w, h);
-      const rotRes = await scanCanvasOrImage(rotCanvas);
-      if (rotRes) return rotRes;
-    }
-  } catch (_) {}
-
-  // Pass 5: 270-Degree Rotation
-  try {
-    const rotCanvas = document.createElement('canvas');
-    rotCanvas.width = h;
-    rotCanvas.height = w;
-    const rotCtx = rotCanvas.getContext('2d');
-    if (rotCtx) {
-      rotCtx.translate(h / 2, w / 2);
-      rotCtx.rotate((270 * Math.PI) / 180);
-      rotCtx.drawImage(img, -w / 2, -h / 2, w, h);
-      const rotRes = await scanCanvasOrImage(rotCanvas);
-      if (rotRes) return rotRes;
+    const enhancedResults = await readBarcodesFromImageData(imgData, DEFAULT_DECODE_OPTIONS);
+    if (enhancedResults && enhancedResults.length > 0 && enhancedResults[0].text) {
+      return enhancedResults[0].text.trim();
     }
   } catch (_) {}
 
