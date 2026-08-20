@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Settings, DatabaseZap, LayoutDashboard } from 'lucide-react';
 import { analyzeKitting } from './utils/kitting';
 import { useData, DataProvider } from './DataContext';
