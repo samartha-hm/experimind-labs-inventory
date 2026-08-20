@@ -44,6 +44,7 @@ export interface InventoryItem {
   description?: string;
   binLocation?: string;
   barcode?: string;
+  sku?: string;
   assignedKitName?: string;
   gstConfig?: GSTConfig;
   hsnCode?: string;

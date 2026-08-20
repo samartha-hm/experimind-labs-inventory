@@ -3,18 +3,22 @@ import {
   QrCode,
   Camera,
   X,
-  CheckCircle2,
-  AlertCircle,
   Plus,
   Minus,
-  Box,
   Zap,
   Volume2,
-  Sparkles
+  VolumeX,
+  Repeat,
+  CheckCircle2,
+  AlertCircle,
+  Barcode,
+  Search,
+  Check
 } from 'lucide-react';
 import { useData } from '@/src/DataContext';
 import { useToast } from '@/src/contexts/ToastContext';
 import { InventoryItem } from '@/src/types';
+import { playScanBeep, useBarcodeGunListener } from '@/src/utils/barcode';
 
 interface BarcodeScannerModalProps {
   isOpen: boolean;
@@ -30,9 +34,23 @@ export default function BarcodeScannerModal({ isOpen, onClose }: BarcodeScannerM
   const [manualCode, setManualCode] = useState('');
   const [scannedItem, setScannedItem] = useState<InventoryItem | null>(null);
   const [scanHistory, setScanHistory] = useState<{ code: string; name: string; timestamp: string }[]>([]);
+  const [continuousMode, setContinuousMode] = useState(false);
+  const [soundEnabled, setSoundEnabled] = useState(true);
+  const [lastScannedCode, setLastScannedCode] = useState<string | null>(null);
 
+  // USB/HID Barcode Gun listener
+  useBarcodeGunListener(
+    (code) => {
+      handleBarcodeScan(code);
+    },
+    isOpen
+  );
+
+  // Camera video stream & live decoding loop
   useEffect(() => {
     let stream: MediaStream | null = null;
+    let animId: number | null = null;
+
     if (isOpen) {
       navigator.mediaDevices?.getUserMedia({ video: { facingMode: 'environment' } })
         .then((s) => {
@@ -43,42 +61,88 @@ export default function BarcodeScannerModal({ isOpen, onClose }: BarcodeScannerM
           }
         })
         .catch((err) => {
-          console.warn("Camera access unavailable or denied:", err);
+          console.warn("Camera feed unavailable or access denied:", err);
           setCameraActive(false);
         });
+
+      // Browser native BarcodeDetector API if available
+      if ('BarcodeDetector' in window) {
+        try {
+          const barcodeDetector = new (window as any).BarcodeDetector({
+            formats: ['qr_code', 'code_128', 'code_39', 'ean_13', 'upc_a']
+          });
+
+          const detectFrame = async () => {
+            if (videoRef.current && videoRef.current.readyState === 4) {
+              try {
+                const barcodes = await barcodeDetector.detect(videoRef.current);
+                if (barcodes && barcodes.length > 0) {
+                  const detectedCode = barcodes[0].rawValue;
+                  if (detectedCode) {
+                    handleBarcodeScan(detectedCode);
+                  }
+                }
+              } catch (_) {}
+            }
+            animId = requestAnimationFrame(detectFrame);
+          };
+          animId = requestAnimationFrame(detectFrame);
+        } catch (_) {}
+      }
     }
 
     return () => {
       if (stream) {
-        stream.getTracks().forEach(t => t.stop());
+        stream.getTracks().forEach((t) => t.stop());
+      }
+      if (animId) {
+        cancelAnimationFrame(animId);
       }
     };
   }, [isOpen]);
 
   if (!isOpen) return null;
 
-  const handleBarcodeSubmit = (codeToSearch: string) => {
+  const handleBarcodeScan = (codeToSearch: string) => {
     const cleanCode = codeToSearch.trim().toUpperCase();
     if (!cleanCode) return;
 
-    // Search inventory by barcode, SKU id, or name
+    // Search inventory by barcode, SKU, ID, or Name
     const match = inventory.find(
       (item) =>
         (item.barcode && item.barcode.toUpperCase() === cleanCode) ||
+        (item.sku && item.sku.toUpperCase() === cleanCode) ||
         item.id.toUpperCase() === cleanCode ||
         item.name.toUpperCase().includes(cleanCode)
     );
 
     if (match) {
       setScannedItem(match);
+      setLastScannedCode(cleanCode);
+
       setScanHistory((prev) => [
         { code: cleanCode, name: match.name, timestamp: new Date().toLocaleTimeString() },
-        ...prev.slice(0, 4),
+        ...prev.filter((h) => h.code !== cleanCode).slice(0, 5),
       ]);
-      showToast('success', 'Barcode Matched!', `Found SKU ${match.id}: ${match.name}`);
+
+      if (soundEnabled) {
+        playScanBeep('success');
+      }
+
+      if (continuousMode) {
+        // In continuous mode, auto-increment item quantity by 1
+        const newQty = match.stockQty + 1;
+        updateInventoryItem(match.id, { stockQty: newQty });
+        showToast('success', '⚡ Continuous Scan Mode (+1)', `Incremented ${match.name} to ${newQty} ${match.unit}`);
+      } else {
+        showToast('success', 'Barcode Matched!', `Found item: ${match.name} (Qty: ${match.stockQty})`);
+      }
     } else {
       setScannedItem(null);
-      showToast('error', 'Barcode Not Found', `No item matching barcode "${cleanCode}" in master catalog.`);
+      if (soundEnabled) {
+        playScanBeep('error');
+      }
+      showToast('error', 'Barcode Not Found', `No item matching barcode "${cleanCode}" in master inventory.`);
     }
   };
 
@@ -91,38 +155,71 @@ export default function BarcodeScannerModal({ isOpen, onClose }: BarcodeScannerM
   };
 
   return (
-    <div className="fixed inset-0 bg-slate-950/75 backdrop-blur-md flex items-center justify-center p-4 z-50 animate-fadeIn">
-      <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl w-full max-w-xl overflow-hidden flex flex-col max-h-[90vh]">
+    <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 z-50 animate-fadeIn">
+      <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl w-full max-w-xl overflow-hidden flex flex-col max-h-[92vh]">
         {/* Header */}
         <div className="p-4 bg-slate-950 text-white flex items-center justify-between border-b border-slate-800">
-          <div className="flex items-center gap-2">
-            <QrCode className="w-5 h-5 text-indigo-400" />
-            <h3 className="text-sm font-bold">WebCam Live Barcode & QR Scanner</h3>
+          <div className="flex items-center gap-2.5">
+            <div className="p-2 bg-indigo-500/20 rounded-xl text-indigo-400 border border-indigo-500/30">
+              <QrCode className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className="text-sm font-black tracking-wide">WebCam & HID Barcode Scanner</h3>
+              <p className="text-[10px] text-slate-400 font-mono">USB Barcode Gun Listener Active</p>
+            </div>
           </div>
-          <button onClick={onClose} className="p-1 text-slate-400 hover:text-white cursor-pointer">
-            <X className="w-5 h-5" />
-          </button>
+
+          <div className="flex items-center gap-2">
+            {/* Toggle Audio Sound */}
+            <button
+              onClick={() => setSoundEnabled(!soundEnabled)}
+              title={soundEnabled ? 'Mute Scan Sound' : 'Enable Scan Sound'}
+              className={`p-2 rounded-xl transition-colors cursor-pointer ${
+                soundEnabled ? 'bg-slate-800 text-amber-400' : 'bg-slate-900 text-slate-500'
+              }`}
+            >
+              {soundEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
+            </button>
+
+            {/* Toggle Continuous Mode */}
+            <button
+              onClick={() => setContinuousMode(!continuousMode)}
+              title="Continuous Multi-Scan Mode (Auto +1 Stock)"
+              className={`px-2.5 py-1.5 rounded-xl text-xs font-bold transition-colors cursor-pointer flex items-center gap-1.5 ${
+                continuousMode
+                  ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40'
+                  : 'bg-slate-800 text-slate-400'
+              }`}
+            >
+              <Repeat className="w-3.5 h-3.5" />
+              {continuousMode ? 'Multi-Scan ON' : 'Single'}
+            </button>
+
+            <button onClick={onClose} className="p-1.5 text-slate-400 hover:text-white rounded-xl hover:bg-slate-800 transition-colors cursor-pointer">
+              <X className="w-5 h-5" />
+            </button>
+          </div>
         </div>
 
         <div className="p-6 overflow-y-auto space-y-5 text-xs text-slate-700 dark:text-slate-300">
-          {/* Camera Viewport & Scan Reticle */}
+          {/* Camera Viewport & Scan Laser */}
           <div className="relative w-full h-56 bg-slate-950 rounded-2xl overflow-hidden border border-slate-800 flex items-center justify-center">
             {cameraActive ? (
-              <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover opacity-80" />
+              <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover opacity-85" />
             ) : (
               <div className="text-center space-y-2 text-slate-500">
                 <Camera className="w-10 h-10 mx-auto text-slate-600 animate-pulse" />
-                <p className="text-xs">WebCam Feed Active • Simulated Optical Reticle</p>
+                <p className="text-xs">Camera Feed Ready • Point Barcode / USB Scanner Gun</p>
               </div>
             )}
 
-            {/* Laser Line Overlay */}
+            {/* Pulsing Laser Scan Line */}
             <div className="absolute inset-x-8 top-1/2 -translate-y-1/2 h-0.5 bg-rose-500 shadow-lg shadow-rose-500/80 animate-pulse pointer-events-none" />
 
-            {/* Corner Framing Brackets */}
+            {/* Framing Box */}
             <div className="absolute inset-10 border-2 border-dashed border-indigo-400/60 rounded-xl pointer-events-none flex items-center justify-center">
-              <span className="text-[10px] font-mono text-indigo-300 bg-slate-950/80 px-2 py-0.5 rounded-md">
-                ALIGN BARCODE HERE
+              <span className="text-[10px] font-mono text-indigo-300 bg-slate-950/80 px-2.5 py-1 rounded-md">
+                ALIGN BARCODE OR USE USB GUN SCANNER
               </span>
             </div>
           </div>
@@ -131,20 +228,23 @@ export default function BarcodeScannerModal({ isOpen, onClose }: BarcodeScannerM
           <form
             onSubmit={(e) => {
               e.preventDefault();
-              handleBarcodeSubmit(manualCode);
+              handleBarcodeScan(manualCode);
             }}
             className="flex gap-2"
           >
-            <input
-              type="text"
-              placeholder="Scan or enter Barcode/SKU string (e.g. EL-1, EL-2, 1766123928700)..."
-              value={manualCode}
-              onChange={(e) => setManualCode(e.target.value)}
-              className="flex-1 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2.5 text-xs font-mono font-bold text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none"
-            />
+            <div className="relative flex-1">
+              <Barcode className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                type="text"
+                placeholder="Scan or enter Barcode/SKU string (e.g. EL-1, EL-2, EL-10)..."
+                value={manualCode}
+                onChange={(e) => setManualCode(e.target.value)}
+                className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl pl-9 pr-3 py-2.5 text-xs font-mono font-bold text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:border-indigo-500"
+              />
+            </div>
             <button
               type="submit"
-              className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-4 py-2.5 rounded-xl text-xs shadow-md transition-all cursor-pointer flex items-center gap-1.5"
+              className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-4 py-2.5 rounded-xl text-xs shadow-md transition-all cursor-pointer flex items-center gap-1.5 shrink-0"
             >
               <Zap className="w-4 h-4" /> Scan
             </button>
@@ -152,32 +252,37 @@ export default function BarcodeScannerModal({ isOpen, onClose }: BarcodeScannerM
 
           {/* Quick Demo Scan Barcode Chips */}
           <div className="flex flex-wrap items-center gap-1.5 text-[10px]">
-            <span className="font-bold text-slate-400 uppercase">Quick Demo Barcodes:</span>
-            {['EL-1', 'EL-2', 'EL-3', 'EL-4', 'EL-5'].map((code) => (
-              <button
-                key={code}
-                type="button"
-                onClick={() => {
-                  setManualCode(code);
-                  handleBarcodeSubmit(code);
-                }}
-                className="px-2 py-0.5 bg-slate-100 dark:bg-slate-800 hover:bg-indigo-50 dark:hover:bg-indigo-950/60 text-slate-600 dark:text-slate-300 font-mono font-bold rounded-md border border-slate-200 dark:border-slate-700"
-              >
-                {code}
-              </button>
-            ))}
+            <span className="font-bold text-slate-400 uppercase">Quick Barcode Samples:</span>
+            {inventory.slice(0, 6).map((item) => {
+              const code = item.barcode || item.sku || `EL-${item.id}`;
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => {
+                    setManualCode(code);
+                    handleBarcodeScan(code);
+                  }}
+                  className="px-2 py-1 bg-slate-100 dark:bg-slate-800 hover:bg-indigo-50 dark:hover:bg-indigo-950/60 text-slate-600 dark:text-slate-300 font-mono font-bold rounded-lg border border-slate-200 dark:border-slate-700 cursor-pointer"
+                >
+                  {code}
+                </button>
+              );
+            })}
           </div>
 
           {/* Scanned Item Result Card */}
           {scannedItem && (
-            <div className="p-4 bg-indigo-50/60 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800 rounded-2xl space-y-3 animate-fadeIn">
+            <div className="p-4 bg-indigo-50/70 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800 rounded-2xl space-y-3 animate-fadeIn">
               <div className="flex items-center justify-between">
                 <div>
                   <span className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider">
                     {scannedItem.category || 'General'}
                   </span>
                   <h4 className="font-black text-slate-900 dark:text-slate-100 text-sm">{scannedItem.name}</h4>
-                  <div className="text-[10px] font-mono text-slate-400">SKU: {scannedItem.id} • Barcode: {scannedItem.barcode || 'EL-STD'}</div>
+                  <div className="text-[10px] font-mono text-slate-500">
+                    SKU: {scannedItem.sku || scannedItem.id} • Barcode: {scannedItem.barcode || scannedItem.sku || 'N/A'} • Bin: {scannedItem.binLocation || 'A-01'}
+                  </div>
                 </div>
 
                 <div className="text-right font-mono">
@@ -195,18 +300,36 @@ export default function BarcodeScannerModal({ isOpen, onClose }: BarcodeScannerM
                   <button
                     type="button"
                     onClick={() => handleAdjustStock(-1)}
-                    className="p-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-700 dark:text-slate-200 hover:bg-slate-100 font-bold"
+                    className="p-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-700 dark:text-slate-200 hover:bg-slate-100 font-bold cursor-pointer"
                   >
                     <Minus className="w-3.5 h-3.5" />
                   </button>
                   <button
                     type="button"
                     onClick={() => handleAdjustStock(1)}
-                    className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold text-xs shadow-xs flex items-center gap-1"
+                    className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold text-xs shadow-xs flex items-center gap-1 cursor-pointer"
                   >
                     <Plus className="w-3.5 h-3.5" /> Add 1 Unit
                   </button>
                 </div>
+              </div>
+            </div>
+          )}
+
+          {/* Recent Scan History */}
+          {scanHistory.length > 0 && (
+            <div className="space-y-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Recent Scan Session:</span>
+              <div className="space-y-1">
+                {scanHistory.map((h, idx) => (
+                  <div key={idx} className="flex items-center justify-between p-2 bg-slate-50 dark:bg-slate-800/60 rounded-xl text-[11px]">
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono font-bold text-indigo-600 dark:text-indigo-400">{h.code}</span>
+                      <span className="text-slate-700 dark:text-slate-300 font-medium truncate max-w-[220px]">{h.name}</span>
+                    </div>
+                    <span className="text-[10px] font-mono text-slate-400">{h.timestamp}</span>
+                  </div>
+                ))}
               </div>
             </div>
           )}

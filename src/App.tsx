@@ -36,6 +36,8 @@ import BatchExpiryTab from '@/src/features/inventory/components/BatchExpiryTab';
 import CompAIVoiceAssistant from '@/src/features/copilot/components/CompAIVoiceAssistant';
 import Warehouse3DDigitalTwin from '@/src/features/warehouse/components/Warehouse3DDigitalTwin';
 import GlobalLogisticsMapTab from '@/src/features/procurement/components/GlobalLogisticsMapTab';
+import BarcodeStudioModal from '@/src/shared/components/BarcodeStudioModal';
+import BarcodeScannerModal from '@/src/shared/components/BarcodeScannerModal';
 import { TenantProvider } from '@/src/contexts/TenantContext';
 import { ToastProvider } from '@/src/contexts/ToastContext';
 import ToastContainer from '@/src/components/ToastContainer';
@@ -52,6 +54,8 @@ function MainApp() {
   const [selectedKitId, setSelectedKitId] = useState<string>('all');
   const [isBOMModalOpen, setIsBOMModalOpen] = useState(false);
   const [isCreateKitModalOpen, setIsCreateKitModalOpen] = useState(false);
+  const [isBarcodeStudioOpen, setIsBarcodeStudioOpen] = useState(false);
+  const [isBarcodeScannerOpen, setIsBarcodeScannerOpen] = useState(false);
 
   const kittingAnalysis = useMemo(() => {
     const targetKitId = selectedKitId === 'all' ? (kits[0]?.id || '') : selectedKitId;
@@ -305,6 +309,8 @@ function MainApp() {
                   onUpdateComponent={handleUpdateComponent}
                   onDeleteComponent={handleDeleteComponent}
                   onResetInventory={() => {}}
+                  onOpenBarcodeStudio={() => setIsBarcodeStudioOpen(true)}
+                  onOpenBarcodeScanner={() => setIsBarcodeScannerOpen(true)}
                 />
               )}
 
@@ -430,6 +436,17 @@ function MainApp() {
         inventory={inventory}
         kits={kits}
         onNavigateTab={setActiveTab}
+      />
+
+      <BarcodeStudioModal
+        isOpen={isBarcodeStudioOpen}
+        onClose={() => setIsBarcodeStudioOpen(false)}
+        inventory={inventory}
+      />
+
+      <BarcodeScannerModal
+        isOpen={isBarcodeScannerOpen}
+        onClose={() => setIsBarcodeScannerOpen(false)}
       />
     </div>
   );
