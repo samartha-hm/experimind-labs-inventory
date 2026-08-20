@@ -1,10 +1,17 @@
 import { useEffect } from 'react';
 
 /**
- * Web Audio API synthesizer for crisp scanner chimes
+ * Web Audio API synthesizer for crisp scanner chimes with haptic feedback
  */
-export function playScanBeep(type: 'success' | 'error' | 'click' = 'success') {
+export function playScanBeep(type: 'success' | 'match' | 'warning' | 'error' | 'click' = 'success') {
   try {
+    // Haptic feedback on supported devices
+    if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+      if (type === 'success') navigator.vibrate?.(40);
+      else if (type === 'match') navigator.vibrate?.([40, 30, 60]);
+      else if (type === 'error' || type === 'warning') navigator.vibrate?.([80, 50, 80]);
+    }
+
     const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
     if (!AudioCtx) return;
     const ctx = new AudioCtx();
@@ -17,27 +24,45 @@ export function playScanBeep(type: 'success' | 'error' | 'click' = 'success') {
 
     if (type === 'success') {
       osc.type = 'sine';
-      osc.frequency.setValueAtTime(880, ctx.currentTime); // A5 note
-      osc.frequency.exponentialRampToValueAtTime(1760, ctx.currentTime + 0.12);
-      gain.gain.setValueAtTime(0.3, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.12);
+      osc.frequency.setValueAtTime(1046.5, ctx.currentTime); // C6 note
+      osc.frequency.exponentialRampToValueAtTime(2093, ctx.currentTime + 0.08); // C7 note
+      gain.gain.setValueAtTime(0.25, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.12);
       osc.start(ctx.currentTime);
       osc.stop(ctx.currentTime + 0.12);
+    } else if (type === 'match') {
+      // Harmonic pleasant chord
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(880, ctx.currentTime); // A5
+      osc.frequency.setValueAtTime(1174.66, ctx.currentTime + 0.06); // D6
+      osc.frequency.setValueAtTime(1760, ctx.currentTime + 0.12); // A6
+      gain.gain.setValueAtTime(0.2, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.22);
+      osc.start(ctx.currentTime);
+      osc.stop(ctx.currentTime + 0.22);
+    } else if (type === 'warning') {
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(440, ctx.currentTime);
+      osc.frequency.setValueAtTime(330, ctx.currentTime + 0.08);
+      gain.gain.setValueAtTime(0.2, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.16);
+      osc.start(ctx.currentTime);
+      osc.stop(ctx.currentTime + 0.16);
     } else if (type === 'error') {
       osc.type = 'sawtooth';
       osc.frequency.setValueAtTime(220, ctx.currentTime);
       osc.frequency.exponentialRampToValueAtTime(110, ctx.currentTime + 0.2);
       gain.gain.setValueAtTime(0.3, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.2);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.2);
       osc.start(ctx.currentTime);
       osc.stop(ctx.currentTime + 0.2);
     } else {
       osc.type = 'sine';
       osc.frequency.setValueAtTime(1200, ctx.currentTime);
-      gain.gain.setValueAtTime(0.1, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.05);
+      gain.gain.setValueAtTime(0.08, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.04);
       osc.start(ctx.currentTime);
-      osc.stop(ctx.currentTime + 0.05);
+      osc.stop(ctx.currentTime + 0.04);
     }
   } catch (_) {}
 }
@@ -54,7 +79,7 @@ export function useBarcodeGunListener(onScan: (barcode: string) => void, enabled
     let lastKeyTime = 0;
 
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Ignore keypresses inside text input elements
+      // Ignore keypresses inside editable text input elements
       const target = e.target as HTMLElement;
       if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) {
         return;
@@ -93,7 +118,6 @@ export function useBarcodeGunListener(onScan: (barcode: string) => void, enabled
 export function generateBarcodeSVGData(code: string): { width: number; bars: { x: number; width: number }[] } {
   const str = code.toUpperCase().trim() || 'EL-1000';
   
-  // Deterministic bar width sequence generator based on code characters
   let bars: { x: number; width: number }[] = [];
   let currentX = 10;
   

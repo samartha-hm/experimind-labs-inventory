@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { QrCode, Barcode, Printer, Search, XCircle, CheckCircle2, Copy, Sparkles, Box, Check, Filter } from 'lucide-react';
 import { InventoryItem } from '@/src/types';
 import { useToast } from '@/src/contexts/ToastContext';
@@ -51,8 +52,8 @@ export default function BarcodeStudioModal({ isOpen, onClose, inventory }: Barco
     showToast('success', 'Sending Labels to Browser Printer', `Printing ${printMode === 'single' ? '1 label for ' + selectedItem.name : filteredInventory.length + ' labels'}`);
   };
 
-  return (
-    <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-md flex items-center justify-center p-4 z-[999] overflow-y-auto">
+  return createPortal(
+    <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-md flex items-center justify-center p-4 z-[9999] overflow-y-auto">
       <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-2xl max-w-3xl w-full p-6 border border-slate-200 dark:border-slate-800 space-y-6 animate-scaleUp my-8">
         {/* Modal Header */}
         <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-4">
@@ -147,7 +148,7 @@ export default function BarcodeStudioModal({ isOpen, onClose, inventory }: Barco
                 </div>
                 <div className="flex items-center justify-between text-slate-600 dark:text-slate-300">
                   <span>Base Price:</span>
-                  <span className="font-bold text-slate-800 dark:text-slate-100">₹{selectedItem.basePrice || 0}</span>
+                  <span className="font-bold text-slate-800 dark:text-slate-100">${selectedItem.basePrice || 0}</span>
                 </div>
                 <div className="flex items-center justify-between text-slate-600 dark:text-slate-300">
                   <span>Available Stock:</span>
@@ -164,7 +165,7 @@ export default function BarcodeStudioModal({ isOpen, onClose, inventory }: Barco
                 <div className="font-black text-xs truncate uppercase tracking-tight text-slate-950">{selectedItem.name}</div>
                 <div className="flex items-center justify-between text-[9px] font-mono font-bold text-slate-700 border-b border-slate-200 pb-1">
                   <span>BIN: {selectedItem.binLocation || 'RACK-A1'}</span>
-                  <span>₹{selectedItem.basePrice || 0}</span>
+                  <span>${selectedItem.basePrice || 0}</span>
                 </div>
                 
                 {/* SVG Code 128 Barcode Rendering */}
@@ -247,6 +248,7 @@ export default function BarcodeStudioModal({ isOpen, onClose, inventory }: Barco
           </div>
         )}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
