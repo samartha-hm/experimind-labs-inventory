@@ -27,7 +27,8 @@ import {
   DoorOpen,
   Footprints,
   ShieldAlert,
-  Edit2
+  Edit2,
+  Tag
 } from 'lucide-react';
 import { useData } from '@/src/DataContext';
 import { useToast } from '@/src/contexts/ToastContext';
@@ -36,6 +37,7 @@ export interface FloorPlanElement {
   id: string;
   type: 'rack' | 'plywood_grid' | 'cabinet' | 'workbench' | 'dock_inbound' | 'dock_outbound' | 'door' | 'pathway' | 'hazmat_zone';
   label: string;
+  sublabel?: string;
   linkedRackCode?: string; // e.g. 'RACK-01', 'PLY-01'
   x: number; // grid x in px
   y: number; // grid y in px
@@ -50,69 +52,79 @@ export interface FloorPlanElement {
 const PALETTE_TEMPLATES: Omit<FloorPlanElement, 'id' | 'x' | 'y'>[] = [
   {
     type: 'rack',
-    label: 'Steel Shelving Rack',
-    width: 140,
-    height: 70,
+    label: 'Rack 1 — Main Steel Shelf',
+    sublabel: 'Science & Lab Storage',
+    linkedRackCode: 'RACK-01',
+    width: 220,
+    height: 100,
     rotation: 0,
     color: '#3b82f6',
-    zone: 'Zone A - General',
-    notes: 'Multi-tier steel rack for plastic storage bins'
+    zone: 'Zone A (High Velocity)',
+    notes: 'Multi-tier steel shelving rack for plastic totes'
   },
   {
     type: 'plywood_grid',
     label: '🪵 Plywood Pigeonhole Matrix',
-    width: 160,
-    height: 80,
+    sublabel: 'Hardware & Fastener Cubbies',
+    linkedRackCode: 'PLY-01',
+    width: 220,
+    height: 100,
     rotation: 0,
     color: '#d97706',
-    zone: 'Zone B - Small Parts',
-    notes: 'Rectangular wooden pigeonhole organizer'
+    zone: 'Zone B (Hardware)',
+    notes: 'Rectangular wooden box matrix organizer'
   },
   {
     type: 'cabinet',
-    label: '🗄️ Chemical / Safety Cabinet',
-    width: 100,
-    height: 60,
+    label: '🗄️ Chemical Safety Cabinet',
+    sublabel: 'Hazmat & Battery Storage',
+    linkedRackCode: 'CAB-01',
+    width: 190,
+    height: 95,
     rotation: 0,
     color: '#ef4444',
-    zone: 'Zone C - Safety',
+    zone: 'Zone C (Hazmat)',
     notes: 'Enclosed flame-retardant storage cabinet'
   },
   {
     type: 'workbench',
-    label: '📦 Assembly & Packing Bench',
-    width: 120,
-    height: 60,
+    label: '📦 ESD Assembly Workbench',
+    sublabel: 'Soldering & QC Inspection',
+    width: 200,
+    height: 90,
     rotation: 0,
     color: '#10b981',
-    zone: 'Assembly Area',
+    zone: 'Assembly Line',
     notes: 'Static-dissipative ESD packing workbench'
   },
   {
     type: 'dock_inbound',
     label: '🚚 Inbound Receiving Dock',
-    width: 180,
-    height: 60,
+    sublabel: 'Pallet Staging & Unloading',
+    width: 210,
+    height: 90,
     rotation: 0,
     color: '#6366f1',
-    zone: 'Logistics Bay',
-    notes: 'Freight pallet receiving and staging'
+    zone: 'Receiving Bay',
+    notes: 'Freight pallet receiving and intake inspection'
   },
   {
     type: 'dock_outbound',
     label: '📤 Outbound Dispatch Dock',
-    width: 180,
-    height: 60,
+    sublabel: 'Courier & Freight Staging',
+    width: 210,
+    height: 90,
     rotation: 0,
     color: '#8b5cf6',
-    zone: 'Logistics Bay',
-    notes: 'Courier pickup and dispatch staging'
+    zone: 'Dispatch Bay',
+    notes: 'Outbound kit shipping and courier handoff'
   },
   {
     type: 'door',
-    label: '🚪 Entry Door / Fire Exit',
-    width: 60,
-    height: 20,
+    label: '🚪 Personnel Entry / Fire Exit',
+    sublabel: 'Security RFID Access',
+    width: 130,
+    height: 45,
     rotation: 0,
     color: '#64748b',
     zone: 'Perimeter',
@@ -120,26 +132,126 @@ const PALETTE_TEMPLATES: Omit<FloorPlanElement, 'id' | 'x' | 'y'>[] = [
   },
   {
     type: 'hazmat_zone',
-    label: '🚧 Hazardous Materials Staging',
-    width: 120,
+    label: '🚧 Hazardous Secondary Staging',
+    sublabel: 'Chemical Spill Containment',
+    width: 180,
     height: 100,
     rotation: 0,
     color: '#f59e0b',
-    zone: 'Hazmat Zone',
-    notes: 'Secondary containment safety zone'
+    zone: 'Safety Zone',
+    notes: 'Secondary chemical spill containment perimeter'
   }
 ];
 
 const DEFAULT_FLOOR_PLANS: Record<string, FloorPlanElement[]> = {
   'WH-MAIN-01': [
-    { id: 'fp_01', type: 'dock_inbound', label: '🚚 Inbound Receiving Bay', x: 40, y: 40, width: 180, height: 60, rotation: 0, color: '#6366f1', zone: 'Inbound' },
-    { id: 'fp_02', type: 'rack', label: 'Rack 1 — Main Assembly & Science Shelf', linkedRackCode: 'RACK-01', x: 280, y: 40, width: 160, height: 70, rotation: 0, color: '#3b82f6', zone: 'Zone A (High Velocity)' },
-    { id: 'fp_03', type: 'plywood_grid', label: 'Plywood Unit 1 — 🪵 Pigeonhole Matrix', linkedRackCode: 'PLY-01', x: 480, y: 40, width: 160, height: 80, rotation: 0, color: '#d97706', zone: 'Zone B (Hardware)' },
-    { id: 'fp_04', type: 'cabinet', label: 'Cabinet A — Chemical & Safety Storage', linkedRackCode: 'CAB-01', x: 680, y: 40, width: 110, height: 60, rotation: 0, color: '#ef4444', zone: 'Zone C (Hazmat)' },
-    { id: 'fp_05', type: 'workbench', label: '📦 ESD Kit Assembly Table 1', x: 280, y: 200, width: 150, height: 70, rotation: 0, color: '#10b981', zone: 'Production' },
-    { id: 'fp_06', type: 'workbench', label: '📦 ESD Kit Assembly Table 2', x: 480, y: 200, width: 150, height: 70, rotation: 0, color: '#10b981', zone: 'Production' },
-    { id: 'fp_07', type: 'dock_outbound', label: '📤 Outbound Dispatch & Courier Bay', x: 680, y: 200, width: 180, height: 60, rotation: 0, color: '#8b5cf6', zone: 'Outbound' },
-    { id: 'fp_08', type: 'door', label: '🚪 Main Entrance', x: 40, y: 340, width: 80, height: 20, rotation: 0, color: '#64748b', zone: 'Perimeter' }
+    {
+      id: 'fp_01',
+      type: 'dock_inbound',
+      label: '🚚 Inbound Receiving Dock',
+      sublabel: 'Intake Inspection Bay',
+      x: 40,
+      y: 40,
+      width: 210,
+      height: 100,
+      rotation: 0,
+      color: '#6366f1',
+      zone: 'Inbound'
+    },
+    {
+      id: 'fp_02',
+      type: 'rack',
+      label: 'Rack 1 — Main Steel Shelf',
+      sublabel: 'Science & Lab Storage',
+      linkedRackCode: 'RACK-01',
+      x: 290,
+      y: 40,
+      width: 220,
+      height: 100,
+      rotation: 0,
+      color: '#3b82f6',
+      zone: 'Zone A (High Velocity)'
+    },
+    {
+      id: 'fp_03',
+      type: 'plywood_grid',
+      label: 'Plywood Unit 1 — 🪵 Pigeonhole',
+      sublabel: 'Hardware & Screws Grid',
+      linkedRackCode: 'PLY-01',
+      x: 550,
+      y: 40,
+      width: 230,
+      height: 100,
+      rotation: 0,
+      color: '#d97706',
+      zone: 'Zone B (Hardware)'
+    },
+    {
+      id: 'fp_04',
+      type: 'cabinet',
+      label: 'Cabinet A — Chemical Safety',
+      sublabel: 'Flammables & Batteries',
+      linkedRackCode: 'CAB-01',
+      x: 820,
+      y: 40,
+      width: 200,
+      height: 100,
+      rotation: 0,
+      color: '#ef4444',
+      zone: 'Zone C (Hazmat)'
+    },
+    {
+      id: 'fp_05',
+      type: 'workbench',
+      label: '📦 ESD Assembly Table 1',
+      sublabel: 'Kit Packing Station',
+      x: 290,
+      y: 190,
+      width: 220,
+      height: 90,
+      rotation: 0,
+      color: '#10b981',
+      zone: 'Assembly Line'
+    },
+    {
+      id: 'fp_06',
+      type: 'workbench',
+      label: '📦 ESD Assembly Table 2',
+      sublabel: 'Quality Control & Testing',
+      x: 550,
+      y: 190,
+      width: 230,
+      height: 90,
+      rotation: 0,
+      color: '#10b981',
+      zone: 'Assembly Line'
+    },
+    {
+      id: 'fp_07',
+      type: 'dock_outbound',
+      label: '📤 Outbound Dispatch Dock',
+      sublabel: 'Courier & Freight Staging',
+      x: 820,
+      y: 190,
+      width: 200,
+      height: 90,
+      rotation: 0,
+      color: '#8b5cf6',
+      zone: 'Dispatch Bay'
+    },
+    {
+      id: 'fp_08',
+      type: 'door',
+      label: '🚪 Main Security Entrance',
+      sublabel: 'RFID Badge Turnstile',
+      x: 40,
+      y: 240,
+      width: 180,
+      height: 45,
+      rotation: 0,
+      color: '#64748b',
+      zone: 'Perimeter'
+    }
   ]
 };
 
@@ -151,6 +263,14 @@ export default function FloorPlanDesignerTab() {
   const [zoomLevel, setZoomLevel] = useState<number>(100);
   const [isHeatmapMode, setIsHeatmapMode] = useState<boolean>(false);
   const [selectedElementId, setSelectedElementId] = useState<string | null>(null);
+  const [isEditingElementModal, setIsEditingElementModal] = useState<boolean>(false);
+
+  // Edit element form
+  const [editLabel, setEditLabel] = useState('');
+  const [editSublabel, setEditSublabel] = useState('');
+  const [editZone, setEditZone] = useState('');
+  const [editWidth, setEditWidth] = useState(200);
+  const [editHeight, setEditHeight] = useState(100);
 
   // Dragging Canvas State
   const [isDragging, setIsDragging] = useState(false);
@@ -160,7 +280,7 @@ export default function FloorPlanDesignerTab() {
   // Floor Plan Elements State
   const [elements, setElements] = useState<FloorPlanElement[]>(() => {
     try {
-      const saved = localStorage.getItem(`experimind_floorplan_${selectedWhCode}`);
+      const saved = localStorage.getItem(`experimind_floorplan_v3_${selectedWhCode}`);
       return saved ? JSON.parse(saved) : (DEFAULT_FLOOR_PLANS[selectedWhCode] || DEFAULT_FLOOR_PLANS['WH-MAIN-01'] || []);
     } catch (_) {
       return DEFAULT_FLOOR_PLANS['WH-MAIN-01'] || [];
@@ -170,13 +290,13 @@ export default function FloorPlanDesignerTab() {
   // Switch Warehouse Layout
   useEffect(() => {
     try {
-      const saved = localStorage.getItem(`experimind_floorplan_${selectedWhCode}`);
+      const saved = localStorage.getItem(`experimind_floorplan_v3_${selectedWhCode}`);
       if (saved) {
         setElements(JSON.parse(saved));
       } else if (DEFAULT_FLOOR_PLANS[selectedWhCode]) {
         setElements(DEFAULT_FLOOR_PLANS[selectedWhCode]);
       } else {
-        setElements([]);
+        setElements(DEFAULT_FLOOR_PLANS['WH-MAIN-01'] || []);
       }
       setSelectedElementId(null);
     } catch (_) {}
@@ -186,7 +306,7 @@ export default function FloorPlanDesignerTab() {
   const saveFloorPlan = (newElements: FloorPlanElement[]) => {
     setElements(newElements);
     try {
-      localStorage.setItem(`experimind_floorplan_${selectedWhCode}`, JSON.stringify(newElements));
+      localStorage.setItem(`experimind_floorplan_v3_${selectedWhCode}`, JSON.stringify(newElements));
     } catch (_) {}
   };
 
@@ -195,12 +315,18 @@ export default function FloorPlanDesignerTab() {
   }, [elements, selectedElementId]);
 
   // Map parts count for linked racks
-  const getRackStoredItems = (linkedCode?: string) => {
-    if (!linkedCode) return [];
-    const clean = linkedCode.toLowerCase();
+  const getRackStoredItems = (linkedCode?: string, label?: string) => {
+    const searchTerms: string[] = [];
+    if (linkedCode) searchTerms.push(linkedCode.toLowerCase());
+    if (label) {
+      if (label.toLowerCase().includes('rack 1')) searchTerms.push('rack');
+      if (label.toLowerCase().includes('plywood')) searchTerms.push('ply');
+      if (label.toLowerCase().includes('cabinet')) searchTerms.push('chemical', 'cab');
+    }
+
     return inventory.filter(item => {
       const bin = (item.binLocation || '').toLowerCase();
-      return bin.includes(clean);
+      return searchTerms.some(term => bin.includes(term));
     });
   };
 
@@ -209,8 +335,8 @@ export default function FloorPlanDesignerTab() {
     const newEl: FloorPlanElement = {
       ...template,
       id: `el_${Date.now()}_${Math.random().toString(36).substring(2, 5)}`,
-      x: 100 + (elements.length % 5) * 40,
-      y: 100 + (elements.length % 5) * 40,
+      x: 60 + (elements.length % 4) * 50,
+      y: 60 + (elements.length % 4) * 40,
     };
     const updated = [...elements, newEl];
     saveFloorPlan(updated);
@@ -238,6 +364,38 @@ export default function FloorPlanDesignerTab() {
     saveFloorPlan(updated);
     setSelectedElementId(null);
     showToast('info', 'Element Removed', 'Removed element from floor plan.');
+  };
+
+  // Open Edit Dialog
+  const handleOpenEditModal = () => {
+    if (!selectedElement) return;
+    setEditLabel(selectedElement.label);
+    setEditSublabel(selectedElement.sublabel || '');
+    setEditZone(selectedElement.zone || '');
+    setEditWidth(selectedElement.width);
+    setEditHeight(selectedElement.height);
+    setIsEditingElementModal(true);
+  };
+
+  const handleSaveEditElement = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedElementId) return;
+    const updated = elements.map(el => {
+      if (el.id === selectedElementId) {
+        return {
+          ...el,
+          label: editLabel.trim(),
+          sublabel: editSublabel.trim(),
+          zone: editZone.trim(),
+          width: Number(editWidth) || 200,
+          height: Number(editHeight) || 100,
+        };
+      }
+      return el;
+    });
+    saveFloorPlan(updated);
+    setIsEditingElementModal(false);
+    showToast('success', 'Properties Updated', 'Updated spatial element dimensions and labels.');
   };
 
   // Mouse Drag handling with Grid Snap (20px)
@@ -284,7 +442,7 @@ export default function FloorPlanDesignerTab() {
 
   // Pre-made Templates
   const handleLoadTemplate = (templateKey: string) => {
-    if (confirm('Load pre-configured template? Current layout will be replaced.')) {
+    if (confirm('Load pre-configured template? Current layout will be reset to the optimized blueprint.')) {
       const t = DEFAULT_FLOOR_PLANS['WH-MAIN-01'] || [];
       saveFloorPlan(t);
       showToast('success', 'Template Loaded', 'Loaded Standard Distribution Center blueprint.');
@@ -306,7 +464,7 @@ export default function FloorPlanDesignerTab() {
                 2D Interactive Warehouse Floor Plan Designer
               </h2>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 font-medium">
-                Top-down spatial layout blueprint. Drag and position storage racks, pigeonhole matrixes, packing benches, and receiving bays.
+                Top-down spatial blueprint. Drag and position storage racks, pigeonhole matrixes, packing benches, and docks.
               </p>
             </div>
           </div>
@@ -318,7 +476,7 @@ export default function FloorPlanDesignerTab() {
           <select
             value={selectedWhCode}
             onChange={(e) => setSelectedWhCode(e.target.value)}
-            className="px-3.5 py-2 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs font-bold text-slate-800 dark:text-slate-200 focus:outline-none cursor-pointer"
+            className="px-3.5 py-2 min-w-[200px] bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs font-bold text-slate-800 dark:text-slate-200 focus:outline-none cursor-pointer"
           >
             {warehouses.map(w => (
               <option key={w.id} value={w.code}>{w.name} ({w.code})</option>
@@ -399,9 +557,14 @@ export default function FloorPlanDesignerTab() {
                       className="w-3.5 h-3.5 rounded-md shrink-0 shadow-xs"
                       style={{ backgroundColor: tmpl.color }}
                     />
-                    <span className="font-bold text-xs text-slate-800 dark:text-slate-200 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 truncate">
-                      {tmpl.label}
-                    </span>
+                    <div className="truncate">
+                      <span className="font-bold text-xs text-slate-800 dark:text-slate-200 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 block truncate">
+                        {tmpl.label}
+                      </span>
+                      {tmpl.sublabel && (
+                        <span className="text-[10px] text-slate-400 block truncate">{tmpl.sublabel}</span>
+                      )}
+                    </div>
                   </div>
                   <Plus className="w-4 h-4 text-slate-400 group-hover:text-indigo-600 shrink-0" />
                 </button>
@@ -417,9 +580,9 @@ export default function FloorPlanDesignerTab() {
             </h3>
             <button
               onClick={() => handleLoadTemplate('standard')}
-              className="w-full py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold rounded-xl text-xs transition-colors cursor-pointer"
+              className="w-full py-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold rounded-xl text-xs transition-colors cursor-pointer"
             >
-              Reset to Standard Hub Layout
+              Reset to Optimized Blueprint
             </button>
           </div>
         </div>
@@ -429,12 +592,12 @@ export default function FloorPlanDesignerTab() {
           
           {/* Active Canvas Action Toolbar (When Element Selected) */}
           <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-3 shadow-xs flex items-center justify-between gap-3 text-xs">
-            <div className="flex items-center gap-2">
-              <span className="text-slate-400 font-medium">
+            <div className="flex items-center gap-2 truncate">
+              <span className="text-slate-400 font-medium truncate">
                 {selectedElement ? (
-                  <>Selected: <strong className="text-slate-900 dark:text-white font-bold">{selectedElement.label}</strong> (X: {selectedElement.x}px, Y: {selectedElement.y}px)</>
+                  <>Selected: <strong className="text-slate-900 dark:text-white font-bold">{selectedElement.label}</strong> (X: {selectedElement.x}px, Y: {selectedElement.y}px • {selectedElement.width}×{selectedElement.height}px)</>
                 ) : (
-                  'Click any element on the floor plan to drag, rotate, or inspect stored components.'
+                  'Click any element on the floor plan to drag, rotate, resize, or inspect stored components.'
                 )}
               </span>
             </div>
@@ -442,10 +605,17 @@ export default function FloorPlanDesignerTab() {
             {selectedElement && (
               <div className="flex items-center gap-2 shrink-0">
                 <button
+                  onClick={handleOpenEditModal}
+                  className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-bold rounded-xl text-xs transition-colors cursor-pointer flex items-center gap-1.5"
+                >
+                  <Edit2 className="w-3.5 h-3.5 text-indigo-500" /> Edit Properties
+                </button>
+
+                <button
                   onClick={handleRotateSelected}
                   className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-bold rounded-xl text-xs transition-colors cursor-pointer flex items-center gap-1.5"
                 >
-                  <RotateCw className="w-3.5 h-3.5 text-indigo-500" /> Rotate 90° ({selectedElement.rotation}°)
+                  <RotateCw className="w-3.5 h-3.5 text-indigo-500" /> Rotate ({selectedElement.rotation}°)
                 </button>
 
                 <button
@@ -463,7 +633,7 @@ export default function FloorPlanDesignerTab() {
             ref={canvasRef}
             onMouseMove={handleMouseMove}
             onMouseUp={handleMouseUp}
-            className="bg-slate-900 rounded-3xl border-2 border-slate-800 shadow-2xl relative overflow-hidden h-[540px] cursor-crosshair"
+            className="bg-slate-950 rounded-3xl border-2 border-slate-800 shadow-2xl relative overflow-hidden h-[560px] cursor-crosshair"
             style={{
               backgroundImage: `
                 linear-gradient(to right, rgba(255, 255, 255, 0.05) 1px, transparent 1px),
@@ -473,7 +643,7 @@ export default function FloorPlanDesignerTab() {
             }}
           >
             {/* Warehouse Facility Title Watermark */}
-            <div className="absolute top-4 left-4 pointer-events-none opacity-40">
+            <div className="absolute top-4 left-4 pointer-events-none opacity-40 select-none">
               <div className="text-sm font-black uppercase tracking-widest text-slate-300 font-mono">
                 {selectedWhCode} • SPATIAL BLUEPRINT
               </div>
@@ -492,7 +662,7 @@ export default function FloorPlanDesignerTab() {
             >
               {elements.map((el) => {
                 const isSelected = el.id === selectedElementId;
-                const storedItems = getRackStoredItems(el.linkedRackCode);
+                const storedItems = getRackStoredItems(el.linkedRackCode, el.label);
                 const isOccupied = storedItems.length > 0;
 
                 // Heatmap Color Calculation
@@ -511,32 +681,56 @@ export default function FloorPlanDesignerTab() {
                       width: `${el.width}px`,
                       height: `${el.height}px`,
                       transform: `rotate(${el.rotation}deg)`,
-                      backgroundColor: `${displayColor}20`,
-                      borderColor: isSelected ? '#ffffff' : displayColor,
+                      borderColor: isSelected ? '#60a5fa' : `${displayColor}aa`,
                     }}
-                    className={`absolute rounded-xl border-2 transition-shadow flex flex-col items-center justify-center p-2 cursor-grab active:cursor-grabbing group shadow-md backdrop-blur-xs ${
-                      isSelected ? 'ring-2 ring-white/50 shadow-2xl z-20' : 'z-10 hover:border-white'
+                    className={`absolute rounded-2xl border-2 transition-all flex flex-col justify-between p-2.5 cursor-grab active:cursor-grabbing group shadow-xl backdrop-blur-md overflow-hidden select-none ${
+                      isSelected
+                        ? 'bg-slate-900/95 ring-2 ring-indigo-400 shadow-2xl z-30'
+                        : 'bg-slate-900/85 z-10 hover:border-slate-200 hover:bg-slate-900/95'
                     }`}
                   >
-                    {/* Corner Drag Accent */}
-                    <div className="text-center truncate px-1">
-                      <span
-                        className="font-black text-[11px] uppercase tracking-tight block truncate drop-shadow-sm"
-                        style={{ color: isSelected ? '#ffffff' : displayColor }}
-                      >
-                        {el.label}
-                      </span>
-                      <span className="text-[9px] font-mono text-slate-300 opacity-90 block">
-                        {storedItems.length} SKUs Stored
-                      </span>
+                    {/* Top Color Accent Line */}
+                    <div
+                      className="absolute top-0 left-0 right-0 h-1"
+                      style={{ backgroundColor: displayColor }}
+                    />
+
+                    {/* Element Header & Label (Safely Clamped) */}
+                    <div className="w-full overflow-hidden text-left space-y-0.5 mt-0.5">
+                      <div className="flex items-center justify-between gap-1">
+                        <span
+                          className="font-black text-[11px] uppercase tracking-tight truncate block drop-shadow-sm"
+                          style={{ color: displayColor }}
+                          title={el.label}
+                        >
+                          {el.label}
+                        </span>
+                        {el.rotation > 0 && (
+                          <span className="text-[8px] font-mono text-slate-500 shrink-0">
+                            {el.rotation}°
+                          </span>
+                        )}
+                      </div>
+
+                      {el.sublabel && (
+                        <span className="text-[9px] text-slate-400 block truncate font-medium">
+                          {el.sublabel}
+                        </span>
+                      )}
                     </div>
 
-                    {/* Zone Badge */}
-                    {el.zone && (
-                      <span className="absolute -bottom-2.5 px-1.5 py-0.2 rounded bg-slate-950/90 text-slate-300 text-[8px] font-mono font-bold border border-slate-700">
-                        {el.zone}
+                    {/* Center / Bottom Info Bar */}
+                    <div className="w-full flex items-center justify-between gap-1 pt-1 border-t border-slate-800/80 text-[9px] font-mono">
+                      <span className="text-slate-300 font-bold px-1.5 py-0.2 rounded bg-slate-800/80 shrink-0">
+                        {storedItems.length} SKUs
                       </span>
-                    )}
+
+                      {el.zone && (
+                        <span className="text-slate-400 truncate max-w-[95px] text-right font-medium">
+                          {el.zone}
+                        </span>
+                      )}
+                    </div>
                   </div>
                 );
               })}
@@ -556,16 +750,23 @@ export default function FloorPlanDesignerTab() {
                     Zone: {selectedElement.zone || 'Unassigned'} • Dimensions: {selectedElement.width}px × {selectedElement.height}px
                   </p>
                 </div>
+
+                <button
+                  onClick={handleOpenEditModal}
+                  className="px-3 py-1.5 bg-indigo-50 dark:bg-indigo-950/60 hover:bg-indigo-100 text-indigo-700 dark:text-indigo-300 rounded-xl text-xs font-bold transition-colors cursor-pointer flex items-center gap-1.5"
+                >
+                  <Edit2 className="w-3.5 h-3.5" /> Edit Dimensions & Label
+                </button>
               </div>
 
               {/* Items in this physical unit */}
               {(() => {
-                const stored = getRackStoredItems(selectedElement.linkedRackCode);
+                const stored = getRackStoredItems(selectedElement.linkedRackCode, selectedElement.label);
                 return (
                   <div className="space-y-2">
                     {stored.length === 0 ? (
                       <p className="text-xs text-slate-400 py-2">
-                        No components mapped to this rack location yet. Assign items to this rack in the <strong>"Visual Shelving"</strong> view.
+                        No components mapped to this rack location yet. Assign items to this rack in the <strong>"Visual Shelving Matrix"</strong> view.
                       </p>
                     ) : (
                       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 pt-1">
@@ -589,6 +790,104 @@ export default function FloorPlanDesignerTab() {
           )}
         </div>
       </div>
+
+      {/* EDIT ELEMENT PROPERTIES MODAL */}
+      {isEditingElementModal && selectedElement && (
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 z-[9999] animate-fadeIn">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl w-full max-w-md p-6 space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+              <h3 className="text-base font-black text-slate-900 dark:text-white flex items-center gap-2">
+                <Edit2 className="w-5 h-5 text-indigo-600" />
+                Edit Spatial Element Properties
+              </h3>
+              <button
+                onClick={() => setIsEditingElementModal(false)}
+                className="p-1.5 text-slate-400 hover:text-white rounded-xl hover:bg-slate-800 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveEditElement} className="space-y-3 text-xs">
+              <div>
+                <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">Primary Label *</label>
+                <input
+                  type="text"
+                  required
+                  value={editLabel}
+                  onChange={(e) => setEditLabel(e.target.value)}
+                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 dark:text-white focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">Subtitle / Purpose</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Science Lab Components"
+                  value={editSublabel}
+                  onChange={(e) => setEditSublabel(e.target.value)}
+                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">Warehouse Zone</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Zone A (High Velocity)"
+                  value={editZone}
+                  onChange={(e) => setEditZone(e.target.value)}
+                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white focus:outline-none"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">Width (px)</label>
+                  <input
+                    type="number"
+                    min={80}
+                    max={500}
+                    step={10}
+                    value={editWidth}
+                    onChange={(e) => setEditWidth(Number(e.target.value))}
+                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 dark:text-white focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">Height (px)</label>
+                  <input
+                    type="number"
+                    min={40}
+                    max={400}
+                    step={10}
+                    value={editHeight}
+                    onChange={(e) => setEditHeight(Number(e.target.value))}
+                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 dark:text-white focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsEditingElementModal(false)}
+                  className="px-4 py-2 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold rounded-xl"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-md"
+                >
+                  Save Changes
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
