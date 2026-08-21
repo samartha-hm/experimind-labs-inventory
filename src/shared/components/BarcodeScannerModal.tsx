@@ -44,7 +44,15 @@ import {
   PlusCircle,
   RotateCcw,
   Save,
-  Tag
+  Tag,
+  Square,
+  CheckSquare2,
+  TrendingUp,
+  TrendingDown,
+  Copy,
+  Filter,
+  Download,
+  AlertCircle
 } from 'lucide-react';
 import { useData } from '@/src/DataContext';
 import { useToast } from '@/src/contexts/ToastContext';
@@ -150,6 +158,13 @@ export default function BarcodeScannerModal({
   const [editItemThreshold, setEditItemThreshold] = useState<number>(0);
   const [editItemBarcode, setEditItemBarcode] = useState('');
   const [editItemSku, setEditItemSku] = useState('');
+
+  // 4. BATCH MULTI-SELECTION & BULK ACTIONS STATE
+  const [selectedBatchIds, setSelectedBatchIds] = useState<Set<string>>(new Set());
+  const [bulkNoteInput, setBulkNoteInput] = useState('');
+  const [bulkQtyInput, setBulkQtyInput] = useState<number>(10);
+  const [catalogSearchQuery, setCatalogSearchQuery] = useState('');
+  const [showCatalogPicker, setShowCatalogPicker] = useState(false);
 
   // Scanner Hardware & Stream State
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -283,21 +298,19 @@ export default function BarcodeScannerModal({
         };
         return updated;
       }
-      return [
-        {
-          id: `batch_${Date.now()}_${Math.random().toString(36).substring(2, 5)}`,
-          code: item.barcode || `EL-${item.id}`,
-          itemId: item.id,
-          name: item.name,
-          category: item.category,
-          quantity: qty,
-          unit: item.unit,
-          actionType,
-          note: '',
-          timestamp: new Date().toLocaleTimeString()
-        },
-        ...prev
-      ];
+      const newItem: BatchScanItem = {
+        id: `batch_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+        code: item.barcode || `EL-${item.id}`,
+        itemId: item.id,
+        name: item.name,
+        category: item.category,
+        quantity: qty,
+        unit: item.unit,
+        actionType,
+        note: '',
+        timestamp: new Date().toLocaleTimeString()
+      };
+      return [newItem, ...prev];
     });
     if (soundEnabled) playScanBeep('click');
     showToast('info', 'Batch Queued', `+${qty} ${item.name} queued in session`);
@@ -529,6 +542,7 @@ export default function BarcodeScannerModal({
       setUploadedPhotoCode(null);
       setRelocateBinTarget('');
       setRelocateStep('scan_item');
+      setSelectedBatchIds(new Set());
     }
   }, [isOpen, startCameraStream, stopCameraStream]);
 
@@ -561,22 +575,143 @@ export default function BarcodeScannerModal({
     }
   };
 
+  // =========================================================================
+  // BATCH & AUDIT VARIANCE CALCULATIONS
+  // =========================================================================
+  const batchVarianceList = useMemo(() => {
+    return batchList.map(b => {
+      const item = inventory.find(i => i.id === b.itemId);
+      const currentStock = item?.stockQty ?? 0;
+      let projectedStock = currentStock;
+      let diff = 0;
+
+      if (b.actionType === 'add') {
+        projectedStock = currentStock + b.quantity;
+        diff = b.quantity;
+      } else if (b.actionType === 'deduct') {
+        projectedStock = Math.max(0, currentStock - b.quantity);
+        diff = -(currentStock - projectedStock);
+      } else if (b.actionType === 'set') {
+        projectedStock = b.quantity;
+        diff = b.quantity - currentStock;
+      }
+
+      const unitCost = item?.unitCost ?? item?.basePrice ?? 0;
+      const valueImpact = diff * unitCost;
+
+      return {
+        ...b,
+        item,
+        currentStock,
+        projectedStock,
+        diff,
+        unitCost,
+        valueImpact
+      };
+    });
+  }, [batchList, inventory]);
+
+  const batchSummary = useMemo(() => {
+    const totalItems = batchVarianceList.length;
+    const totalUnits = batchVarianceList.reduce((acc, b) => acc + b.quantity, 0);
+    const netVarianceUnits = batchVarianceList.reduce((acc, b) => acc + b.diff, 0);
+    const netValueImpact = batchVarianceList.reduce((acc, b) => acc + b.valueImpact, 0);
+    const surplusCount = batchVarianceList.filter(b => b.diff > 0).length;
+    const shortageCount = batchVarianceList.filter(b => b.diff < 0).length;
+    const exactCount = batchVarianceList.filter(b => b.diff === 0).length;
+
+    return {
+      totalItems,
+      totalUnits,
+      netVarianceUnits,
+      netValueImpact,
+      surplusCount,
+      shortageCount,
+      exactCount
+    };
+  }, [batchVarianceList]);
+
+  // Bulk Actions on Selected (or All) Items
+  const targetBatchItems = useMemo(() => {
+    if (selectedBatchIds.size > 0) {
+      return batchList.filter(b => selectedBatchIds.has(b.id));
+    }
+    return batchList;
+  }, [batchList, selectedBatchIds]);
+
+  const handleBulkChangeAction = (action: 'add' | 'deduct' | 'set') => {
+    if (batchList.length === 0) return;
+    const targetIds = selectedBatchIds.size > 0 ? selectedBatchIds : new Set(batchList.map(b => b.id));
+    setBatchList(prev => prev.map(b => targetIds.has(b.id) ? { ...b, actionType: action } : b));
+    showToast('success', 'Batch Action Updated', `Set ${targetIds.size} items to "${action === 'add' ? '+ Add Stock' : action === 'deduct' ? '- Deduct Stock' : '= Physical Count'}"`);
+  };
+
+  const handleBulkSetQty = (qty: number) => {
+    if (batchList.length === 0 || qty < 1) return;
+    const targetIds = selectedBatchIds.size > 0 ? selectedBatchIds : new Set(batchList.map(b => b.id));
+    setBatchList(prev => prev.map(b => targetIds.has(b.id) ? { ...b, quantity: qty } : b));
+    showToast('success', 'Batch Quantities Updated', `Set quantity to ${qty} for ${targetIds.size} items.`);
+  };
+
+  const handleBulkAdjustQty = (delta: number) => {
+    if (batchList.length === 0) return;
+    const targetIds = selectedBatchIds.size > 0 ? selectedBatchIds : new Set(batchList.map(b => b.id));
+    setBatchList(prev => prev.map(b => targetIds.has(b.id) ? { ...b, quantity: Math.max(1, b.quantity + delta) } : b));
+    showToast('info', 'Batch Adjusted', `Adjusted quantity by ${delta > 0 ? '+' : ''}${delta} for ${targetIds.size} items.`);
+  };
+
+  const handleBulkApplyNote = (noteText: string) => {
+    if (batchList.length === 0 || !noteText.trim()) return;
+    const targetIds = selectedBatchIds.size > 0 ? selectedBatchIds : new Set(batchList.map(b => b.id));
+    setBatchList(prev => prev.map(b => targetIds.has(b.id) ? { ...b, note: noteText.trim() } : b));
+    showToast('success', 'Batch Note Applied', `Applied note to ${targetIds.size} items.`);
+    setBulkNoteInput('');
+  };
+
+  const handleBulkDelete = () => {
+    if (selectedBatchIds.size === 0) {
+      setBatchList([]);
+      showToast('info', 'Batch Cleared', 'Cleared all items in session.');
+    } else {
+      setBatchList(prev => prev.filter(b => !selectedBatchIds.has(b.id)));
+      showToast('info', 'Batch Items Deleted', `Removed ${selectedBatchIds.size} selected items.`);
+      setSelectedBatchIds(new Set());
+    }
+  };
+
+  const handleToggleSelectAll = () => {
+    if (selectedBatchIds.size === batchList.length) {
+      setSelectedBatchIds(new Set());
+    } else {
+      setSelectedBatchIds(new Set(batchList.map(b => b.id)));
+    }
+  };
+
+  const handleToggleSelectItem = (id: string) => {
+    setSelectedBatchIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
   // Commit Batch Session to Database (Supporting Add, Deduct, and Set)
   const handleCommitBatch = async () => {
     if (batchList.length === 0) return;
-    for (const b of batchList) {
-      const item = inventory.find(i => i.id === b.itemId);
+    for (const b of batchVarianceList) {
+      const item = b.item;
       if (item) {
         if (b.actionType === 'set') {
           // Direct physical count override
-          const oldQty = item.stockQty;
+          const oldQty = b.currentStock;
           await updateInventoryItem(item.id, { stockQty: b.quantity });
           await logTransaction({
             id: `tx_${Date.now()}_${b.id}`,
             timestamp: new Date().toISOString(),
             type: 'adjust',
             description: b.note || `Physical Cycle Count Override (${oldQty} → ${b.quantity} ${item.unit})`,
-            items: [{ componentId: item.id, componentName: item.name, qtyDiff: b.quantity - oldQty }],
+            items: [{ componentId: item.id, componentName: item.name, qtyDiff: b.diff }],
             diffs: [{ field: 'stockQty', oldValue: oldQty, newValue: b.quantity }]
           });
         } else {
@@ -585,26 +720,53 @@ export default function BarcodeScannerModal({
         }
       }
     }
-    showToast('success', 'Batch Session Committed', `Updated ${batchList.length} components in inventory.`);
+    showToast('success', 'Batch Session Committed', `Successfully processed audit for ${batchList.length} components.`);
     setBatchList([]);
+    setSelectedBatchIds(new Set());
   };
 
-  // Export Batch Session to CSV
+  // Export Comprehensive Audit CSV
   const handleExportBatchCSV = () => {
-    if (batchList.length === 0) return;
+    if (batchVarianceList.length === 0) return;
     const rows = [
-      ['Barcode', 'Item Name', 'Category', 'Action Type', 'Quantity', 'Unit', 'Notes', 'Timestamp'],
-      ...batchList.map(b => [b.code, b.name, b.category, b.actionType.toUpperCase(), b.quantity, b.unit, b.note || '', b.timestamp])
+      ['Barcode', 'Item Name', 'Category', 'Action Type', 'Current Stock', 'Projected Stock', 'Variance Diff', 'Unit Cost (INR)', 'Valuation Impact (INR)', 'Unit', 'Notes', 'Timestamp'],
+      ...batchVarianceList.map(b => [
+        b.code,
+        b.name,
+        b.category,
+        b.actionType.toUpperCase(),
+        b.currentStock,
+        b.projectedStock,
+        b.diff > 0 ? `+${b.diff}` : b.diff,
+        b.unitCost.toFixed(2),
+        b.valueImpact.toFixed(2),
+        b.unit,
+        b.note || '',
+        b.timestamp
+      ])
     ];
     const csvContent = 'data:text/csv;charset=utf-8,' + rows.map(r => r.join(',')).join('\n');
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement('a');
     link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `inventory_batch_scan_${Date.now()}.csv`);
+    link.setAttribute('download', `inventory_audit_session_${Date.now()}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    showToast('success', 'CSV Exported', 'Downloaded complete batch audit record with variance.');
   };
+
+  // Catalog search filtering for manual add
+  const filteredCatalogItems = useMemo(() => {
+    if (!catalogSearchQuery.trim()) return [];
+    const q = catalogSearchQuery.toLowerCase();
+    return inventory.filter(i =>
+      i.name.toLowerCase().includes(q) ||
+      (i.barcode && i.barcode.toLowerCase().includes(q)) ||
+      (i.sku && i.sku.toLowerCase().includes(q)) ||
+      i.category.toLowerCase().includes(q)
+    ).slice(0, 8);
+  }, [inventory, catalogSearchQuery]);
 
   // Bin Relocation Execution
   const handleExecuteBinRelocation = async (itemId: string, newBinCode: string) => {
@@ -741,7 +903,7 @@ export default function BarcodeScannerModal({
                 </span>
               </div>
               <p className="text-[11px] text-slate-500 dark:text-slate-400 font-mono">
-                ZXing-C++ WebAssembly • 100% Customizable & Editable Workstation
+                ZXing-C++ WebAssembly • 100% Customizable & Editable Batch Audit Suite
               </p>
             </div>
           </div>
@@ -841,7 +1003,7 @@ export default function BarcodeScannerModal({
                 {activeMode === 'inspect' && '🔍 Mode 1: Component Inspection & Real-time Stock Health'}
                 {activeMode === 'inbound' && '📥 Mode 2: Inbound Goods Receiving & Intake (+ Stock)'}
                 {activeMode === 'outbound' && '📤 Mode 3: Outbound Picking & Dispatch Deduct (- Stock)'}
-                {activeMode === 'batch' && '📋 Mode 4: High-Speed Batch Audit & Cycle Count Session'}
+                {activeMode === 'batch' && '📋 Mode 4: Batch Multi-Scan Audit & Bulk Inventory Editing Workstation'}
                 {activeMode === 'relocate' && '📍 Mode 5: Storage Bin Putaway & Slot Relocation'}
                 {activeMode === 'kit_picking' && '🧰 Mode 6: Kit BOM Assembly & Picking Checklist'}
               </span>
@@ -973,7 +1135,7 @@ export default function BarcodeScannerModal({
             </div>
 
             {/* Video Viewfinder Container */}
-            <div className={`relative rounded-3xl overflow-hidden bg-slate-950 border-2 transition-all shadow-2xl h-[260px] md:h-[300px] flex items-center justify-center ${
+            <div className={`relative rounded-3xl overflow-hidden bg-slate-950 border-2 transition-all shadow-2xl h-[240px] md:h-[280px] flex items-center justify-center ${
               scanPulse ? 'border-emerald-400 ring-4 ring-emerald-500/30' : 'border-slate-800'
             }`}>
               
@@ -1324,136 +1486,418 @@ export default function BarcodeScannerModal({
           )}
 
           {/* ========================================================================= */}
-          {/* MODE 4: FULLY EDITABLE BATCH SCAN AUDIT QUEUE */}
+          {/* MODE 4: ADVANCED BATCH OPERATIONS & LIVE AUDIT SUITE */}
           {/* ========================================================================= */}
           {activeMode === 'batch' && (
-            <div className="p-5 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-xl space-y-4 animate-fadeIn">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div>
-                  <h3 className="font-black text-sm text-slate-900 dark:text-white flex items-center gap-2">
-                    <FileSpreadsheet className="w-4 h-4 text-amber-500" />
-                    Interactive Batch Multi-Scan Queue ({batchList.length} items)
-                  </h3>
-                  <p className="text-xs text-slate-400">Edit quantities, change action types, and add line notes before committing:</p>
+            <div className="space-y-4 animate-fadeIn">
+              
+              {/* Batch Financial Impact & Metrics Strip */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div className="p-3.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs">
+                  <span className="text-[10px] uppercase font-bold text-slate-400 block">Unique SKUs</span>
+                  <span className="text-xl font-black text-slate-900 dark:text-white font-mono">
+                    {batchSummary.totalItems} <span className="text-xs font-normal text-slate-400">items</span>
+                  </span>
                 </div>
 
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => setBatchList([])}
-                    disabled={batchList.length === 0}
-                    className="px-3 py-1.5 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 font-bold rounded-xl text-xs disabled:opacity-40 cursor-pointer"
-                  >
-                    Clear All
-                  </button>
+                <div className="p-3.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs">
+                  <span className="text-[10px] uppercase font-bold text-slate-400 block">Total Units</span>
+                  <span className="text-xl font-black text-indigo-600 dark:text-indigo-400 font-mono">
+                    {batchSummary.totalUnits} <span className="text-xs font-normal text-slate-400">pcs</span>
+                  </span>
+                </div>
 
-                  <button
-                    onClick={handleExportBatchCSV}
-                    disabled={batchList.length === 0}
-                    className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold rounded-xl text-xs disabled:opacity-40 cursor-pointer"
-                  >
-                    Export CSV
-                  </button>
+                <div className="p-3.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs">
+                  <span className="text-[10px] uppercase font-bold text-slate-400 block">Net Stock Variance</span>
+                  <span className={`text-xl font-black font-mono flex items-center gap-1 ${
+                    batchSummary.netVarianceUnits > 0
+                      ? 'text-emerald-500'
+                      : batchSummary.netVarianceUnits < 0
+                      ? 'text-rose-500'
+                      : 'text-slate-400'
+                  }`}>
+                    {batchSummary.netVarianceUnits > 0 ? `+${batchSummary.netVarianceUnits}` : batchSummary.netVarianceUnits} pcs
+                  </span>
+                </div>
 
-                  <button
-                    onClick={handleCommitBatch}
-                    disabled={batchList.length === 0}
-                    className="px-4 py-1.5 bg-amber-500 hover:bg-amber-600 text-slate-950 font-black rounded-xl text-xs shadow-md disabled:opacity-40 cursor-pointer"
-                  >
-                    Commit Stock Updates
-                  </button>
+                <div className="p-3.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs">
+                  <span className="text-[10px] uppercase font-bold text-slate-400 block">Net Valuation Diff</span>
+                  <span className={`text-xl font-black font-mono flex items-center gap-1 ${
+                    batchSummary.netValueImpact > 0
+                      ? 'text-emerald-500'
+                      : batchSummary.netValueImpact < 0
+                      ? 'text-rose-500'
+                      : 'text-slate-400'
+                  }`}>
+                    {batchSummary.netValueImpact >= 0 ? `+₹${batchSummary.netValueImpact.toFixed(2)}` : `-₹${Math.abs(batchSummary.netValueImpact).toFixed(2)}`}
+                  </span>
                 </div>
               </div>
 
-              {batchList.length === 0 ? (
-                <div className="py-8 text-center text-xs text-slate-400 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-2xl">
-                  No items in current batch session. Aim your scanner or use USB gun to populate.
-                </div>
-              ) : (
-                <div className="space-y-2.5 max-h-[300px] overflow-y-auto custom-scrollbar">
-                  {batchList.map((item, idx) => (
-                    <div
-                      key={item.id || idx}
-                      className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs"
+              {/* Main Batch Audit Container */}
+              <div className="p-5 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-xl space-y-4">
+                
+                {/* Header & Main Actions */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800 pb-3">
+                  <div>
+                    <h3 className="font-black text-sm text-slate-900 dark:text-white flex items-center gap-2">
+                      <FileSpreadsheet className="w-4 h-4 text-amber-500" />
+                      Interactive Batch Multi-Scan Queue ({batchList.length} items)
+                    </h3>
+                    <p className="text-xs text-slate-400">
+                      Select items or use bulk controls to edit quantities, switch actions, and add notes before committing:
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setShowCatalogPicker(!showCatalogPicker)}
+                      className="px-3 py-1.5 bg-indigo-50 dark:bg-indigo-950/60 hover:bg-indigo-100 dark:hover:bg-indigo-900/80 text-indigo-700 dark:text-indigo-300 font-bold rounded-xl text-xs transition-all flex items-center gap-1 cursor-pointer"
                     >
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2">
-                          <span className="font-bold text-slate-900 dark:text-white">{item.name}</span>
-                          <span className="font-mono text-slate-400 text-[10px]">({item.code})</span>
-                        </div>
-                        <input
-                          type="text"
-                          placeholder="Optional audit / PO note..."
-                          value={item.note || ''}
-                          onChange={(e) => {
-                            const val = e.target.value;
-                            setBatchList(prev => prev.map((b, i) => i === idx ? { ...b, note: val } : b));
-                          }}
-                          className="w-full md:w-64 px-2 py-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-[11px] text-slate-900 dark:text-white"
-                        />
+                      <Plus className="w-3.5 h-3.5" /> Add from Catalog
+                    </button>
+
+                    <button
+                      onClick={handleExportBatchCSV}
+                      disabled={batchList.length === 0}
+                      className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold rounded-xl text-xs disabled:opacity-40 cursor-pointer flex items-center gap-1"
+                    >
+                      <Download className="w-3.5 h-3.5" /> CSV
+                    </button>
+
+                    <button
+                      onClick={handleCommitBatch}
+                      disabled={batchList.length === 0}
+                      className="px-4 py-1.5 bg-amber-500 hover:bg-amber-600 text-slate-950 font-black rounded-xl text-xs shadow-md disabled:opacity-40 cursor-pointer flex items-center gap-1"
+                    >
+                      <Save className="w-3.5 h-3.5" /> Commit Updates
+                    </button>
+                  </div>
+                </div>
+
+                {/* Manual In-Queue Catalog Component Picker */}
+                {showCatalogPicker && (
+                  <div className="p-4 bg-indigo-50/60 dark:bg-indigo-950/40 rounded-2xl border border-indigo-200 dark:border-indigo-800/80 space-y-3 animate-fadeIn">
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-xs text-indigo-950 dark:text-indigo-200 flex items-center gap-1.5">
+                        <Search className="w-3.5 h-3.5 text-indigo-600" />
+                        Search & Add Components to Batch Session:
+                      </span>
+                      <button
+                        onClick={() => setShowCatalogPicker(false)}
+                        className="text-xs text-slate-400 hover:text-slate-600 dark:hover:text-white"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+
+                    <input
+                      type="text"
+                      placeholder="Type component name, barcode, SKU, or category to add..."
+                      value={catalogSearchQuery}
+                      onChange={(e) => setCatalogSearchQuery(e.target.value)}
+                      className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-indigo-200 dark:border-indigo-800 rounded-xl text-xs text-slate-900 dark:text-white focus:outline-none"
+                    />
+
+                    {filteredCatalogItems.length > 0 && (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1 max-h-[160px] overflow-y-auto custom-scrollbar">
+                        {filteredCatalogItems.map(item => (
+                          <div
+                            key={item.id}
+                            className="p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 flex items-center justify-between text-xs"
+                          >
+                            <div className="truncate pr-2">
+                              <span className="font-bold text-slate-900 dark:text-white block truncate">{item.name}</span>
+                              <span className="text-[10px] text-slate-400 font-mono">Stock: {item.stockQty} {item.unit} • {item.barcode || item.sku || item.id}</span>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                handleAddToBatch(item, Math.max(1, customQtyStep), 'add');
+                              }}
+                              className="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-lg text-[11px] shrink-0 cursor-pointer flex items-center gap-1"
+                            >
+                              <Plus className="w-3 h-3" /> Add (+{customQtyStep})
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* ========================================================================= */}
+                {/* 🎛️ BULK ACTION BAR (APPLY TO ALL OR SELECTED ROWS) */}
+                {/* ========================================================================= */}
+                {batchList.length > 0 && (
+                  <div className="p-3 bg-slate-50 dark:bg-slate-800/80 rounded-2xl border border-slate-200 dark:border-slate-700 space-y-2.5">
+                    <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={handleToggleSelectAll}
+                          className="flex items-center gap-1.5 font-bold text-slate-700 dark:text-slate-300 cursor-pointer"
+                        >
+                          {selectedBatchIds.size === batchList.length ? (
+                            <CheckSquare2 className="w-4 h-4 text-indigo-600" />
+                          ) : (
+                            <Square className="w-4 h-4 text-slate-400" />
+                          )}
+                          <span>
+                            {selectedBatchIds.size === 0
+                              ? `All Items (${batchList.length})`
+                              : `${selectedBatchIds.size} of ${batchList.length} Selected`}
+                          </span>
+                        </button>
                       </div>
 
-                      <div className="flex items-center gap-3">
-                        
-                        {/* Action Type: Add, Deduct, or Direct Count Set */}
-                        <select
-                          value={item.actionType}
-                          onChange={(e) => {
-                            const val = e.target.value as 'add' | 'deduct' | 'set';
-                            setBatchList(prev => prev.map((b, i) => i === idx ? { ...b, actionType: val } : b));
-                          }}
-                          className="px-2 py-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-[11px] font-bold text-slate-800 dark:text-slate-200"
-                        >
-                          <option value="add">+ Add Stock</option>
-                          <option value="deduct">- Deduct Stock</option>
-                          <option value="set">= Set Physical Count</option>
-                        </select>
-
-                        {/* Interactive Quantity Stepper */}
-                        <div className="flex items-center bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 p-0.5">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setBatchList(prev => prev.map((b, i) => i === idx ? { ...b, quantity: Math.max(1, b.quantity - 1) } : b));
-                            }}
-                            className="p-1 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-lg cursor-pointer"
-                          >
-                            <Minus className="w-3 h-3" />
-                          </button>
-                          <input
-                            type="number"
-                            min={1}
-                            value={item.quantity}
-                            onChange={(e) => {
-                              const val = Math.max(1, parseInt(e.target.value) || 1);
-                              setBatchList(prev => prev.map((b, i) => i === idx ? { ...b, quantity: val } : b));
-                            }}
-                            className="w-12 text-center font-mono font-bold text-xs bg-transparent text-slate-900 dark:text-white focus:outline-none"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setBatchList(prev => prev.map((b, i) => i === idx ? { ...b, quantity: b.quantity + 1 } : b));
-                            }}
-                            className="p-1 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-lg cursor-pointer"
-                          >
-                            <Plus className="w-3 h-3" />
-                          </button>
-                        </div>
-
-                        <span className="text-slate-400 font-mono text-[11px]">{item.unit}</span>
-
+                      {/* Bulk Mode Switchers */}
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="text-[10px] font-bold text-slate-400 uppercase">Set Action:</span>
                         <button
-                          onClick={() => setBatchList(prev => prev.filter((_, i) => i !== idx))}
-                          className="p-1.5 text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/60 rounded-lg transition-colors cursor-pointer"
-                          title="Remove item"
+                          type="button"
+                          onClick={() => handleBulkChangeAction('add')}
+                          className="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/60 dark:hover:bg-emerald-900/80 text-emerald-700 dark:text-emerald-300 font-bold rounded-lg text-[11px] border border-emerald-200 dark:border-emerald-800 cursor-pointer"
                         >
-                          <Trash2 className="w-4 h-4" />
+                          + Set All Add
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleBulkChangeAction('deduct')}
+                          className="px-2.5 py-1 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/60 dark:hover:bg-rose-900/80 text-rose-700 dark:text-rose-300 font-bold rounded-lg text-[11px] border border-rose-200 dark:border-rose-800 cursor-pointer"
+                        >
+                          - Set All Deduct
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleBulkChangeAction('set')}
+                          className="px-2.5 py-1 bg-cyan-50 hover:bg-cyan-100 dark:bg-cyan-950/60 dark:hover:bg-cyan-900/80 text-cyan-700 dark:text-cyan-300 font-bold rounded-lg text-[11px] border border-cyan-200 dark:border-cyan-800 cursor-pointer"
+                        >
+                          = Set All Count
                         </button>
                       </div>
                     </div>
-                  ))}
-                </div>
-              )}
+
+                    {/* Bulk Quantity Adjusters & Note Applier */}
+                    <div className="grid grid-cols-1 sm:grid-cols-12 gap-2 pt-1 border-t border-slate-200/80 dark:border-slate-700 text-xs">
+                      
+                      {/* Bulk Quantity Adjusters */}
+                      <div className="sm:col-span-6 flex items-center gap-1.5">
+                        <span className="text-[10px] font-bold text-slate-400 uppercase shrink-0">Bulk Qty:</span>
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => handleBulkAdjustQty(+1)}
+                            className="px-2 py-0.5 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-[11px] font-mono font-bold cursor-pointer"
+                          >
+                            +1
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleBulkAdjustQty(+5)}
+                            className="px-2 py-0.5 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-[11px] font-mono font-bold cursor-pointer"
+                          >
+                            +5
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleBulkAdjustQty(+10)}
+                            className="px-2 py-0.5 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-[11px] font-mono font-bold cursor-pointer"
+                          >
+                            +10
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleBulkAdjustQty(-1)}
+                            className="px-2 py-0.5 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-[11px] font-mono font-bold cursor-pointer text-rose-500"
+                          >
+                            -1
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Bulk Note & Delete Controls */}
+                      <div className="sm:col-span-6 flex items-center justify-end gap-1.5">
+                        <input
+                          type="text"
+                          placeholder="Apply PO / audit tag to batch..."
+                          value={bulkNoteInput}
+                          onChange={(e) => setBulkNoteInput(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' && bulkNoteInput.trim()) {
+                              handleBulkApplyNote(bulkNoteInput);
+                            }
+                          }}
+                          className="flex-1 px-2.5 py-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-[11px] text-slate-900 dark:text-white"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => handleBulkApplyNote(bulkNoteInput)}
+                          disabled={!bulkNoteInput.trim()}
+                          className="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-bold rounded-lg text-[11px] cursor-pointer shrink-0"
+                        >
+                          Apply Tag
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={handleBulkDelete}
+                          className="p-1.5 text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/60 rounded-lg cursor-pointer shrink-0"
+                          title={selectedBatchIds.size > 0 ? "Delete selected items" : "Clear all items"}
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Queue Items Table */}
+                {batchVarianceList.length === 0 ? (
+                  <div className="py-12 text-center text-xs text-slate-400 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-2xl space-y-2">
+                    <Package className="w-8 h-8 mx-auto text-slate-300 dark:text-slate-700" />
+                    <p className="font-bold">No items in current batch session.</p>
+                    <p className="text-[11px]">Aim your camera scanner, use hardware USB gun, or click "+ Add from Catalog".</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2.5 max-h-[340px] overflow-y-auto custom-scrollbar">
+                    {batchVarianceList.map((item, idx) => {
+                      const isSelected = selectedBatchIds.has(item.id);
+
+                      return (
+                        <div
+                          key={item.id || idx}
+                          className={`p-3.5 rounded-2xl border transition-all flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs ${
+                            isSelected
+                              ? 'bg-indigo-50/70 dark:bg-indigo-950/40 border-indigo-300 dark:border-indigo-700'
+                              : 'bg-slate-50 dark:bg-slate-800/60 border-slate-200 dark:border-slate-700'
+                          }`}
+                        >
+                          {/* Left: Selection + Title + Barcode + Live Variance Badge */}
+                          <div className="flex items-start gap-3">
+                            <button
+                              type="button"
+                              onClick={() => handleToggleSelectItem(item.id)}
+                              className="mt-1 text-slate-400 hover:text-indigo-600 cursor-pointer"
+                            >
+                              {isSelected ? (
+                                <CheckSquare2 className="w-4 h-4 text-indigo-600" />
+                              ) : (
+                                <Square className="w-4 h-4" />
+                              )}
+                            </button>
+
+                            <div className="space-y-1">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="font-black text-slate-900 dark:text-white text-xs">{item.name}</span>
+                                <span className="font-mono text-slate-400 text-[10px]">({item.code})</span>
+
+                                {/* Live Projected Variance Diff Badge */}
+                                <span className={`px-2 py-0.5 rounded-md font-mono font-bold text-[10px] flex items-center gap-1 ${
+                                  item.diff > 0
+                                    ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
+                                    : item.diff < 0
+                                    ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20'
+                                    : 'bg-slate-100 dark:bg-slate-700 text-slate-500'
+                                }`}>
+                                  {item.diff > 0 && <TrendingUp className="w-2.5 h-2.5" />}
+                                  {item.diff < 0 && <TrendingDown className="w-2.5 h-2.5" />}
+                                  <span>
+                                    {item.currentStock} ➔ {item.projectedStock} ({item.diff > 0 ? `+${item.diff}` : item.diff} {item.unit})
+                                  </span>
+                                </span>
+                              </div>
+
+                              {/* Editable Line Note Input */}
+                              <input
+                                type="text"
+                                placeholder="Add PO / Lot / Discrepancy note for this line..."
+                                value={item.note || ''}
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  setBatchList(prev => prev.map((b, i) => i === idx ? { ...b, note: val } : b));
+                                }}
+                                className="w-full md:w-72 px-2 py-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-[11px] text-slate-900 dark:text-white"
+                              />
+                            </div>
+                          </div>
+
+                          {/* Right: Mode Selector + Inline Stepper + Line Valuation */}
+                          <div className="flex items-center gap-2.5 flex-wrap justify-end">
+                            
+                            {/* Action Type Dropdown */}
+                            <select
+                              value={item.actionType}
+                              onChange={(e) => {
+                                const val = e.target.value as 'add' | 'deduct' | 'set';
+                                setBatchList(prev => prev.map((b, i) => i === idx ? { ...b, actionType: val } : b));
+                              }}
+                              className={`px-2.5 py-1 rounded-xl text-[11px] font-bold border transition-all cursor-pointer ${
+                                item.actionType === 'add'
+                                  ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border-emerald-300 dark:border-emerald-700'
+                                  : item.actionType === 'deduct'
+                                  ? 'bg-rose-50 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 border-rose-300 dark:border-rose-700'
+                                  : 'bg-cyan-50 dark:bg-cyan-950/60 text-cyan-700 dark:text-cyan-300 border-cyan-300 dark:border-cyan-700'
+                              }`}
+                            >
+                              <option value="add">+ Add Stock</option>
+                              <option value="deduct">- Deduct Stock</option>
+                              <option value="set">= Set Physical Count</option>
+                            </select>
+
+                            {/* Quantity Stepper */}
+                            <div className="flex items-center bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 p-0.5 shadow-xs">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setBatchList(prev => prev.map((b, i) => i === idx ? { ...b, quantity: Math.max(1, b.quantity - 1) } : b));
+                                }}
+                                className="p-1 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-lg cursor-pointer"
+                              >
+                                <Minus className="w-3 h-3" />
+                              </button>
+                              <input
+                                type="number"
+                                min={1}
+                                value={item.quantity}
+                                onChange={(e) => {
+                                  const val = Math.max(1, parseInt(e.target.value) || 1);
+                                  setBatchList(prev => prev.map((b, i) => i === idx ? { ...b, quantity: val } : b));
+                                }}
+                                className="w-12 text-center font-mono font-bold text-xs bg-transparent text-slate-900 dark:text-white focus:outline-none"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setBatchList(prev => prev.map((b, i) => i === idx ? { ...b, quantity: b.quantity + 1 } : b));
+                                }}
+                                className="p-1 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-lg cursor-pointer"
+                              >
+                                <Plus className="w-3 h-3" />
+                              </button>
+                            </div>
+
+                            {/* Financial Impact Label */}
+                            <span className="font-mono text-[11px] text-slate-400 w-16 text-right">
+                              {item.valueImpact >= 0 ? `+₹${item.valueImpact.toFixed(0)}` : `-₹${Math.abs(item.valueImpact).toFixed(0)}`}
+                            </span>
+
+                            {/* Remove Item */}
+                            <button
+                              type="button"
+                              onClick={() => setBatchList(prev => prev.filter((_, i) => i !== idx))}
+                              className="p-1.5 text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/60 rounded-lg transition-colors cursor-pointer"
+                              title="Remove item from batch queue"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
             </div>
           )}
 
