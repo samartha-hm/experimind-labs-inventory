@@ -42,7 +42,7 @@ import {
 } from 'lucide-react';
 import { useData } from '@/src/DataContext';
 import { useToast } from '@/src/contexts/ToastContext';
-import { InventoryItem, Kit } from '@/src/types';
+import { InventoryItem, KitBOM } from '@/src/types';
 import { playScanBeep, useBarcodeGunListener } from '@/src/utils/barcode';
 import { scanCanvasOrImage, decodeBarcodeFromImageFile } from '@/src/utils/barcodeEngine';
 
@@ -196,6 +196,7 @@ export default function BarcodeScannerModal({
       if (matchedItem) {
         const reqItem = (activeKit.items || []).find(r => r.componentId === matchedItem.id);
         if (reqItem) {
+          const reqQty = (reqItem as any).qty || (reqItem as any).quantity || 1;
           setScannedKitItems(prev => {
             const cur = prev[matchedItem.id] || 0;
             const updated = { ...prev, [matchedItem.id]: cur + 1 };
@@ -954,7 +955,8 @@ export default function BarcodeScannerModal({
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5 pt-1">
                 {(activeKit.items || []).map((req) => {
                   const item = inventory.find(i => i.id === req.componentId);
-                  const isPicked = (scannedKitItems[req.componentId] || 0) >= req.quantity;
+                  const requiredQty = (req as any).qty || (req as any).quantity || 1;
+                  const isPicked = (scannedKitItems[req.componentId] || 0) >= requiredQty;
                   const pickedQty = scannedKitItems[req.componentId] || 0;
 
                   return (
@@ -976,7 +978,7 @@ export default function BarcodeScannerModal({
                           <span className="font-bold truncate">{item?.name || req.componentId}</span>
                         </div>
                         <span className="text-[10px] text-slate-400 font-mono block pl-5">
-                          Bin: {item?.binLocation || 'Unassigned'} • Req: {req.quantity} {item?.unit || 'pcs'}
+                          Bin: {item?.binLocation || 'Unassigned'} • Req: {requiredQty} {item?.unit || 'pcs'}
                         </span>
                       </div>
 
@@ -985,7 +987,7 @@ export default function BarcodeScannerModal({
                           ? 'bg-emerald-500 text-white'
                           : 'bg-purple-100 dark:bg-purple-900/60 text-purple-700 dark:text-purple-300'
                       }`}>
-                        {pickedQty}/{req.quantity}
+                        {pickedQty}/{requiredQty}
                       </span>
                     </div>
                   );
