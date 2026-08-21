@@ -14,12 +14,16 @@ import {
   Sun,
   Moon,
   Menu,
+  Undo2,
+  Redo2,
+  Loader2
 } from 'lucide-react';
 import { InventoryItem, KitBOM } from '@/src/types';
 import BarcodeStudioModal from '@/src/shared/components/BarcodeStudioModal';
 import BarcodeScannerModal from '@/src/shared/components/BarcodeScannerModal';
 import TenantOnboardingModal from '@/src/features/tenant/components/TenantOnboardingModal';
 import { useTenant } from '@/src/contexts/TenantContext';
+import { useUndoRedo } from '@/src/contexts/UndoRedoContext';
 
 interface HeaderProps {
   inventory: InventoryItem[];
@@ -49,6 +53,7 @@ export default function Header({
   onToggleMobileMenu,
 }: HeaderProps) {
   const { activeTenant, tenants, setActiveTenantId, theme, toggleTheme } = useTenant();
+  const { past, future, undo, redo, isProcessing } = useUndoRedo();
   const [isQuickCreateOpen, setIsQuickCreateOpen] = useState(false);
   const [isTenantMenuOpen, setIsTenantMenuOpen] = useState(false);
   const [isOnboardingOpen, setIsOnboardingOpen] = useState(false);
@@ -57,6 +62,9 @@ export default function Header({
   const lowStockCount = inventory.filter(
     (item) => item.stockQty < item.threshold && !item.isCommon
   ).length;
+
+  const nextUndo = past.length > 0 ? past[past.length - 1] : null;
+  const nextRedo = future.length > 0 ? future[0] : null;
 
   return (
     <header className="bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border-b border-slate-200/80 dark:border-slate-800 sticky top-0 z-20 shadow-xs transition-colors">
@@ -135,8 +143,58 @@ export default function Header({
           </div>
         </div>
 
-        {/* Right Controls */}
+        {/* Right Controls: Undo/Redo Buttons, Scanner, Theme, Quick Create */}
         <div className="flex items-center gap-2 shrink-0">
+          
+          {/* Dedicated Global Header Undo & Redo Action Buttons */}
+          <div className="flex items-center bg-slate-100 dark:bg-slate-800/80 rounded-xl p-0.5 border border-slate-200/80 dark:border-slate-700">
+            {/* Undo Button */}
+            <button
+              onClick={() => undo()}
+              disabled={past.length === 0 || isProcessing}
+              title={nextUndo ? `Undo: ${nextUndo.name} (Ctrl+Z)` : 'Undo (Ctrl+Z) - No past actions'}
+              className={`p-1.5 px-2.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                past.length === 0 || isProcessing
+                  ? 'opacity-40 cursor-not-allowed text-slate-400 dark:text-slate-600'
+                  : 'hover:bg-white dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 hover:text-indigo-600 shadow-xs'
+              }`}
+            >
+              {isProcessing ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin text-indigo-500" />
+              ) : (
+                <Undo2 className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
+              )}
+              <span className="hidden xl:inline text-[11px]">Undo</span>
+              {past.length > 0 && (
+                <span className="px-1.5 py-0.2 rounded-full bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 text-[9px] font-mono font-bold">
+                  {past.length}
+                </span>
+              )}
+            </button>
+
+            <div className="w-px h-4 bg-slate-300 dark:bg-slate-700 mx-0.5" />
+
+            {/* Redo Button */}
+            <button
+              onClick={() => redo()}
+              disabled={future.length === 0 || isProcessing}
+              title={nextRedo ? `Redo: ${nextRedo.name} (Ctrl+Y)` : 'Redo (Ctrl+Y) - No future actions'}
+              className={`p-1.5 px-2.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                future.length === 0 || isProcessing
+                  ? 'opacity-40 cursor-not-allowed text-slate-400 dark:text-slate-600'
+                  : 'hover:bg-white dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 hover:text-emerald-600 shadow-xs'
+              }`}
+            >
+              <Redo2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+              <span className="hidden xl:inline text-[11px]">Redo</span>
+              {future.length > 0 && (
+                <span className="px-1.5 py-0.2 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 text-[9px] font-mono font-bold">
+                  {future.length}
+                </span>
+              )}
+            </button>
+          </div>
+
           {/* Barcode Scan Button */}
           <button
             onClick={() => {
@@ -147,7 +205,7 @@ export default function Header({
               }
             }}
             className="p-2 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 border border-indigo-200/80 dark:border-indigo-800 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs"
-            title="Scan Part Barcode / QR Code"
+            title="Scan Part Barcode / QR Code (Ctrl+B)"
           >
             <QrCode className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
             <span className="hidden lg:inline">Barcode Scan</span>
