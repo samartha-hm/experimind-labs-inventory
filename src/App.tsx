@@ -46,7 +46,7 @@ import { ApprovalProvider } from '@/src/contexts/ApprovalContext';
 import ToastContainer from '@/src/components/ToastContainer';
 
 function MainApp() {
-  const { inventory, kits, transactions, loading, addInventoryItem, updateInventoryItem, deleteInventoryItem, updateKitBOM, addKitBOM, logTransaction } = useData();
+  const { inventory, kits, transactions, loading, addInventoryItem, updateInventoryItem, deleteInventoryItem, updateKitBOM, addKitBOM, deleteKitBOM, logTransaction } = useData();
   const { user, role, signOut } = useAuth();
   const { addAction, isProcessing } = useUndoRedo();
   const [isResearchDrawerOpen, setIsResearchDrawerOpen] = useState(false);
@@ -311,8 +311,41 @@ function MainApp() {
               {activeTab === 'shop' && (
                 <ShopTab
                   inventory={inventory}
-                  onPlaceOrder={(orderData) => {
-                    console.log('New storefront order placed:', orderData);
+                  onPlaceOrder={async (orderData) => {
+                    try {
+                      await apiFetch('/api/v1/orders', {
+                        method: 'POST',
+                        body: JSON.stringify({
+                          customerName: orderData.customerName,
+                          customerEmail: orderData.customerEmail,
+                          customerPhone: orderData.phone,
+                          items: orderData.items.map((i: any) => ({
+                            itemId: i.assetId,
+                            quantity: i.quantity,
+                          })),
+                        }),
+                      });
+                      for (const it of orderData.items) {
+                        const existing = inventory.find((x) => x.id === it.assetId);
+                        if (existing) {
+                          const newQty = Math.max(0, existing.stockQty - it.quantity);
+                          await updateInventoryItem(existing.id, { stockQty: newQty });
+                        }
+                      }
+                      await logTransaction({
+                        id: `tx_${Date.now()}`,
+                        timestamp: new Date().toISOString(),
+                        type: 'adjust',
+                        description: `Storefront dispatch for ${orderData.customerName || 'Customer'} (#${orderData.orderId})`,
+                        items: orderData.items.map((i: any) => ({
+                          componentId: i.assetId,
+                          componentName: i.name,
+                          qtyDiff: -i.quantity,
+                        })),
+                      });
+                    } catch (err) {
+                      console.error('Storefront order placement error:', err);
+                    }
                   }}
                 />
               )}
@@ -343,8 +376,8 @@ function MainApp() {
                   transactions={transactions}
                   onCreateKitClick={() => setIsCreateKitModalOpen(true)}
                   onConfigureKitClick={() => setIsBOMModalOpen(true)}
-                  onDeleteKit={() => {}}
-                  onUpdateKitBOM={() => {}}
+                  onDeleteKit={(kitId) => deleteKitBOM(kitId)}
+                  onUpdateKitBOM={(kitId, reqs, meta) => updateKitBOM(kitId, reqs, meta)}
                 />
               )}
 

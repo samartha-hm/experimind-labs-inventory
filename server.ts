@@ -67,6 +67,7 @@ async function startServer() {
   // Rate Limiters
   const globalLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 1000, standardHeaders: true });
   const authLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: env.nodeEnv === "production" ? 100 : 1000, standardHeaders: true });
+  const aiLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 30, message: { error: "AI analysis rate limit exceeded. Please try again later." } });
 
   app.use(globalLimiter);
 
@@ -122,8 +123,8 @@ async function startServer() {
   app.use("/api/v1/setting", authenticateJwt, requireTenant, settingRoutes);
   app.use("/api/v1/audit-log", authenticateJwt, requireTenant, auditLogRoutes);
 
-  // ===== Existing AI analysis endpoint (unchanged) =====
-  app.post("/api/analyze", async (req, res) => {
+  // ===== Protected AI analysis endpoint =====
+  app.post("/api/analyze", aiLimiter, authenticateJwt, requireTenant, async (req, res) => {
     try {
       const {
         inventory,

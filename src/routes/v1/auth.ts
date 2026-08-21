@@ -38,7 +38,6 @@ router.post("/register", async (req, res) => {
         role: user.role,
       },
       token,
-      refreshToken,
     });
   } catch (e: any) {
     res.status(400).json({ error: e.message });
@@ -64,7 +63,6 @@ router.post("/login", async (req, res) => {
         role: user.role,
       },
       token,
-      refreshToken,
     });
   } catch (e: any) {
     res.status(400).json({ error: e.message });

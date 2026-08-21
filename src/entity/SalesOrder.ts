@@ -22,6 +22,9 @@ export class SalesOrder {
   @Column({ type: "varchar", unique: true })
   so_number: string;
 
+  @Column({ type: "uuid", name: "customer_id" })
+  customer_id: string;
+
   @ManyToOne(() => Customer, (c) => c.salesOrders)
   @JoinColumn({ name: "customer_id" })
   customer: Customer;

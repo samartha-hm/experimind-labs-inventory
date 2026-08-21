@@ -22,6 +22,9 @@ export class PurchaseOrder {
   @Column({ type: "varchar", unique: true })
   po_number: string;
 
+  @Column({ type: "uuid", name: "vendor_id" })
+  vendor_id: string;
+
   @ManyToOne(() => Vendor, (v) => v.purchaseOrders)
   @JoinColumn({ name: "vendor_id" })
   vendor: Vendor;

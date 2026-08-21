@@ -64,6 +64,18 @@ router.post("/razorpay", async (req: Request, res: Response) => {
           });
 
           if (order && order.status !== "paid") {
+            // Verify payment currency (must be INR)
+            if (paymentEntity?.currency && paymentEntity.currency.toUpperCase() !== "INR") {
+              throw new Error(`Currency mismatch. Expected INR, got ${paymentEntity.currency}`);
+            }
+
+            // Verify payment amount in paise equals order total in paise
+            const expectedPaise = Math.round(Number(order.total_amount) * 100);
+            const actualPaise = Number(paymentEntity?.amount);
+            if (actualPaise !== expectedPaise) {
+              throw new Error(`Payment amount mismatch. Order requires ${expectedPaise} paise, but received ${actualPaise} paise.`);
+            }
+
             order.status = "paid";
             order.razorpay_payment_id = razorpayPaymentId;
             await queryRunner.manager.save(order);
@@ -78,6 +90,9 @@ router.post("/razorpay", async (req: Request, res: Response) => {
                 lock: { mode: "pessimistic_write" },
               });
               if (item) {
+                if (item.quantity < line.quantity && !item.is_common) {
+                  console.warn(`[STOCK_DEFICIT] Item ${item.id} has ${item.quantity} units, ordered ${line.quantity}. Fulfilling remaining.`);
+                }
                 item.quantity = Math.max(0, item.quantity - line.quantity);
                 await queryRunner.manager.save(item);
               }

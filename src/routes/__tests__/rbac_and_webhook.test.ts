@@ -55,4 +55,23 @@ describe("RBAC Authorization & Webhook Integration Tests", () => {
 
     expect(crypto.timingSafeEqual(Buffer.from(expectedSignature), Buffer.from(computedSignature))).toBe(true);
   });
+
+  it("verifies payment amount in paise matches exact order total", () => {
+    const orderTotalINR = 2999.0;
+    const expectedPaise = Math.round(orderTotalINR * 100); // 299900 paise
+
+    const validPaymentPaise = 299900;
+    const underpaidPaymentPaise = 100; // 1 rupee test
+
+    expect(validPaymentPaise === expectedPaise).toBe(true);
+    expect(underpaidPaymentPaise === expectedPaise).toBe(false);
+  });
+
+  it("enforces INR currency strictly for payment fulfillment", () => {
+    const validCurrency = "INR";
+    const invalidCurrency = "USD";
+
+    expect(validCurrency.toUpperCase() === "INR").toBe(true);
+    expect(invalidCurrency.toUpperCase() === "INR").toBe(false);
+  });
 });

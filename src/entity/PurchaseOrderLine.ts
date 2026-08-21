@@ -13,9 +13,15 @@ export class PurchaseOrderLine {
   @PrimaryGeneratedColumn("uuid")
   id: string;
 
+  @Column({ type: "uuid", name: "po_id" })
+  po_id: string;
+
   @ManyToOne(() => PurchaseOrder, (po) => po.lines)
   @JoinColumn({ name: "po_id" })
   purchase_order: PurchaseOrder;
+
+  @Column({ type: "uuid", name: "inventory_item_id" })
+  inventory_item_id: string;
 
   @ManyToOne(() => InventoryItem, (i) => i.poLines)
   @JoinColumn({ name: "inventory_item_id" })

@@ -105,20 +105,26 @@ export class KitService {
     });
   }
 
-  async addToBom(kitId: string, inventoryItemId: string, qtyPerKit: number): Promise<KitBom> {
-    const kit = await this.kitRepo.findOneBy({ id: kitId });
+  async addToBom(kitId: string, inventoryItemId: string, qtyPerKit: number, organizationId?: string): Promise<KitBom> {
+    const kitWhere: any = { id: kitId };
+    if (organizationId) kitWhere.organization_id = organizationId;
+    const kit = await this.kitRepo.findOne({ where: kitWhere });
     if (!kit) {
-      throw new Error("Kit not found");
+      throw new Error("Kit not found or access denied");
     }
 
-    const inventoryItem = await this.inventoryRepo.findOneBy({ id: inventoryItemId });
+    const itemWhere: any = { id: inventoryItemId };
+    if (kit.organization_id) itemWhere.organization_id = kit.organization_id;
+    const inventoryItem = await this.inventoryRepo.findOne({ where: itemWhere });
     if (!inventoryItem) {
-      throw new Error("Inventory item not found");
+      throw new Error("Inventory item not found or belongs to another organization");
     }
 
-    const existing = await this.bomRepo.findOneBy({
-      kit: { id: kitId },
-      inventory_item: { id: inventoryItemId }
+    const existing = await this.bomRepo.findOne({
+      where: {
+        kit: { id: kitId },
+        inventory_item: { id: inventoryItemId }
+      }
     });
 
     if (existing) {

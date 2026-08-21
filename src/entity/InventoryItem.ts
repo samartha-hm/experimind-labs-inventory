@@ -73,9 +73,15 @@ export class InventoryItem {
   @Column({ type: "varchar", nullable: true })
   image_url?: string;
 
+  @Column({ type: "uuid", name: "warehouse_id", nullable: true })
+  warehouse_id?: string;
+
   @ManyToOne(() => Warehouse, (w) => w.inventory, { nullable: true })
   @JoinColumn({ name: "warehouse_id" })
   warehouse?: Warehouse;
+
+  @Column({ type: "uuid", name: "bin_id", nullable: true })
+  bin_id?: string;
 
   @ManyToOne("Bin", { nullable: true })
   @JoinColumn({ name: "bin_id" })
