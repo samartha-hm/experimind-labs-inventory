@@ -425,8 +425,8 @@ function MainApp() {
           onClose={() => setIsBOMModalOpen(false)}
           kit={activeKit}
           inventory={inventory}
-          onSaveBOM={async (kitId, updatedReqs) => {
-            await updateKitBOM(kitId, { items: updatedReqs });
+          onSaveBOM={async (kitId, updatedReqs, updatedMeta) => {
+            await updateKitBOM(kitId, updatedReqs, updatedMeta);
             setIsBOMModalOpen(false);
           }}
         />

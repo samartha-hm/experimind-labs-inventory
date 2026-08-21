@@ -23,7 +23,7 @@ interface DataContextType {
   
   // Kits (BOM)
   addKitBOM: (kit: Omit<KitBOM, 'id'>) => Promise<string>;
-  updateKitBOM: (kitId: string, updatedRequirements: BOMRequirement[]) => Promise<void>;
+  updateKitBOM: (kitId: string, updatedRequirements: BOMRequirement[] | { items?: BOMRequirement[] }, updatedMeta?: Partial<KitBOM>) => Promise<void>;
   deleteKitBOM: (id: string) => Promise<void>;
   
   // Transactions
@@ -464,17 +464,32 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const updateKitBOM = async (kitId: string, updatedRequirements: BOMRequirement[]) => {
+  const updateKitBOM = async (
+    kitId: string,
+    updatedRequirements: BOMRequirement[] | { items?: BOMRequirement[] },
+    updatedMeta?: Partial<KitBOM>
+  ) => {
     try {
       const kitToUpdate = kits.find(k => k.id === kitId);
       if (!kitToUpdate) return;
       const oldItems = kitToUpdate.items || [];
 
+      // Extract array safely if passed as array OR object { items: [...] }
+      const reqList: BOMRequirement[] = Array.isArray(updatedRequirements)
+        ? updatedRequirements
+        : Array.isArray((updatedRequirements as any)?.items)
+        ? (updatedRequirements as any).items
+        : [];
+
+      const updatedName = updatedMeta?.name || kitToUpdate.name;
+      const updatedDescription = updatedMeta?.description !== undefined ? updatedMeta.description : kitToUpdate.description;
+      const updatedImageUrl = updatedMeta?.imageUrl !== undefined ? updatedMeta.imageUrl : kitToUpdate.imageUrl;
+
       const payload = {
-        name: kitToUpdate.name,
-        description: kitToUpdate.description,
-        image_url: kitToUpdate.imageUrl,
-        bom_items: updatedRequirements.map(i => ({
+        name: updatedName,
+        description: updatedDescription,
+        image_url: updatedImageUrl,
+        bom_items: reqList.map(i => ({
           inventory_item_id: i.componentId,
           quantity: i.qty
         }))
@@ -486,11 +501,11 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
       const diffs: any[] = [];
       oldItems.forEach(oldI => {
-        const newI = updatedRequirements.find(i => i.componentId === oldI.componentId);
+        const newI = reqList.find(i => i.componentId === oldI.componentId);
         if (!newI) diffs.push({ field: 'removed_component', oldValue: oldI.componentId, newValue: null });
         else if (newI.qty !== oldI.qty) diffs.push({ field: `qty_${oldI.componentId}`, oldValue: oldI.qty, newValue: newI.qty });
       });
-      updatedRequirements.forEach(newI => {
+      reqList.forEach(newI => {
         if (!oldItems.some(i => i.componentId === newI.componentId)) {
           diffs.push({ field: 'added_component', oldValue: null, newValue: newI.componentId });
         }
@@ -500,15 +515,15 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         id: `tx_${Date.now()}`,
         timestamp: new Date().toISOString(),
         type: 'adjust',
-        description: `Updated BOM for kit "${kitToUpdate.name}"`,
-        kitName: kitToUpdate.name,
+        description: `Updated BOM for kit "${updatedName}"`,
+        kitName: updatedName,
         items: [],
         diffs
       });
 
       addAction({
         id: `upd_kit_${Date.now()}`,
-        name: `Update Kit BOM: ${kitToUpdate.name}`,
+        name: `Update Kit BOM: ${updatedName}`,
         undo: async () => {
           const oldPayload = {
             name: kitToUpdate.name,
