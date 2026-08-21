@@ -303,6 +303,8 @@ function MainApp() {
                   setSelectedKitId={setSelectedKitId}
                   onNavigateToTab={setActiveTab}
                   onCreateKitClick={() => setIsCreateKitModalOpen(true)}
+                  onOpenBarcodeScanner={() => setIsBarcodeScannerOpen(true)}
+                  onOpenBarcodeStudio={() => setIsBarcodeStudioOpen(true)}
                 />
               )}
 
