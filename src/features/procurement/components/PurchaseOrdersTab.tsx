@@ -22,6 +22,7 @@ import {
 import DocumentPreviewModal from '@/src/shared/components/DocumentPreviewModal';
 import PODocumentGeneratorModal from '@/src/features/procurement/components/PODocumentGeneratorModal';
 import { useData } from '@/src/DataContext';
+import { useApproval } from '@/src/contexts/ApprovalContext';
 
 interface PurchaseOrdersTabProps {
   role: string | null;
@@ -40,9 +41,9 @@ export default function PurchaseOrdersTab({ role }: PurchaseOrdersTabProps) {
   const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [selectedPoForPreview, setSelectedPoForPreview] = useState<any | null>(null);
-
-  // Edit PO Modal state
   const [editingPo, setEditingPo] = useState<any | null>(null);
+
+  const { createApprovalRequest, thresholds } = useApproval();
 
   const [newPo, setNewPo] = useState({
     vendorName: '',
@@ -55,17 +56,38 @@ export default function PurchaseOrdersTab({ role }: PurchaseOrdersTabProps) {
     e.preventDefault();
     if (!newPo.vendorName) return;
 
+    const amount = parseFloat(newPo.totalAmount) || 2500.0;
+    const poNumber = `PO-2026-0${orders.length + 100}`;
+    const requiresApproval = amount >= thresholds.poTier1Threshold;
+
     const po = {
-      poNumber: `PO-2026-0${orders.length + 100}`,
+      poNumber,
       vendorName: newPo.vendorName,
       orderDate: new Date().toISOString().split('T')[0],
       expectedDate: newPo.expectedDate || '2026-08-10',
-      status: newPo.status || 'draft',
-      totalAmount: parseFloat(newPo.totalAmount) || 2500.0,
+      status: requiresApproval ? 'pending_approval' : (newPo.status || 'draft'),
+      totalAmount: amount,
       itemCount: 5,
     };
 
-    await addPurchaseOrder(po);
+    const newId = await addPurchaseOrder(po);
+
+    if (requiresApproval) {
+      await createApprovalRequest({
+        type: 'purchase_order',
+        targetId: poNumber,
+        title: `Procurement PO for ${newPo.vendorName} (Amount: ₹${amount.toLocaleString()})`,
+        submittedBy: { id: 'usr_staff', name: 'Procurement Specialist', role: 'Staff' },
+        requiredTier: amount >= thresholds.poTier2Threshold ? 'tier2_finance_admin' : 'tier1_procurement',
+        amount: amount,
+        payload: po,
+        diffs: [
+          { field: 'Purchase Order Total', oldValue: '₹0 (New PO)', newValue: `₹${amount.toLocaleString()}` },
+          { field: 'Vendor', oldValue: 'None', newValue: newPo.vendorName }
+        ]
+      });
+    }
+
     setIsCreateModalOpen(false);
     setNewPo({ vendorName: '', expectedDate: '', totalAmount: '', status: 'draft' });
   };

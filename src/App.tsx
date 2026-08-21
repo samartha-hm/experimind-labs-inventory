@@ -35,11 +35,14 @@ import StockTransferTab from '@/src/features/warehouse/components/StockTransferT
 import BatchExpiryTab from '@/src/features/inventory/components/BatchExpiryTab';
 import CompAIVoiceAssistant from '@/src/features/copilot/components/CompAIVoiceAssistant';
 import Warehouse3DDigitalTwin from '@/src/features/warehouse/components/Warehouse3DDigitalTwin';
+import FloorPlanDesignerTab from '@/src/features/warehouse/components/FloorPlanDesignerTab';
+import ApprovalCenterTab from '@/src/features/compliance/components/ApprovalCenterTab';
 import GlobalLogisticsMapTab from '@/src/features/procurement/components/GlobalLogisticsMapTab';
 import BarcodeStudioModal from '@/src/shared/components/BarcodeStudioModal';
 import BarcodeScannerModal from '@/src/shared/components/BarcodeScannerModal';
 import { TenantProvider } from '@/src/contexts/TenantContext';
 import { ToastProvider } from '@/src/contexts/ToastContext';
+import { ApprovalProvider } from '@/src/contexts/ApprovalContext';
 import ToastContainer from '@/src/components/ToastContainer';
 
 function MainApp() {
@@ -375,6 +378,10 @@ function MainApp() {
                 <WarehousesTab role={role} />
               )}
 
+              {activeTab === 'floor_plan' && (
+                <FloorPlanDesignerTab />
+              )}
+
               {activeTab === 'warehouse_heatmap' && (
                 <WarehouseHeatmapTab />
               )}
@@ -401,6 +408,10 @@ function MainApp() {
                   kits={kits}
                   selectedKitId={selectedKitId}
                 />
+              )}
+
+              {activeTab === 'approval_center' && (
+                <ApprovalCenterTab />
               )}
 
               {activeTab === 'history' && (
@@ -576,10 +587,12 @@ export default function App() {
   return (
     <TenantProvider>
       <ToastProvider>
-        <DataProvider>
-          <ToastContainer />
-          <MainApp />
-        </DataProvider>
+        <ApprovalProvider>
+          <DataProvider>
+            <ToastContainer />
+            <MainApp />
+          </DataProvider>
+        </ApprovalProvider>
       </ToastProvider>
     </TenantProvider>
   );

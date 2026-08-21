@@ -26,6 +26,8 @@ import {
   Globe,
 } from 'lucide-react';
 
+import { useApproval } from '@/src/contexts/ApprovalContext';
+
 interface SidebarProps {
   activeTab: string;
   setActiveTab: (tab: string) => void;
@@ -49,6 +51,8 @@ export default function Sidebar({
   isOpenMobile = false,
   onCloseMobile,
 }: SidebarProps) {
+  const { pendingCount } = useApproval();
+
   const sections = [
     {
       title: 'CORE',
@@ -70,6 +74,7 @@ export default function Sidebar({
         { id: 'kitting', label: 'Composite Kits (BOM)', icon: <Package className="w-4 h-4" /> },
         { id: 'batch_expiry', label: 'Batch Expiry Tracker', icon: <Tag className="w-4 h-4" />, badge: 'Lots', badgeColor: 'bg-rose-500/20 text-rose-300 border-rose-500/30' },
         { id: 'warehouses', label: 'Warehouses & Bins', icon: <Warehouse className="w-4 h-4" /> },
+        { id: 'floor_plan', label: 'Warehouse 2D Floor Plan', icon: <Layers className="w-4 h-4" />, badge: 'Blueprint', badgeColor: 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30' },
         { id: 'warehouse_heatmap', label: 'Warehouse 2D Heatmap', icon: <MapPin className="w-4 h-4" /> },
         { id: 'warehouse_3d', label: '3D Digital Twin Map', icon: <Layers className="w-4 h-4" />, badge: '3D WebGL', badgeColor: 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30' },
         { id: 'stock_transfer', label: 'Stock Transfer (STO)', icon: <ArrowRightLeft className="w-4 h-4" /> },
@@ -109,6 +114,7 @@ export default function Sidebar({
     {
       title: 'COMPLIANCE & AUDIT',
       items: [
+        { id: 'approval_center', label: 'Approval Center & Roles', icon: <ShieldCheck className="w-4 h-4" />, badge: pendingCount > 0 ? `${pendingCount} Pending` : 'Governance', badgeColor: pendingCount > 0 ? 'bg-amber-500/30 text-amber-300 border-amber-500/40' : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' },
         { id: 'compliance', label: 'SOC2 & GDPR Security', icon: <Lock className="w-4 h-4" />, badge: 'SHA256', badgeColor: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' },
         { id: 'history', label: 'Revision History', icon: <History className="w-4 h-4" />, badge: 'Audit', badgeColor: 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30' },
       ],

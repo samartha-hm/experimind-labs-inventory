@@ -31,6 +31,7 @@ import { useToast } from '@/src/contexts/ToastContext';
 import { InventoryItem } from '@/src/types';
 import BarcodeSvg from '@/src/shared/components/BarcodeSvg';
 import VisualStockRoom from './VisualStockRoom';
+import FloorPlanDesignerTab from './FloorPlanDesignerTab';
 
 interface WarehousesTabProps {
   role: string | null;
@@ -51,7 +52,7 @@ export default function WarehousesTab({ role }: WarehousesTabProps) {
   } = useData();
   const { showToast } = useToast();
 
-  const [activeViewMode, setActiveViewMode] = useState<'visual_shelf' | 'topology'>('visual_shelf');
+  const [activeViewMode, setActiveViewMode] = useState<'visual_shelf' | 'floor_plan' | 'topology'>('visual_shelf');
 
   // Search & Filter
   const [searchQuery, setSearchQuery] = useState('');
@@ -182,40 +183,57 @@ export default function WarehousesTab({ role }: WarehousesTabProps) {
     <div className="space-y-6 w-full animate-fadeIn">
       {/* Top View Mode Navigation Switcher */}
       <div className="bg-white dark:bg-slate-900 p-2 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-2">
-        <div className="flex items-center gap-1.5 w-full sm:w-auto">
+        <div className="flex flex-wrap items-center gap-1.5 w-full sm:w-auto">
           <button
             onClick={() => setActiveViewMode('visual_shelf')}
-            className={`flex-1 sm:flex-none px-4 py-2.5 rounded-xl font-black text-xs transition-all flex items-center justify-center gap-2 cursor-pointer ${
+            className={`flex-1 sm:flex-none px-3.5 py-2.5 rounded-xl font-black text-xs transition-all flex items-center justify-center gap-2 cursor-pointer ${
               activeViewMode === 'visual_shelf'
                 ? 'bg-indigo-600 text-white shadow-md'
                 : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
             }`}
           >
             <Building2 className="w-4 h-4 text-amber-400" />
-            <span>Visual Shelving & Plywood Storage Matrix</span>
+            <span>Visual Shelving Matrix</span>
+          </button>
+
+          <button
+            onClick={() => setActiveViewMode('floor_plan')}
+            className={`flex-1 sm:flex-none px-3.5 py-2.5 rounded-xl font-black text-xs transition-all flex items-center justify-center gap-2 cursor-pointer ${
+              activeViewMode === 'floor_plan'
+                ? 'bg-indigo-600 text-white shadow-md'
+                : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
+            }`}
+          >
+            <MapPin className="w-4 h-4 text-emerald-400" />
+            <span>2D Floor Plan Blueprint</span>
           </button>
 
           <button
             onClick={() => setActiveViewMode('topology')}
-            className={`flex-1 sm:flex-none px-4 py-2.5 rounded-xl font-black text-xs transition-all flex items-center justify-center gap-2 cursor-pointer ${
+            className={`flex-1 sm:flex-none px-3.5 py-2.5 rounded-xl font-black text-xs transition-all flex items-center justify-center gap-2 cursor-pointer ${
               activeViewMode === 'topology'
                 ? 'bg-indigo-600 text-white shadow-md'
                 : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
             }`}
           >
             <Layers className="w-4 h-4 text-indigo-400" />
-            <span>Facilities Topology & Bins Database</span>
+            <span>Facilities Topology & Bins</span>
           </button>
         </div>
 
-        <span className="text-xs text-slate-500 font-medium px-3 hidden md:inline">
-          {activeViewMode === 'visual_shelf' ? 'Realistic Rack & Wooden Box Allotment' : 'Facility & Bin Management'}
+        <span className="text-xs text-slate-500 font-medium px-3 hidden xl:inline">
+          {activeViewMode === 'visual_shelf' ? 'Physical Storage Units & Compartments' : activeViewMode === 'floor_plan' ? 'Top-Down Spatial Blueprint' : 'Facility & Bin Management'}
         </span>
       </div>
 
       {/* RENDER VIEW 1: VISUAL PHYSICAL STORAGE MATRIX */}
       {activeViewMode === 'visual_shelf' && (
         <VisualStockRoom />
+      )}
+
+      {/* RENDER VIEW 2: 2D FLOOR PLAN DESIGNER */}
+      {activeViewMode === 'floor_plan' && (
+        <FloorPlanDesignerTab />
       )}
 
       {/* RENDER VIEW 2: TOPOLOGY & BINS DATABASE */}
