@@ -257,6 +257,11 @@ export default function BarcodeScannerModal({
     }
   }, [activeMode, relocateStep, scannedItem, findItemByCode, soundEnabled, customQtyStep, inboundNote, outboundNote, activeKit]);
 
+  const handleCodeScannedRef = useRef(handleCodeScanned);
+  useEffect(() => {
+    handleCodeScannedRef.current = handleCodeScanned;
+  }, [handleCodeScanned]);
+
   // Start Camera Stream directly with native getUserMedia and custom frame grabber
   const startCameraStream = useCallback(async (deviceIdToUse?: string) => {
     if (!isOpen || !videoRef.current) return;
@@ -280,7 +285,16 @@ export default function BarcodeScannerModal({
 
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
-        await videoRef.current.play();
+        try {
+          const playPromise = videoRef.current.play();
+          if (playPromise !== undefined) {
+            await playPromise.catch((e: any) => {
+              if (e.name !== 'AbortError') {
+                console.warn('Video play exception:', e);
+              }
+            });
+          }
+        } catch (_) {}
       }
 
       setIsCameraActive(true);
@@ -331,7 +345,7 @@ export default function BarcodeScannerModal({
             
             if (decodedResult && decodedResult.trim()) {
               lastFrameDecodeTime = now;
-              handleCodeScanned(decodedResult);
+              handleCodeScannedRef.current(decodedResult);
             }
           }
         } catch (_) {
@@ -341,12 +355,14 @@ export default function BarcodeScannerModal({
       }, 160);
 
     } catch (err: any) {
-      console.warn('Camera stream initialisation error:', err);
+      if (err.name !== 'AbortError') {
+        console.warn('Camera stream initialisation error:', err);
+        setCameraError(err.message || 'Camera permission denied or camera not accessible.');
+      }
       setIsCameraActive(false);
       setIsStartingCamera(false);
-      setCameraError(err.message || 'Camera permission denied or camera not accessible.');
     }
-  }, [isOpen, facingMode, selectedCameraId, handleCodeScanned, isCameraPaused]);
+  }, [isOpen, facingMode, selectedCameraId, isCameraPaused]);
 
   // Toggle Torch / Flashlight
   const handleToggleTorch = async () => {
@@ -1040,14 +1056,14 @@ export default function BarcodeScannerModal({
                   <span className="text-[10px] font-bold text-slate-400 uppercase block">Unit Cost</span>
                   <strong className="text-slate-900 dark:text-white font-mono flex items-center gap-1 mt-0.5">
                     <DollarSign className="w-3.5 h-3.5 text-emerald-500" />
-                    ₹{scannedItem.unitCost.toFixed(2)}
+                    ₹{(scannedItem.unitCost ?? scannedItem.basePrice ?? 0).toFixed(2)}
                   </strong>
                 </div>
 
                 <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/80">
                   <span className="text-[10px] font-bold text-slate-400 uppercase block">Safety Stock</span>
                   <strong className="text-slate-900 dark:text-white font-mono mt-0.5 block">
-                    {scannedItem.minSafetyStock} {scannedItem.unit}
+                    {scannedItem.threshold ?? (scannedItem as any).minSafetyStock ?? 0} {scannedItem.unit}
                   </strong>
                 </div>
 
