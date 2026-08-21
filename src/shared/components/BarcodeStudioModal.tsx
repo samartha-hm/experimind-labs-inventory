@@ -43,21 +43,32 @@ export default function BarcodeStudioModal({ isOpen, onClose, inventory }: Barco
   // Batch Multi-Select State
   const [selectedItemIds, setSelectedItemIds] = useState<Set<string>>(() => new Set(inventory.slice(0, 24).map(i => i.id)));
 
-  if (!isOpen) return null;
+  const categories = useMemo(() => {
+    return Array.from(new Set(inventory.map((i) => i.category || 'General Components')));
+  }, [inventory]);
 
-  const categories = Array.from(new Set(inventory.map((i) => i.category || 'General Components')));
-  const selectedItem = inventory.find((i) => i.id === selectedItemId) || inventory[0];
+  const selectedItem = useMemo(() => {
+    return inventory.find((i) => i.id === selectedItemId) || inventory[0];
+  }, [inventory, selectedItemId]);
 
-  const filteredInventory = inventory.filter((item) => {
-    const matchesCat = batchCategory === 'ALL' || (item.category || 'General Components') === batchCategory;
-    const matchesSearch = !searchSKU ||
-      item.name.toLowerCase().includes(searchSKU.toLowerCase()) ||
-      item.id.toLowerCase().includes(searchSKU.toLowerCase()) ||
-      (item.sku && item.sku.toLowerCase().includes(searchSKU.toLowerCase())) ||
-      (item.barcode && item.barcode.toLowerCase().includes(searchSKU.toLowerCase())) ||
-      (item.binLocation && item.binLocation.toLowerCase().includes(searchSKU.toLowerCase()));
-    return matchesCat && matchesSearch;
-  });
+  const filteredInventory = useMemo(() => {
+    return inventory.filter((item) => {
+      const matchesCat = batchCategory === 'ALL' || (item.category || 'General Components') === batchCategory;
+      const matchesSearch = !searchSKU ||
+        item.name.toLowerCase().includes(searchSKU.toLowerCase()) ||
+        item.id.toLowerCase().includes(searchSKU.toLowerCase()) ||
+        (item.sku && item.sku.toLowerCase().includes(searchSKU.toLowerCase())) ||
+        (item.barcode && item.barcode.toLowerCase().includes(searchSKU.toLowerCase())) ||
+        (item.binLocation && item.binLocation.toLowerCase().includes(searchSKU.toLowerCase()));
+      return matchesCat && matchesSearch;
+    });
+  }, [inventory, batchCategory, searchSKU]);
+
+  // Get array of selected items for batch operations
+  const itemsToPrint = useMemo(() => {
+    if (printMode === 'single' && selectedItem) return [selectedItem];
+    return inventory.filter(i => selectedItemIds.has(i.id));
+  }, [printMode, selectedItem, inventory, selectedItemIds]);
 
   const toggleSelectItem = (id: string) => {
     setSelectedItemIds(prev => {
@@ -75,12 +86,6 @@ export default function BarcodeStudioModal({ isOpen, onClose, inventory }: Barco
   const handleDeselectAll = () => {
     setSelectedItemIds(new Set());
   };
-
-  // Get array of selected items for batch operations
-  const itemsToPrint = useMemo(() => {
-    if (printMode === 'single' && selectedItem) return [selectedItem];
-    return inventory.filter(i => selectedItemIds.has(i.id));
-  }, [printMode, selectedItem, inventory, selectedItemIds]);
 
   const handleDownloadPdf = async () => {
     if (itemsToPrint.length === 0) {
@@ -104,6 +109,9 @@ export default function BarcodeStudioModal({ isOpen, onClose, inventory }: Barco
     window.print();
     showToast('success', 'Sending to Printer', `Printing ${itemsToPrint.length * copiesPerItem} label(s)`);
   };
+
+  // Safe early return AFTER all hooks
+  if (!isOpen) return null;
 
   return createPortal(
     <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-md flex items-center justify-center p-4 z-[9999] overflow-y-auto animate-fadeIn">
@@ -165,7 +173,7 @@ export default function BarcodeStudioModal({ isOpen, onClose, inventory }: Barco
               <select
                 value={sheetFormat}
                 onChange={(e) => setSheetFormat(e.target.value as LabelSheetFormat)}
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white font-bold focus:outline-none focus:border-indigo-500"
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white font-bold focus:outline-none focus:border-indigo-500 cursor-pointer"
               >
                 <option value="a4_24">A4 Sheet (24-up / Avery 5160 - 70x37mm)</option>
                 <option value="a4_40">A4 Compact Sheet (40-up / 48x25mm)</option>
@@ -219,7 +227,7 @@ export default function BarcodeStudioModal({ isOpen, onClose, inventory }: Barco
               <select
                 value={selectedItemId}
                 onChange={(e) => setSelectedItemId(e.target.value)}
-                className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-3 text-xs font-bold text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-3 text-xs font-bold text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 cursor-pointer"
               >
                 {inventory.map((item) => (
                   <option key={item.id} value={item.id}>
@@ -321,7 +329,7 @@ export default function BarcodeStudioModal({ isOpen, onClose, inventory }: Barco
                 <select
                   value={batchCategory}
                   onChange={(e) => setBatchCategory(e.target.value)}
-                  className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-1.5 text-xs font-bold text-slate-800 dark:text-slate-100"
+                  className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-1.5 text-xs font-bold text-slate-800 dark:text-slate-100 cursor-pointer"
                 >
                   <option value="ALL">All Categories ({inventory.length})</option>
                   {categories.map((cat) => (
