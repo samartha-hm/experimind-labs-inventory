@@ -436,8 +436,15 @@ export default function BOMCustomizerModal({
         {/* Modal Footer */}
         {activeTab === 'editor' && (
           <div className="border-t border-slate-100 bg-white p-5 flex items-center justify-between sticky bottom-0">
-            <div className="flex items-center gap-4 text-xs font-bold text-slate-400 uppercase tracking-widest">
-              <span>{requirements.length} Components</span>
+            <div className="flex items-center gap-4 text-xs font-bold">
+              <span className="text-slate-400 uppercase tracking-widest">{requirements.length} Components</span>
+              <span className="font-mono text-indigo-600 font-black">
+                Total Material Cost: ₹{requirements.reduce((sum, req) => {
+                  const part = inventory.find((inv) => inv.id === req.componentId);
+                  const cost = Number(part?.unitCost ?? part?.basePrice ?? 0);
+                  return sum + (cost * req.qty);
+                }, 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+              </span>
             </div>
             <div className="flex items-center gap-3">
               <button

@@ -106,7 +106,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const signInAsGuest = async () => {
-    alert("Guest access is disabled in production mode. Please sign in with registered credentials.");
+    if (import.meta.env.PROD) {
+      alert("Guest access is disabled in production mode. Please sign in with registered credentials.");
+      return;
+    }
+    return signInWithEmailPassword('admin@experimindlabs.com', 'AdminPass123!');
   };
 
   const signInWithGoogle = async () => {

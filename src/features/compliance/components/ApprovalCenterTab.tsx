@@ -57,12 +57,14 @@ export default function ApprovalCenterTab() {
     if (!reviewingRequest) return;
     if (actionType === 'APPROVE') {
       await approveRequest(reviewingRequest.id, reviewNote.trim() || 'Approved via Governance Console.');
+      showToast('success', `Authorized and approved ${reviewingRequest.title}`);
     } else {
       if (!reviewNote.trim()) {
-        alert('Please provide a reason for rejecting this request.');
+        showToast('error', 'Please provide a reason for rejecting this request.');
         return;
       }
       await rejectRequest(reviewingRequest.id, reviewNote.trim());
+      showToast('info', `Rejected ${reviewingRequest.title}`);
     }
     setReviewingRequest(null);
     setReviewNote('');

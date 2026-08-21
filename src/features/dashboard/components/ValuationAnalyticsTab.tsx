@@ -12,23 +12,23 @@ export default function ValuationAnalyticsTab({ inventory, kits }: ValuationAnal
   const [currency, setCurrency] = useState<'INR' | 'USD'>('INR');
 
   const symbol = currency === 'INR' ? '₹' : '$';
-  const rateMultiplier = currency === 'INR' ? 83.5 : 1.0;
+  const rateMultiplier = currency === 'INR' ? 1.0 : (1.0 / 83.5);
 
   // Compute Total Capital Tied Up
-  const totalValuationUSD = inventory.reduce((sum, item) => {
+  const totalValuationNative = inventory.reduce((sum, item) => {
     const qty = item.isCommon ? 100 : item.stockQty;
-    const unitPrice = item.unitCost || item.basePrice || 12.5;
+    const unitPrice = item.unitCost || item.basePrice || 0;
     return sum + (qty * unitPrice);
   }, 0);
 
-  const totalValuation = totalValuationUSD * (currency === 'INR' ? rateMultiplier : 1.0);
+  const totalValuation = totalValuationNative * rateMultiplier;
 
   // Group by Category
   const categoryValuation = inventory.reduce((acc, item) => {
     const cat = item.category || 'General';
     const qty = item.isCommon ? 100 : item.stockQty;
-    const unitPrice = item.unitCost || item.basePrice || 12.5;
-    const val = qty * unitPrice * (currency === 'INR' ? rateMultiplier : 1.0);
+    const unitPrice = item.unitCost || item.basePrice || 0;
+    const val = qty * unitPrice * rateMultiplier;
     acc[cat] = (acc[cat] || 0) + val;
     return acc;
   }, {} as Record<string, number>);

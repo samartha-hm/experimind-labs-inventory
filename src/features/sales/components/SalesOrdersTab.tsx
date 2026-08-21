@@ -225,7 +225,7 @@ export default function SalesOrdersTab({ role }: SalesOrdersTabProps) {
               </div>
 
               <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
-                <span className="text-base font-black text-slate-900">${so.totalAmount.toFixed(2)}</span>
+                <span className="text-base font-black text-slate-900 font-mono">₹{so.totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
                 <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${
                   so.status === 'delivered' ? 'bg-emerald-100 text-emerald-800' : so.status === 'picking' ? 'bg-amber-100 text-amber-800' : 'bg-slate-100 text-slate-600'
                 }`}>
@@ -261,7 +261,7 @@ export default function SalesOrdersTab({ role }: SalesOrdersTabProps) {
                       {so.status}
                     </span>
                   </td>
-                  <td className="p-4 font-mono font-bold text-slate-900">${so.totalAmount.toFixed(2)}</td>
+                  <td className="p-4 font-mono font-bold text-slate-900">₹{so.totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
                   <td className="p-4 text-right space-x-2">
                     <button onClick={() => setSelectedSoForPreview(so)} className="p-1 text-slate-400 hover:text-purple-600">
                       <Eye className="w-4 h-4" />
@@ -381,13 +381,13 @@ export default function SalesOrdersTab({ role }: SalesOrdersTabProps) {
                 </div>
 
                 <div>
-                  <label className="block font-bold text-slate-500 uppercase text-[10px] mb-1">Total Amount ($)</label>
+                  <label className="block font-bold text-slate-500 uppercase text-[10px] mb-1">Total Amount (₹ INR)</label>
                   <input
                     type="number"
                     step="0.01"
                     value={editingSo.totalAmount}
                     onChange={(e) => setEditingSo({ ...editingSo, totalAmount: parseFloat(e.target.value) || 0 })}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs focus:outline-none"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs focus:outline-none font-mono"
                   />
                 </div>
               </div>
@@ -425,11 +425,11 @@ export default function SalesOrdersTab({ role }: SalesOrdersTabProps) {
 
             <form onSubmit={handleCreateSo} className="space-y-3 text-xs">
               <div>
-                <label className="block font-bold text-slate-500 uppercase text-[10px] mb-1">Customer Name *</label>
+                <label className="block font-bold text-slate-500 uppercase text-[10px] mb-1">Customer / School Name *</label>
                 <input
                   type="text"
                   required
-                  placeholder="e.g. Robotics Research Lab"
+                  placeholder="e.g. Apex High School Robotics Club"
                   value={newSo.customerName}
                   onChange={(e) => setNewSo({ ...newSo, customerName: e.target.value })}
                   className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs focus:outline-none"
@@ -488,14 +488,14 @@ export default function SalesOrdersTab({ role }: SalesOrdersTabProps) {
                   />
                 </div>
                 <div>
-                  <label className="block font-bold text-slate-500 uppercase text-[10px] mb-1">Total Amount ($)</label>
+                  <label className="block font-bold text-slate-500 uppercase text-[10px] mb-1">Total Amount (₹ INR)</label>
                   <input
                     type="number"
                     step="0.01"
                     placeholder="1200.00"
                     value={newSo.totalAmount}
                     onChange={(e) => setNewSo({ ...newSo, totalAmount: e.target.value })}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs focus:outline-none"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs focus:outline-none font-mono"
                   />
                 </div>
               </div>

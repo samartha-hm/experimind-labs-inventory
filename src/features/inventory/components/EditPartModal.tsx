@@ -28,6 +28,7 @@ export default function EditPartModal({
   const [name, setName] = useState(item.name);
   const [category, setCategory] = useState(item.category);
   const [stock, setStock] = useState(item.stockQty.toString());
+  const [unitCost, setUnitCost] = useState((item.unitCost ?? item.basePrice ?? 0).toString());
   const [unit, setUnit] = useState(item.unit);
   const [threshold, setThreshold] = useState(item.threshold.toString());
   const [binLocation, setBinLocation] = useState(item.binLocation || '');
@@ -43,6 +44,7 @@ export default function EditPartModal({
       setName(item.name);
       setCategory(item.category);
       setStock(item.stockQty.toString());
+      setUnitCost((item.unitCost ?? item.basePrice ?? 0).toString());
       setUnit(item.unit);
       setThreshold(item.threshold.toString());
       setBinLocation(item.binLocation || '');
@@ -67,6 +69,8 @@ export default function EditPartModal({
         name: name.trim(),
         category,
         stockQty: Math.max(0, parseInt(stock) || 0),
+        unitCost: Math.max(0, parseFloat(unitCost) || 0),
+        basePrice: Math.max(0, parseFloat(unitCost) || 0),
         unit: unit || 'pcs',
         threshold: Math.max(0, parseInt(threshold) || 0),
         binLocation: binLocation.trim() || undefined,
@@ -165,7 +169,7 @@ export default function EditPartModal({
                     />
                   </div>
 
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-3 gap-3">
                     <div>
                       <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">
                         Category
@@ -192,6 +196,19 @@ export default function EditPartModal({
                         value={unit}
                         onChange={(e) => setUnit(e.target.value)}
                         className="w-full text-xs text-slate-800 border border-slate-200 rounded-xl p-2.5 focus:ring-2 focus:ring-indigo-500 bg-slate-50 focus:bg-white transition-all font-bold"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">
+                        Unit Cost (₹ INR)
+                      </label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={unitCost}
+                        onChange={(e) => setUnitCost(e.target.value)}
+                        className="w-full text-xs text-slate-800 border border-slate-200 rounded-xl p-2.5 focus:ring-2 focus:ring-indigo-500 bg-slate-50 focus:bg-white transition-all font-bold font-mono"
                       />
                     </div>
                   </div>

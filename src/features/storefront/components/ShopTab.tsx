@@ -200,7 +200,7 @@ export default function ShopTab({ inventory, onPlaceOrder }: ShopTabProps) {
   };
 
   const cartSubtotal = cart.reduce(
-    (sum, c) => sum + c.qty * (c.item.basePrice || 10.0),
+    (sum, c) => sum + c.qty * Number(c.item.unitCost ?? c.item.basePrice ?? 10.0),
     0
   );
 
@@ -235,7 +235,7 @@ export default function ShopTab({ inventory, onPlaceOrder }: ShopTabProps) {
           assetId: c.item.id,
           name: c.item.name,
           quantity: c.qty,
-          price: c.item.basePrice || 10.0,
+          price: Number(c.item.unitCost ?? c.item.basePrice ?? 10.0),
         })),
         createdAt: new Date().toISOString(),
       };
@@ -544,7 +544,7 @@ export default function ShopTab({ inventory, onPlaceOrder }: ShopTabProps) {
                   <div>
                     <div className="text-[9px] font-bold uppercase text-slate-400">Standard Price</div>
                     <div className="text-base font-black text-slate-900 dark:text-slate-100 font-mono">
-                      ₹{(asset.basePrice || 10.0).toFixed(2)}
+                      ₹{Number(asset.unitCost ?? asset.basePrice ?? 10.0).toFixed(2)}
                     </div>
                   </div>
 
@@ -597,7 +597,7 @@ export default function ShopTab({ inventory, onPlaceOrder }: ShopTabProps) {
                   <div className="flex items-center gap-6 shrink-0" onClick={(e) => e.stopPropagation()}>
                     <div className="text-right">
                       <div className="font-black text-slate-900 dark:text-slate-100 text-sm font-mono">
-                        ₹{(asset.basePrice || 10.0).toFixed(2)}
+                        ₹{Number(asset.unitCost ?? asset.basePrice ?? 10.0).toFixed(2)}
                       </div>
                       <div className="text-[10px] font-bold">
                         {isOutOfStock ? (

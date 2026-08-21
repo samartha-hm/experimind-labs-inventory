@@ -240,7 +240,7 @@ export default function PurchaseOrdersTab({ role }: PurchaseOrdersTabProps) {
               </div>
 
               <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
-                <span className="text-base font-black text-slate-900">${po.totalAmount.toFixed(2)}</span>
+                <span className="text-base font-black text-slate-900 font-mono">₹{po.totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
                 <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${
                   po.status === 'received' ? 'bg-emerald-100 text-emerald-800' : po.status === 'approved' ? 'bg-blue-100 text-blue-800' : 'bg-slate-100 text-slate-600'
                 }`}>
@@ -276,7 +276,7 @@ export default function PurchaseOrdersTab({ role }: PurchaseOrdersTabProps) {
                       {po.status}
                     </span>
                   </td>
-                  <td className="p-4 font-mono font-bold text-slate-900">${po.totalAmount.toFixed(2)}</td>
+                  <td className="p-4 font-mono font-bold text-slate-900">₹{po.totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
                   <td className="p-4 text-right space-x-2">
                     <button onClick={() => setSelectedPoForPreview(po)} className="p-1 text-slate-400 hover:text-indigo-600">
                       <Eye className="w-4 h-4" />
@@ -365,13 +365,13 @@ export default function PurchaseOrdersTab({ role }: PurchaseOrdersTabProps) {
                 </div>
 
                 <div>
-                  <label className="block font-bold text-slate-500 uppercase text-[10px] mb-1">Total Amount ($)</label>
+                  <label className="block font-bold text-slate-500 uppercase text-[10px] mb-1">Total Amount (₹ INR)</label>
                   <input
                     type="number"
                     step="0.01"
                     value={editingPo.totalAmount}
                     onChange={(e) => setEditingPo({ ...editingPo, totalAmount: parseFloat(e.target.value) || 0 })}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs focus:outline-none"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs focus:outline-none font-mono"
                   />
                 </div>
               </div>
@@ -431,7 +431,7 @@ export default function PurchaseOrdersTab({ role }: PurchaseOrdersTabProps) {
                   />
                 </div>
                 <div>
-                  <label className="block font-bold text-slate-500 uppercase text-[10px] mb-1">Total Amount ($)</label>
+                  <label className="block font-bold text-slate-500 uppercase text-[10px] mb-1">Total Amount (₹ INR)</label>
                   <input
                     type="number"
                     step="0.01"

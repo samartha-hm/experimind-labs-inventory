@@ -674,7 +674,7 @@ export default function InventoryTab({
 
                 {/* Stock +/- Stepper Controls & Edit Trigger */}
                 <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between" onClick={(e) => e.stopPropagation()}>
-                  <div className="text-xs font-bold text-slate-900 dark:text-white">${(item.basePrice || 0).toFixed(2)}</div>
+                  <div className="text-xs font-bold text-slate-900 dark:text-white font-mono">₹{Number(item.unitCost ?? item.basePrice ?? 0).toFixed(2)}</div>
                   <div className="flex items-center gap-1">
                     <button
                       onClick={() => onUpdateStock(item.id, Math.max(0, item.stockQty - getItemStep(item.id)))}
