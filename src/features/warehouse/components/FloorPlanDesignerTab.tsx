@@ -28,14 +28,19 @@ import {
   Footprints,
   ShieldAlert,
   Edit2,
-  Tag
+  Tag,
+  Search,
+  Wrench,
+  Cpu,
+  Zap,
+  RotateCcw
 } from 'lucide-react';
 import { useData } from '@/src/DataContext';
 import { useToast } from '@/src/contexts/ToastContext';
 
 export interface FloorPlanElement {
   id: string;
-  type: 'rack' | 'plywood_grid' | 'cabinet' | 'workbench' | 'dock_inbound' | 'dock_outbound' | 'door' | 'pathway' | 'hazmat_zone';
+  type: 'rack' | 'plywood_grid' | 'cabinet' | 'workbench' | 'dock_inbound' | 'dock_outbound' | 'door' | 'pathway' | 'hazmat_zone' | 'equipment';
   label: string;
   sublabel?: string;
   linkedRackCode?: string; // e.g. 'RACK-01', 'PLY-01'
@@ -49,8 +54,23 @@ export interface FloorPlanElement {
   notes?: string;
 }
 
-const PALETTE_TEMPLATES: Omit<FloorPlanElement, 'id' | 'x' | 'y'>[] = [
+export interface PaletteTemplate {
+  id: string;
+  type: 'rack' | 'plywood_grid' | 'cabinet' | 'workbench' | 'dock_inbound' | 'dock_outbound' | 'door' | 'pathway' | 'hazmat_zone' | 'equipment';
+  label: string;
+  sublabel?: string;
+  linkedRackCode?: string;
+  width: number;
+  height: number;
+  rotation: 0 | 90 | 180 | 270;
+  color: string;
+  zone?: string;
+  notes?: string;
+}
+
+const DEFAULT_PALETTE_TEMPLATES: PaletteTemplate[] = [
   {
+    id: 'tmpl_01',
     type: 'rack',
     label: 'Rack 1 — Main Steel Shelf',
     sublabel: 'Science & Lab Storage',
@@ -63,6 +83,7 @@ const PALETTE_TEMPLATES: Omit<FloorPlanElement, 'id' | 'x' | 'y'>[] = [
     notes: 'Multi-tier steel shelving rack for plastic totes'
   },
   {
+    id: 'tmpl_02',
     type: 'plywood_grid',
     label: '🪵 Plywood Pigeonhole Matrix',
     sublabel: 'Hardware & Fastener Cubbies',
@@ -75,6 +96,7 @@ const PALETTE_TEMPLATES: Omit<FloorPlanElement, 'id' | 'x' | 'y'>[] = [
     notes: 'Rectangular wooden box matrix organizer'
   },
   {
+    id: 'tmpl_03',
     type: 'cabinet',
     label: '🗄️ Chemical Safety Cabinet',
     sublabel: 'Hazmat & Battery Storage',
@@ -87,6 +109,7 @@ const PALETTE_TEMPLATES: Omit<FloorPlanElement, 'id' | 'x' | 'y'>[] = [
     notes: 'Enclosed flame-retardant storage cabinet'
   },
   {
+    id: 'tmpl_04',
     type: 'workbench',
     label: '📦 ESD Assembly Workbench',
     sublabel: 'Soldering & QC Inspection',
@@ -98,6 +121,31 @@ const PALETTE_TEMPLATES: Omit<FloorPlanElement, 'id' | 'x' | 'y'>[] = [
     notes: 'Static-dissipative ESD packing workbench'
   },
   {
+    id: 'tmpl_05',
+    type: 'equipment',
+    label: '🔬 PCB SMT Soldering & Test Station',
+    sublabel: 'Microcontroller Programming',
+    width: 200,
+    height: 90,
+    rotation: 0,
+    color: '#06b6d4',
+    zone: 'Cleanroom Lab',
+    notes: 'Soldering iron, hot air rework, oscilloscope'
+  },
+  {
+    id: 'tmpl_06',
+    type: 'equipment',
+    label: '🤖 3D Printer & Laser CNC Farm',
+    sublabel: 'Rapid Prototyping Bay',
+    width: 210,
+    height: 95,
+    rotation: 0,
+    color: '#8b5cf6',
+    zone: 'Maker Lab',
+    notes: 'Additive manufacturing enclosure'
+  },
+  {
+    id: 'tmpl_07',
     type: 'dock_inbound',
     label: '🚚 Inbound Receiving Dock',
     sublabel: 'Pallet Staging & Unloading',
@@ -109,17 +157,19 @@ const PALETTE_TEMPLATES: Omit<FloorPlanElement, 'id' | 'x' | 'y'>[] = [
     notes: 'Freight pallet receiving and intake inspection'
   },
   {
+    id: 'tmpl_08',
     type: 'dock_outbound',
     label: '📤 Outbound Dispatch Dock',
     sublabel: 'Courier & Freight Staging',
     width: 210,
     height: 90,
     rotation: 0,
-    color: '#8b5cf6',
+    color: '#ec4899',
     zone: 'Dispatch Bay',
     notes: 'Outbound kit shipping and courier handoff'
   },
   {
+    id: 'tmpl_09',
     type: 'door',
     label: '🚪 Personnel Entry / Fire Exit',
     sublabel: 'Security RFID Access',
@@ -131,6 +181,7 @@ const PALETTE_TEMPLATES: Omit<FloorPlanElement, 'id' | 'x' | 'y'>[] = [
     notes: 'Personnel security access door'
   },
   {
+    id: 'tmpl_10',
     type: 'hazmat_zone',
     label: '🚧 Hazardous Secondary Staging',
     sublabel: 'Chemical Spill Containment',
@@ -236,7 +287,7 @@ const DEFAULT_FLOOR_PLANS: Record<string, FloorPlanElement[]> = {
       width: 200,
       height: 90,
       rotation: 0,
-      color: '#8b5cf6',
+      color: '#ec4899',
       zone: 'Dispatch Bay'
     },
     {
@@ -255,6 +306,19 @@ const DEFAULT_FLOOR_PLANS: Record<string, FloorPlanElement[]> = {
   ]
 };
 
+const COLOR_PRESETS = [
+  { label: 'Blue (Rack)', value: '#3b82f6' },
+  { label: 'Woodgrain (Plywood)', value: '#d97706' },
+  { label: 'Emerald (Workbench)', value: '#10b981' },
+  { label: 'Cyan (Lab/Electronics)', value: '#06b6d4' },
+  { label: 'Purple (CNC/Equipment)', value: '#8b5cf6' },
+  { label: 'Rose (Safety/Chemical)', value: '#ef4444' },
+  { label: 'Indigo (Inbound)', value: '#6366f1' },
+  { label: 'Pink (Dispatch)', value: '#ec4899' },
+  { label: 'Amber (Hazmat)', value: '#f59e0b' },
+  { label: 'Slate (Doors/Walls)', value: '#64748b' },
+];
+
 export default function FloorPlanDesignerTab() {
   const { warehouses, inventory, bins } = useData();
   const { showToast } = useToast();
@@ -265,7 +329,39 @@ export default function FloorPlanDesignerTab() {
   const [selectedElementId, setSelectedElementId] = useState<string | null>(null);
   const [isEditingElementModal, setIsEditingElementModal] = useState<boolean>(false);
 
-  // Edit element form
+  // Palette Templates State (Customizable & Editable)
+  const [paletteTemplates, setPaletteTemplates] = useState<PaletteTemplate[]>(() => {
+    try {
+      const saved = localStorage.getItem('experimind_custom_spatial_palette_v2');
+      return saved ? JSON.parse(saved) : DEFAULT_PALETTE_TEMPLATES;
+    } catch (_) {
+      return DEFAULT_PALETTE_TEMPLATES;
+    }
+  });
+
+  const savePaletteTemplates = (newTemplates: PaletteTemplate[]) => {
+    setPaletteTemplates(newTemplates);
+    try {
+      localStorage.setItem('experimind_custom_spatial_palette_v2', JSON.stringify(newTemplates));
+    } catch (_) {}
+  };
+
+  // Palette Template Modal State (Add or Edit)
+  const [isPaletteModalOpen, setIsPaletteModalOpen] = useState(false);
+  const [editingTemplate, setEditingTemplate] = useState<PaletteTemplate | null>(null);
+  const [templateLabel, setTemplateLabel] = useState('');
+  const [templateSublabel, setTemplateSublabel] = useState('');
+  const [templateType, setTemplateType] = useState<PaletteTemplate['type']>('rack');
+  const [templateColor, setTemplateColor] = useState('#3b82f6');
+  const [templateZone, setTemplateZone] = useState('Zone A');
+  const [templateWidth, setTemplateWidth] = useState(220);
+  const [templateHeight, setTemplateHeight] = useState(100);
+  const [templateLinkedRack, setTemplateLinkedRack] = useState('');
+
+  // Palette Search Filter
+  const [paletteSearch, setPaletteSearch] = useState('');
+
+  // Edit element on canvas form
   const [editLabel, setEditLabel] = useState('');
   const [editSublabel, setEditSublabel] = useState('');
   const [editZone, setEditZone] = useState('');
@@ -330,8 +426,8 @@ export default function FloorPlanDesignerTab() {
     });
   };
 
-  // Add Element from Palette
-  const handleAddElement = (template: typeof PALETTE_TEMPLATES[0]) => {
+  // Add Element from Palette to Canvas
+  const handleAddElement = (template: PaletteTemplate) => {
     const newEl: FloorPlanElement = {
       ...template,
       id: `el_${Date.now()}_${Math.random().toString(36).substring(2, 5)}`,
@@ -344,7 +440,94 @@ export default function FloorPlanDesignerTab() {
     showToast('success', 'Element Placed', `Placed "${newEl.label}" onto the canvas.`);
   };
 
-  // Rotate Element
+  // Open Template Modal (Create New or Edit)
+  const handleOpenCreateTemplate = () => {
+    setEditingTemplate(null);
+    setTemplateLabel('');
+    setTemplateSublabel('');
+    setTemplateType('rack');
+    setTemplateColor('#3b82f6');
+    setTemplateZone('Zone A (General)');
+    setTemplateWidth(220);
+    setTemplateHeight(100);
+    setTemplateLinkedRack('');
+    setIsPaletteModalOpen(true);
+  };
+
+  const handleOpenEditTemplate = (e: React.MouseEvent, tmpl: PaletteTemplate) => {
+    e.stopPropagation();
+    setEditingTemplate(tmpl);
+    setTemplateLabel(tmpl.label);
+    setTemplateSublabel(tmpl.sublabel || '');
+    setTemplateType(tmpl.type);
+    setTemplateColor(tmpl.color || '#3b82f6');
+    setTemplateZone(tmpl.zone || '');
+    setTemplateWidth(tmpl.width || 220);
+    setTemplateHeight(tmpl.height || 100);
+    setTemplateLinkedRack(tmpl.linkedRackCode || '');
+    setIsPaletteModalOpen(true);
+  };
+
+  const handleDeleteTemplate = (e: React.MouseEvent, templateId: string) => {
+    e.stopPropagation();
+    if (confirm('Delete this template from the spatial palette?')) {
+      const updated = paletteTemplates.filter(t => t.id !== templateId);
+      savePaletteTemplates(updated);
+      showToast('info', 'Template Removed', 'Removed item from the spatial palette.');
+    }
+  };
+
+  const handleSaveTemplateSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!templateLabel.trim()) return;
+
+    if (editingTemplate) {
+      // Update existing template
+      const updated = paletteTemplates.map(t =>
+        t.id === editingTemplate.id
+          ? {
+              ...t,
+              label: templateLabel.trim(),
+              sublabel: templateSublabel.trim(),
+              type: templateType,
+              color: templateColor,
+              zone: templateZone.trim(),
+              width: Number(templateWidth) || 220,
+              height: Number(templateHeight) || 100,
+              linkedRackCode: templateLinkedRack.trim(),
+            }
+          : t
+      );
+      savePaletteTemplates(updated);
+      showToast('success', 'Template Updated', `Updated palette template "${templateLabel}".`);
+    } else {
+      // Create new template
+      const newTmpl: PaletteTemplate = {
+        id: `tmpl_${Date.now()}`,
+        label: templateLabel.trim(),
+        sublabel: templateSublabel.trim(),
+        type: templateType,
+        color: templateColor,
+        zone: templateZone.trim(),
+        width: Number(templateWidth) || 220,
+        height: Number(templateHeight) || 100,
+        rotation: 0,
+        linkedRackCode: templateLinkedRack.trim(),
+      };
+      savePaletteTemplates([...paletteTemplates, newTmpl]);
+      showToast('success', 'Template Created', `Added "${templateLabel}" to the spatial palette!`);
+    }
+    setIsPaletteModalOpen(false);
+  };
+
+  const handleResetPalette = () => {
+    if (confirm('Reset the spatial element palette back to default templates?')) {
+      savePaletteTemplates(DEFAULT_PALETTE_TEMPLATES);
+      showToast('success', 'Palette Reset', 'Restored default spatial element templates.');
+    }
+  };
+
+  // Rotate Element on Canvas
   const handleRotateSelected = () => {
     if (!selectedElementId) return;
     const updated = elements.map(e => {
@@ -357,7 +540,7 @@ export default function FloorPlanDesignerTab() {
     saveFloorPlan(updated);
   };
 
-  // Delete Element
+  // Delete Element from Canvas
   const handleDeleteSelected = () => {
     if (!selectedElementId) return;
     const updated = elements.filter(e => e.id !== selectedElementId);
@@ -366,7 +549,7 @@ export default function FloorPlanDesignerTab() {
     showToast('info', 'Element Removed', 'Removed element from floor plan.');
   };
 
-  // Open Edit Dialog
+  // Open Canvas Element Edit Dialog
   const handleOpenEditModal = () => {
     if (!selectedElement) return;
     setEditLabel(selectedElement.label);
@@ -449,6 +632,15 @@ export default function FloorPlanDesignerTab() {
     }
   };
 
+  const filteredPalette = useMemo(() => {
+    if (!paletteSearch.trim()) return paletteTemplates;
+    return paletteTemplates.filter(t =>
+      t.label.toLowerCase().includes(paletteSearch.toLowerCase()) ||
+      (t.sublabel && t.sublabel.toLowerCase().includes(paletteSearch.toLowerCase())) ||
+      (t.zone && t.zone.toLowerCase().includes(paletteSearch.toLowerCase()))
+    );
+  }, [paletteTemplates, paletteSearch]);
+
   return (
     <div className="space-y-6 w-full animate-fadeIn select-none">
       
@@ -464,7 +656,7 @@ export default function FloorPlanDesignerTab() {
                 2D Interactive Warehouse Floor Plan Designer
               </h2>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 font-medium">
-                Top-down spatial blueprint. Drag and position storage racks, pigeonhole matrixes, packing benches, and docks.
+                Top-down spatial blueprint. Drag and position customizable storage racks, pigeonhole matrixes, packing benches, and equipment.
               </p>
             </div>
           </div>
@@ -534,23 +726,52 @@ export default function FloorPlanDesignerTab() {
       {/* Main Designer Canvas & Palette Container */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
         
-        {/* Left 3 Cols: Spatial Element Palette & Quick Templates */}
-        <div className="lg:col-span-3 space-y-4">
+        {/* Left 4 Cols: Spatial Element Palette & Quick Templates */}
+        <div className="lg:col-span-4 space-y-4">
           
-          {/* Spatial Palette */}
-          <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800 p-5 shadow-xs space-y-3">
-            <h3 className="font-black text-xs uppercase tracking-wider text-slate-400 flex items-center gap-2">
-              <Box className="w-4 h-4 text-indigo-600" />
-              Spatial Element Palette
-            </h3>
-            <p className="text-[11px] text-slate-500 font-medium">Click to place elements onto the 2D grid:</p>
+          {/* Spatial Palette Container */}
+          <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800 p-5 shadow-xs space-y-3.5">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Box className="w-4 h-4 text-indigo-600" />
+                <h3 className="font-black text-xs uppercase tracking-wider text-slate-900 dark:text-white">
+                  Spatial Element Palette ({paletteTemplates.length})
+                </h3>
+              </div>
 
-            <div className="space-y-2">
-              {PALETTE_TEMPLATES.map((tmpl, idx) => (
-                <button
-                  key={idx}
+              {/* ➕ Add Custom Spatial Element to Palette */}
+              <button
+                onClick={handleOpenCreateTemplate}
+                className="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold text-[10px] shadow-xs flex items-center gap-1 cursor-pointer transition-all"
+                title="Create a new custom spatial template"
+              >
+                <Plus className="w-3.5 h-3.5" /> + New Element
+              </button>
+            </div>
+
+            <p className="text-[11px] text-slate-500 font-medium">
+              Click <Plus className="w-3 h-3 inline text-indigo-500" /> to place on canvas, or hover to <strong>edit/customize</strong> any template:
+            </p>
+
+            {/* Palette Search Filter */}
+            <div className="relative">
+              <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                type="text"
+                placeholder="Search spatial templates..."
+                value={paletteSearch}
+                onChange={(e) => setPaletteSearch(e.target.value)}
+                className="w-full pl-8 pr-3 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-white font-medium focus:outline-none focus:ring-1 focus:ring-indigo-500/30"
+              />
+            </div>
+
+            {/* Scrollable Templates List */}
+            <div className="space-y-2 max-h-[380px] overflow-y-auto pr-1 custom-scrollbar">
+              {filteredPalette.map((tmpl) => (
+                <div
+                  key={tmpl.id}
                   onClick={() => handleAddElement(tmpl)}
-                  className="w-full p-2.5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 border border-slate-200/80 dark:border-slate-700 hover:border-indigo-300 text-left transition-all cursor-pointer flex items-center justify-between group"
+                  className="w-full p-2.5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 hover:bg-indigo-50/70 dark:hover:bg-indigo-950/40 border border-slate-200/80 dark:border-slate-700 hover:border-indigo-400 text-left transition-all cursor-pointer flex items-center justify-between group relative"
                 >
                   <div className="flex items-center gap-2.5 truncate">
                     <div
@@ -566,9 +787,48 @@ export default function FloorPlanDesignerTab() {
                       )}
                     </div>
                   </div>
-                  <Plus className="w-4 h-4 text-slate-400 group-hover:text-indigo-600 shrink-0" />
-                </button>
+
+                  {/* Actions: Place, Edit, Delete */}
+                  <div className="flex items-center gap-1 shrink-0">
+                    <button
+                      onClick={(e) => handleOpenEditTemplate(e, tmpl)}
+                      className="p-1 text-slate-400 hover:text-indigo-600 hover:bg-indigo-100 dark:hover:bg-slate-700 rounded-lg transition-colors cursor-pointer"
+                      title="Edit this palette template"
+                    >
+                      <Edit2 className="w-3.5 h-3.5" />
+                    </button>
+
+                    <button
+                      onClick={(e) => handleDeleteTemplate(e, tmpl.id)}
+                      className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-100 dark:hover:bg-slate-700 rounded-lg transition-colors cursor-pointer"
+                      title="Delete this template"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+
+                    <div className="p-1 text-indigo-600 dark:text-indigo-400">
+                      <Plus className="w-4 h-4" />
+                    </div>
+                  </div>
+                </div>
               ))}
+
+              {filteredPalette.length === 0 && (
+                <div className="py-6 text-center text-xs text-slate-400">
+                  No templates match your search. Click "+ New Element" above to create one.
+                </div>
+              )}
+            </div>
+
+            {/* Reset Palette button */}
+            <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex justify-between items-center text-[10px]">
+              <span className="text-slate-400 font-mono">Customized Palette</span>
+              <button
+                onClick={handleResetPalette}
+                className="text-slate-400 hover:text-amber-500 font-bold flex items-center gap-1 cursor-pointer"
+              >
+                <RotateCcw className="w-3 h-3" /> Reset Defaults
+              </button>
             </div>
           </div>
 
@@ -587,8 +847,8 @@ export default function FloorPlanDesignerTab() {
           </div>
         </div>
 
-        {/* Center/Right 9 Cols: Interactive Blueprint Canvas & Inspector Drawer */}
-        <div className="lg:col-span-9 space-y-4">
+        {/* Center/Right 8 Cols: Interactive Blueprint Canvas & Inspector Drawer */}
+        <div className="lg:col-span-8 space-y-4">
           
           {/* Active Canvas Action Toolbar (When Element Selected) */}
           <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-3 shadow-xs flex items-center justify-between gap-3 text-xs">
@@ -791,7 +1051,155 @@ export default function FloorPlanDesignerTab() {
         </div>
       </div>
 
-      {/* EDIT ELEMENT PROPERTIES MODAL */}
+      {/* ========================================================================= */}
+      {/* 1. PALETTE TEMPLATE CREATOR / EDITOR MODAL */}
+      {/* ========================================================================= */}
+      {isPaletteModalOpen && (
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 z-[9999] animate-fadeIn">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl w-full max-w-lg p-6 space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+              <div className="flex items-center gap-2">
+                <Box className="w-5 h-5 text-indigo-600" />
+                <h3 className="text-base font-black text-slate-900 dark:text-white">
+                  {editingTemplate ? 'Edit Spatial Palette Template' : 'Create New Spatial Palette Element'}
+                </h3>
+              </div>
+              <button
+                onClick={() => setIsPaletteModalOpen(false)}
+                className="p-1.5 text-slate-400 hover:text-white rounded-xl hover:bg-slate-800 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveTemplateSubmit} className="space-y-3.5 text-xs">
+              <div>
+                <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">Element Label *</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. 🔬 Optical Sensor Testing Bay"
+                  value={templateLabel}
+                  onChange={(e) => setTemplateLabel(e.target.value)}
+                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 dark:text-white focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">Subtitle / Equipment Type</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Spectrometer & Lux Meter Bench"
+                  value={templateSublabel}
+                  onChange={(e) => setTemplateSublabel(e.target.value)}
+                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white focus:outline-none"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">Element Type</label>
+                  <select
+                    value={templateType}
+                    onChange={(e) => setTemplateType(e.target.value as any)}
+                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 dark:text-white focus:outline-none"
+                  >
+                    <option value="rack">🏗️ Steel Shelving Rack</option>
+                    <option value="plywood_grid">🪵 Plywood Pigeonhole Matrix</option>
+                    <option value="cabinet">🗄️ Chemical / Safety Cabinet</option>
+                    <option value="workbench">📦 Assembly Workbench</option>
+                    <option value="equipment">🔬 Lab Testing Equipment / CNC</option>
+                    <option value="dock_inbound">🚚 Inbound Receiving Dock</option>
+                    <option value="dock_outbound">📤 Outbound Dispatch Dock</option>
+                    <option value="door">🚪 Security Door / Exit</option>
+                    <option value="hazmat_zone">🚧 Hazardous Staging Zone</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">Facility Zone</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Zone A (Assembly)"
+                    value={templateZone}
+                    onChange={(e) => setTemplateZone(e.target.value)}
+                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              {/* Color Preset Palette */}
+              <div>
+                <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1.5">Theme Color</label>
+                <div className="flex flex-wrap items-center gap-2">
+                  {COLOR_PRESETS.map((preset) => (
+                    <button
+                      key={preset.value}
+                      type="button"
+                      onClick={() => setTemplateColor(preset.value)}
+                      className={`w-7 h-7 rounded-xl flex items-center justify-center transition-all cursor-pointer shadow-xs ${
+                        templateColor === preset.value ? 'ring-2 ring-white scale-110' : 'hover:scale-105'
+                      }`}
+                      style={{ backgroundColor: preset.value }}
+                      title={preset.label}
+                    >
+                      {templateColor === preset.value && <Check className="w-4 h-4 text-white stroke-[3]" />}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">Default Width (px)</label>
+                  <input
+                    type="number"
+                    min={80}
+                    max={500}
+                    step={10}
+                    value={templateWidth}
+                    onChange={(e) => setTemplateWidth(Number(e.target.value))}
+                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 dark:text-white focus:outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">Default Height (px)</label>
+                  <input
+                    type="number"
+                    min={40}
+                    max={400}
+                    step={10}
+                    value={templateHeight}
+                    onChange={(e) => setTemplateHeight(Number(e.target.value))}
+                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 dark:text-white focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsPaletteModalOpen(false)}
+                  className="px-4 py-2 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold rounded-xl"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-md"
+                >
+                  {editingTemplate ? 'Save Template Changes' : 'Create Template'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* 2. CANVAS ELEMENT PROPERTIES MODAL */}
+      {/* ========================================================================= */}
       {isEditingElementModal && selectedElement && (
         <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 z-[9999] animate-fadeIn">
           <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl w-full max-w-md p-6 space-y-4">
