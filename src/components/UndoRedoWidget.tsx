@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useRef } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useUndoRedo, UndoableAction } from '@/src/contexts/UndoRedoContext';
 import {
   Undo2,
@@ -12,6 +12,8 @@ import {
   Sparkles,
   ChevronUp,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   X,
   Trash2,
   ArrowLeftRight,
@@ -20,6 +22,8 @@ import {
   Layers,
   Search
 } from 'lucide-react';
+
+const COLLAPSE_KEY = 'experimind_undoredo_collapsed_v1';
 
 export default function UndoRedoWidget() {
   const {
@@ -36,6 +40,23 @@ export default function UndoRedoWidget() {
     isProcessing
   } = useUndoRedo();
 
+  // Collapsed / Side Arrow Mode State
+  const [isCollapsed, setIsCollapsed] = useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem(COLLAPSE_KEY);
+      return saved === 'true';
+    } catch (_) {
+      return false;
+    }
+  });
+
+  const toggleCollapse = (collapsed: boolean) => {
+    setIsCollapsed(collapsed);
+    try {
+      localStorage.setItem(COLLAPSE_KEY, String(collapsed));
+    } catch (_) {}
+  };
+
   // Console Drawer Expand State
   const [isConsoleOpen, setIsConsoleOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'past' | 'future'>('past');
@@ -44,44 +65,15 @@ export default function UndoRedoWidget() {
   // Selected Action IDs for Batch Undo
   const [selectedActionIds, setSelectedActionIds] = useState<Set<string>>(new Set());
 
-  // Smart Visibility: Auto-Show on Action & Auto-Collapse when Idle
-  const [isPillExpanded, setIsPillExpanded] = useState(false);
-  const [isHovered, setIsHovered] = useState(false);
-  const [isDismissed, setIsDismissed] = useState(false);
-  const autoHideTimerRef = useRef<any>(null);
-
-  const prevPastLengthRef = useRef(past.length);
-  const prevFutureLengthRef = useRef(future.length);
-
   const nextUndo = past.length > 0 ? past[past.length - 1] : null;
   const nextRedo = future.length > 0 ? future[0] : null;
 
-  // Auto-Show when a new action is performed, undone, or redone
+  // Auto expand pill momentarily when an action happens if collapsed
   useEffect(() => {
-    const hasLengthChanged = past.length !== prevPastLengthRef.current || future.length !== prevFutureLengthRef.current;
-    prevPastLengthRef.current = past.length;
-    prevFutureLengthRef.current = future.length;
-
-    if (hasLengthChanged && (past.length > 0 || future.length > 0)) {
-      setIsPillExpanded(true);
-      setIsDismissed(false);
-
-      if (autoHideTimerRef.current) clearTimeout(autoHideTimerRef.current);
-      // Auto-collapse to tiny badge after 7 seconds if not hovering and console is closed
-      autoHideTimerRef.current = setTimeout(() => {
-        setIsPillExpanded(false);
-      }, 7000);
+    if (past.length > 0 && isCollapsed) {
+      // Keep collapsed but badge updates smoothly
     }
-  }, [past.length, future.length]);
-
-  // Keep expanded if hovered or if console is open
-  useEffect(() => {
-    if (isHovered || isConsoleOpen) {
-      if (autoHideTimerRef.current) clearTimeout(autoHideTimerRef.current);
-      setIsPillExpanded(true);
-      setIsDismissed(false);
-    }
-  }, [isHovered, isConsoleOpen]);
+  }, [past.length]);
 
   // Filtered Actions in Timeline
   const filteredPast = useMemo(() => {
@@ -119,136 +111,134 @@ export default function UndoRedoWidget() {
     setSelectedActionIds(new Set());
   };
 
-  // If no history exists, keep completely hidden (0 screen footprint)
-  if (past.length === 0 && future.length === 0) return null;
-
-  // If user explicitly dismissed and console is closed, hide until next action
-  if (isDismissed && !isConsoleOpen) return null;
-
   return (
     <>
       {/* ========================================================================= */}
-      {/* 1. DOCKED FLOATING PILL (SMART AUTO-EXPAND & COLLAPSE) */}
+      {/* 1. COLLAPSED SLEEK SIDE TAB / ARROW (MINIMAL & NON-INTRUSIVE) */}
       {/* ========================================================================= */}
-      <div
-        onMouseEnter={() => setIsHovered(true)}
-        onMouseLeave={() => setIsHovered(false)}
-        className="fixed bottom-5 right-5 z-[9990] flex items-center select-none transition-all duration-300 animate-fadeIn"
-      >
-        {/* State A: Collapsed Discrete Badge (When idle) */}
-        {!isPillExpanded && !isConsoleOpen ? (
+      {isCollapsed ? (
+        <div className="fixed bottom-6 right-0 z-[9990] flex items-center animate-in slide-in-from-right duration-200">
           <button
-            onClick={() => setIsPillExpanded(true)}
-            title={`Action History (${past.length} past, ${future.length} redo) • Click to open`}
-            className="p-2.5 bg-slate-950/90 hover:bg-slate-900 text-white rounded-2xl shadow-xl border border-slate-800 backdrop-blur-md flex items-center gap-1.5 cursor-pointer hover:scale-105 transition-all group"
+            onClick={() => toggleCollapse(false)}
+            title="Expand Undo / Redo Actions Panel"
+            className="group flex items-center gap-2 bg-slate-950/95 text-white pl-2.5 pr-2 py-2 rounded-l-2xl shadow-2xl border-y border-l border-slate-800/90 backdrop-blur-xl hover:bg-slate-900 transition-all cursor-pointer select-none"
           >
-            <div className="p-1 rounded-lg bg-indigo-500/20 text-indigo-400">
-              <Undo2 className="w-3.5 h-3.5 group-hover:-rotate-45 transition-transform" />
-            </div>
-            <span className="text-[10px] font-mono font-bold text-indigo-300">
-              {past.length}
-            </span>
-          </button>
-        ) : (
-          /* State B: Expanded Full Control Pill (When active or hovered) */
-          <div className="flex items-center gap-1.5 bg-slate-950/95 text-white p-1.5 rounded-2xl shadow-2xl border border-slate-800/90 backdrop-blur-xl animate-in slide-in-from-bottom-2">
+            <ChevronLeft className="w-4 h-4 text-indigo-400 group-hover:-translate-x-0.5 transition-transform" />
             
-            {/* Quick Undo Button */}
-            <button
-              onClick={() => undo()}
-              disabled={!nextUndo || isProcessing}
-              title={nextUndo ? `Undo: ${nextUndo.name} (Ctrl+Z)` : 'Nothing to Undo (Ctrl+Z)'}
-              className={`px-3 py-2 rounded-xl transition-all flex items-center gap-2 cursor-pointer ${
-                !nextUndo || isProcessing
-                  ? 'opacity-40 cursor-not-allowed text-slate-500'
-                  : 'hover:bg-slate-800 text-slate-200 hover:text-white active:scale-95'
-              }`}
-            >
-              {isProcessing ? (
-                <Loader2 className="w-4 h-4 animate-spin text-indigo-400" />
-              ) : (
-                <div className="p-1 rounded-lg bg-indigo-500/20 text-indigo-400 border border-indigo-500/30">
-                  <Undo2 className="w-3.5 h-3.5" />
-                </div>
-              )}
-              <div className="flex flex-col text-left">
-                <span className="text-[9px] uppercase font-mono font-bold text-indigo-300">Undo</span>
-                <span className="text-xs font-bold truncate max-w-[120px] hidden sm:inline text-slate-200">
-                  {nextUndo ? nextUndo.name : 'No History'}
-                </span>
-              </div>
+            <div className="flex items-center gap-1.5 text-xs font-bold">
+              <RotateCcw className="w-3.5 h-3.5 text-amber-400" />
+              <span className="hidden sm:inline text-[11px]">History</span>
               {past.length > 0 && (
-                <span className="px-1.5 py-0.2 rounded-full bg-indigo-500/30 text-indigo-300 font-mono text-[9px] font-bold border border-indigo-500/40">
+                <span className="px-1.5 py-0.2 rounded-full bg-indigo-600 text-white font-mono text-[9px] font-bold shadow-xs">
                   {past.length}
                 </span>
               )}
-            </button>
-
-            <div className="w-px h-6 bg-slate-800" />
-
-            {/* Quick Redo Button */}
-            <button
-              onClick={() => redo()}
-              disabled={!nextRedo || isProcessing}
-              title={nextRedo ? `Redo: ${nextRedo.name} (Ctrl+Y)` : 'Nothing to Redo (Ctrl+Y)'}
-              className={`px-3 py-2 rounded-xl transition-all flex items-center gap-2 cursor-pointer ${
-                !nextRedo || isProcessing
-                  ? 'opacity-40 cursor-not-allowed text-slate-500'
-                  : 'hover:bg-slate-800 text-slate-200 hover:text-white active:scale-95'
-              }`}
-            >
-              {future.length > 0 && (
-                <span className="px-1.5 py-0.2 rounded-full bg-emerald-500/30 text-emerald-300 font-mono text-[9px] font-bold border border-emerald-500/40">
-                  {future.length}
-                </span>
-              )}
-              <div className="flex flex-col text-right">
-                <span className="text-[9px] uppercase font-mono font-bold text-emerald-300">Redo</span>
-                <span className="text-xs font-bold truncate max-w-[120px] hidden sm:inline text-slate-200">
-                  {nextRedo ? nextRedo.name : 'No Actions'}
-                </span>
+            </div>
+          </button>
+        </div>
+      ) : (
+        /* ========================================================================= */
+        /* 2. EXPANDED FLOATING DOCKED PILL */
+        /* ========================================================================= */
+        <div className="fixed bottom-5 right-5 z-[9990] flex items-center gap-1.5 bg-slate-950/95 text-white p-1.5 rounded-2xl shadow-2xl border border-slate-800/90 backdrop-blur-xl animate-in slide-in-from-bottom-2 select-none">
+          
+          {/* Quick Undo Button */}
+          <button
+            onClick={() => undo()}
+            disabled={!nextUndo || isProcessing}
+            title={nextUndo ? `Undo: ${nextUndo.name} (Ctrl+Z)` : 'Nothing to Undo (Ctrl+Z)'}
+            className={`px-3 py-2 rounded-xl transition-all flex items-center gap-2 cursor-pointer ${
+              !nextUndo || isProcessing
+                ? 'opacity-40 cursor-not-allowed text-slate-500'
+                : 'hover:bg-slate-800 text-slate-200 hover:text-white active:scale-95'
+            }`}
+          >
+            {isProcessing ? (
+              <Loader2 className="w-4 h-4 animate-spin text-indigo-400" />
+            ) : (
+              <div className="p-1 rounded-lg bg-indigo-500/20 text-indigo-400 border border-indigo-500/30">
+                <Undo2 className="w-3.5 h-3.5" />
               </div>
-              <div className="p-1 rounded-lg bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-                <Redo2 className="w-3.5 h-3.5" />
-              </div>
-            </button>
+            )}
+            <div className="flex flex-col text-left">
+              <span className="text-[9px] uppercase font-mono font-bold text-indigo-300">Undo</span>
+              <span className="text-xs font-bold truncate max-w-[130px] hidden sm:inline text-slate-200">
+                {nextUndo ? nextUndo.name : 'No History'}
+              </span>
+            </div>
+            {past.length > 0 && (
+              <span className="px-1.5 py-0.2 rounded-full bg-indigo-500/30 text-indigo-300 font-mono text-[9px] font-bold border border-indigo-500/40">
+                {past.length}
+              </span>
+            )}
+          </button>
 
-            <div className="w-px h-6 bg-slate-800" />
+          <div className="w-px h-6 bg-slate-800" />
 
-            {/* Action Timeline Hub Toggle Button */}
-            <button
-              onClick={() => setIsConsoleOpen(!isConsoleOpen)}
-              title="Open Action History & Batch Rollback Console"
-              className={`p-2 rounded-xl transition-all cursor-pointer flex items-center gap-1 ${
-                isConsoleOpen
-                  ? 'bg-indigo-600 text-white shadow-md'
-                  : 'hover:bg-slate-800 text-slate-300 hover:text-white'
-              }`}
-            >
-              <History className="w-4 h-4 text-amber-400" />
-              <span className="text-[10px] font-bold hidden md:inline">Timeline</span>
-              {isConsoleOpen ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronUp className="w-3.5 h-3.5" />}
-            </button>
+          {/* Quick Redo Button */}
+          <button
+            onClick={() => redo()}
+            disabled={!nextRedo || isProcessing}
+            title={nextRedo ? `Redo: ${nextRedo.name} (Ctrl+Y)` : 'Nothing to Redo (Ctrl+Y)'}
+            className={`px-3 py-2 rounded-xl transition-all flex items-center gap-2 cursor-pointer ${
+              !nextRedo || isProcessing
+                ? 'opacity-40 cursor-not-allowed text-slate-500'
+                : 'hover:bg-slate-800 text-slate-200 hover:text-white active:scale-95'
+            }`}
+          >
+            {future.length > 0 && (
+              <span className="px-1.5 py-0.2 rounded-full bg-emerald-500/30 text-emerald-300 font-mono text-[9px] font-bold border border-emerald-500/40">
+                {future.length}
+              </span>
+            )}
+            <div className="flex flex-col text-right">
+              <span className="text-[9px] uppercase font-mono font-bold text-emerald-300">Redo</span>
+              <span className="text-xs font-bold truncate max-w-[130px] hidden sm:inline text-slate-200">
+                {nextRedo ? nextRedo.name : 'No Actions'}
+              </span>
+            </div>
+            <div className="p-1 rounded-lg bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+              <Redo2 className="w-3.5 h-3.5" />
+            </div>
+          </button>
 
-            {/* Dismiss Button */}
-            <button
-              onClick={() => {
-                setIsDismissed(true);
-                setIsConsoleOpen(false);
-              }}
-              title="Dismiss for now"
-              className="p-1 text-slate-500 hover:text-slate-300 hover:bg-slate-900 rounded-lg cursor-pointer transition-colors"
-            >
-              <X className="w-3.5 h-3.5" />
-            </button>
-          </div>
-        )}
-      </div>
+          <div className="w-px h-6 bg-slate-800" />
+
+          {/* Action Timeline Hub Toggle Button */}
+          <button
+            onClick={() => setIsConsoleOpen(!isConsoleOpen)}
+            title="Open Action History & Batch Rollback Console"
+            className={`p-2 rounded-xl transition-all cursor-pointer flex items-center gap-1 ${
+              isConsoleOpen
+                ? 'bg-indigo-600 text-white shadow-md'
+                : 'hover:bg-slate-800 text-slate-300 hover:text-white'
+            }`}
+          >
+            <History className="w-4 h-4 text-amber-400" />
+            <span className="text-[10px] font-bold hidden md:inline">Timeline</span>
+            {isConsoleOpen ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronUp className="w-3.5 h-3.5" />}
+          </button>
+
+          <div className="w-px h-6 bg-slate-800" />
+
+          {/* Hide / Collapse Side Arrow Toggle Button */}
+          <button
+            onClick={() => {
+              setIsConsoleOpen(false);
+              toggleCollapse(true);
+            }}
+            title="Collapse to screen edge (Side Arrow)"
+            className="p-2 rounded-xl hover:bg-slate-800 text-slate-400 hover:text-white transition-colors cursor-pointer"
+          >
+            <ChevronRight className="w-4 h-4" />
+          </button>
+        </div>
+      )}
 
       {/* ========================================================================= */}
-      {/* 2. EXPANDABLE ACTION TIMELINE & BATCH ROLLBACK CONSOLE */}
+      {/* 3. EXPANDABLE ACTION TIMELINE & BATCH ROLLBACK CONSOLE */}
       {/* ========================================================================= */}
-      {isConsoleOpen && (
+      {isConsoleOpen && !isCollapsed && (
         <div className="fixed bottom-20 right-5 z-[9991] w-full max-w-lg bg-slate-950/95 text-white rounded-3xl shadow-2xl border border-slate-800 backdrop-blur-2xl p-5 space-y-4 animate-in slide-in-from-bottom-4 max-h-[78vh] flex flex-col">
           
           {/* Header */}
