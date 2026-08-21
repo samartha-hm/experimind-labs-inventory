@@ -38,7 +38,13 @@ import {
   Layers,
   Truck,
   ExternalLink,
-  ChevronDown
+  ChevronDown,
+  Edit2,
+  Settings,
+  PlusCircle,
+  RotateCcw,
+  Save,
+  Tag
 } from 'lucide-react';
 import { useData } from '@/src/DataContext';
 import { useToast } from '@/src/contexts/ToastContext';
@@ -48,14 +54,22 @@ import { scanCanvasOrImage, decodeBarcodeFromImageFile } from '@/src/utils/barco
 
 export type ScanOperationMode = 'inspect' | 'inbound' | 'outbound' | 'batch' | 'relocate' | 'kit_picking';
 
-interface BatchScanItem {
+export interface BatchScanItem {
+  id: string;
   code: string;
   itemId: string;
   name: string;
   category: string;
   quantity: number;
   unit: string;
+  actionType: 'add' | 'deduct' | 'set';
+  note?: string;
   timestamp: string;
+}
+
+export interface QuickBarcodeChip {
+  code: string;
+  label?: string;
 }
 
 interface BarcodeScannerModalProps {
@@ -64,8 +78,20 @@ interface BarcodeScannerModalProps {
   initialMode?: ScanOperationMode;
 }
 
-const QUICK_BARCODES = ['EL-1', 'EL-2', 'EL-3', 'EL-4', 'EL-5', 'EL-6', 'EL-7', 'EL-8', 'EL-9', 'EL-10'];
-const STEP_PRESETS = [1, 5, 10, 25, 50, 100];
+const DEFAULT_QUICK_CHIPS: QuickBarcodeChip[] = [
+  { code: 'EL-1', label: 'Petri Dish' },
+  { code: 'EL-2', label: 'Test Tubes' },
+  { code: 'EL-3', label: 'Beaker 250ml' },
+  { code: 'EL-4', label: 'Safety Goggles' },
+  { code: 'EL-5', label: 'Digital Multimeter' },
+  { code: 'EL-6', label: 'Soldering Iron' },
+  { code: 'EL-7', label: 'Connecting Wires' },
+  { code: 'EL-8', label: 'Copper Tape' },
+  { code: 'EL-9', label: 'LED Array' },
+  { code: 'EL-10', label: 'Battery 9V' },
+];
+
+const DEFAULT_STEP_PRESETS = [1, 5, 10, 25, 50, 100];
 
 export default function BarcodeScannerModal({
   isOpen,
@@ -78,9 +104,52 @@ export default function BarcodeScannerModal({
   // Mode Selection
   const [activeMode, setActiveMode] = useState<ScanOperationMode>(initialMode);
   const [soundEnabled, setSoundEnabled] = useState(true);
-  const [customQtyStep, setCustomQtyStep] = useState<number>(1);
   const [inboundNote, setInboundNote] = useState('');
   const [outboundNote, setOutboundNote] = useState('');
+
+  // 1. CUSTOMIZABLE QUANTITY MULTIPLIERS
+  const [stepPresets, setStepPresets] = useState<number[]>(() => {
+    try {
+      const saved = localStorage.getItem('experimind_scanner_multiplier_presets_v1');
+      return saved ? JSON.parse(saved) : DEFAULT_STEP_PRESETS;
+    } catch (_) {
+      return DEFAULT_STEP_PRESETS;
+    }
+  });
+  const [customQtyStep, setCustomQtyStep] = useState<number>(stepPresets[0] || 1);
+  const [isEditingStepsModal, setIsEditingStepsModal] = useState(false);
+  const [stepInputText, setStepInputText] = useState(stepPresets.join(', '));
+
+  // 2. CUSTOMIZABLE QUICK-SCAN BARCODE CHIPS
+  const [quickChips, setQuickChips] = useState<QuickBarcodeChip[]>(() => {
+    try {
+      const saved = localStorage.getItem('experimind_custom_scanner_chips_v2');
+      return saved ? JSON.parse(saved) : DEFAULT_QUICK_CHIPS;
+    } catch (_) {
+      return DEFAULT_QUICK_CHIPS;
+    }
+  });
+  const [isManagingChipsModal, setIsManagingChipsModal] = useState(false);
+  const [newChipCode, setNewChipCode] = useState('');
+  const [newChipLabel, setNewChipLabel] = useState('');
+
+  const saveQuickChips = (updated: QuickBarcodeChip[]) => {
+    setQuickChips(updated);
+    try {
+      localStorage.setItem('experimind_custom_scanner_chips_v2', JSON.stringify(updated));
+    } catch (_) {}
+  };
+
+  // 3. IN-MODAL COMPONENT QUICK-EDITOR STATE
+  const [isEditingItemModal, setIsEditingItemModal] = useState(false);
+  const [editItemName, setEditItemName] = useState('');
+  const [editItemCategory, setEditItemCategory] = useState('');
+  const [editItemBin, setEditItemBin] = useState('');
+  const [editItemCost, setEditItemCost] = useState<number>(0);
+  const [editItemStock, setEditItemStock] = useState<number>(0);
+  const [editItemThreshold, setEditItemThreshold] = useState<number>(0);
+  const [editItemBarcode, setEditItemBarcode] = useState('');
+  const [editItemSku, setEditItemSku] = useState('');
 
   // Scanner Hardware & Stream State
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -176,12 +245,69 @@ export default function BarcodeScannerModal({
     setTimeout(() => setScanPulse(false), 800);
   };
 
+  // Stock Adjustment Execution
+  const handleAdjustStock = async (item: InventoryItem, delta: number, noteReason?: string) => {
+    const oldQty = item.stockQty;
+    const newQty = Math.max(0, oldQty + delta);
+    
+    await updateInventoryItem(item.id, { stockQty: newQty });
+    setScannedItem(prev => (prev && prev.id === item.id ? { ...prev, stockQty: newQty } : prev));
+
+    await logTransaction({
+      id: `tx_${Date.now()}`,
+      timestamp: new Date().toISOString(),
+      type: delta > 0 ? 'add_stock' : 'adjust',
+      description: noteReason || (delta > 0 ? `Inbound +${delta} via Barcode Scanner` : `Outbound ${delta} via Barcode Scanner`),
+      items: [{ componentId: item.id, componentName: item.name, qtyDiff: delta }],
+      diffs: [{ field: 'stockQty', oldValue: oldQty, newValue: newQty }]
+    });
+
+    if (soundEnabled) playScanBeep('success');
+    showToast(
+      delta > 0 ? 'success' : 'info',
+      delta > 0 ? 'Stock Received' : 'Stock Dispatched',
+      `${item.name}: ${oldQty} → ${newQty} ${item.unit}`
+    );
+  };
+
+  // Add Item to Batch Session with Action Type
+  const handleAddToBatch = (item: InventoryItem, qty: number, actionType: 'add' | 'deduct' | 'set' = 'add') => {
+    setBatchList(prev => {
+      const idx = prev.findIndex(b => b.itemId === item.id);
+      if (idx >= 0) {
+        const updated = [...prev];
+        updated[idx] = {
+          ...updated[idx],
+          quantity: updated[idx].quantity + qty,
+          timestamp: new Date().toLocaleTimeString()
+        };
+        return updated;
+      }
+      return [
+        {
+          id: `batch_${Date.now()}_${Math.random().toString(36).substring(2, 5)}`,
+          code: item.barcode || `EL-${item.id}`,
+          itemId: item.id,
+          name: item.name,
+          category: item.category,
+          quantity: qty,
+          unit: item.unit,
+          actionType,
+          note: '',
+          timestamp: new Date().toLocaleTimeString()
+        },
+        ...prev
+      ];
+    });
+    if (soundEnabled) playScanBeep('click');
+    showToast('info', 'Batch Queued', `+${qty} ${item.name} queued in session`);
+  };
+
   // Main Barcode Processing Pipeline
   const handleCodeScanned = useCallback(async (rawCode: string) => {
     const cleanCode = rawCode.trim();
     if (!cleanCode) return;
 
-    // Trigger visual green pulse
     triggerScanPulse();
 
     // 1. Relocate Mode Step 2: Destination Bin scan
@@ -238,7 +364,7 @@ export default function BarcodeScannerModal({
         const delta = -Math.max(1, customQtyStep);
         await handleAdjustStock(matchedItem, delta, outboundNote || `Outbound dispatch (-${Math.abs(delta)} ${matchedItem.unit}) via Barcode`);
       } else if (activeMode === 'batch') {
-        handleAddToBatch(matchedItem, Math.max(1, customQtyStep));
+        handleAddToBatch(matchedItem, Math.max(1, customQtyStep), 'add');
       } else if (activeMode === 'relocate') {
         setRelocateStep('scan_bin');
         showToast('info', 'Component Identified', `Step 2: Point at destination Bin barcode or select a bin below for "${matchedItem.name}"`);
@@ -435,64 +561,28 @@ export default function BarcodeScannerModal({
     }
   };
 
-  // Stock Adjustment Execution
-  const handleAdjustStock = async (item: InventoryItem, delta: number, noteReason?: string) => {
-    const oldQty = item.stockQty;
-    const newQty = Math.max(0, oldQty + delta);
-    
-    await updateInventoryItem(item.id, { stockQty: newQty });
-    setScannedItem(prev => (prev && prev.id === item.id ? { ...prev, stockQty: newQty } : prev));
-
-    await logTransaction({
-      id: `tx_${Date.now()}`,
-      timestamp: new Date().toISOString(),
-      type: delta > 0 ? 'add_stock' : 'adjust',
-      description: noteReason || (delta > 0 ? `Inbound +${delta} via Barcode Scanner` : `Outbound ${delta} via Barcode Scanner`),
-      items: [{ componentId: item.id, componentName: item.name, qtyDiff: delta }],
-      diffs: [{ field: 'stockQty', oldValue: oldQty, newValue: newQty }]
-    });
-
-    if (soundEnabled) playScanBeep('success');
-    showToast(
-      delta > 0 ? 'success' : 'info',
-      delta > 0 ? 'Stock Received' : 'Stock Dispatched',
-      `${item.name}: ${oldQty} → ${newQty} ${item.unit}`
-    );
-  };
-
-  // Add Item to Batch Session
-  const handleAddToBatch = (item: InventoryItem, qty: number) => {
-    setBatchList(prev => {
-      const idx = prev.findIndex(b => b.itemId === item.id);
-      if (idx >= 0) {
-        const updated = [...prev];
-        updated[idx] = { ...updated[idx], quantity: updated[idx].quantity + qty, timestamp: new Date().toLocaleTimeString() };
-        return updated;
-      }
-      return [
-        {
-          code: item.barcode || `EL-${item.id}`,
-          itemId: item.id,
-          name: item.name,
-          category: item.category,
-          quantity: qty,
-          unit: item.unit,
-          timestamp: new Date().toLocaleTimeString()
-        },
-        ...prev
-      ];
-    });
-    if (soundEnabled) playScanBeep('click');
-    showToast('info', 'Batch Queued', `+${qty} ${item.name} queued in session`);
-  };
-
-  // Commit Batch Session to Database
+  // Commit Batch Session to Database (Supporting Add, Deduct, and Set)
   const handleCommitBatch = async () => {
     if (batchList.length === 0) return;
     for (const b of batchList) {
       const item = inventory.find(i => i.id === b.itemId);
       if (item) {
-        await handleAdjustStock(item, b.quantity, `Batch Audit Scan (${b.quantity} ${b.unit})`);
+        if (b.actionType === 'set') {
+          // Direct physical count override
+          const oldQty = item.stockQty;
+          await updateInventoryItem(item.id, { stockQty: b.quantity });
+          await logTransaction({
+            id: `tx_${Date.now()}_${b.id}`,
+            timestamp: new Date().toISOString(),
+            type: 'adjust',
+            description: b.note || `Physical Cycle Count Override (${oldQty} → ${b.quantity} ${item.unit})`,
+            items: [{ componentId: item.id, componentName: item.name, qtyDiff: b.quantity - oldQty }],
+            diffs: [{ field: 'stockQty', oldValue: oldQty, newValue: b.quantity }]
+          });
+        } else {
+          const delta = b.actionType === 'deduct' ? -b.quantity : b.quantity;
+          await handleAdjustStock(item, delta, b.note || `Batch Scan Audit (${delta > 0 ? '+' : ''}${delta} ${item.unit})`);
+        }
       }
     }
     showToast('success', 'Batch Session Committed', `Updated ${batchList.length} components in inventory.`);
@@ -503,8 +593,8 @@ export default function BarcodeScannerModal({
   const handleExportBatchCSV = () => {
     if (batchList.length === 0) return;
     const rows = [
-      ['Barcode', 'Item Name', 'Category', 'Quantity', 'Unit', 'Timestamp'],
-      ...batchList.map(b => [b.code, b.name, b.category, b.quantity, b.unit, b.timestamp])
+      ['Barcode', 'Item Name', 'Category', 'Action Type', 'Quantity', 'Unit', 'Notes', 'Timestamp'],
+      ...batchList.map(b => [b.code, b.name, b.category, b.actionType.toUpperCase(), b.quantity, b.unit, b.note || '', b.timestamp])
     ];
     const csvContent = 'data:text/csv;charset=utf-8,' + rows.map(r => r.join(',')).join('\n');
     const encodedUri = encodeURI(csvContent);
@@ -539,6 +629,88 @@ export default function BarcodeScannerModal({
     showToast('success', 'Bin Location Updated', `Moved "${item.name}" to Bin "${newBinCode}"`);
   };
 
+  // Open In-Modal Quick Component Editor
+  const handleOpenEditItemModal = () => {
+    if (!scannedItem) return;
+    setEditItemName(scannedItem.name);
+    setEditItemCategory(scannedItem.category);
+    setEditItemBin(scannedItem.binLocation || '');
+    setEditItemCost(scannedItem.unitCost ?? scannedItem.basePrice ?? 0);
+    setEditItemStock(scannedItem.stockQty);
+    setEditItemThreshold(scannedItem.threshold ?? (scannedItem as any).minSafetyStock ?? 0);
+    setEditItemBarcode(scannedItem.barcode || `EL-${scannedItem.id}`);
+    setEditItemSku(scannedItem.sku || scannedItem.id);
+    setIsEditingItemModal(true);
+  };
+
+  const handleSaveItemEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!scannedItem) return;
+
+    const updatedData: Partial<InventoryItem> = {
+      name: editItemName.trim(),
+      category: editItemCategory.trim(),
+      binLocation: editItemBin.trim() || undefined,
+      unitCost: Number(editItemCost) || 0,
+      basePrice: Number(editItemCost) || 0,
+      stockQty: Number(editItemStock) || 0,
+      threshold: Number(editItemThreshold) || 0,
+      barcode: editItemBarcode.trim() || undefined,
+      sku: editItemSku.trim() || undefined,
+    };
+
+    await updateInventoryItem(scannedItem.id, updatedData);
+    setScannedItem(prev => (prev ? { ...prev, ...updatedData } : prev));
+    setIsEditingItemModal(false);
+    showToast('success', 'Component Updated', `Updated specifications for "${editItemName}".`);
+  };
+
+  // Custom Quick Chips Management
+  const handleAddQuickChip = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newChipCode.trim()) return;
+
+    const chip: QuickBarcodeChip = {
+      code: newChipCode.trim(),
+      label: newChipLabel.trim() || undefined
+    };
+    const updated = [...quickChips, chip];
+    saveQuickChips(updated);
+    setNewChipCode('');
+    setNewChipLabel('');
+    setIsManagingChipsModal(false);
+    showToast('success', 'Quick SKU Added', `Pinned "${chip.code}" to quick test chips.`);
+  };
+
+  const handleDeleteQuickChip = (code: string) => {
+    const updated = quickChips.filter(c => c.code !== code);
+    saveQuickChips(updated);
+  };
+
+  const handleResetQuickChips = () => {
+    saveQuickChips(DEFAULT_QUICK_CHIPS);
+    showToast('info', 'Chips Reset', 'Restored default quick-scan barcode samples.');
+  };
+
+  // Custom Quantity Steps Management
+  const handleSaveSteps = (e: React.FormEvent) => {
+    e.preventDefault();
+    const parsed = stepInputText
+      .split(',')
+      .map(s => parseInt(s.trim()))
+      .filter(n => !isNaN(n) && n > 0);
+
+    if (parsed.length > 0) {
+      setStepPresets(parsed);
+      setCustomQtyStep(parsed[0]);
+      try {
+        localStorage.setItem('experimind_scanner_multiplier_presets_v1', JSON.stringify(parsed));
+      } catch (_) {}
+      setIsEditingStepsModal(false);
+      showToast('success', 'Multipliers Updated', `Configured steps: ${parsed.join(', ')}`);
+    }
+  };
+
   // Parent composite kits requiring this part
   const parentKits = useMemo(() => {
     if (!scannedItem) return [];
@@ -569,7 +741,7 @@ export default function BarcodeScannerModal({
                 </span>
               </div>
               <p className="text-[11px] text-slate-500 dark:text-slate-400 font-mono">
-                ZXing-C++ WebAssembly • Code 128 / Code 39 / EAN / UPC / QR
+                ZXing-C++ WebAssembly • 100% Customizable & Editable Workstation
               </p>
             </div>
           </div>
@@ -586,6 +758,15 @@ export default function BarcodeScannerModal({
               title={soundEnabled ? 'Scanner Beep Active' : 'Scanner Muted'}
             >
               {soundEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
+            </button>
+
+            {/* Manage Quick Chips */}
+            <button
+              onClick={() => setIsManagingChipsModal(true)}
+              className="p-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 transition-all cursor-pointer"
+              title="Customize quick test barcode chips"
+            >
+              <Tag className="w-4 h-4 text-indigo-500" />
             </button>
 
             {/* Recent History Toggle */}
@@ -653,8 +834,8 @@ export default function BarcodeScannerModal({
         {/* ========================================================================= */}
         <div className="p-6 overflow-y-auto space-y-5 custom-scrollbar flex-1">
           
-          {/* Mode Context Description Banner */}
-          <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/80 flex items-center justify-between text-xs">
+          {/* Mode Context Description & Customizable Qty Step Bar */}
+          <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/80 flex flex-wrap items-center justify-between gap-2 text-xs">
             <div className="flex items-center gap-2">
               <span className="font-bold text-slate-800 dark:text-slate-200">
                 {activeMode === 'inspect' && '🔍 Mode 1: Component Inspection & Real-time Stock Health'}
@@ -666,12 +847,12 @@ export default function BarcodeScannerModal({
               </span>
             </div>
 
-            {/* Quick Step Quantity Controller for Inbound / Outbound / Batch */}
+            {/* Quick Step Quantity Multipliers */}
             {(activeMode === 'inbound' || activeMode === 'outbound' || activeMode === 'batch') && (
               <div className="flex items-center gap-1.5">
                 <span className="text-[10px] uppercase font-bold text-slate-400">Qty Multiplier:</span>
                 <div className="flex items-center bg-white dark:bg-slate-900 rounded-xl p-0.5 border border-slate-200 dark:border-slate-700">
-                  {STEP_PRESETS.map((step) => (
+                  {stepPresets.map((step) => (
                     <button
                       key={step}
                       type="button"
@@ -685,6 +866,17 @@ export default function BarcodeScannerModal({
                       +{step}
                     </button>
                   ))}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setStepInputText(stepPresets.join(', '));
+                      setIsEditingStepsModal(true);
+                    }}
+                    className="px-1.5 py-0.5 text-slate-400 hover:text-indigo-600 text-[10px] cursor-pointer"
+                    title="Customize quantity multiplier steps"
+                  >
+                    <Settings className="w-3 h-3" />
+                  </button>
                 </div>
               </div>
             )}
@@ -794,11 +986,7 @@ export default function BarcodeScannerModal({
 
               {/* Viewfinder Target Reticle & Laser Sweep Animation */}
               <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
-                
-                {/* Center Scan Reticle Box */}
                 <div className="w-[75%] h-[60%] border-2 border-dashed border-indigo-400/70 rounded-2xl relative flex items-center justify-center backdrop-contrast-125">
-                  
-                  {/* Corner Accent Brackets */}
                   <div className="absolute -top-1 -left-1 w-4 h-4 border-t-2 border-l-2 border-indigo-400" />
                   <div className="absolute -top-1 -right-1 w-4 h-4 border-t-2 border-r-2 border-indigo-400" />
                   <div className="absolute -bottom-1 -left-1 w-4 h-4 border-b-2 border-l-2 border-indigo-400" />
@@ -893,19 +1081,41 @@ export default function BarcodeScannerModal({
             </div>
           </div>
 
-          {/* Quick Catalog Sample Chips */}
-          <div className="flex flex-wrap items-center gap-1.5 pt-1">
-            <span className="text-[10px] font-bold text-slate-400 uppercase mr-1">Quick Test Samples:</span>
-            {QUICK_BARCODES.map((code) => (
+          {/* ========================================================================= */}
+          {/* CUSTOMIZABLE QUICK TEST SAMPLES BAR */}
+          {/* ========================================================================= */}
+          <div className="p-3 bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-slate-200/80 dark:border-slate-800 space-y-2">
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+                <Tag className="w-3 h-3 text-indigo-500" />
+                Quick Test Samples & Pinned SKUs ({quickChips.length})
+              </span>
+
               <button
-                key={code}
-                type="button"
-                onClick={() => handleCodeScanned(code)}
-                className="px-2.5 py-1 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-indigo-50 dark:hover:bg-indigo-950 text-slate-700 dark:text-slate-300 hover:text-indigo-600 font-mono text-[11px] font-bold transition-all border border-slate-200/80 dark:border-slate-700 cursor-pointer"
+                onClick={() => setIsManagingChipsModal(true)}
+                className="text-[10px] text-indigo-600 dark:text-indigo-400 font-bold hover:underline flex items-center gap-1 cursor-pointer"
               >
-                {code}
+                <PlusCircle className="w-3 h-3" /> + Add / Manage Pinned SKUs
               </button>
-            ))}
+            </div>
+
+            <div className="flex flex-wrap items-center gap-1.5">
+              {quickChips.map((chip) => (
+                <button
+                  key={chip.code}
+                  type="button"
+                  onClick={() => handleCodeScanned(chip.code)}
+                  className="px-2.5 py-1 rounded-xl bg-white dark:bg-slate-900 hover:bg-indigo-50 dark:hover:bg-indigo-950 text-slate-800 dark:text-slate-200 hover:text-indigo-600 font-mono text-[11px] font-bold transition-all border border-slate-200 dark:border-slate-700 shadow-xs cursor-pointer flex items-center gap-1.5 group"
+                >
+                  <span>{chip.code}</span>
+                  {chip.label && (
+                    <span className="text-[9px] text-slate-400 group-hover:text-indigo-500 font-sans">
+                      ({chip.label})
+                    </span>
+                  )}
+                </button>
+              ))}
+            </div>
           </div>
 
           {/* Photo Decode Preview Card */}
@@ -937,83 +1147,7 @@ export default function BarcodeScannerModal({
           )}
 
           {/* ========================================================================= */}
-          {/* MODE 6: KIT BOM PICKING & ASSEMBLY CHECKLIST CARD */}
-          {/* ========================================================================= */}
-          {activeMode === 'kit_picking' && activeKit && (
-            <div className="p-5 bg-purple-50/70 dark:bg-purple-950/40 rounded-3xl border border-purple-200 dark:border-purple-800/80 space-y-4 animate-fadeIn">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="font-black text-sm text-purple-950 dark:text-purple-200 flex items-center gap-2">
-                    <ClipboardList className="w-4 h-4 text-purple-600 dark:text-purple-400" />
-                    Kit Assembly Picking Checklist: {activeKit.name}
-                  </h3>
-                  <p className="text-xs text-purple-700 dark:text-purple-300 font-medium mt-0.5">
-                    Scan each required BOM component to verify and mark off inventory:
-                  </p>
-                </div>
-
-                <span className="px-3 py-1 rounded-xl bg-purple-600 text-white font-black text-xs">
-                  {Object.keys(scannedKitItems).length} / {activeKit.items?.length || 0} Picked
-                </span>
-              </div>
-
-              {/* Visual Progress Bar */}
-              <div className="w-full bg-purple-200 dark:bg-purple-900 rounded-full h-2 overflow-hidden">
-                <div
-                  className="bg-purple-600 h-full transition-all duration-300"
-                  style={{
-                    width: `${Math.min(100, (Object.keys(scannedKitItems).length / (activeKit.items?.length || 1)) * 100)}%`
-                  }}
-                />
-              </div>
-
-              {/* BOM Items Checklist Grid */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5 pt-1">
-                {(activeKit.items || []).map((req) => {
-                  const item = inventory.find(i => i.id === req.componentId);
-                  const requiredQty = (req as any).qty || (req as any).quantity || 1;
-                  const isPicked = (scannedKitItems[req.componentId] || 0) >= requiredQty;
-                  const pickedQty = scannedKitItems[req.componentId] || 0;
-
-                  return (
-                    <div
-                      key={req.componentId}
-                      className={`p-3 rounded-2xl border transition-all flex items-center justify-between text-xs ${
-                        isPicked
-                          ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-950 dark:text-emerald-200'
-                          : 'bg-white dark:bg-slate-900 border-purple-200 dark:border-purple-800 text-slate-800 dark:text-slate-200'
-                      }`}
-                    >
-                      <div className="truncate pr-2">
-                        <div className="flex items-center gap-1.5">
-                          {isPicked ? (
-                            <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
-                          ) : (
-                            <Boxes className="w-4 h-4 text-purple-500 shrink-0" />
-                          )}
-                          <span className="font-bold truncate">{item?.name || req.componentId}</span>
-                        </div>
-                        <span className="text-[10px] text-slate-400 font-mono block pl-5">
-                          Bin: {item?.binLocation || 'Unassigned'} • Req: {requiredQty} {item?.unit || 'pcs'}
-                        </span>
-                      </div>
-
-                      <span className={`px-2 py-0.5 rounded-lg text-[10px] font-mono font-bold shrink-0 ${
-                        isPicked
-                          ? 'bg-emerald-500 text-white'
-                          : 'bg-purple-100 dark:bg-purple-900/60 text-purple-700 dark:text-purple-300'
-                      }`}>
-                        {pickedQty}/{requiredQty}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          {/* ========================================================================= */}
-          {/* SCANNED ITEM CARD (MODES 1, 2, 3, 5) */}
+          {/* SCANNED ITEM CARD (WITH 1-CLICK COMPONENT QUICK-EDITOR) */}
           {/* ========================================================================= */}
           {scannedItem && (
             <div className="p-5 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-xl space-y-4 animate-fadeIn">
@@ -1032,13 +1166,23 @@ export default function BarcodeScannerModal({
                   </h3>
                 </div>
 
-                <div className="flex items-center gap-2 text-right">
-                  <div>
+                <div className="flex items-center gap-3">
+                  <div className="text-right">
                     <span className="text-[10px] font-bold uppercase text-slate-400 block">Current Stock</span>
                     <span className="text-xl font-black text-emerald-600 dark:text-emerald-400 font-mono">
                       {scannedItem.stockQty} {scannedItem.unit}
                     </span>
                   </div>
+
+                  {/* ✏️ Quick Edit Component Button */}
+                  <button
+                    type="button"
+                    onClick={handleOpenEditItemModal}
+                    className="px-3 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-xs"
+                    title="Edit component specifications directly in modal"
+                  >
+                    <Edit2 className="w-3.5 h-3.5 text-indigo-500" /> Edit Specs
+                  </button>
                 </div>
               </div>
 
@@ -1046,16 +1190,16 @@ export default function BarcodeScannerModal({
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
                 <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/80">
                   <span className="text-[10px] font-bold text-slate-400 uppercase block">Storage Bin</span>
-                  <strong className="text-slate-900 dark:text-white font-mono flex items-center gap-1 mt-0.5">
-                    <MapPin className="w-3.5 h-3.5 text-indigo-500" />
-                    {scannedItem.binLocation || 'Not Assigned'}
+                  <strong className="text-slate-900 dark:text-white font-mono flex items-center gap-1 mt-0.5 truncate">
+                    <MapPin className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
+                    <span className="truncate">{scannedItem.binLocation || 'Not Assigned'}</span>
                   </strong>
                 </div>
 
                 <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/80">
                   <span className="text-[10px] font-bold text-slate-400 uppercase block">Unit Cost</span>
                   <strong className="text-slate-900 dark:text-white font-mono flex items-center gap-1 mt-0.5">
-                    <DollarSign className="w-3.5 h-3.5 text-emerald-500" />
+                    <DollarSign className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
                     ₹{(scannedItem.unitCost ?? scannedItem.basePrice ?? 0).toFixed(2)}
                   </strong>
                 </div>
@@ -1180,20 +1324,28 @@ export default function BarcodeScannerModal({
           )}
 
           {/* ========================================================================= */}
-          {/* MODE 4: BATCH SCAN AUDIT QUEUE */}
+          {/* MODE 4: FULLY EDITABLE BATCH SCAN AUDIT QUEUE */}
           {/* ========================================================================= */}
           {activeMode === 'batch' && (
             <div className="p-5 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-xl space-y-4 animate-fadeIn">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
                   <h3 className="font-black text-sm text-slate-900 dark:text-white flex items-center gap-2">
                     <FileSpreadsheet className="w-4 h-4 text-amber-500" />
-                    Batch Multi-Scan Queue ({batchList.length} items)
+                    Interactive Batch Multi-Scan Queue ({batchList.length} items)
                   </h3>
-                  <p className="text-xs text-slate-400">Keep scanning components non-stop. Quantities will automatically aggregate.</p>
+                  <p className="text-xs text-slate-400">Edit quantities, change action types, and add line notes before committing:</p>
                 </div>
 
                 <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setBatchList([])}
+                    disabled={batchList.length === 0}
+                    className="px-3 py-1.5 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 font-bold rounded-xl text-xs disabled:opacity-40 cursor-pointer"
+                  >
+                    Clear All
+                  </button>
+
                   <button
                     onClick={handleExportBatchCSV}
                     disabled={batchList.length === 0}
@@ -1217,32 +1369,167 @@ export default function BarcodeScannerModal({
                   No items in current batch session. Aim your scanner or use USB gun to populate.
                 </div>
               ) : (
-                <div className="space-y-2 max-h-[220px] overflow-y-auto custom-scrollbar">
+                <div className="space-y-2.5 max-h-[300px] overflow-y-auto custom-scrollbar">
                   {batchList.map((item, idx) => (
                     <div
-                      key={idx}
-                      className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 flex items-center justify-between text-xs"
+                      key={item.id || idx}
+                      className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs"
                     >
-                      <div className="flex items-center gap-2">
-                        <span className="font-mono text-slate-400 text-[10px]">{item.timestamp}</span>
-                        <span className="font-bold text-slate-900 dark:text-white">{item.name}</span>
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-slate-900 dark:text-white">{item.name}</span>
+                          <span className="font-mono text-slate-400 text-[10px]">({item.code})</span>
+                        </div>
+                        <input
+                          type="text"
+                          placeholder="Optional audit / PO note..."
+                          value={item.note || ''}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setBatchList(prev => prev.map((b, i) => i === idx ? { ...b, note: val } : b));
+                          }}
+                          className="w-full md:w-64 px-2 py-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-[11px] text-slate-900 dark:text-white"
+                        />
                       </div>
 
                       <div className="flex items-center gap-3">
-                        <span className="px-2.5 py-0.5 rounded-lg bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-300 font-mono font-bold text-xs">
-                          {item.quantity} {item.unit}
-                        </span>
+                        
+                        {/* Action Type: Add, Deduct, or Direct Count Set */}
+                        <select
+                          value={item.actionType}
+                          onChange={(e) => {
+                            const val = e.target.value as 'add' | 'deduct' | 'set';
+                            setBatchList(prev => prev.map((b, i) => i === idx ? { ...b, actionType: val } : b));
+                          }}
+                          className="px-2 py-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-[11px] font-bold text-slate-800 dark:text-slate-200"
+                        >
+                          <option value="add">+ Add Stock</option>
+                          <option value="deduct">- Deduct Stock</option>
+                          <option value="set">= Set Physical Count</option>
+                        </select>
+
+                        {/* Interactive Quantity Stepper */}
+                        <div className="flex items-center bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 p-0.5">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setBatchList(prev => prev.map((b, i) => i === idx ? { ...b, quantity: Math.max(1, b.quantity - 1) } : b));
+                            }}
+                            className="p-1 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-lg cursor-pointer"
+                          >
+                            <Minus className="w-3 h-3" />
+                          </button>
+                          <input
+                            type="number"
+                            min={1}
+                            value={item.quantity}
+                            onChange={(e) => {
+                              const val = Math.max(1, parseInt(e.target.value) || 1);
+                              setBatchList(prev => prev.map((b, i) => i === idx ? { ...b, quantity: val } : b));
+                            }}
+                            className="w-12 text-center font-mono font-bold text-xs bg-transparent text-slate-900 dark:text-white focus:outline-none"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setBatchList(prev => prev.map((b, i) => i === idx ? { ...b, quantity: b.quantity + 1 } : b));
+                            }}
+                            className="p-1 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-lg cursor-pointer"
+                          >
+                            <Plus className="w-3 h-3" />
+                          </button>
+                        </div>
+
+                        <span className="text-slate-400 font-mono text-[11px]">{item.unit}</span>
+
                         <button
                           onClick={() => setBatchList(prev => prev.filter((_, i) => i !== idx))}
-                          className="text-slate-400 hover:text-rose-500 cursor-pointer"
+                          className="p-1.5 text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/60 rounded-lg transition-colors cursor-pointer"
+                          title="Remove item"
                         >
-                          <Trash2 className="w-3.5 h-3.5" />
+                          <Trash2 className="w-4 h-4" />
                         </button>
                       </div>
                     </div>
                   ))}
                 </div>
               )}
+            </div>
+          )}
+
+          {/* ========================================================================= */}
+          {/* MODE 6: KIT BOM PICKING & ASSEMBLY CHECKLIST CARD */}
+          {/* ========================================================================= */}
+          {activeMode === 'kit_picking' && activeKit && (
+            <div className="p-5 bg-purple-50/70 dark:bg-purple-950/40 rounded-3xl border border-purple-200 dark:border-purple-800/80 space-y-4 animate-fadeIn">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="font-black text-sm text-purple-950 dark:text-purple-200 flex items-center gap-2">
+                    <ClipboardList className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                    Kit Assembly Picking Checklist: {activeKit.name}
+                  </h3>
+                  <p className="text-xs text-purple-700 dark:text-purple-300 font-medium mt-0.5">
+                    Scan each required BOM component to verify and mark off inventory:
+                  </p>
+                </div>
+
+                <span className="px-3 py-1 rounded-xl bg-purple-600 text-white font-black text-xs">
+                  {Object.keys(scannedKitItems).length} / {activeKit.items?.length || 0} Picked
+                </span>
+              </div>
+
+              {/* Visual Progress Bar */}
+              <div className="w-full bg-purple-200 dark:bg-purple-900 rounded-full h-2 overflow-hidden">
+                <div
+                  className="bg-purple-600 h-full transition-all duration-300"
+                  style={{
+                    width: `${Math.min(100, (Object.keys(scannedKitItems).length / (activeKit.items?.length || 1)) * 100)}%`
+                  }}
+                />
+              </div>
+
+              {/* BOM Items Checklist Grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5 pt-1">
+                {(activeKit.items || []).map((req) => {
+                  const item = inventory.find(i => i.id === req.componentId);
+                  const requiredQty = (req as any).qty || (req as any).quantity || 1;
+                  const isPicked = (scannedKitItems[req.componentId] || 0) >= requiredQty;
+                  const pickedQty = scannedKitItems[req.componentId] || 0;
+
+                  return (
+                    <div
+                      key={req.componentId}
+                      className={`p-3 rounded-2xl border transition-all flex items-center justify-between text-xs ${
+                        isPicked
+                          ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-950 dark:text-emerald-200'
+                          : 'bg-white dark:bg-slate-900 border-purple-200 dark:border-purple-800 text-slate-800 dark:text-slate-200'
+                      }`}
+                    >
+                      <div className="truncate pr-2">
+                        <div className="flex items-center gap-1.5">
+                          {isPicked ? (
+                            <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+                          ) : (
+                            <Boxes className="w-4 h-4 text-purple-500 shrink-0" />
+                          )}
+                          <span className="font-bold truncate">{item?.name || req.componentId}</span>
+                        </div>
+                        <span className="text-[10px] text-slate-400 font-mono block pl-5">
+                          Bin: {item?.binLocation || 'Unassigned'} • Req: {requiredQty} {item?.unit || 'pcs'}
+                        </span>
+                      </div>
+
+                      <span className={`px-2 py-0.5 rounded-lg text-[10px] font-mono font-bold shrink-0 ${
+                        isPicked
+                          ? 'bg-emerald-500 text-white'
+                          : 'bg-purple-100 dark:bg-purple-900/60 text-purple-700 dark:text-purple-300'
+                      }`}>
+                        {pickedQty}/{requiredQty}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           )}
 
@@ -1258,7 +1545,7 @@ export default function BarcodeScannerModal({
                 </h4>
                 <button
                   onClick={() => setRecentScanLog([])}
-                  className="text-[10px] text-slate-400 hover:text-rose-500 font-bold"
+                  className="text-[10px] text-slate-400 hover:text-rose-500 font-bold cursor-pointer"
                 >
                   Clear History
                 </button>
@@ -1288,6 +1575,286 @@ export default function BarcodeScannerModal({
 
         </div>
       </div>
+
+      {/* ========================================================================= */}
+      {/* 1. IN-MODAL COMPONENT QUICK-EDITOR MODAL */}
+      {/* ========================================================================= */}
+      {isEditingItemModal && scannedItem && (
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 z-[10000] animate-fadeIn">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl w-full max-w-lg p-6 space-y-4 max-h-[90vh] overflow-y-auto custom-scrollbar">
+            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+              <h3 className="text-base font-black text-slate-900 dark:text-white flex items-center gap-2">
+                <Edit2 className="w-5 h-5 text-indigo-600" />
+                Edit Component Specifications
+              </h3>
+              <button
+                onClick={() => setIsEditingItemModal(false)}
+                className="p-1.5 text-slate-400 hover:text-white rounded-xl hover:bg-slate-800 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveItemEdit} className="space-y-3.5 text-xs">
+              <div>
+                <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">Component Name *</label>
+                <input
+                  type="text"
+                  required
+                  value={editItemName}
+                  onChange={(e) => setEditItemName(e.target.value)}
+                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 dark:text-white focus:outline-none"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">Category</label>
+                  <input
+                    type="text"
+                    value={editItemCategory}
+                    onChange={(e) => setEditItemCategory(e.target.value)}
+                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 dark:text-white focus:outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">Storage Bin</label>
+                  <input
+                    type="text"
+                    value={editItemBin}
+                    onChange={(e) => setEditItemBin(e.target.value)}
+                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 dark:text-white focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">Unit Cost (₹)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min={0}
+                    value={editItemCost}
+                    onChange={(e) => setEditItemCost(parseFloat(e.target.value) || 0)}
+                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-mono font-bold text-slate-900 dark:text-white focus:outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">Stock Quantity</label>
+                  <input
+                    type="number"
+                    min={0}
+                    value={editItemStock}
+                    onChange={(e) => setEditItemStock(parseInt(e.target.value) || 0)}
+                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-mono font-bold text-slate-900 dark:text-white focus:outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">Min Threshold</label>
+                  <input
+                    type="number"
+                    min={0}
+                    value={editItemThreshold}
+                    onChange={(e) => setEditItemThreshold(parseInt(e.target.value) || 0)}
+                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-mono font-bold text-slate-900 dark:text-white focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">Barcode Code</label>
+                  <input
+                    type="text"
+                    value={editItemBarcode}
+                    onChange={(e) => setEditItemBarcode(e.target.value)}
+                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-mono font-bold text-slate-900 dark:text-white focus:outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">SKU</label>
+                  <input
+                    type="text"
+                    value={editItemSku}
+                    onChange={(e) => setEditItemSku(e.target.value)}
+                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-mono font-bold text-slate-900 dark:text-white focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsEditingItemModal(false)}
+                  className="px-4 py-2 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold rounded-xl cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-md cursor-pointer flex items-center gap-1.5"
+                >
+                  <Save className="w-3.5 h-3.5" /> Save Component
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* 2. MANAGE QUICK TEST BARCODE CHIPS MODAL */}
+      {/* ========================================================================= */}
+      {isManagingChipsModal && (
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 z-[10000] animate-fadeIn">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl w-full max-w-md p-6 space-y-4 max-h-[85vh] overflow-y-auto custom-scrollbar">
+            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+              <h3 className="text-base font-black text-slate-900 dark:text-white flex items-center gap-2">
+                <Tag className="w-5 h-5 text-indigo-600" />
+                Customize Quick Test Chips
+              </h3>
+              <button
+                onClick={() => setIsManagingChipsModal(false)}
+                className="p-1.5 text-slate-400 hover:text-white rounded-xl hover:bg-slate-800 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Add New Chip Form */}
+            <form onSubmit={handleAddQuickChip} className="space-y-3 text-xs bg-slate-50 dark:bg-slate-800/60 p-3.5 rounded-2xl border border-slate-200 dark:border-slate-700">
+              <span className="font-bold text-slate-900 dark:text-white block">+ Pin New Quick SKU / Barcode:</span>
+              <div className="grid grid-cols-2 gap-2">
+                <input
+                  type="text"
+                  required
+                  placeholder="Barcode Code (e.g. EL-99)"
+                  value={newChipCode}
+                  onChange={(e) => setNewChipCode(e.target.value)}
+                  className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-1.5 text-xs font-mono font-bold text-slate-900 dark:text-white"
+                />
+                <input
+                  type="text"
+                  placeholder="Label (e.g. Servo Motor)"
+                  value={newChipLabel}
+                  onChange={(e) => setNewChipLabel(e.target.value)}
+                  className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-1.5 text-xs text-slate-900 dark:text-white"
+                />
+              </div>
+              <button
+                type="submit"
+                className="w-full py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-xs cursor-pointer flex items-center justify-center gap-1.5"
+              >
+                <Plus className="w-3.5 h-3.5" /> Pin to Quick Bar
+              </button>
+            </form>
+
+            {/* Existing Chips List with Delete */}
+            <div className="space-y-2">
+              <span className="text-[10px] uppercase font-bold text-slate-400 block">Current Quick Chips ({quickChips.length}):</span>
+              <div className="space-y-1.5 max-h-[180px] overflow-y-auto custom-scrollbar">
+                {quickChips.map((chip) => (
+                  <div
+                    key={chip.code}
+                    className="p-2 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 flex items-center justify-between text-xs font-mono"
+                  >
+                    <div className="flex items-center gap-2 truncate">
+                      <strong className="text-slate-900 dark:text-white">{chip.code}</strong>
+                      {chip.label && <span className="text-slate-400 truncate">({chip.label})</span>}
+                    </div>
+                    <button
+                      onClick={() => handleDeleteQuickChip(chip.code)}
+                      className="p-1 text-slate-400 hover:text-rose-500 cursor-pointer"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex justify-between items-center text-xs">
+              <button
+                type="button"
+                onClick={handleResetQuickChips}
+                className="text-slate-400 hover:text-amber-500 font-bold flex items-center gap-1 cursor-pointer text-[11px]"
+              >
+                <RotateCcw className="w-3 h-3" /> Reset Defaults
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsManagingChipsModal(false)}
+                className="px-4 py-1.5 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold rounded-xl cursor-pointer"
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* 3. CUSTOMIZE QUANTITY MULTIPLIERS MODAL */}
+      {/* ========================================================================= */}
+      {isEditingStepsModal && (
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 z-[10000] animate-fadeIn">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl w-full max-w-md p-6 space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+              <h3 className="text-base font-black text-slate-900 dark:text-white flex items-center gap-2">
+                <Settings className="w-5 h-5 text-indigo-600" />
+                Customize Quantity Multipliers
+              </h3>
+              <button
+                onClick={() => setIsEditingStepsModal(false)}
+                className="p-1.5 text-slate-400 hover:text-white rounded-xl hover:bg-slate-800 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveSteps} className="space-y-3.5 text-xs">
+              <div>
+                <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">
+                  Quantity Step Multipliers (Comma Separated) *
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. 1, 6, 12, 24, 48, 100, 500"
+                  value={stepInputText}
+                  onChange={(e) => setStepInputText(e.target.value)}
+                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-mono font-bold text-slate-900 dark:text-white focus:outline-none"
+                />
+                <p className="text-[10px] text-slate-400 mt-1">
+                  Configure common carton, case, or reel counts (e.g. 1, 10, 50, 100).
+                </p>
+              </div>
+
+              <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsEditingStepsModal(false)}
+                  className="px-4 py-2 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold rounded-xl cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-md cursor-pointer"
+                >
+                  Save Steps
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
     </div>,
     document.body
   );
