@@ -3,6 +3,7 @@ import { History, Search, Filter, GitCommit, User } from 'lucide-react';
 import { useData } from '@/src/DataContext';
 import { useUndoRedo } from '@/src/contexts/UndoRedoContext';
 import DiffViewer from '@/src/components/DiffViewer';
+import { apiFetch } from '@/src/utils/api';
 
 export default function RevisionHistoryTab() {
   const { transactions, inventory } = useData();
@@ -13,8 +14,7 @@ export default function RevisionHistoryTab() {
 
   React.useEffect(() => {
     let isMounted = true;
-    fetch('/api/v1/audit-log', { credentials: 'include' })
-      .then((res) => (res.ok ? res.json() : null))
+    apiFetch('/api/v1/audit-log')
       .then((data) => {
         if (isMounted && data && Array.isArray(data.logs)) {
           const mappedLogs = data.logs.map((log: any) => ({
