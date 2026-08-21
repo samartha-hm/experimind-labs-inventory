@@ -18,12 +18,16 @@ import {
   ChevronRight,
   ExternalLink,
   QrCode,
-  Tag
+  Tag,
+  Building2,
+  LayoutGrid,
+  List
 } from 'lucide-react';
 import { useData } from '@/src/DataContext';
 import { useToast } from '@/src/contexts/ToastContext';
 import { InventoryItem } from '@/src/types';
 import BarcodeSvg from '@/src/shared/components/BarcodeSvg';
+import VisualStockRoom from './VisualStockRoom';
 
 interface WarehousesTabProps {
   role: string | null;
@@ -43,6 +47,8 @@ export default function WarehousesTab({ role }: WarehousesTabProps) {
     logTransaction
   } = useData();
   const { showToast } = useToast();
+
+  const [activeViewMode, setActiveViewMode] = useState<'visual_shelf' | 'topology'>('visual_shelf');
 
   // Search & Filter
   const [searchQuery, setSearchQuery] = useState('');
@@ -166,251 +172,294 @@ export default function WarehousesTab({ role }: WarehousesTabProps) {
 
   return (
     <div className="space-y-6 w-full animate-fadeIn">
-      {/* Header Banner */}
-      <div className="bg-white/90 dark:bg-slate-900/90 backdrop-blur-md p-6 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h2 className="text-xl font-black text-slate-900 dark:text-white flex items-center gap-2.5 tracking-tight">
-            <div className="p-2.5 bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 rounded-2xl border border-indigo-100/80 dark:border-indigo-800">
-              <Warehouse className="w-5 h-5" />
-            </div>
-            Warehouse Facilities & Storage Bins Hub
-          </h2>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 font-medium">
-            Manage physical racks, shelf locations, component bin allocations, and print scannable ISO-128 shelf stickers.
-          </p>
-        </div>
-
-        <div className="flex items-center gap-2.5 self-start sm:self-auto shrink-0">
+      {/* Top View Mode Navigation Switcher */}
+      <div className="bg-white dark:bg-slate-900 p-2 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs flex items-center justify-between gap-2">
+        <div className="flex items-center gap-1">
           <button
-            onClick={() => setIsAddBinOpen(true)}
-            className="bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold px-4 py-2.5 rounded-2xl text-xs transition-all flex items-center gap-2 cursor-pointer"
+            onClick={() => setActiveViewMode('visual_shelf')}
+            className={`px-4 py-2.5 rounded-xl font-black text-xs transition-all flex items-center gap-2 cursor-pointer ${
+              activeViewMode === 'visual_shelf'
+                ? 'bg-indigo-600 text-white shadow-md'
+                : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
+            }`}
           >
-            <Plus className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
-            <span>Add Storage Bin</span>
+            <Building2 className="w-4 h-4 text-amber-400" />
+            <span>Physical Shelving Unit View (Realistic Visual Replica)</span>
           </button>
 
           <button
-            onClick={() => setIsAddModalOpen(true)}
-            className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-4 py-2.5 rounded-2xl text-xs shadow-md shadow-indigo-600/20 transition-all flex items-center gap-2 cursor-pointer shrink-0"
+            onClick={() => setActiveViewMode('topology')}
+            className={`px-4 py-2.5 rounded-xl font-black text-xs transition-all flex items-center gap-2 cursor-pointer ${
+              activeViewMode === 'topology'
+                ? 'bg-indigo-600 text-white shadow-md'
+                : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
+            }`}
           >
-            <Warehouse className="w-4 h-4" />
-            <span>Add Warehouse Facility</span>
+            <Layers className="w-4 h-4 text-indigo-400" />
+            <span>Facilities Topology & Bins Database</span>
           </button>
         </div>
+
+        <span className="text-xs text-slate-500 font-medium px-3 hidden md:inline">
+          {activeViewMode === 'visual_shelf' ? 'Visual Rack & Bin Allotment' : 'Facility & Bin Management'}
+        </span>
       </div>
 
-      {/* Warehouse Facilities Overview Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-        {warehouses.map((wh) => {
-          const whBins = bins.filter(b => b.warehouseCode === wh.code);
-          const whItemCount = inventory.filter(i => whBins.some(b => (i.binLocation || '').toLowerCase().includes(b.code.toLowerCase()))).length;
+      {/* RENDER VIEW: VISUAL PHYSICAL SHELF REPLICA */}
+      {activeViewMode === 'visual_shelf' && (
+        <VisualStockRoom />
+      )}
 
-          return (
-            <div
-              key={wh.id}
-              className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800 p-5 shadow-xs hover:shadow-lg transition-all space-y-3 relative group"
-            >
-              <div className="flex items-start justify-between">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 font-mono tracking-wider">{wh.code}</span>
-                    {wh.isDefault && (
-                      <span className="px-2 py-0.5 bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 text-[10px] font-bold rounded-full border border-emerald-200/60 dark:border-emerald-800">
-                        Default Facility
-                      </span>
-                    )}
-                  </div>
-                  <h3 className="font-black text-slate-900 dark:text-white text-base mt-0.5">{wh.name}</h3>
+      {/* RENDER VIEW: TOPOLOGY & BINS DATABASE */}
+      {activeViewMode === 'topology' && (
+        <div className="space-y-6 animate-fadeIn">
+          {/* Header Banner */}
+          <div className="bg-white/90 dark:bg-slate-900/90 backdrop-blur-md p-6 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <h2 className="text-xl font-black text-slate-900 dark:text-white flex items-center gap-2.5 tracking-tight">
+                <div className="p-2.5 bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 rounded-2xl border border-indigo-100/80 dark:border-indigo-800">
+                  <Warehouse className="w-5 h-5" />
                 </div>
-
-                <div className="flex items-center gap-1">
-                  <button
-                    onClick={() => setEditingWh(wh)}
-                    className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-slate-800 rounded-xl transition-colors cursor-pointer"
-                    title="Edit Facility"
-                  >
-                    <Edit2 className="w-4 h-4" />
-                  </button>
-                  <button
-                    onClick={() => handleDeleteWh(wh.id)}
-                    className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-slate-800 rounded-xl transition-colors cursor-pointer"
-                    title="Delete Facility"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
-
-              <p className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400 font-medium">
-                <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                {wh.address || 'Tech Logistics Center'}
+                Warehouse Facilities & Storage Topology
+              </h2>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 font-medium">
+                Configure warehouse facilities, storage zones, shelf codes, and database bin records.
               </p>
-
-              <div className="pt-2 border-t border-slate-100 dark:border-slate-800 grid grid-cols-2 gap-2 text-xs">
-                <div className="p-2.5 bg-slate-50 dark:bg-slate-800/60 rounded-xl">
-                  <span className="text-[10px] font-bold text-slate-400 uppercase block">Active Bins</span>
-                  <strong className="text-slate-900 dark:text-white font-mono text-sm">{whBins.length} Bins</strong>
-                </div>
-                <div className="p-2.5 bg-slate-50 dark:bg-slate-800/60 rounded-xl">
-                  <span className="text-[10px] font-bold text-slate-400 uppercase block">SKUs Stored</span>
-                  <strong className="text-indigo-600 dark:text-indigo-400 font-mono text-sm">{whItemCount} Parts</strong>
-                </div>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-
-      {/* Storage Bins Management Hub */}
-      <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-xs p-6 space-y-5">
-        
-        {/* Search, Filter & Quick Actions Bar */}
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <Layers className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
-            <h3 className="text-base font-black text-slate-900 dark:text-white">
-              Storage Bins & Shelf Allocation ({filteredBins.length})
-            </h3>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
-            <div className="relative flex-1 sm:w-60">
-              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-              <input
-                type="text"
-                placeholder="Search bin code, rack, or shelf..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-9 pr-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-white font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
-              />
             </div>
 
-            <select
-              value={selectedWarehouseFilter}
-              onChange={(e) => setSelectedWarehouseFilter(e.target.value)}
-              className="px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-800 dark:text-slate-200 focus:outline-none cursor-pointer"
-            >
-              <option value="ALL">All Facilities ({warehouses.length})</option>
-              {warehouses.map(w => (
-                <option key={w.id} value={w.code}>{w.name} ({w.code})</option>
-              ))}
-            </select>
-          </div>
-        </div>
-
-        {/* Interactive Bins Accordion Table */}
-        <div className="space-y-3">
-          {filteredBins.map((bin) => {
-            const itemsInBin = getItemsInBin(bin.code);
-            const isExpanded = !!expandedBinIds[bin.id];
-
-            return (
-              <div
-                key={bin.id}
-                className="bg-slate-50/70 dark:bg-slate-800/50 rounded-2xl border border-slate-200/80 dark:border-slate-700 overflow-hidden transition-all"
+            <div className="flex items-center gap-2.5 self-start sm:self-auto shrink-0">
+              <button
+                onClick={() => setIsAddBinOpen(true)}
+                className="bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold px-4 py-2.5 rounded-2xl text-xs transition-all flex items-center gap-2 cursor-pointer"
               >
-                {/* Bin Header Row */}
-                <div className="p-4 flex flex-col md:flex-row md:items-center justify-between gap-3">
-                  <div className="flex items-center gap-3">
-                    <button
-                      type="button"
-                      onClick={() => toggleBinExpanded(bin.id)}
-                      className="p-1 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-transform cursor-pointer"
-                    >
-                      {isExpanded ? <ChevronDown className="w-5 h-5 text-indigo-600" /> : <ChevronRight className="w-5 h-5" />}
-                    </button>
+                <Plus className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                <span>Add Storage Bin</span>
+              </button>
 
-                    <div className="p-2 bg-indigo-100 dark:bg-indigo-950/60 rounded-xl text-indigo-700 dark:text-indigo-300 font-mono font-bold text-xs">
-                      {bin.code}
-                    </div>
+              <button
+                onClick={() => setIsAddModalOpen(true)}
+                className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-4 py-2.5 rounded-2xl text-xs shadow-md shadow-indigo-600/20 transition-all flex items-center gap-2 cursor-pointer shrink-0"
+              >
+                <Warehouse className="w-4 h-4" />
+                <span>Add Warehouse Facility</span>
+              </button>
+            </div>
+          </div>
 
+          {/* Warehouse Facilities Overview Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+            {warehouses.map((wh) => {
+              const whBins = bins.filter(b => b.warehouseCode === wh.code);
+              const whItemCount = inventory.filter(i => whBins.some(b => (i.binLocation || '').toLowerCase().includes(b.code.toLowerCase()))).length;
+
+              return (
+                <div
+                  key={wh.id}
+                  className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800 p-5 shadow-xs hover:shadow-lg transition-all space-y-3 relative group"
+                >
+                  <div className="flex items-start justify-between">
                     <div>
                       <div className="flex items-center gap-2">
-                        <h4 className="font-bold text-slate-900 dark:text-white text-xs">{bin.description || 'General Storage Shelf'}</h4>
-                        <span className="px-2 py-0.5 rounded-md bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 font-mono text-[10px] font-bold">
-                          {bin.warehouseCode}
-                        </span>
+                        <span className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 font-mono tracking-wider">{wh.code}</span>
+                        {wh.isDefault && (
+                          <span className="px-2 py-0.5 bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 text-[10px] font-bold rounded-full border border-emerald-200/60 dark:border-emerald-800">
+                            Default Facility
+                          </span>
+                        )}
                       </div>
-                      <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">
-                        {itemsInBin.length} unique component(s) stored here ({itemsInBin.reduce((sum, i) => sum + i.stockQty, 0)} total units)
-                      </span>
+                      <h3 className="font-black text-slate-900 dark:text-white text-base mt-0.5">{wh.name}</h3>
+                    </div>
+
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => setEditingWh(wh)}
+                        className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-slate-800 rounded-xl transition-colors cursor-pointer"
+                        title="Edit Facility"
+                      >
+                        <Edit2 className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => handleDeleteWh(wh.id)}
+                        className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-slate-800 rounded-xl transition-colors cursor-pointer"
+                        title="Delete Facility"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
                     </div>
                   </div>
 
-                  {/* Actions: Assign Parts, Print Sticker, Delete */}
-                  <div className="flex items-center gap-2 self-end md:self-auto">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setAssigningBin(bin);
-                        setAssignItemSearch('');
-                      }}
-                      className="px-3 py-1.5 bg-indigo-50 dark:bg-indigo-950/60 hover:bg-indigo-100 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5"
-                    >
-                      <Package className="w-3.5 h-3.5" /> Assign Parts
-                    </button>
+                  <p className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400 font-medium">
+                    <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                    {wh.address || 'Tech Logistics Center'}
+                  </p>
 
-                    <button
-                      type="button"
-                      onClick={() => setPrintingBin(bin)}
-                      className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 shadow-xs"
-                    >
-                      <Printer className="w-3.5 h-3.5 text-amber-400" /> Print Shelf Sticker
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => handleDeleteBin(bin.id)}
-                      className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-slate-800 rounded-xl transition-colors cursor-pointer"
-                      title="Delete Bin"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                  <div className="pt-2 border-t border-slate-100 dark:border-slate-800 grid grid-cols-2 gap-2 text-xs">
+                    <div className="p-2.5 bg-slate-50 dark:bg-slate-800/60 rounded-xl">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase block">Active Bins</span>
+                      <strong className="text-slate-900 dark:text-white font-mono text-sm">{whBins.length} Bins</strong>
+                    </div>
+                    <div className="p-2.5 bg-slate-50 dark:bg-slate-800/60 rounded-xl">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase block">SKUs Stored</span>
+                      <strong className="text-indigo-600 dark:text-indigo-400 font-mono text-sm">{whItemCount} Parts</strong>
+                    </div>
                   </div>
                 </div>
+              );
+            })}
+          </div>
 
-                {/* Stored Components Drawer (When Expanded) */}
-                {isExpanded && (
-                  <div className="p-4 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-700 divide-y divide-slate-100 dark:divide-slate-800 animate-fadeIn">
-                    <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">
-                      Components currently stored in {bin.code}:
-                    </div>
+          {/* Storage Bins Management Hub */}
+          <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-xs p-6 space-y-5">
+            
+            {/* Search, Filter & Quick Actions Bar */}
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <Layers className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                <h3 className="text-base font-black text-slate-900 dark:text-white">
+                  Storage Bins & Shelf Allocation ({filteredBins.length})
+                </h3>
+              </div>
 
-                    {itemsInBin.length === 0 ? (
-                      <div className="py-4 text-center text-xs text-slate-400">
-                        No components assigned to this bin yet. Click <strong>"Assign Parts"</strong> to store items here.
-                      </div>
-                    ) : (
-                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5 pt-2">
-                        {itemsInBin.map((item) => (
-                          <div
-                            key={item.id}
-                            className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700 flex items-center justify-between gap-2"
-                          >
-                            <div className="truncate">
-                              <span className="font-bold text-slate-900 dark:text-white text-xs block truncate">{item.name}</span>
-                              <span className="text-[10px] font-mono text-slate-400">{item.barcode || `EL-${item.id}`}</span>
-                            </div>
-                            <span className="px-2 py-0.5 bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 rounded-lg text-xs font-mono font-bold shrink-0 border border-emerald-200 dark:border-emerald-800">
-                              {item.stockQty} {item.unit}
+              <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+                <div className="relative flex-1 sm:w-60">
+                  <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input
+                    type="text"
+                    placeholder="Search bin code, rack, or shelf..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full pl-9 pr-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-white font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                  />
+                </div>
+
+                <select
+                  value={selectedWarehouseFilter}
+                  onChange={(e) => setSelectedWarehouseFilter(e.target.value)}
+                  className="px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-800 dark:text-slate-200 focus:outline-none cursor-pointer"
+                >
+                  <option value="ALL">All Facilities ({warehouses.length})</option>
+                  {warehouses.map(w => (
+                    <option key={w.id} value={w.code}>{w.name} ({w.code})</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {/* Interactive Bins Accordion Table */}
+            <div className="space-y-3">
+              {filteredBins.map((bin) => {
+                const itemsInBin = getItemsInBin(bin.code);
+                const isExpanded = !!expandedBinIds[bin.id];
+
+                return (
+                  <div
+                    key={bin.id}
+                    className="bg-slate-50/70 dark:bg-slate-800/50 rounded-2xl border border-slate-200/80 dark:border-slate-700 overflow-hidden transition-all"
+                  >
+                    {/* Bin Header Row */}
+                    <div className="p-4 flex flex-col md:flex-row md:items-center justify-between gap-3">
+                      <div className="flex items-center gap-3">
+                        <button
+                          type="button"
+                          onClick={() => toggleBinExpanded(bin.id)}
+                          className="p-1 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-transform cursor-pointer"
+                        >
+                          {isExpanded ? <ChevronDown className="w-5 h-5 text-indigo-600" /> : <ChevronRight className="w-5 h-5" />}
+                        </button>
+
+                        <div className="p-2 bg-indigo-100 dark:bg-indigo-950/60 rounded-xl text-indigo-700 dark:text-indigo-300 font-mono font-bold text-xs">
+                          {bin.code}
+                        </div>
+
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <h4 className="font-bold text-slate-900 dark:text-white text-xs">{bin.description || 'General Storage Shelf'}</h4>
+                            <span className="px-2 py-0.5 rounded-md bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 font-mono text-[10px] font-bold">
+                              {bin.warehouseCode}
                             </span>
                           </div>
-                        ))}
+                          <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">
+                            {itemsInBin.length} unique component(s) stored here ({itemsInBin.reduce((sum, i) => sum + i.stockQty, 0)} total units)
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Actions: Assign Parts, Print Sticker, Delete */}
+                      <div className="flex items-center gap-2 self-end md:self-auto">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setAssigningBin(bin);
+                            setAssignItemSearch('');
+                          }}
+                          className="px-3 py-1.5 bg-indigo-50 dark:bg-indigo-950/60 hover:bg-indigo-100 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5"
+                        >
+                          <Package className="w-3.5 h-3.5" /> Assign Parts
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => setPrintingBin(bin)}
+                          className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 shadow-xs"
+                        >
+                          <Printer className="w-3.5 h-3.5 text-amber-400" /> Print Shelf Sticker
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteBin(bin.id)}
+                          className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-slate-800 rounded-xl transition-colors cursor-pointer"
+                          title="Delete Bin"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Stored Components Drawer (When Expanded) */}
+                    {isExpanded && (
+                      <div className="p-4 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-700 divide-y divide-slate-100 dark:divide-slate-800 animate-fadeIn">
+                        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">
+                          Components currently stored in {bin.code}:
+                        </div>
+
+                        {itemsInBin.length === 0 ? (
+                          <div className="py-4 text-center text-xs text-slate-400">
+                            No components assigned to this bin yet. Click <strong>"Assign Parts"</strong> to store items here.
+                          </div>
+                        ) : (
+                          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5 pt-2">
+                            {itemsInBin.map((item) => (
+                              <div
+                                key={item.id}
+                                className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700 flex items-center justify-between gap-2"
+                              >
+                                <div className="truncate">
+                                  <span className="font-bold text-slate-900 dark:text-white text-xs block truncate">{item.name}</span>
+                                  <span className="text-[10px] font-mono text-slate-400">{item.barcode || `EL-${item.id}`}</span>
+                                </div>
+                                <span className="px-2 py-0.5 bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 rounded-lg text-xs font-mono font-bold shrink-0 border border-emerald-200 dark:border-emerald-800">
+                                {item.stockQty} {item.unit}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
-                )}
-              </div>
-            );
-          })}
+                );
+              })}
 
-          {filteredBins.length === 0 && (
-            <div className="p-8 text-center border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-3xl text-slate-400 text-xs">
-              No storage bins found matching your search. Click "Add Storage Bin" above to configure your racks and shelves.
+              {filteredBins.length === 0 && (
+                <div className="p-8 text-center border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-3xl text-slate-400 text-xs">
+                  No storage bins found matching your search. Click "Add Storage Bin" above to configure your racks and shelves.
+                </div>
+              )}
             </div>
-          )}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* QUICK ASSIGN PARTS TO BIN MODAL */}
       {assigningBin && (

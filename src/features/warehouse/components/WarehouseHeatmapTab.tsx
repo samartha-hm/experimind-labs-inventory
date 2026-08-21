@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   MapPin,
   Box,
@@ -12,9 +12,12 @@ import {
   Info,
   Navigation,
   ShieldCheck,
-  Building2
+  Building2,
+  Package,
+  Printer
 } from 'lucide-react';
 import { useData } from '@/src/DataContext';
+import BarcodeSvg from '@/src/shared/components/BarcodeSvg';
 
 interface BinSlot {
   code: string;
@@ -27,49 +30,120 @@ interface BinSlot {
 }
 
 export default function WarehouseHeatmapTab() {
-  const { inventory } = useData();
-  const [selectedRack, setSelectedRack] = useState<string>('RACK_A');
+  const { inventory, bins, warehouses } = useData();
+  const [selectedRack, setSelectedRack] = useState<string>('RACK_1');
   const [selectedBin, setSelectedBin] = useState<BinSlot | null>(null);
   const [searchTerm, setSearchTerm] = useState<string>('');
 
-  // Racks layout data
+  // Racks layout definitions
   const RACKS = [
-    { id: 'RACK_A', name: 'Rack A — Electronics & Microcontrollers', zone: 'Zone 1 (ESD Safe)', shelves: 4 },
-    { id: 'RACK_B', name: 'Rack B — Science Lab Glassware & Reagents', zone: 'Zone 2 (Hazmat Light)', shelves: 4 },
-    { id: 'RACK_C', name: 'Rack C — STEM Kitting & Assembly Units', zone: 'Zone 3 (High Velocity)', shelves: 4 },
-    { id: 'RACK_D', name: 'Rack D — Mathematics & IQ Learning Aids', zone: 'Zone 4 (General Storage)', shelves: 4 },
+    { id: 'RACK_1', name: 'Rack 1 — Main Assembly & Science Lab Shelf', zone: 'Zone A (High Velocity)', prefix: 'Rack 1' },
+    { id: 'RACK_2', name: 'Rack 2 — Electronics & Sensor Cleanroom', zone: 'Zone B (ESD Safe)', prefix: 'Bin' },
+    { id: 'RACK_3', name: 'Cabinet A — Chemical & Safety Storage', zone: 'Zone C (Hazmat Light)', prefix: 'Chemical' },
+    { id: 'RACK_4', name: 'Rack 3 — STEM Kitting Packages', zone: 'Zone D (Finished Assembly)', prefix: 'Kits' },
   ];
 
-  // Map inventory items to virtual bins dynamically
-  const binsList: BinSlot[] = [];
-  const itemsPerBin = Math.max(1, Math.ceil(inventory.length / 16));
+  // Map real inventory to bin slots
+  const binsList: BinSlot[] = useMemo(() => {
+    const list: BinSlot[] = [];
 
-  for (let r = 0; r < 4; r++) {
-    const rackId = RACKS[r].id;
+    // Group 1: Rack 1 (4 shelves x 4 bins)
     for (let s = 1; s <= 4; s++) {
-      for (let b = 1; b <= 4; b++) {
-        const binIndex = (r * 16) + ((s - 1) * 4) + (b - 1);
-        const startIndex = (binIndex * itemsPerBin) % inventory.length;
-        const binItems = inventory.slice(startIndex, startIndex + itemsPerBin).map((item) => ({
-          id: item.id,
-          name: item.name,
-          qty: item.stockQty,
-          category: item.category || 'General',
-        }));
+      const shelfCodes = [
+        `Rack - Shelf ${s}`,
+        `Rack 1, Shelf ${String.fromCharCode(64 + (s * 2 - 1))}`,
+        `Rack 1, Shelf ${String.fromCharCode(64 + (s * 2))}`,
+        `BIN-R1-S${s}-04`
+      ];
 
-        const totalQty = binItems.reduce((acc, curr) => acc + curr.qty, 0);
-        binsList.push({
-          code: `R${r + 1}-S${s}-B${b}`,
-          rack: rackId,
-          shelf: `Shelf ${s}`,
-          bin: `Bin ${b}`,
-          itemCount: binItems.length,
+      shelfCodes.forEach((code, idx) => {
+        const clean = code.trim().toLowerCase();
+        const items = inventory.filter(item => {
+          const itemBin = (item.binLocation || '').trim().toLowerCase();
+          return itemBin === clean || itemBin.includes(clean);
+        });
+
+        list.push({
+          code,
+          rack: 'RACK_1',
+          shelf: `Shelf Level ${s}`,
+          bin: `Compartment ${idx + 1}`,
+          itemCount: items.length,
           capacity: 500,
-          skus: binItems,
+          skus: items.map(i => ({ id: i.id, name: i.name, qty: i.stockQty, category: i.category || 'General' })),
+        });
+      });
+    }
+
+    // Group 2: Rack 2 Electronics (4 shelves x 4 bins: Bin A-01..Bin D-04)
+    const tiers = ['A', 'B', 'C', 'D'];
+    tiers.forEach((tierLetter, tierIdx) => {
+      for (let b = 1; b <= 4; b++) {
+        const code = `Bin ${tierLetter}-0${b}`;
+        const clean = code.trim().toLowerCase();
+        const items = inventory.filter(item => {
+          const itemBin = (item.binLocation || '').trim().toLowerCase();
+          return itemBin === clean || itemBin.includes(clean);
+        });
+
+        list.push({
+          code,
+          rack: 'RACK_2',
+          shelf: `Shelf Level ${tierIdx + 1} (${tierLetter})`,
+          bin: `Slot ${b}`,
+          itemCount: items.length,
+          capacity: 300,
+          skus: items.map(i => ({ id: i.id, name: i.name, qty: i.stockQty, category: i.category || 'Electronics' })),
         });
       }
+    });
+
+    // Group 3: Cabinet A (3 tiers x 2 compartments)
+    for (let s = 1; s <= 3; s++) {
+      const codes = [`Chemical Cabinet - ${s * 2 - 1}`, `Chemical Cabinet - ${s * 2}`];
+      codes.forEach((code, idx) => {
+        const clean = code.trim().toLowerCase();
+        const items = inventory.filter(item => {
+          const itemBin = (item.binLocation || '').trim().toLowerCase();
+          return itemBin === clean || itemBin.includes(clean);
+        });
+
+        list.push({
+          code,
+          rack: 'RACK_3',
+          shelf: `Shelf Tier ${s}`,
+          bin: `Cabinet Box ${idx + 1}`,
+          itemCount: items.length,
+          capacity: 200,
+          skus: items.map(i => ({ id: i.id, name: i.name, qty: i.stockQty, category: i.category || 'Chemicals' })),
+        });
+      });
     }
-  }
+
+    // Group 4: Rack 3 Kitting (3 tiers x 3 compartments)
+    for (let s = 1; s <= 3; s++) {
+      const codes = [`Kits Bin ${s * 3 - 2}`, `Kits Bin ${s * 3 - 1}`, `Kits Bin ${s * 3}`];
+      codes.forEach((code, idx) => {
+        const clean = code.trim().toLowerCase();
+        const items = inventory.filter(item => {
+          const itemBin = (item.binLocation || '').trim().toLowerCase();
+          return itemBin === clean || itemBin.includes(clean);
+        });
+
+        list.push({
+          code,
+          rack: 'RACK_4',
+          shelf: `Kitting Tier ${s}`,
+          bin: `Tote ${idx + 1}`,
+          itemCount: items.length,
+          capacity: 400,
+          skus: items.map(i => ({ id: i.id, name: i.name, qty: i.stockQty, category: i.category || 'kits' })),
+        });
+      });
+    }
+
+    return list;
+  }, [inventory]);
 
   const activeRackBins = binsList.filter((b) => b.rack === selectedRack);
 
@@ -84,8 +158,8 @@ export default function WarehouseHeatmapTab() {
 
   const getHeatmapColor = (itemCount: number, totalQty: number) => {
     if (itemCount === 0) return 'bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-400';
-    if (totalQty > 300) return 'bg-rose-50 dark:bg-rose-950/50 border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-300';
-    if (totalQty > 100) return 'bg-indigo-50 dark:bg-indigo-950/50 border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-300';
+    if (totalQty > 200) return 'bg-rose-50 dark:bg-rose-950/50 border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-300';
+    if (totalQty > 50) return 'bg-indigo-50 dark:bg-indigo-950/50 border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-300';
     return 'bg-emerald-50 dark:bg-emerald-950/50 border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300';
   };
 
@@ -108,12 +182,12 @@ export default function WarehouseHeatmapTab() {
 
         <div className="flex items-center gap-3 shrink-0">
           <div className="bg-slate-800/80 px-4 py-2 rounded-2xl border border-slate-700 text-center font-mono">
-            <div className="text-[9px] uppercase font-bold text-slate-400">Pick Efficiency</div>
-            <div className="text-lg font-black text-emerald-400">94.8%</div>
+            <div className="text-[9px] uppercase font-bold text-slate-400">Total Bins</div>
+            <div className="text-lg font-black text-indigo-400">{binsList.length} Slots</div>
           </div>
           <div className="bg-slate-800/80 px-4 py-2 rounded-2xl border border-slate-700 text-center font-mono">
-            <div className="text-[9px] uppercase font-bold text-slate-400">Total Bins</div>
-            <div className="text-lg font-black text-indigo-400">64 Slots</div>
+            <div className="text-[9px] uppercase font-bold text-slate-400">Occupied</div>
+            <div className="text-lg font-black text-emerald-400">{binsList.filter(b => b.itemCount > 0).length} Filled</div>
           </div>
         </div>
       </div>
@@ -144,7 +218,7 @@ export default function WarehouseHeatmapTab() {
             <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
               type="text"
-              placeholder="Search bin code or SKU (e.g. R1-S2-B3, ESP32)..."
+              placeholder="Search bin code or SKU (e.g. Rack - Shelf 1, ESP32)..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full pl-10 pr-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-medium text-slate-800 dark:text-slate-100 placeholder-slate-400 focus:outline-none"
@@ -164,17 +238,19 @@ export default function WarehouseHeatmapTab() {
 
       {/* 2D Grid Layout of Shelves & Bins */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left Side: 2D Spatial Grid (4 Shelves x 4 Bins) */}
+        {/* Left Side: 2D Spatial Grid */}
         <div className="lg:col-span-2 space-y-4">
-          {[1, 2, 3, 4].map((shelfNum) => {
-            const shelfBins = filteredBins.filter((b) => b.shelf === `Shelf ${shelfNum}`);
+          {Array.from(new Set(activeRackBins.map(b => b.shelf))).map((shelfName) => {
+            const shelfBins = filteredBins.filter((b) => b.shelf === shelfName);
+            if (shelfBins.length === 0) return null;
+
             return (
-              <div key={shelfNum} className="bg-white dark:bg-slate-900 p-4 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-3">
+              <div key={shelfName} className="bg-white dark:bg-slate-900 p-4 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-3">
                 <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-2">
                   <span className="text-xs font-black uppercase text-slate-500 tracking-wider flex items-center gap-1.5">
-                    <Navigation className="w-3.5 h-3.5 text-indigo-500" /> Shelf Level {shelfNum}
+                    <Navigation className="w-3.5 h-3.5 text-indigo-500" /> {shelfName}
                   </span>
-                  <span className="text-[10px] font-mono text-slate-400">4 Bin Compartments</span>
+                  <span className="text-[10px] font-mono text-slate-400">{shelfBins.length} Compartments</span>
                 </div>
 
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -199,21 +275,19 @@ export default function WarehouseHeatmapTab() {
                         </div>
 
                         <div className="space-y-1">
-                          <div className="text-[10px] font-extrabold truncate text-slate-800 dark:text-slate-200">
+                          <div className="text-[10px] font-bold text-slate-600 dark:text-slate-300 truncate">
                             {bin.skus[0]?.name || 'Empty Slot'}
                           </div>
-                          <div className="flex items-center justify-between text-[9px] font-mono text-slate-500 dark:text-slate-400">
-                            <span>Units: {totalUnits}</span>
-                            <span>{Math.round((totalUnits / bin.capacity) * 100)}%</span>
-                          </div>
+                          {bin.skus.length > 1 && (
+                            <div className="text-[9px] font-medium text-slate-400">
+                              +{bin.skus.length - 1} more parts
+                            </div>
+                          )}
                         </div>
 
-                        {/* Visual Progress Bar */}
-                        <div className="w-full bg-slate-200/80 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden">
-                          <div
-                            className="bg-indigo-600 dark:bg-indigo-400 h-full transition-all duration-300"
-                            style={{ width: `${Math.min(100, (totalUnits / bin.capacity) * 100)}%` }}
-                          />
+                        <div className="pt-2 border-t border-slate-200/50 dark:border-slate-700/50 flex items-center justify-between text-[9px] font-mono font-bold">
+                          <span>{totalUnits} Units</span>
+                          <span className="text-indigo-600 dark:text-indigo-400">Inspect →</span>
                         </div>
                       </div>
                     );
@@ -224,55 +298,76 @@ export default function WarehouseHeatmapTab() {
           })}
         </div>
 
-        {/* Right Side: Selected Bin Detail Drawer */}
+        {/* Right Side: Selected Bin Inspector & Barcode Card */}
         <div className="space-y-4">
-          <div className="bg-white dark:bg-slate-900 p-5 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-4 sticky top-6">
-            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
-              <h3 className="font-extrabold text-slate-900 dark:text-slate-100 text-sm flex items-center gap-2">
-                <Box className="w-4 h-4 text-indigo-500" /> Bin Slot Telemetry
-              </h3>
-              {selectedBin && (
-                <span className="font-mono text-xs font-black text-indigo-600 dark:text-indigo-400 px-2.5 py-1 bg-indigo-50 dark:bg-indigo-950/60 rounded-lg">
-                  {selectedBin.code}
-                </span>
-              )}
-            </div>
-
-            {selectedBin ? (
-              <div className="space-y-4 text-xs">
-                <div className="grid grid-cols-2 gap-2 font-mono bg-slate-50 dark:bg-slate-800 p-3 rounded-2xl border border-slate-200/60 dark:border-slate-700">
-                  <div>Shelf Level: <strong className="text-slate-900 dark:text-slate-100">{selectedBin.shelf}</strong></div>
-                  <div>Compartment: <strong className="text-slate-900 dark:text-slate-100">{selectedBin.bin}</strong></div>
-                  <div>Stored Items: <strong className="text-slate-900 dark:text-slate-100">{selectedBin.itemCount} SKUs</strong></div>
-                  <div>Total Stock: <strong className="text-emerald-600 dark:text-emerald-400">{selectedBin.skus.reduce((s, i) => s + i.qty, 0)} units</strong></div>
-                </div>
-
-                <div className="space-y-2">
-                  <h4 className="font-extrabold text-slate-700 dark:text-slate-300 text-[11px] uppercase tracking-wider">
-                    Stored SKU Breakdown ({selectedBin.skus.length})
+          {selectedBin ? (
+            <div className="bg-white dark:bg-slate-900 p-5 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-4">
+              <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+                <div>
+                  <span className="text-[10px] font-mono font-bold text-indigo-600 dark:text-indigo-400 uppercase">
+                    BIN TELEMETRY
+                  </span>
+                  <h4 className="text-base font-black text-slate-900 dark:text-white mt-0.5">
+                    {selectedBin.code}
                   </h4>
-                  <div className="space-y-2 max-h-64 overflow-y-auto custom-scrollbar pr-1">
+                </div>
+                <span className="px-2.5 py-1 rounded-xl text-xs font-mono font-bold bg-indigo-50 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 border border-indigo-100 dark:border-indigo-800">
+                  {selectedBin.shelf}
+                </span>
+              </div>
+
+              {/* Barcode Preview */}
+              <div className="p-3 bg-slate-50 dark:bg-slate-950 rounded-2xl border border-slate-200 dark:border-slate-800 text-center space-y-1.5">
+                <div className="text-[9px] font-mono text-slate-400 uppercase">ISO/IEC Code-128 Shelf Barcode</div>
+                <div className="flex justify-center">
+                  <BarcodeSvg
+                    value={selectedBin.code}
+                    format="CODE128"
+                    width={1.6}
+                    height={36}
+                    displayValue={false}
+                    className="h-9 w-auto max-w-[200px]"
+                  />
+                </div>
+                <div className="text-xs font-mono font-bold text-slate-900 dark:text-white">{selectedBin.code}</div>
+              </div>
+
+              {/* Items Stored in Bin */}
+              <div className="space-y-2">
+                <h5 className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                  Stored Components ({selectedBin.skus.length})
+                </h5>
+
+                {selectedBin.skus.length === 0 ? (
+                  <div className="p-4 text-center text-xs text-slate-400 border border-dashed border-slate-200 dark:border-slate-800 rounded-xl">
+                    No components currently assigned to this bin slot.
+                  </div>
+                ) : (
+                  <div className="space-y-2">
                     {selectedBin.skus.map((sku) => (
-                      <div key={sku.id} className="p-3 bg-slate-50 dark:bg-slate-800/80 rounded-2xl border border-slate-200/60 dark:border-slate-700 flex items-center justify-between">
-                        <div className="min-w-0 pr-2">
-                          <div className="font-extrabold text-slate-900 dark:text-slate-100 text-xs truncate">{sku.name}</div>
-                          <div className="text-[10px] text-slate-400 font-mono">SKU: {sku.id} • {sku.category}</div>
+                      <div
+                        key={sku.id}
+                        className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-between gap-2"
+                      >
+                        <div className="truncate">
+                          <span className="font-bold text-slate-900 dark:text-white text-xs block truncate">{sku.name}</span>
+                          <span className="text-[10px] text-slate-400 font-mono">SKU-{sku.id.substring(0, 6)}</span>
                         </div>
-                        <div className="font-black text-xs font-mono text-indigo-600 dark:text-indigo-400 shrink-0">
+                        <span className="px-2 py-0.5 rounded-lg bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 font-mono font-bold text-xs shrink-0 border border-emerald-200 dark:border-emerald-800">
                           {sku.qty} pcs
-                        </div>
+                        </span>
                       </div>
                     ))}
                   </div>
-                </div>
+                )}
               </div>
-            ) : (
-              <div className="py-16 text-center space-y-2 text-slate-400">
-                <MapPin className="w-10 h-10 mx-auto text-slate-300 dark:text-slate-700" />
-                <p className="text-xs font-medium">Click any 2D bin slot on the left to inspect stored SKUs and stock levels.</p>
-              </div>
-            )}
-          </div>
+            </div>
+          ) : (
+            <div className="bg-white dark:bg-slate-900 p-8 rounded-3xl border border-slate-200/80 dark:border-slate-800 text-center text-slate-400 text-xs space-y-2">
+              <Box className="w-8 h-8 text-slate-300 mx-auto" />
+              <p className="font-bold">Select any bin slot in the 2D grid to inspect stored inventory and view its shelf barcode.</p>
+            </div>
+          )}
         </div>
       </div>
     </div>
