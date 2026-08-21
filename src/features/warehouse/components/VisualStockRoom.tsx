@@ -26,32 +26,37 @@ import {
   Grid,
   Square,
   Settings2,
-  FolderPlus
+  FolderPlus,
+  PlusCircle,
+  Wrench,
+  ChevronDown
 } from 'lucide-react';
 import { useData } from '@/src/DataContext';
 import { useToast } from '@/src/contexts/ToastContext';
 import { InventoryItem } from '@/src/types';
 import BarcodeSvg from '@/src/shared/components/BarcodeSvg';
 
-interface ShelfTier {
+export type StorageUnitType = 'steel_shelf' | 'plywood_grid' | 'cabinet';
+
+export interface ShelfTier {
   id: string;
   name: string;
   levelNumber: number;
   bins: string[];
 }
 
-interface PhysicalRack {
+export interface PhysicalRack {
   id: string;
   code: string;
   name: string;
   zone: string;
-  type: 'steel_shelf' | 'plywood_grid';
+  type: StorageUnitType;
   warehouseCode: string;
   shelves: ShelfTier[];
   gridConfig?: { rows: number; cols: number };
 }
 
-const STORAGE_KEY = 'experimind_custom_physical_racks_v1';
+const STORAGE_KEY = 'experimind_custom_physical_racks_v2';
 
 export default function VisualStockRoom() {
   const { inventory, warehouses, updateInventoryItem, logTransaction } = useData();
@@ -61,7 +66,7 @@ export default function VisualStockRoom() {
   const [selectedRackId, setSelectedRackId] = useState<string>('RACK_1');
   const [searchFilter, setSearchFilter] = useState('');
 
-  // Initial Racks Definition with Steel Racks + Plywood Pigeonhole Matrix
+  // Initial Default Storage Units (Steel Racks, Plywood Grid, Safety Cabinet)
   const initialRacks: PhysicalRack[] = useMemo(() => [
     {
       id: 'RACK_1',
@@ -111,7 +116,7 @@ export default function VisualStockRoom() {
       code: 'Cabinet A',
       name: 'Chemical & Safety Storage Cabinet',
       zone: 'Zone D (Hazmat Containment)',
-      type: 'steel_shelf',
+      type: 'cabinet',
       warehouseCode: warehouses[0]?.code || 'WH-MAIN-01',
       shelves: [
         { id: 'R3-S1', name: 'Tier 1 (Reagents & Salts)', levelNumber: 1, bins: ['Chemical Cabinet - 1', 'Chemical Cabinet - 2'] },
@@ -121,7 +126,7 @@ export default function VisualStockRoom() {
     },
   ], [warehouses]);
 
-  // Load / Persist Custom Racks
+  // Load / Persist Custom Storage Units
   const [racks, setRacks] = useState<PhysicalRack[]>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
@@ -139,23 +144,49 @@ export default function VisualStockRoom() {
     } catch (_) {}
   }, [racks]);
 
-  const activeRack = racks.find(r => r.id === selectedRackId) || racks[0];
+  // Active Storage Unit
+  const activeRack = racks.find(r => r.id === selectedRackId) || racks[0] || initialRacks[0];
 
-  // Editing Tier Modal / Inline State
+  // 1. Create New Storage Unit Modal State
+  const [isCreateRackOpen, setIsCreateRackOpen] = useState(false);
+  const [newRackForm, setNewRackForm] = useState({
+    name: '',
+    code: '',
+    type: 'steel_shelf' as StorageUnitType,
+    zone: 'Zone A (Main Storage)',
+    warehouseCode: warehouses[0]?.code || 'WH-MAIN-01',
+    tierCount: 4,
+    compartmentsPerTier: 4
+  });
+
+  // 2. Edit Storage Unit Info Modal State
+  const [isEditRackOpen, setIsEditRackOpen] = useState(false);
+  const [editRackForm, setEditRackForm] = useState({
+    name: '',
+    code: '',
+    type: 'steel_shelf' as StorageUnitType,
+    zone: '',
+    warehouseCode: ''
+  });
+
+  // 3. Edit Tier / Row Modal State
   const [editingTier, setEditingTier] = useState<{ shelfId: string; name: string; levelNumber: number } | null>(null);
 
-  // Selected Bin Details Drawer
+  // 4. Edit Individual Box / Bin Code Modal State
+  const [editingBin, setEditingBin] = useState<{ shelfId: string; oldCode: string; newCode: string } | null>(null);
+
+  // 5. Selected Bin Details Drawer
   const [activeBinCode, setActiveBinCode] = useState<string | null>(null);
 
-  // Quick Allot Modal
+  // 6. Quick Allot Modal
   const [allottingSlot, setAllottingSlot] = useState<{ rackCode: string; shelfName: string; binCode: string } | null>(null);
   const [allotSearchTerm, setAllotSearchTerm] = useState('');
 
-  // Drag and Drop State
+  // 7. Drag and Drop State
   const [draggedItemId, setDraggedItemId] = useState<string | null>(null);
   const [dragOverBinCode, setDragOverBinCode] = useState<string | null>(null);
 
-  // Print Shelf Sticker Modal
+  // 8. Print Shelf Sticker Modal
   const [printingBinCode, setPrintingBinCode] = useState<string | null>(null);
 
   // Helper: Get items in a specific bin
@@ -172,7 +203,162 @@ export default function VisualStockRoom() {
     return inventory.filter(item => !item.binLocation || item.binLocation.trim() === '');
   }, [inventory]);
 
-  // Handle Drag & Drop Allotment / Relocation
+  // CREATE NEW STORAGE UNIT SUBMIT
+  const handleCreateRackSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newRackForm.name.trim() || !newRackForm.code.trim()) {
+      alert('Please provide a name and code for the storage unit.');
+      return;
+    }
+
+    const unitId = `UNIT_${Date.now()}`;
+    const tiers: ShelfTier[] = [];
+    const numTiers = Math.max(1, Math.min(10, newRackForm.tierCount));
+    const numBoxes = Math.max(1, Math.min(12, newRackForm.compartmentsPerTier));
+
+    for (let t = 1; t <= numTiers; t++) {
+      const tierPrefix = newRackForm.type === 'plywood_grid'
+        ? `PLY-${String.fromCharCode(64 + t)}`
+        : newRackForm.type === 'cabinet'
+        ? `CAB-${newRackForm.code}-T${t}`
+        : `${newRackForm.code}-S${t}`;
+
+      const tierName = newRackForm.type === 'plywood_grid'
+        ? `Row ${String.fromCharCode(64 + t)} (Wooden Boxes)`
+        : newRackForm.type === 'cabinet'
+        ? `Cabinet Compartment Tier ${t}`
+        : `Shelf Level ${t} (${t === 1 ? 'Top' : t === numTiers ? 'Base' : 'Middle'})`;
+
+      const binsList: string[] = [];
+      for (let b = 1; b <= numBoxes; b++) {
+        binsList.push(newRackForm.type === 'plywood_grid' ? `${tierPrefix}${b}` : `${tierPrefix}-B${b}`);
+      }
+
+      tiers.push({
+        id: `${unitId}-T${t}`,
+        name: tierName,
+        levelNumber: t,
+        bins: binsList
+      });
+    }
+
+    const createdUnit: PhysicalRack = {
+      id: unitId,
+      code: newRackForm.code.trim(),
+      name: newRackForm.name.trim(),
+      zone: newRackForm.zone.trim() || 'General Zone',
+      type: newRackForm.type,
+      warehouseCode: newRackForm.warehouseCode || warehouses[0]?.code || 'WH-MAIN-01',
+      shelves: tiers
+    };
+
+    setRacks(prev => [...prev, createdUnit]);
+    setSelectedRackId(createdUnit.id);
+    setIsCreateRackOpen(false);
+    showToast('success', 'Storage Unit Created', `Created "${createdUnit.name}" with ${numTiers} tiers.`);
+  };
+
+  // EDIT STORAGE UNIT INFO SUBMIT
+  const handleOpenEditRack = () => {
+    if (!activeRack) return;
+    setEditRackForm({
+      name: activeRack.name,
+      code: activeRack.code,
+      type: activeRack.type,
+      zone: activeRack.zone,
+      warehouseCode: activeRack.warehouseCode
+    });
+    setIsEditRackOpen(true);
+  };
+
+  const handleSaveRackInfoSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editRackForm.name.trim() || !editRackForm.code.trim()) return;
+
+    setRacks(prev => prev.map(rack => {
+      if (rack.id !== selectedRackId) return rack;
+      return {
+        ...rack,
+        name: editRackForm.name.trim(),
+        code: editRackForm.code.trim(),
+        type: editRackForm.type,
+        zone: editRackForm.zone.trim(),
+        warehouseCode: editRackForm.warehouseCode
+      };
+    }));
+
+    showToast('success', 'Storage Unit Updated', `Saved changes for "${editRackForm.name}"`);
+    setIsEditRackOpen(false);
+  };
+
+  // DELETE STORAGE UNIT
+  const handleDeleteStorageUnit = () => {
+    if (racks.length <= 1) {
+      alert('You must have at least one active storage unit.');
+      return;
+    }
+    if (confirm(`Are you sure you want to delete storage unit "${activeRack.name}"?`)) {
+      const remaining = racks.filter(r => r.id !== selectedRackId);
+      setRacks(remaining);
+      setSelectedRackId(remaining[0].id);
+      showToast('info', 'Storage Unit Removed', `Deleted "${activeRack.name}".`);
+      setIsEditRackOpen(false);
+    }
+  };
+
+  // RENAME INDIVIDUAL BOX / BIN CODE
+  const handleSaveBinCodeRename = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingBin || !editingBin.newCode.trim()) return;
+    const oldCode = editingBin.oldCode;
+    const newCode = editingBin.newCode.trim();
+
+    // 1. Update in Physical Rack state
+    setRacks(prev => prev.map(rack => {
+      if (rack.id !== selectedRackId) return rack;
+      return {
+        ...rack,
+        shelves: rack.shelves.map(shelf => {
+          if (shelf.id !== editingBin.shelfId) return shelf;
+          return {
+            ...shelf,
+            bins: shelf.bins.map(b => b === oldCode ? newCode : b)
+          };
+        })
+      };
+    }));
+
+    // 2. Automatically re-link all inventory parts that were in oldCode to newCode
+    const itemsToUpdate = getItemsForBin(oldCode);
+    for (const item of itemsToUpdate) {
+      await updateInventoryItem(item.id, { binLocation: newCode });
+    }
+
+    showToast('success', 'Box Code Updated', `Renamed "${oldCode}" to "${newCode}" (${itemsToUpdate.length} item(s) updated)`);
+    setEditingBin(null);
+  };
+
+  // DELETE INDIVIDUAL BIN BOX
+  const handleDeleteIndividualBin = (shelfId: string, binCode: string) => {
+    if (confirm(`Remove box slot "${binCode}" from this shelf?`)) {
+      setRacks(prev => prev.map(rack => {
+        if (rack.id !== selectedRackId) return rack;
+        return {
+          ...rack,
+          shelves: rack.shelves.map(shelf => {
+            if (shelf.id !== shelfId) return shelf;
+            return {
+              ...shelf,
+              bins: shelf.bins.filter(b => b !== binCode)
+            };
+          })
+        };
+      }));
+      showToast('info', 'Slot Removed', `Removed ${binCode}`);
+    }
+  };
+
+  // Drag & Drop Allotment
   const handleDropOnBin = async (targetBinCode: string) => {
     if (!draggedItemId) return;
     const item = inventory.find(i => i.id === draggedItemId);
@@ -236,7 +422,7 @@ export default function VisualStockRoom() {
     showToast('info', 'Item Removed from Bin', `"${item.name}" is now in unassigned staging`);
   };
 
-  // EDIT TIER ACTIONS
+  // SAVE TIER / ROW EDIT
   const handleSaveTierEdit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingTier) return;
@@ -263,15 +449,19 @@ export default function VisualStockRoom() {
   // ADD NEW SHELF TIER
   const handleAddShelfTier = () => {
     const nextLevel = activeRack.shelves.length + 1;
-    const prefix = activeRack.type === 'plywood_grid' ? `PLY-${String.fromCharCode(64 + nextLevel)}` : `BIN-R${activeRack.code.replace(/\D/g, '') || '1'}-S${nextLevel}`;
+    const prefix = activeRack.type === 'plywood_grid' 
+      ? `PLY-${String.fromCharCode(64 + nextLevel)}` 
+      : `${activeRack.code}-S${nextLevel}`;
     
     const newShelf: ShelfTier = {
       id: `${activeRack.id}-S${nextLevel}-${Date.now()}`,
-      name: activeRack.type === 'plywood_grid' ? `Row ${String.fromCharCode(64 + nextLevel)} (Plywood Boxes)` : `Shelf ${nextLevel} (Tier ${nextLevel})`,
+      name: activeRack.type === 'plywood_grid' 
+        ? `Row ${String.fromCharCode(64 + nextLevel)} (Plywood Boxes)` 
+        : `Shelf Level ${nextLevel} (Tier ${nextLevel})`,
       levelNumber: nextLevel,
       bins: activeRack.type === 'plywood_grid' 
         ? [1, 2, 3, 4, 5, 6].map(c => `${prefix}${c}`)
-        : [1, 2, 3, 4].map(c => `${prefix}-0${c}`)
+        : [1, 2, 3, 4].map(c => `${prefix}-B${c}`)
     };
 
     setRacks(prev => prev.map(rack => {
@@ -301,12 +491,12 @@ export default function VisualStockRoom() {
         })
       };
     }));
-    showToast('success', 'Bin Slot Added', 'Added new compartment box to shelf tier.');
+    showToast('success', 'Box Added', 'Added new compartment box to shelf tier.');
   };
 
   // DELETE SHELF TIER
   const handleDeleteShelfTier = (shelfId: string) => {
-    if (activeRack.shelves.length <= 1) return alert("A storage rack must have at least one shelf tier.");
+    if (activeRack.shelves.length <= 1) return alert("A storage unit must have at least one shelf tier.");
     if (confirm("Are you sure you want to remove this shelf tier?")) {
       setRacks(prev => prev.map(rack => {
         if (rack.id !== selectedRackId) return rack;
@@ -319,7 +509,7 @@ export default function VisualStockRoom() {
     }
   };
 
-  // Calculate Rack Occupancy
+  // Rack Occupancy Calculation
   const totalSlotsInRack = activeRack.shelves.reduce((sum, s) => sum + s.bins.length, 0);
   const occupiedSlotsInRack = activeRack.shelves.reduce((sum, s) => {
     return sum + s.bins.filter(b => getItemsForBin(b).length > 0).length;
@@ -333,35 +523,53 @@ export default function VisualStockRoom() {
         <div className="space-y-1">
           <div className="flex items-center gap-2">
             <span className="bg-amber-500/20 text-amber-300 font-mono text-[10px] font-bold px-2.5 py-0.5 rounded-full border border-amber-500/40 uppercase flex items-center gap-1">
-              <Building2 className="w-3 h-3 text-amber-400" /> DIGITAL WAREHOUSE REPLICA
+              <Building2 className="w-3 h-3 text-amber-400" /> CUSTOMIZABLE PHYSICAL STORAGE MATRIX
             </span>
-            <span className="text-slate-400 text-xs">• Steel Shelves & Plywood Grid Units</span>
+            <span className="text-slate-400 text-xs">• Steel Racks, Plywood Organizers & Cabinets</span>
           </div>
           <h2 className="text-2xl font-black tracking-tight text-white flex items-center gap-2">
-            Physical Shelving & Plywood Storage Matrix
+            Visual Storage Units & Physical Allotment
           </h2>
           <p className="text-xs text-slate-300">
-            Realistic physical shelving units & rectangular plywood box organizers. Edit tiers, customize compartments, and drag & drop parts.
+            Create custom storage units, edit tiers and box codes, and drag & drop parts directly into realistic warehouse replicas.
           </p>
         </div>
 
-        {/* Rack Occupancy Telemetry */}
-        <div className="flex items-center gap-3 shrink-0">
-          <div className="bg-slate-800/80 px-4 py-2.5 rounded-2xl border border-slate-700 text-center font-mono">
-            <div className="text-[9px] uppercase font-bold text-slate-400">Unit Occupancy</div>
-            <div className="text-lg font-black text-amber-400">{occupancyPct}% Filled</div>
-          </div>
-          <div className="bg-slate-800/80 px-4 py-2.5 rounded-2xl border border-slate-700 text-center font-mono">
-            <div className="text-[9px] uppercase font-bold text-slate-400">Total Boxes / Slots</div>
-            <div className="text-lg font-black text-indigo-400">{occupiedSlotsInRack} / {totalSlotsInRack} Slots</div>
-          </div>
+        {/* Action Buttons: Create New Storage Unit & Edit Current Unit */}
+        <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+          <button
+            onClick={handleOpenEditRack}
+            className="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold rounded-2xl text-xs transition-all cursor-pointer flex items-center gap-2 border border-slate-700 shadow-xs"
+          >
+            <Wrench className="w-4 h-4 text-amber-400" />
+            <span>Configure Unit Info</span>
+          </button>
+
+          <button
+            onClick={() => {
+              setNewRackForm({
+                name: '',
+                code: `RACK-${racks.length + 1}`,
+                type: 'steel_shelf',
+                zone: 'Zone A (Main Storage)',
+                warehouseCode: warehouses[0]?.code || 'WH-MAIN-01',
+                tierCount: 4,
+                compartmentsPerTier: 4
+              });
+              setIsCreateRackOpen(true);
+            }}
+            className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-2xl text-xs transition-all cursor-pointer flex items-center gap-2 shadow-md shadow-indigo-600/30 shrink-0"
+          >
+            <PlusCircle className="w-4 h-4 text-white" />
+            <span>Create New Storage Unit</span>
+          </button>
         </div>
       </div>
 
-      {/* Rack Selector & Facility Switcher Toolbar */}
+      {/* Storage Units Tabs Switcher Toolbar */}
       <div className="bg-white dark:bg-slate-900 p-4 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-3">
         <div className="flex flex-col md:flex-row items-center justify-between gap-3">
-          {/* Rack Switcher Tabs */}
+          {/* Storage Unit Switcher Tabs */}
           <div className="flex items-center gap-2 overflow-x-auto pb-1 custom-scrollbar w-full md:w-auto">
             {racks.map((rack) => (
               <button
@@ -371,11 +579,19 @@ export default function VisualStockRoom() {
                   selectedRackId === rack.id
                     ? rack.type === 'plywood_grid'
                       ? 'bg-amber-600 text-white border-amber-500 shadow-md ring-2 ring-amber-500/30'
+                      : rack.type === 'cabinet'
+                      ? 'bg-emerald-600 text-white border-emerald-500 shadow-md ring-2 ring-emerald-500/30'
                       : 'bg-indigo-600 text-white border-indigo-600 shadow-md ring-2 ring-indigo-500/30'
                     : 'bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-100'
                 }`}
               >
-                {rack.type === 'plywood_grid' ? <Grid className="w-4 h-4 text-amber-300" /> : <Layers className="w-4 h-4 text-amber-400" />}
+                {rack.type === 'plywood_grid' ? (
+                  <Grid className="w-4 h-4 text-amber-300" />
+                ) : rack.type === 'cabinet' ? (
+                  <Box className="w-4 h-4 text-emerald-300" />
+                ) : (
+                  <Layers className="w-4 h-4 text-indigo-300" />
+                )}
                 <span>{rack.code} — {rack.name.split('—')[1] || rack.name}</span>
               </button>
             ))}
@@ -395,11 +611,30 @@ export default function VisualStockRoom() {
 
             <button
               onClick={handleAddShelfTier}
-              className="px-3 py-2 bg-indigo-50 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 shrink-0"
+              className="px-3.5 py-2 bg-indigo-50 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 shrink-0"
               title="Add a new level to this storage unit"
             >
-              <Plus className="w-4 h-4" /> Add Tier / Row
+              <Plus className="w-4 h-4" /> Add Tier / Level
             </button>
+          </div>
+        </div>
+
+        {/* Selected Storage Unit Meta Bar */}
+        <div className="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-200/60 dark:border-slate-700/60 flex flex-wrap items-center justify-between gap-2 text-xs font-medium">
+          <div className="flex items-center gap-3">
+            <span className="font-mono text-indigo-600 dark:text-indigo-400 font-bold">{activeRack.code}</span>
+            <span className="text-slate-400">•</span>
+            <span className="text-slate-700 dark:text-slate-300 font-bold">{activeRack.name}</span>
+            <span className="text-slate-400">•</span>
+            <span className="text-slate-500 font-mono text-[11px]">{activeRack.zone}</span>
+            <span className="px-2 py-0.5 rounded-md bg-indigo-100 dark:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 text-[10px] font-bold">
+              Facility: {activeRack.warehouseCode}
+            </span>
+          </div>
+
+          <div className="flex items-center gap-3 text-xs font-mono">
+            <span>Occupancy: <strong className="text-amber-500 font-bold">{occupancyPct}%</strong></span>
+            <span>({occupiedSlotsInRack} / {totalSlotsInRack} Slots Occupied)</span>
           </div>
         </div>
       </div>
@@ -420,13 +655,13 @@ export default function VisualStockRoom() {
               </span>
             </div>
             <div className="text-[11px] text-amber-300/70">
-              Drag parts from staging into rectangular plywood boxes
+              Click box code to rename • Drag parts into boxes
             </div>
           </div>
 
           {/* Wooden Matrix Rows */}
           <div className="space-y-4">
-            {activeRack.shelves.map((shelf, shelfIdx) => (
+            {activeRack.shelves.map((shelf) => (
               <div key={shelf.id} className="relative group/tier bg-amber-900/40 p-3.5 rounded-2xl border-2 border-amber-800/80 shadow-inner">
                 
                 {/* Editable Row / Tier Header */}
@@ -509,9 +744,18 @@ export default function VisualStockRoom() {
                       >
                         {/* Brass / Cream Label Placard on Plywood Front Face */}
                         <div className="flex items-center justify-between pb-1.5 border-b border-amber-800/60">
-                          <span className="px-1.5 py-0.5 rounded bg-amber-100 text-amber-950 font-mono text-[9px] font-black shadow-xs">
-                            {binCode}
-                          </span>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setEditingBin({ shelfId: shelf.id, oldCode: binCode, newCode: binCode });
+                            }}
+                            className="px-1.5 py-0.5 rounded bg-amber-100 text-amber-950 font-mono text-[9px] font-black shadow-xs hover:bg-white flex items-center gap-1 cursor-pointer"
+                            title="Click to rename box code"
+                          >
+                            <span>{binCode}</span>
+                            <Edit2 className="w-2.5 h-2.5 opacity-60 hover:opacity-100" />
+                          </button>
 
                           {isOccupied && (
                             <span className="px-1.5 py-0.2 rounded-full text-[8px] font-bold font-mono bg-emerald-950 text-emerald-300 border border-emerald-700">
@@ -548,10 +792,23 @@ export default function VisualStockRoom() {
                           </div>
                         )}
 
-                        {/* Bottom Info Bar */}
+                        {/* Bottom Info Bar & Remove Box Button */}
                         <div className="pt-1 border-t border-amber-800/60 flex items-center justify-between text-[8px] font-mono text-amber-300/70">
                           <span>{isOccupied ? primaryItem.category : 'Available'}</span>
-                          <span className="text-amber-300 group-hover:underline">Inspect →</span>
+                          <div className="flex items-center gap-1.5">
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeleteIndividualBin(shelf.id, binCode);
+                              }}
+                              className="text-amber-500/60 hover:text-rose-400 p-0.5"
+                              title="Delete this box slot"
+                            >
+                              <Trash2 className="w-2.5 h-2.5" />
+                            </button>
+                            <span className="text-amber-300 group-hover:underline">Inspect →</span>
+                          </div>
                         </div>
                       </div>
                     );
@@ -564,24 +821,24 @@ export default function VisualStockRoom() {
       )}
 
       {/* ========================================================================= */}
-      {/* 🏗️ 2. STEEL INDUSTRIAL SHELVING UNIT REPLICA */}
+      {/* 🏗️ 2. STEEL SHELVING UNIT / CABINET REPLICA */}
       {/* ========================================================================= */}
-      {activeRack.type === 'steel_shelf' && (
+      {(activeRack.type === 'steel_shelf' || activeRack.type === 'cabinet') && (
         <div className="bg-gradient-to-b from-slate-900 via-slate-900 to-slate-950 p-6 md:p-8 rounded-3xl border-4 border-slate-800 shadow-2xl space-y-6 relative overflow-hidden">
           
-          {/* Steel Upright Header Frame */}
+          {/* Frame Header */}
           <div className="flex items-center justify-between text-xs font-mono text-slate-400 border-b border-slate-800 pb-3">
             <div className="flex items-center gap-2">
-              <span className="w-3 h-3 rounded-full bg-emerald-500 animate-pulse" />
+              <span className={`w-3 h-3 rounded-full animate-pulse ${activeRack.type === 'cabinet' ? 'bg-emerald-500' : 'bg-indigo-500'}`} />
               <strong className="text-white text-sm">{activeRack.name}</strong>
               <span className="px-2 py-0.5 rounded-md bg-slate-800 text-slate-300 text-[10px]">{activeRack.zone}</span>
             </div>
             <div className="text-[11px] text-slate-400">
-              Drag parts from staging into shelf bins
+              Click box code to rename • Drag parts into bins
             </div>
           </div>
 
-          {/* Shelving Unit Steel Frame & Tiers */}
+          {/* Shelving Unit Frame & Tiers */}
           <div className="space-y-6 relative py-2">
             {activeRack.shelves.map((shelf) => (
               <div key={shelf.id} className="relative group/tier">
@@ -626,7 +883,7 @@ export default function VisualStockRoom() {
                   </div>
                 </div>
 
-                {/* Physical Storage Bins Row on Shelf Crossbeam */}
+                {/* Storage Bins Row on Crossbeam */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 p-3 bg-slate-950/60 rounded-2xl border border-slate-800/80">
                   {shelf.bins.map((binCode) => {
                     const items = getItemsForBin(binCode);
@@ -664,14 +921,23 @@ export default function VisualStockRoom() {
                             : 'border-dashed border-slate-800 bg-slate-950/40 hover:border-slate-600 hover:bg-slate-900/50'
                         }`}
                       >
-                        {/* Container Front Placard */}
+                        {/* Container Front Placard with Editable Bin Code */}
                         <div className="flex items-center justify-between gap-1 pb-2 border-b border-slate-800">
-                          <div className="flex items-center gap-1.5">
-                            <span className="p-1 rounded-md bg-slate-800 text-indigo-400 font-mono text-[9px] font-bold">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setEditingBin({ shelfId: shelf.id, oldCode: binCode, newCode: binCode });
+                            }}
+                            className="flex items-center gap-1.5 p-1 rounded-md hover:bg-slate-800 text-left transition-colors cursor-pointer"
+                            title="Click to rename bin code"
+                          >
+                            <span className="p-0.5 px-1 rounded bg-slate-800 text-indigo-400 font-mono text-[9px] font-bold">
                               BIN
                             </span>
-                            <span className="font-mono text-xs font-black text-white truncate">{binCode}</span>
-                          </div>
+                            <span className="font-mono text-xs font-black text-white truncate max-w-[130px]">{binCode}</span>
+                            <Edit2 className="w-2.5 h-2.5 text-slate-500 hover:text-white" />
+                          </button>
 
                           {isOccupied && (
                             <span className="px-1.5 py-0.5 rounded-full text-[9px] font-bold font-mono bg-emerald-950 text-emerald-300 border border-emerald-800 flex items-center gap-1">
@@ -718,9 +984,22 @@ export default function VisualStockRoom() {
                         {/* Status Bar */}
                         <div className="pt-2 border-t border-slate-800/80 flex items-center justify-between text-[9px] font-mono text-slate-400">
                           <span>{isOccupied ? primaryItem.category : 'Available'}</span>
-                          <div className="flex items-center gap-1 text-indigo-400 group-hover:underline">
-                            <span>{isOccupied ? 'Inspect Bin' : 'Slot Stock'}</span>
-                            <ArrowRight className="w-2.5 h-2.5" />
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeleteIndividualBin(shelf.id, binCode);
+                              }}
+                              className="text-slate-600 hover:text-rose-400 p-0.5"
+                              title="Delete this bin slot"
+                            >
+                              <Trash2 className="w-3 h-3" />
+                            </button>
+                            <div className="flex items-center gap-1 text-indigo-400 group-hover:underline">
+                              <span>{isOccupied ? 'Inspect' : 'Slot'}</span>
+                              <ArrowRight className="w-2.5 h-2.5" />
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -728,7 +1007,7 @@ export default function VisualStockRoom() {
                   })}
                 </div>
 
-                {/* Heavy Duty Steel Crossbeam Bar with 3D Depth */}
+                {/* Beam Bar */}
                 <div className="w-full h-3 bg-gradient-to-r from-amber-600 via-amber-500 to-amber-600 rounded-sm shadow-md mt-1 border-t border-amber-400/40 flex items-center justify-around px-4">
                   {[...Array(12)].map((_, boltIdx) => (
                     <span key={boltIdx} className="w-1 h-1 rounded-full bg-amber-900/80 shadow-inner" />
@@ -787,7 +1066,312 @@ export default function VisualStockRoom() {
         )}
       </div>
 
-      {/* EDIT TIER / ROW NAME MODAL */}
+      {/* ========================================================================= */}
+      {/* 1. MODAL: CREATE NEW PHYSICAL STORAGE UNIT / RACK */}
+      {/* ========================================================================= */}
+      {isCreateRackOpen && (
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 z-[9999] animate-fadeIn">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl w-full max-w-lg p-6 space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+              <div>
+                <h3 className="text-base font-black text-slate-900 dark:text-white flex items-center gap-2">
+                  <PlusCircle className="w-5 h-5 text-indigo-600" />
+                  Create New Storage Unit / Physical Rack
+                </h3>
+                <p className="text-xs text-slate-400">Configure visual physical shelving units, plywood organizers, or safety cabinets</p>
+              </div>
+              <button onClick={() => setIsCreateRackOpen(false)} className="p-1 text-slate-400 hover:text-white cursor-pointer">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateRackSubmit} className="space-y-3.5 text-xs">
+              <div>
+                <label className="block font-bold text-slate-500 uppercase text-[10px] mb-1">Unit Display Name *</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Rack 4 — Robotics & Sensor Totes"
+                  value={newRackForm.name}
+                  onChange={(e) => setNewRackForm({ ...newRackForm, name: e.target.value })}
+                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white font-bold focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-slate-500 uppercase text-[10px] mb-1">Unit Code / Identifier *</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Rack 4, PLY-2, CAB-B"
+                    value={newRackForm.code}
+                    onChange={(e) => setNewRackForm({ ...newRackForm, code: e.target.value })}
+                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white font-mono font-bold focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-500 uppercase text-[10px] mb-1">Storage Style / Type</label>
+                  <select
+                    value={newRackForm.type}
+                    onChange={(e) => setNewRackForm({ ...newRackForm, type: e.target.value as StorageUnitType })}
+                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white font-bold focus:outline-none cursor-pointer"
+                  >
+                    <option value="steel_shelf">🏗️ Steel Multi-Tier Shelving Unit</option>
+                    <option value="plywood_grid">🪵 Plywood Pigeonhole Matrix (Wooden Boxes)</option>
+                    <option value="cabinet">🗄️ Heavy Duty Storage Cabinet</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-slate-500 uppercase text-[10px] mb-1">Warehouse Facility</label>
+                  <select
+                    value={newRackForm.warehouseCode}
+                    onChange={(e) => setNewRackForm({ ...newRackForm, warehouseCode: e.target.value })}
+                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white font-bold focus:outline-none cursor-pointer"
+                  >
+                    {warehouses.map(w => (
+                      <option key={w.id} value={w.code}>{w.name} ({w.code})</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-500 uppercase text-[10px] mb-1">Zone / Room</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Zone A (High Velocity)"
+                    value={newRackForm.zone}
+                    onChange={(e) => setNewRackForm({ ...newRackForm, zone: e.target.value })}
+                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white font-bold focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 p-3 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-200 dark:border-slate-700">
+                <div>
+                  <label className="block font-bold text-slate-600 dark:text-slate-300 uppercase text-[10px] mb-1">
+                    Initial Shelves / Rows (1-10)
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="10"
+                    value={newRackForm.tierCount}
+                    onChange={(e) => setNewRackForm({ ...newRackForm, tierCount: parseInt(e.target.value) || 1 })}
+                    className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white font-bold focus:outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-600 dark:text-slate-300 uppercase text-[10px] mb-1">
+                    Boxes per Tier (1-12)
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="12"
+                    value={newRackForm.compartmentsPerTier}
+                    onChange={(e) => setNewRackForm({ ...newRackForm, compartmentsPerTier: parseInt(e.target.value) || 1 })}
+                    className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white font-bold focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsCreateRackOpen(false)}
+                  className="px-4 py-2 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold rounded-xl"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-md cursor-pointer"
+                >
+                  Create Storage Unit
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* 2. MODAL: EDIT STORAGE UNIT INFO */}
+      {/* ========================================================================= */}
+      {isEditRackOpen && (
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 z-[9999] animate-fadeIn">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl w-full max-w-lg p-6 space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+              <div>
+                <h3 className="text-base font-black text-slate-900 dark:text-white flex items-center gap-2">
+                  <Wrench className="w-5 h-5 text-amber-500" />
+                  Edit Storage Unit: {activeRack.code}
+                </h3>
+                <p className="text-xs text-slate-400">Update name, code, storage style, or delete unit</p>
+              </div>
+              <button onClick={() => setIsEditRackOpen(false)} className="p-1 text-slate-400 hover:text-white cursor-pointer">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveRackInfoSubmit} className="space-y-3.5 text-xs">
+              <div>
+                <label className="block font-bold text-slate-500 uppercase text-[10px] mb-1">Unit Display Name *</label>
+                <input
+                  type="text"
+                  required
+                  value={editRackForm.name}
+                  onChange={(e) => setEditRackForm({ ...editRackForm, name: e.target.value })}
+                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white font-bold focus:outline-none"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-slate-500 uppercase text-[10px] mb-1">Unit Code *</label>
+                  <input
+                    type="text"
+                    required
+                    value={editRackForm.code}
+                    onChange={(e) => setEditRackForm({ ...editRackForm, code: e.target.value })}
+                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white font-mono font-bold focus:outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-500 uppercase text-[10px] mb-1">Storage Style</label>
+                  <select
+                    value={editRackForm.type}
+                    onChange={(e) => setEditRackForm({ ...editRackForm, type: e.target.value as StorageUnitType })}
+                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white font-bold focus:outline-none cursor-pointer"
+                  >
+                    <option value="steel_shelf">🏗️ Steel Multi-Tier Shelving Unit</option>
+                    <option value="plywood_grid">🪵 Plywood Pigeonhole Matrix (Wooden Boxes)</option>
+                    <option value="cabinet">🗄️ Heavy Duty Storage Cabinet</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-slate-500 uppercase text-[10px] mb-1">Warehouse Facility</label>
+                  <select
+                    value={editRackForm.warehouseCode}
+                    onChange={(e) => setEditRackForm({ ...editRackForm, warehouseCode: e.target.value })}
+                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white font-bold focus:outline-none cursor-pointer"
+                  >
+                    {warehouses.map(w => (
+                      <option key={w.id} value={w.code}>{w.name} ({w.code})</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-500 uppercase text-[10px] mb-1">Zone / Room</label>
+                  <input
+                    type="text"
+                    value={editRackForm.zone}
+                    onChange={(e) => setEditRackForm({ ...editRackForm, zone: e.target.value })}
+                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white font-bold focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
+                <button
+                  type="button"
+                  onClick={handleDeleteStorageUnit}
+                  className="px-4 py-2 bg-rose-50 dark:bg-rose-950 text-rose-700 dark:text-rose-300 hover:bg-rose-100 font-bold rounded-xl flex items-center gap-1.5 cursor-pointer border border-rose-200 dark:border-rose-800"
+                >
+                  <Trash2 className="w-4 h-4" /> Delete Unit
+                </button>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsEditRackOpen(false)}
+                    className="px-4 py-2 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold rounded-xl"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-md cursor-pointer"
+                  >
+                    Save Changes
+                  </button>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* 3. MODAL: RENAME INDIVIDUAL BOX / BIN CODE */}
+      {/* ========================================================================= */}
+      {editingBin && (
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 z-[9999] animate-fadeIn">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl w-full max-w-md p-6 space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+              <h3 className="text-base font-black text-slate-900 dark:text-white flex items-center gap-2">
+                <Edit2 className="w-5 h-5 text-indigo-600" />
+                Rename Box / Bin Identifier
+              </h3>
+              <button onClick={() => setEditingBin(null)} className="p-1 text-slate-400 hover:text-white cursor-pointer">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveBinCodeRename} className="space-y-3 text-xs">
+              <div>
+                <label className="block font-bold text-slate-500 uppercase text-[10px] mb-1">Current Code</label>
+                <div className="p-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 font-mono font-bold text-slate-700 dark:text-slate-300">
+                  {editingBin.oldCode}
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-500 uppercase text-[10px] mb-1">New Box / Bin Code *</label>
+                <input
+                  type="text"
+                  required
+                  value={editingBin.newCode}
+                  onChange={(e) => setEditingBin({ ...editingBin, newCode: e.target.value })}
+                  placeholder="e.g. PLY-A1, R1-S1-01, FASTENER-BIN-01..."
+                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white font-mono font-bold focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setEditingBin(null)}
+                  className="px-4 py-2 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold rounded-xl"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-md cursor-pointer"
+                >
+                  Save Code
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* 4. MODAL: EDIT TIER / ROW NAME */}
+      {/* ========================================================================= */}
       {editingTier && (
         <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 z-[9999] animate-fadeIn">
           <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl w-full max-w-md p-6 space-y-4">
@@ -849,7 +1433,9 @@ export default function VisualStockRoom() {
         </div>
       )}
 
-      {/* MODAL: 1-CLICK ALLOT STOCK INTO BIN SLOT */}
+      {/* ========================================================================= */}
+      {/* 5. MODAL: 1-CLICK ALLOT STOCK INTO BIN SLOT */}
+      {/* ========================================================================= */}
       {allottingSlot && (
         <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 z-[9999] animate-fadeIn">
           <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl w-full max-w-xl p-6 space-y-4 max-h-[85vh] flex flex-col">
@@ -910,7 +1496,9 @@ export default function VisualStockRoom() {
         </div>
       )}
 
-      {/* DRAWER: INSPECT & MANAGE OCCUPIED BIN */}
+      {/* ========================================================================= */}
+      {/* 6. DRAWER: INSPECT & MANAGE OCCUPIED BIN */}
+      {/* ========================================================================= */}
       {activeBinCode && (
         <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm flex justify-end z-[9999] animate-fadeIn">
           <div className="w-full max-w-md bg-white dark:bg-slate-900 h-full p-6 shadow-2xl border-l border-slate-200 dark:border-slate-800 overflow-y-auto space-y-6 animate-in slide-in-from-right duration-200">
@@ -999,7 +1587,9 @@ export default function VisualStockRoom() {
         </div>
       )}
 
-      {/* PRINT PHYSICAL STICKER MODAL */}
+      {/* ========================================================================= */}
+      {/* 7. PRINT PHYSICAL STICKER MODAL */}
+      {/* ========================================================================= */}
       {printingBinCode && (
         <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 z-[99999] animate-fadeIn">
           <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl w-full max-w-sm p-6 space-y-4 text-center">

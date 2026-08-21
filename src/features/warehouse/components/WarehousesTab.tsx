@@ -21,7 +21,10 @@ import {
   Tag,
   Building2,
   LayoutGrid,
-  List
+  List,
+  Grid,
+  Sparkles,
+  Sliders
 } from 'lucide-react';
 import { useData } from '@/src/DataContext';
 import { useToast } from '@/src/contexts/ToastContext';
@@ -170,26 +173,31 @@ export default function WarehousesTab({ role }: WarehousesTabProps) {
     });
   }, [bins, searchQuery, selectedWarehouseFilter]);
 
+  // Overall Warehouse Stats
+  const totalBinsCount = bins.length;
+  const occupiedBinsCount = bins.filter(b => getItemsInBin(b.code).length > 0).length;
+  const totalAllocatedItems = inventory.filter(i => !!i.binLocation).length;
+
   return (
     <div className="space-y-6 w-full animate-fadeIn">
       {/* Top View Mode Navigation Switcher */}
-      <div className="bg-white dark:bg-slate-900 p-2 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs flex items-center justify-between gap-2">
-        <div className="flex items-center gap-1">
+      <div className="bg-white dark:bg-slate-900 p-2 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-2">
+        <div className="flex items-center gap-1.5 w-full sm:w-auto">
           <button
             onClick={() => setActiveViewMode('visual_shelf')}
-            className={`px-4 py-2.5 rounded-xl font-black text-xs transition-all flex items-center gap-2 cursor-pointer ${
+            className={`flex-1 sm:flex-none px-4 py-2.5 rounded-xl font-black text-xs transition-all flex items-center justify-center gap-2 cursor-pointer ${
               activeViewMode === 'visual_shelf'
                 ? 'bg-indigo-600 text-white shadow-md'
                 : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
             }`}
           >
             <Building2 className="w-4 h-4 text-amber-400" />
-            <span>Physical Shelving Unit View (Realistic Visual Replica)</span>
+            <span>Visual Shelving & Plywood Storage Matrix</span>
           </button>
 
           <button
             onClick={() => setActiveViewMode('topology')}
-            className={`px-4 py-2.5 rounded-xl font-black text-xs transition-all flex items-center gap-2 cursor-pointer ${
+            className={`flex-1 sm:flex-none px-4 py-2.5 rounded-xl font-black text-xs transition-all flex items-center justify-center gap-2 cursor-pointer ${
               activeViewMode === 'topology'
                 ? 'bg-indigo-600 text-white shadow-md'
                 : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
@@ -201,16 +209,16 @@ export default function WarehousesTab({ role }: WarehousesTabProps) {
         </div>
 
         <span className="text-xs text-slate-500 font-medium px-3 hidden md:inline">
-          {activeViewMode === 'visual_shelf' ? 'Visual Rack & Bin Allotment' : 'Facility & Bin Management'}
+          {activeViewMode === 'visual_shelf' ? 'Realistic Rack & Wooden Box Allotment' : 'Facility & Bin Management'}
         </span>
       </div>
 
-      {/* RENDER VIEW: VISUAL PHYSICAL SHELF REPLICA */}
+      {/* RENDER VIEW 1: VISUAL PHYSICAL STORAGE MATRIX */}
       {activeViewMode === 'visual_shelf' && (
         <VisualStockRoom />
       )}
 
-      {/* RENDER VIEW: TOPOLOGY & BINS DATABASE */}
+      {/* RENDER VIEW 2: TOPOLOGY & BINS DATABASE */}
       {activeViewMode === 'topology' && (
         <div className="space-y-6 animate-fadeIn">
           {/* Header Banner */}
@@ -223,7 +231,7 @@ export default function WarehousesTab({ role }: WarehousesTabProps) {
                 Warehouse Facilities & Storage Topology
               </h2>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 font-medium">
-                Configure warehouse facilities, storage zones, shelf codes, and database bin records.
+                Configure physical warehouse buildings, zone partitions, shelf codes, and database bin records.
               </p>
             </div>
 
@@ -243,6 +251,29 @@ export default function WarehousesTab({ role }: WarehousesTabProps) {
                 <Warehouse className="w-4 h-4" />
                 <span>Add Warehouse Facility</span>
               </button>
+            </div>
+          </div>
+
+          {/* Quick Metrics Statistics Strip */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <div className="p-4 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs">
+              <span className="text-[10px] font-bold uppercase text-slate-400 block">Active Facilities</span>
+              <strong className="text-xl font-black text-slate-900 dark:text-white mt-1 block">{warehouses.length} Hubs</strong>
+            </div>
+
+            <div className="p-4 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs">
+              <span className="text-[10px] font-bold uppercase text-slate-400 block">Configured Bins</span>
+              <strong className="text-xl font-black text-indigo-600 dark:text-indigo-400 mt-1 block">{totalBinsCount} Slots</strong>
+            </div>
+
+            <div className="p-4 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs">
+              <span className="text-[10px] font-bold uppercase text-slate-400 block">Occupied Bins</span>
+              <strong className="text-xl font-black text-emerald-600 dark:text-emerald-400 mt-1 block">{occupiedBinsCount} Filled</strong>
+            </div>
+
+            <div className="p-4 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs">
+              <span className="text-[10px] font-bold uppercase text-slate-400 block">Items Slotted</span>
+              <strong className="text-xl font-black text-amber-500 mt-1 block">{totalAllocatedItems} / {inventory.length} Parts</strong>
             </div>
           </div>
 
@@ -303,6 +334,14 @@ export default function WarehousesTab({ role }: WarehousesTabProps) {
                       <strong className="text-indigo-600 dark:text-indigo-400 font-mono text-sm">{whItemCount} Parts</strong>
                     </div>
                   </div>
+
+                  {/* 1-Click Launch Visual Storage Unit */}
+                  <button
+                    onClick={() => setActiveViewMode('visual_shelf')}
+                    className="w-full py-2 bg-indigo-50 dark:bg-indigo-950/60 hover:bg-indigo-100 text-indigo-700 dark:text-indigo-300 font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                  >
+                    <Building2 className="w-3.5 h-3.5" /> View Storage Units & Shelves
+                  </button>
                 </div>
               );
             })}
@@ -316,7 +355,7 @@ export default function WarehousesTab({ role }: WarehousesTabProps) {
               <div className="flex items-center gap-2">
                 <Layers className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
                 <h3 className="text-base font-black text-slate-900 dark:text-white">
-                  Storage Bins & Shelf Allocation ({filteredBins.length})
+                  Storage Bins & Shelf Allocation Database ({filteredBins.length})
                 </h3>
               </div>
 
