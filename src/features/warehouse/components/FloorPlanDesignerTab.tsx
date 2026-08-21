@@ -33,14 +33,17 @@ import {
   Wrench,
   Cpu,
   Zap,
-  RotateCcw
+  RotateCcw,
+  Link,
+  PlusCircle,
+  Settings2
 } from 'lucide-react';
 import { useData } from '@/src/DataContext';
 import { useToast } from '@/src/contexts/ToastContext';
 
 export interface FloorPlanElement {
   id: string;
-  type: 'rack' | 'plywood_grid' | 'cabinet' | 'workbench' | 'dock_inbound' | 'dock_outbound' | 'door' | 'pathway' | 'hazmat_zone' | 'equipment';
+  type: string;
   label: string;
   sublabel?: string;
   linkedRackCode?: string; // e.g. 'RACK-01', 'PLY-01'
@@ -56,7 +59,7 @@ export interface FloorPlanElement {
 
 export interface PaletteTemplate {
   id: string;
-  type: 'rack' | 'plywood_grid' | 'cabinet' | 'workbench' | 'dock_inbound' | 'dock_outbound' | 'door' | 'pathway' | 'hazmat_zone' | 'equipment';
+  type: string;
   label: string;
   sublabel?: string;
   linkedRackCode?: string;
@@ -67,6 +70,28 @@ export interface PaletteTemplate {
   zone?: string;
   notes?: string;
 }
+
+export interface CustomElementType {
+  key: string;
+  label: string;
+  iconEmoji: string;
+  defaultColor: string;
+}
+
+const DEFAULT_ELEMENT_TYPES: CustomElementType[] = [
+  { key: 'rack', label: 'Steel Shelving Rack', iconEmoji: '🏗️', defaultColor: '#3b82f6' },
+  { key: 'plywood_grid', label: 'Plywood Pigeonhole Matrix', iconEmoji: '🪵', defaultColor: '#d97706' },
+  { key: 'cabinet', label: 'Chemical / Safety Cabinet', iconEmoji: '🗄️', defaultColor: '#ef4444' },
+  { key: 'workbench', label: 'Assembly & Packing Workbench', iconEmoji: '📦', defaultColor: '#10b981' },
+  { key: 'equipment', label: 'Lab & Diagnostic Equipment', iconEmoji: '🔬', defaultColor: '#06b6d4' },
+  { key: 'machinery', label: '3D Printer / Laser CNC Farm', iconEmoji: '🤖', defaultColor: '#8b5cf6' },
+  { key: 'conveyor', label: 'Automated Conveyor Lane', iconEmoji: '🔄', defaultColor: '#14b8a6' },
+  { key: 'charging', label: 'Battery / AGV Charging Bay', iconEmoji: '🔋', defaultColor: '#eab308' },
+  { key: 'dock_inbound', label: 'Inbound Receiving Dock', iconEmoji: '🚚', defaultColor: '#6366f1' },
+  { key: 'dock_outbound', label: 'Outbound Dispatch Dock', iconEmoji: '📤', defaultColor: '#ec4899' },
+  { key: 'door', label: 'Personnel Entry / Fire Exit', iconEmoji: '🚪', defaultColor: '#64748b' },
+  { key: 'hazmat_zone', label: 'Hazardous Secondary Staging', iconEmoji: '🚧', defaultColor: '#f59e0b' }
+];
 
 const DEFAULT_PALETTE_TEMPLATES: PaletteTemplate[] = [
   {
@@ -134,7 +159,7 @@ const DEFAULT_PALETTE_TEMPLATES: PaletteTemplate[] = [
   },
   {
     id: 'tmpl_06',
-    type: 'equipment',
+    type: 'machinery',
     label: '🤖 3D Printer & Laser CNC Farm',
     sublabel: 'Rapid Prototyping Bay',
     width: 210,
@@ -329,10 +354,86 @@ export default function FloorPlanDesignerTab() {
   const [selectedElementId, setSelectedElementId] = useState<string | null>(null);
   const [isEditingElementModal, setIsEditingElementModal] = useState<boolean>(false);
 
-  // Palette Templates State (Customizable & Editable)
+  // 1. DYNAMIC SYSTEM ASSETS DISCOVERY
+  // Read all physical racks configured in the system (from VisualStockRoom)
+  const systemPhysicalRacks = useMemo(() => {
+    try {
+      const saved = localStorage.getItem('experimind_custom_physical_racks_v2');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch (_) {}
+    return [
+      { id: 'rack-01', code: 'RACK-01', name: 'Rack 1 — Main Assembly & Science Lab Shelf', zone: 'Zone A (High Velocity)', type: 'steel_shelf' },
+      { id: 'ply-01', code: 'PLY-01', name: 'Plywood Unit 1 — 🪵 Plywood Pigeonhole Matrix', zone: 'Zone B (Hardware)', type: 'plywood_grid' },
+      { id: 'rack-02', code: 'RACK-02', name: 'Rack 2 — Electronics & Sensor Cleanroom', zone: 'Zone B (ESD Safe)', type: 'steel_shelf' },
+      { id: 'cab-01', code: 'CAB-01', name: 'Cabinet A — Chemical & Safety Storage Cabinet', zone: 'Zone C (Hazmat Light)', type: 'cabinet' },
+    ];
+  }, []);
+
+  // Gather all unique facility zones from warehouses, bins, and racks
+  const availableFacilityZones = useMemo(() => {
+    const zones = new Set<string>();
+    zones.add('Zone A (High Velocity)');
+    zones.add('Zone B (Hardware / Small Parts)');
+    zones.add('Zone C (Hazmat Light)');
+    zones.add('Production & Assembly Line');
+    zones.add('Cleanroom Lab');
+    zones.add('Receiving Bay');
+    zones.add('Dispatch Bay');
+    zones.add('Perimeter & Security');
+
+    systemPhysicalRacks.forEach((r: any) => { if (r.zone) zones.add(r.zone); });
+    bins.forEach(b => {
+      if (b.description && b.description.includes('Zone')) zones.add(b.description);
+    });
+    return Array.from(zones);
+  }, [systemPhysicalRacks, bins]);
+
+  // 2. CUSTOM ELEMENT TYPES STATE
+  const [elementTypes, setElementTypes] = useState<CustomElementType[]>(() => {
+    try {
+      const saved = localStorage.getItem('experimind_custom_element_types_v2');
+      return saved ? JSON.parse(saved) : DEFAULT_ELEMENT_TYPES;
+    } catch (_) {
+      return DEFAULT_ELEMENT_TYPES;
+    }
+  });
+
+  const [isNewTypeModalOpen, setIsNewTypeModalOpen] = useState(false);
+  const [newTypeName, setNewTypeName] = useState('');
+  const [newTypeEmoji, setNewTypeEmoji] = useState('🔬');
+  const [newTypeColor, setNewTypeColor] = useState('#06b6d4');
+
+  const handleSaveCustomType = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newTypeName.trim()) return;
+
+    const key = `custom_${Date.now()}`;
+    const newType: CustomElementType = {
+      key,
+      label: newTypeName.trim(),
+      iconEmoji: newTypeEmoji.trim() || '📦',
+      defaultColor: newTypeColor,
+    };
+    const updated = [...elementTypes, newType];
+    setElementTypes(updated);
+    try {
+      localStorage.setItem('experimind_custom_element_types_v2', JSON.stringify(updated));
+    } catch (_) {}
+
+    setTemplateType(key);
+    setTemplateColor(newTypeColor);
+    setIsNewTypeModalOpen(false);
+    setNewTypeName('');
+    showToast('success', 'Custom Element Type Created', `Added "${newType.iconEmoji} ${newType.label}" to categories.`);
+  };
+
+  // 3. PALETTE TEMPLATES STATE (Customizable & Editable)
   const [paletteTemplates, setPaletteTemplates] = useState<PaletteTemplate[]>(() => {
     try {
-      const saved = localStorage.getItem('experimind_custom_spatial_palette_v2');
+      const saved = localStorage.getItem('experimind_custom_spatial_palette_v3');
       return saved ? JSON.parse(saved) : DEFAULT_PALETTE_TEMPLATES;
     } catch (_) {
       return DEFAULT_PALETTE_TEMPLATES;
@@ -342,7 +443,7 @@ export default function FloorPlanDesignerTab() {
   const savePaletteTemplates = (newTemplates: PaletteTemplate[]) => {
     setPaletteTemplates(newTemplates);
     try {
-      localStorage.setItem('experimind_custom_spatial_palette_v2', JSON.stringify(newTemplates));
+      localStorage.setItem('experimind_custom_spatial_palette_v3', JSON.stringify(newTemplates));
     } catch (_) {}
   };
 
@@ -351,9 +452,9 @@ export default function FloorPlanDesignerTab() {
   const [editingTemplate, setEditingTemplate] = useState<PaletteTemplate | null>(null);
   const [templateLabel, setTemplateLabel] = useState('');
   const [templateSublabel, setTemplateSublabel] = useState('');
-  const [templateType, setTemplateType] = useState<PaletteTemplate['type']>('rack');
+  const [templateType, setTemplateType] = useState<string>('rack');
   const [templateColor, setTemplateColor] = useState('#3b82f6');
-  const [templateZone, setTemplateZone] = useState('Zone A');
+  const [templateZone, setTemplateZone] = useState('Zone A (High Velocity)');
   const [templateWidth, setTemplateWidth] = useState(220);
   const [templateHeight, setTemplateHeight] = useState(100);
   const [templateLinkedRack, setTemplateLinkedRack] = useState('');
@@ -418,6 +519,7 @@ export default function FloorPlanDesignerTab() {
       if (label.toLowerCase().includes('rack 1')) searchTerms.push('rack');
       if (label.toLowerCase().includes('plywood')) searchTerms.push('ply');
       if (label.toLowerCase().includes('cabinet')) searchTerms.push('chemical', 'cab');
+      if (label.toLowerCase().includes('rack 2')) searchTerms.push('bin');
     }
 
     return inventory.filter(item => {
@@ -440,6 +542,23 @@ export default function FloorPlanDesignerTab() {
     showToast('success', 'Element Placed', `Placed "${newEl.label}" onto the canvas.`);
   };
 
+  // Auto-fill template when linking to a physical storage rack
+  const handleSelectLinkedRack = (rackCode: string) => {
+    setTemplateLinkedRack(rackCode);
+    if (!rackCode) return;
+
+    const target = systemPhysicalRacks.find((r: any) => r.code === rackCode);
+    if (target) {
+      if (!templateLabel || templateLabel.startsWith('Rack') || templateLabel.startsWith('Plywood') || templateLabel.startsWith('Cabinet')) {
+        setTemplateLabel(target.name);
+      }
+      setTemplateZone(target.zone || 'Zone A (General)');
+      if (target.type === 'steel_shelf') setTemplateType('rack');
+      else if (target.type === 'plywood_grid') setTemplateType('plywood_grid');
+      else if (target.type === 'cabinet') setTemplateType('cabinet');
+    }
+  };
+
   // Open Template Modal (Create New or Edit)
   const handleOpenCreateTemplate = () => {
     setEditingTemplate(null);
@@ -447,7 +566,7 @@ export default function FloorPlanDesignerTab() {
     setTemplateSublabel('');
     setTemplateType('rack');
     setTemplateColor('#3b82f6');
-    setTemplateZone('Zone A (General)');
+    setTemplateZone('Zone A (High Velocity)');
     setTemplateWidth(220);
     setTemplateHeight(100);
     setTemplateLinkedRack('');
@@ -461,7 +580,7 @@ export default function FloorPlanDesignerTab() {
     setTemplateSublabel(tmpl.sublabel || '');
     setTemplateType(tmpl.type);
     setTemplateColor(tmpl.color || '#3b82f6');
-    setTemplateZone(tmpl.zone || '');
+    setTemplateZone(tmpl.zone || 'Zone A (High Velocity)');
     setTemplateWidth(tmpl.width || 220);
     setTemplateHeight(tmpl.height || 100);
     setTemplateLinkedRack(tmpl.linkedRackCode || '');
@@ -482,7 +601,6 @@ export default function FloorPlanDesignerTab() {
     if (!templateLabel.trim()) return;
 
     if (editingTemplate) {
-      // Update existing template
       const updated = paletteTemplates.map(t =>
         t.id === editingTemplate.id
           ? {
@@ -501,7 +619,6 @@ export default function FloorPlanDesignerTab() {
       savePaletteTemplates(updated);
       showToast('success', 'Template Updated', `Updated palette template "${templateLabel}".`);
     } else {
-      // Create new template
       const newTmpl: PaletteTemplate = {
         id: `tmpl_${Date.now()}`,
         label: templateLabel.trim(),
@@ -656,7 +773,7 @@ export default function FloorPlanDesignerTab() {
                 2D Interactive Warehouse Floor Plan Designer
               </h2>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 font-medium">
-                Top-down spatial blueprint. Drag and position customizable storage racks, pigeonhole matrixes, packing benches, and equipment.
+                Top-down spatial blueprint connected to live facilities, storage racks, and custom equipment categories.
               </p>
             </div>
           </div>
@@ -750,7 +867,7 @@ export default function FloorPlanDesignerTab() {
             </div>
 
             <p className="text-[11px] text-slate-500 font-medium">
-              Click <Plus className="w-3 h-3 inline text-indigo-500" /> to place on canvas, or hover to <strong>edit/customize</strong> any template:
+              Connected to <strong>{systemPhysicalRacks.length} Storage Units</strong> & <strong>{availableFacilityZones.length} Zones</strong>:
             </p>
 
             {/* Palette Search Filter */}
@@ -758,7 +875,7 @@ export default function FloorPlanDesignerTab() {
               <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
               <input
                 type="text"
-                placeholder="Search spatial templates..."
+                placeholder="Search spatial templates, equipment, or zones..."
                 value={paletteSearch}
                 onChange={(e) => setPaletteSearch(e.target.value)}
                 className="w-full pl-8 pr-3 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-white font-medium focus:outline-none focus:ring-1 focus:ring-indigo-500/30"
@@ -767,51 +884,58 @@ export default function FloorPlanDesignerTab() {
 
             {/* Scrollable Templates List */}
             <div className="space-y-2 max-h-[380px] overflow-y-auto pr-1 custom-scrollbar">
-              {filteredPalette.map((tmpl) => (
-                <div
-                  key={tmpl.id}
-                  onClick={() => handleAddElement(tmpl)}
-                  className="w-full p-2.5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 hover:bg-indigo-50/70 dark:hover:bg-indigo-950/40 border border-slate-200/80 dark:border-slate-700 hover:border-indigo-400 text-left transition-all cursor-pointer flex items-center justify-between group relative"
-                >
-                  <div className="flex items-center gap-2.5 truncate">
-                    <div
-                      className="w-3.5 h-3.5 rounded-md shrink-0 shadow-xs"
-                      style={{ backgroundColor: tmpl.color }}
-                    />
-                    <div className="truncate">
-                      <span className="font-bold text-xs text-slate-800 dark:text-slate-200 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 block truncate">
-                        {tmpl.label}
-                      </span>
-                      {tmpl.sublabel && (
-                        <span className="text-[10px] text-slate-400 block truncate">{tmpl.sublabel}</span>
-                      )}
+              {filteredPalette.map((tmpl) => {
+                const typeObj = elementTypes.find(t => t.key === tmpl.type);
+                const emoji = typeObj ? typeObj.iconEmoji : '📦';
+
+                return (
+                  <div
+                    key={tmpl.id}
+                    onClick={() => handleAddElement(tmpl)}
+                    className="w-full p-2.5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 hover:bg-indigo-50/70 dark:hover:bg-indigo-950/40 border border-slate-200/80 dark:border-slate-700 hover:border-indigo-400 text-left transition-all cursor-pointer flex items-center justify-between group relative"
+                  >
+                    <div className="flex items-center gap-2.5 truncate">
+                      <div
+                        className="w-4 h-4 rounded-md shrink-0 shadow-xs flex items-center justify-center text-[10px]"
+                        style={{ backgroundColor: tmpl.color }}
+                      >
+                        {emoji}
+                      </div>
+                      <div className="truncate">
+                        <span className="font-bold text-xs text-slate-800 dark:text-slate-200 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 block truncate">
+                          {tmpl.label}
+                        </span>
+                        {tmpl.sublabel && (
+                          <span className="text-[10px] text-slate-400 block truncate">{tmpl.sublabel}</span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Actions: Edit, Delete, Place */}
+                    <div className="flex items-center gap-1 shrink-0">
+                      <button
+                        onClick={(e) => handleOpenEditTemplate(e, tmpl)}
+                        className="p-1 text-slate-400 hover:text-indigo-600 hover:bg-indigo-100 dark:hover:bg-slate-700 rounded-lg transition-colors cursor-pointer"
+                        title="Edit this palette template"
+                      >
+                        <Edit2 className="w-3.5 h-3.5" />
+                      </button>
+
+                      <button
+                        onClick={(e) => handleDeleteTemplate(e, tmpl.id)}
+                        className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-100 dark:hover:bg-slate-700 rounded-lg transition-colors cursor-pointer"
+                        title="Delete this template"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+
+                      <div className="p-1 text-indigo-600 dark:text-indigo-400">
+                        <Plus className="w-4 h-4" />
+                      </div>
                     </div>
                   </div>
-
-                  {/* Actions: Place, Edit, Delete */}
-                  <div className="flex items-center gap-1 shrink-0">
-                    <button
-                      onClick={(e) => handleOpenEditTemplate(e, tmpl)}
-                      className="p-1 text-slate-400 hover:text-indigo-600 hover:bg-indigo-100 dark:hover:bg-slate-700 rounded-lg transition-colors cursor-pointer"
-                      title="Edit this palette template"
-                    >
-                      <Edit2 className="w-3.5 h-3.5" />
-                    </button>
-
-                    <button
-                      onClick={(e) => handleDeleteTemplate(e, tmpl.id)}
-                      className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-100 dark:hover:bg-slate-700 rounded-lg transition-colors cursor-pointer"
-                      title="Delete this template"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-
-                    <div className="p-1 text-indigo-600 dark:text-indigo-400">
-                      <Plus className="w-4 h-4" />
-                    </div>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
 
               {filteredPalette.length === 0 && (
                 <div className="py-6 text-center text-xs text-slate-400">
@@ -1052,11 +1176,11 @@ export default function FloorPlanDesignerTab() {
       </div>
 
       {/* ========================================================================= */}
-      {/* 1. PALETTE TEMPLATE CREATOR / EDITOR MODAL */}
+      {/* 1. PALETTE TEMPLATE CREATOR / EDITOR MODAL WITH SYSTEM CONNECTIONS */}
       {/* ========================================================================= */}
       {isPaletteModalOpen && (
         <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 z-[9999] animate-fadeIn">
-          <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl w-full max-w-lg p-6 space-y-4">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl w-full max-w-xl p-6 space-y-4 max-h-[90vh] overflow-y-auto custom-scrollbar">
             <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
               <div className="flex items-center gap-2">
                 <Box className="w-5 h-5 text-indigo-600" />
@@ -1072,7 +1196,31 @@ export default function FloorPlanDesignerTab() {
               </button>
             </div>
 
-            <form onSubmit={handleSaveTemplateSubmit} className="space-y-3.5 text-xs">
+            <form onSubmit={handleSaveTemplateSubmit} className="space-y-4 text-xs">
+              
+              {/* SYSTEM CONNECTION: LINK TO PHYSICAL STORAGE RACK */}
+              <div className="p-3 bg-indigo-50/70 dark:bg-indigo-950/40 rounded-2xl border border-indigo-200 dark:border-indigo-800/80 space-y-1.5">
+                <label className="flex items-center gap-1.5 font-bold text-[11px] text-indigo-900 dark:text-indigo-200">
+                  <Link className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
+                  Link to Physical System Storage Unit (Auto-Configures Name & Zone)
+                </label>
+                <select
+                  value={templateLinkedRack}
+                  onChange={(e) => handleSelectLinkedRack(e.target.value)}
+                  className="w-full bg-white dark:bg-slate-800 border border-indigo-200 dark:border-indigo-700 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 dark:text-white focus:outline-none"
+                >
+                  <option value="">-- Standalone Infrastructure / Equipment (No physical rack link) --</option>
+                  {systemPhysicalRacks.map((rack: any) => (
+                    <option key={rack.id || rack.code} value={rack.code}>
+                      {rack.name} ({rack.code}) • {rack.zone || 'Zone A'}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-[10px] text-indigo-600 dark:text-indigo-400">
+                  Linking automatically binds the rack's real-time parts inventory count and compartment location.
+                </p>
+              </div>
+
               <div>
                 <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">Element Label *</label>
                 <input
@@ -1086,45 +1234,84 @@ export default function FloorPlanDesignerTab() {
               </div>
 
               <div>
-                <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">Subtitle / Equipment Type</label>
+                <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">Subtitle / Equipment Purpose</label>
                 <input
                   type="text"
                   placeholder="e.g. Spectrometer & Lux Meter Bench"
                   value={templateSublabel}
                   onChange={(e) => setTemplateSublabel(e.target.value)}
-                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white focus:outline-none"
+                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 dark:text-white focus:outline-none"
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                
+                {/* ELEMENT TYPE WITH CUSTOM TYPE CREATOR */}
                 <div>
-                  <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">Element Type</label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-[10px] font-bold uppercase text-slate-400">Element Category / Type</label>
+                    <button
+                      type="button"
+                      onClick={() => setIsNewTypeModalOpen(true)}
+                      className="text-[10px] text-indigo-600 dark:text-indigo-400 font-bold hover:underline flex items-center gap-0.5 cursor-pointer"
+                    >
+                      <Plus className="w-3 h-3" /> + New Type
+                    </button>
+                  </div>
                   <select
                     value={templateType}
-                    onChange={(e) => setTemplateType(e.target.value as any)}
+                    onChange={(e) => {
+                      setTemplateType(e.target.value);
+                      const found = elementTypes.find(t => t.key === e.target.value);
+                      if (found) setTemplateColor(found.defaultColor);
+                    }}
                     className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 dark:text-white focus:outline-none"
                   >
-                    <option value="rack">🏗️ Steel Shelving Rack</option>
-                    <option value="plywood_grid">🪵 Plywood Pigeonhole Matrix</option>
-                    <option value="cabinet">🗄️ Chemical / Safety Cabinet</option>
-                    <option value="workbench">📦 Assembly Workbench</option>
-                    <option value="equipment">🔬 Lab Testing Equipment / CNC</option>
-                    <option value="dock_inbound">🚚 Inbound Receiving Dock</option>
-                    <option value="dock_outbound">📤 Outbound Dispatch Dock</option>
-                    <option value="door">🚪 Security Door / Exit</option>
-                    <option value="hazmat_zone">🚧 Hazardous Staging Zone</option>
+                    {elementTypes.map((t) => (
+                      <option key={t.key} value={t.key}>
+                        {t.iconEmoji} {t.label}
+                      </option>
+                    ))}
                   </select>
                 </div>
 
+                {/* FACILITY ZONE WITH AUTOCOMPLETE LIST */}
                 <div>
                   <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">Facility Zone</label>
                   <input
                     type="text"
-                    placeholder="e.g. Zone A (Assembly)"
+                    list="facility-zones-datalist"
+                    placeholder="e.g. Zone A (High Velocity)"
                     value={templateZone}
                     onChange={(e) => setTemplateZone(e.target.value)}
-                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white focus:outline-none"
+                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 dark:text-white focus:outline-none"
                   />
+                  <datalist id="facility-zones-datalist">
+                    {availableFacilityZones.map((z, idx) => (
+                      <option key={idx} value={z} />
+                    ))}
+                  </datalist>
+                </div>
+              </div>
+
+              {/* QUICK SELECT AVAILABLE ZONES PILLS */}
+              <div className="space-y-1">
+                <span className="text-[10px] font-bold text-slate-400 uppercase block">Quick Assign Existing Zone:</span>
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {availableFacilityZones.slice(0, 5).map((z, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => setTemplateZone(z)}
+                      className={`px-2 py-0.5 rounded-lg text-[10px] font-mono font-bold transition-all cursor-pointer ${
+                        templateZone === z
+                          ? 'bg-indigo-600 text-white'
+                          : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200'
+                      }`}
+                    >
+                      {z}
+                    </button>
+                  ))}
                 </div>
               </div>
 
@@ -1181,13 +1368,13 @@ export default function FloorPlanDesignerTab() {
                 <button
                   type="button"
                   onClick={() => setIsPaletteModalOpen(false)}
-                  className="px-4 py-2 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold rounded-xl"
+                  className="px-4 py-2 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold rounded-xl cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-md"
+                  className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-md cursor-pointer"
                 >
                   {editingTemplate ? 'Save Template Changes' : 'Create Template'}
                 </button>
@@ -1198,7 +1385,90 @@ export default function FloorPlanDesignerTab() {
       )}
 
       {/* ========================================================================= */}
-      {/* 2. CANVAS ELEMENT PROPERTIES MODAL */}
+      {/* 2. CUSTOM ELEMENT TYPE CREATOR MODAL */}
+      {/* ========================================================================= */}
+      {isNewTypeModalOpen && (
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 z-[10000] animate-fadeIn">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl w-full max-w-md p-6 space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+              <h3 className="text-base font-black text-slate-900 dark:text-white flex items-center gap-2">
+                <Sparkles className="w-5 h-5 text-indigo-600" />
+                Define Custom Element Category
+              </h3>
+              <button
+                onClick={() => setIsNewTypeModalOpen(false)}
+                className="p-1.5 text-slate-400 hover:text-white rounded-xl hover:bg-slate-800 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveCustomType} className="space-y-3.5 text-xs">
+              <div>
+                <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">Category / Type Name *</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Cryogenic Freezer, Laser CNC Chamber..."
+                  value={newTypeName}
+                  onChange={(e) => setNewTypeName(e.target.value)}
+                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 dark:text-white focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">Icon / Emoji</label>
+                <input
+                  type="text"
+                  placeholder="e.g. ❄️, 🤖, 🧪, 📡, 🦺"
+                  value={newTypeEmoji}
+                  onChange={(e) => setNewTypeEmoji(e.target.value)}
+                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 dark:text-white focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1.5">Default Category Color</label>
+                <div className="flex flex-wrap items-center gap-2">
+                  {COLOR_PRESETS.map((preset) => (
+                    <button
+                      key={preset.value}
+                      type="button"
+                      onClick={() => setNewTypeColor(preset.value)}
+                      className={`w-7 h-7 rounded-xl flex items-center justify-center transition-all cursor-pointer shadow-xs ${
+                        newTypeColor === preset.value ? 'ring-2 ring-white scale-110' : 'hover:scale-105'
+                      }`}
+                      style={{ backgroundColor: preset.value }}
+                      title={preset.label}
+                    >
+                      {newTypeColor === preset.value && <Check className="w-4 h-4 text-white stroke-[3]" />}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsNewTypeModalOpen(false)}
+                  className="px-4 py-2 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold rounded-xl"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-md"
+                >
+                  Save Category Type
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* 3. CANVAS ELEMENT PROPERTIES MODAL */}
       {/* ========================================================================= */}
       {isEditingElementModal && selectedElement && (
         <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 z-[9999] animate-fadeIn">
@@ -1235,7 +1505,7 @@ export default function FloorPlanDesignerTab() {
                   placeholder="e.g. Science Lab Components"
                   value={editSublabel}
                   onChange={(e) => setEditSublabel(e.target.value)}
-                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white focus:outline-none"
+                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 dark:text-white focus:outline-none"
                 />
               </div>
 
@@ -1243,11 +1513,17 @@ export default function FloorPlanDesignerTab() {
                 <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">Warehouse Zone</label>
                 <input
                   type="text"
+                  list="canvas-facility-zones-datalist"
                   placeholder="e.g. Zone A (High Velocity)"
                   value={editZone}
                   onChange={(e) => setEditZone(e.target.value)}
-                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white focus:outline-none"
+                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 dark:text-white focus:outline-none"
                 />
+                <datalist id="canvas-facility-zones-datalist">
+                  {availableFacilityZones.map((z, idx) => (
+                    <option key={idx} value={z} />
+                  ))}
+                </datalist>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
