@@ -106,7 +106,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const signInAsGuest = async () => {
-    if (import.meta.env.PROD) {
+    if ((import.meta as any).env?.PROD) {
       alert("Guest access is disabled in production mode. Please sign in with registered credentials.");
       return;
     }
