@@ -3,6 +3,7 @@ import { Settings, DatabaseZap, LayoutDashboard } from 'lucide-react';
 import { analyzeKitting } from './utils/kitting';
 import { useData, DataProvider } from './DataContext';
 import { useAuth } from './AuthContext';
+import { apiFetch } from './utils/api';
 import { BOMRequirement } from './types';
 
 import UndoRedoWidget from '@/src/components/UndoRedoWidget';
