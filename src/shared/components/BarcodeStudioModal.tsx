@@ -266,32 +266,32 @@ export default function BarcodeStudioModal({ isOpen, onClose, inventory }: Barco
               </div>
 
               {/* Physical Sticker Card: Large Barcode, Storage Location, No Price */}
-              <div className="bg-white text-slate-950 border-2 border-slate-900 p-4 rounded-xl space-y-2 w-full max-w-[280px] shadow-xl">
+              <div className="bg-white text-slate-950 border-2 border-slate-900 p-5 rounded-2xl space-y-3 w-full max-w-[340px] shadow-2xl">
                 {/* Part Name */}
-                <div className="font-black text-xs truncate uppercase tracking-tight text-slate-950 text-center">
+                <div className="font-black text-sm truncate uppercase tracking-tight text-slate-950 text-center">
                   {selectedItem.name}
                 </div>
 
                 {/* Storage Location Details (Prominent) */}
-                <div className="flex items-center justify-center gap-1 text-[10px] font-mono font-bold text-amber-900 bg-amber-50 border border-amber-200/80 rounded-md py-0.5 px-2">
-                  <MapPin className="w-3 h-3 text-amber-600 shrink-0" />
+                <div className="flex items-center justify-center gap-1.5 text-xs font-mono font-bold text-amber-900 bg-amber-50 border border-amber-300 rounded-lg py-1 px-3">
+                  <MapPin className="w-4 h-4 text-amber-600 shrink-0" />
                   <span className="truncate">LOC: {selectedItem.binLocation || 'Rack - Shelf 1'}</span>
                 </div>
 
-                {/* Significantly Larger Barcode Vector (55px height, width 2.2) */}
-                <div className="py-2 flex flex-col items-center justify-center bg-white">
+                {/* Significantly Larger Barcode Vector (90px height, width 2.8) */}
+                <div className="py-2 px-1 flex flex-col items-center justify-center bg-white rounded-xl overflow-hidden">
                   <BarcodeSvg
                     value={selectedItem.barcode || selectedItem.sku || `EL-${selectedItem.id}`}
                     format="CODE128"
-                    width={2.2}
-                    height={55}
+                    width={2.8}
+                    height={90}
                     displayValue={false}
-                    className="h-14 w-auto max-w-[240px]"
+                    className="h-24 w-full max-w-[300px]"
                   />
                 </div>
 
                 {/* Barcode Number Code */}
-                <div className="text-[11px] font-mono font-black tracking-widest text-slate-950 text-center border-t border-slate-200 pt-1">
+                <div className="text-xs font-mono font-black tracking-widest text-slate-950 text-center border-t border-slate-200 pt-1.5">
                   {selectedItem.barcode || selectedItem.sku || `EL-${selectedItem.id}`}
                 </div>
               </div>
@@ -393,14 +393,14 @@ export default function BarcodeStudioModal({ isOpen, onClose, inventory }: Barco
                     </div>
 
                     {/* Large Code-128 Barcode */}
-                    <div className="flex justify-center bg-white p-1 rounded-lg border border-slate-100">
+                    <div className="flex justify-center bg-white p-2 rounded-lg border border-slate-200 shadow-xs">
                       <BarcodeSvg
                         value={code}
                         format="CODE128"
-                        width={1.6}
-                        height={38}
+                        width={2.0}
+                        height={50}
                         displayValue={false}
-                        className="h-9 w-auto max-w-[170px]"
+                        className="h-12 w-auto max-w-[200px]"
                       />
                     </div>
 

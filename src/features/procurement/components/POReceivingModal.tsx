@@ -267,8 +267,8 @@ export default function POReceivingModal({ isOpen, onClose, purchaseOrder }: POR
               <span className="text-[10px] font-bold text-indigo-600 uppercase tracking-wider">Experimind Warehouse Label</span>
               <h3 className="font-bold text-sm leading-snug">{printingItem.name}</h3>
               <p className="font-mono text-xs text-slate-500">Bin: {printingItem.binLocation} | Lot: {printingItem.lot}</p>
-              <div className="flex justify-center py-2">
-                <BarcodeSvg value={printingItem.itemId || 'SKU-SAMPLE'} width={1.8} height={50} />
+              <div className="flex justify-center py-3 bg-white rounded-xl">
+                <BarcodeSvg value={printingItem.itemId || 'SKU-SAMPLE'} width={2.4} height={70} className="h-20 w-auto max-w-[280px]" />
               </div>
             </div>
             <div className="flex justify-end gap-2 pt-4">

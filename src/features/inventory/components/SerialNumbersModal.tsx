@@ -468,8 +468,8 @@ export default function SerialNumbersModal({
                   </div>
 
                   <div className="pt-2 border-t border-slate-700/60 flex items-center justify-center">
-                    <div className="bg-white p-2 rounded-lg">
-                      <BarcodeSvg value={selectedSerial.serialNumber} width={180} height={45} />
+                    <div className="bg-white p-2 rounded-lg shadow-sm">
+                      <BarcodeSvg value={selectedSerial.serialNumber} width={2.2} height={60} className="h-16 w-auto max-w-[260px]" />
                     </div>
                   </div>
                 </div>

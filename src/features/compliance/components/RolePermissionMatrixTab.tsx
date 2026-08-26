@@ -14,7 +14,9 @@ import {
   CheckCircle2,
   RefreshCw,
   Sliders,
-  UserCheck
+  UserCheck,
+  CheckSquare,
+  Square
 } from 'lucide-react';
 import { apiFetch } from '../../../utils/api';
 import { useAuth } from '../../../AuthContext';
@@ -221,15 +223,15 @@ export const RolePermissionMatrixTab: React.FC = () => {
       )}
 
       {/* Header Banner */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-slate-900/90 border border-slate-800 p-6 rounded-2xl backdrop-blur-xl">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white/90 dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800 p-6 rounded-2xl backdrop-blur-xl shadow-xs">
         <div>
           <div className="flex items-center gap-3 mb-1">
-            <div className="p-2 bg-indigo-600/20 text-indigo-400 rounded-xl border border-indigo-500/30">
+            <div className="p-2 bg-indigo-600/10 dark:bg-indigo-600/20 text-indigo-600 dark:text-indigo-400 rounded-xl border border-indigo-500/20 dark:border-indigo-500/30">
               <Shield className="w-6 h-6" />
             </div>
-            <h2 className="text-xl font-bold text-white tracking-wide">Enterprise Role & Permission Matrix</h2>
+            <h2 className="text-xl font-bold text-slate-900 dark:text-white tracking-wide">Enterprise Role & Permission Matrix</h2>
           </div>
-          <p className="text-sm text-slate-400">
+          <p className="text-sm text-slate-600 dark:text-slate-400">
             Define granular module-level capabilities, assign system authorities, and safeguard compliance across operations.
           </p>
         </div>
@@ -237,14 +239,14 @@ export const RolePermissionMatrixTab: React.FC = () => {
         <div className="flex items-center gap-3">
           <button
             onClick={() => fetchRoles()}
-            className="flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl font-medium text-sm transition-all border border-slate-700"
+            className="flex items-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl font-medium text-sm transition-all border border-slate-300 dark:border-slate-700 cursor-pointer"
           >
             <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
             Refresh
           </button>
           <button
             onClick={() => setShowCreateModal(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-semibold text-sm transition-all shadow-lg shadow-indigo-600/30"
+            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-semibold text-sm transition-all shadow-lg shadow-indigo-600/30 cursor-pointer"
           >
             <Plus className="w-4 h-4" />
             Create Custom Role
@@ -256,9 +258,9 @@ export const RolePermissionMatrixTab: React.FC = () => {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Left: Roles List */}
         <div className="lg:col-span-4 space-y-3">
-          <div className="text-xs font-bold uppercase tracking-wider text-slate-400 px-1 flex items-center justify-between">
+          <div className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 px-1 flex items-center justify-between">
             <span>Configured Roles ({roles.length})</span>
-            <span className="text-[11px] text-slate-500">Select to inspect</span>
+            <span className="text-[11px] text-slate-400 dark:text-slate-500">Select to inspect</span>
           </div>
 
           <div className="space-y-2">
@@ -271,8 +273,8 @@ export const RolePermissionMatrixTab: React.FC = () => {
                   onClick={() => setSelectedRole(role)}
                   className={`p-4 rounded-xl border cursor-pointer transition-all ${
                     isSelected 
-                      ? 'bg-slate-800/90 border-indigo-500/80 shadow-lg shadow-indigo-500/10' 
-                      : 'bg-slate-900/60 border-slate-800/80 hover:bg-slate-850 hover:border-slate-700'
+                      ? 'bg-indigo-50/80 dark:bg-slate-800/90 border-indigo-500 shadow-md ring-2 ring-indigo-500/20' 
+                      : 'bg-white dark:bg-slate-900/60 border-slate-200 dark:border-slate-800/80 hover:bg-slate-50 dark:hover:bg-slate-850 hover:border-slate-300 dark:hover:border-slate-700'
                   }`}
                 >
                   <div className="flex items-center justify-between mb-1">
@@ -281,7 +283,7 @@ export const RolePermissionMatrixTab: React.FC = () => {
                         {role.name}
                       </span>
                       {role.is_system && (
-                        <span className="flex items-center gap-1 text-[10px] bg-slate-800 text-slate-400 px-2 py-0.5 rounded border border-slate-700">
+                        <span className="flex items-center gap-1 text-[10px] bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 px-2 py-0.5 rounded border border-slate-200 dark:border-slate-700">
                           <Lock className="w-3 h-3 text-slate-500" /> System
                         </span>
                       )}
@@ -293,7 +295,7 @@ export const RolePermissionMatrixTab: React.FC = () => {
                           e.stopPropagation();
                           handleDeleteRole(role.id, role.name);
                         }}
-                        className="text-slate-500 hover:text-red-400 p-1 rounded hover:bg-slate-800 transition-colors"
+                        className="text-slate-400 hover:text-red-500 p-1 rounded hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
                         title="Delete custom role"
                       >
                         <Trash2 className="w-4 h-4" />
@@ -301,13 +303,13 @@ export const RolePermissionMatrixTab: React.FC = () => {
                     )}
                   </div>
 
-                  <p className="text-xs text-slate-400 mt-1 line-clamp-2">
+                  <p className="text-xs text-slate-600 dark:text-slate-400 mt-1 line-clamp-2">
                     {role.description || 'Custom organizational permission profile.'}
                   </p>
 
-                  <div className="flex items-center justify-between mt-3 pt-2 border-t border-slate-800 text-[11px] text-slate-400 font-mono">
+                  <div className="flex items-center justify-between mt-3 pt-2 border-t border-slate-100 dark:border-slate-800 text-[11px] text-slate-500 dark:text-slate-400 font-mono">
                     <span>Code: {role.code}</span>
-                    <span className="text-indigo-400 font-semibold">{permCount} Capabilities</span>
+                    <span className="text-indigo-600 dark:text-indigo-400 font-semibold">{permCount} Capabilities</span>
                   </div>
                 </div>
               );
@@ -316,25 +318,25 @@ export const RolePermissionMatrixTab: React.FC = () => {
         </div>
 
         {/* Right: Permission Matrix Table */}
-        <div className="lg:col-span-8 bg-slate-900/80 border border-slate-800 rounded-2xl p-6 backdrop-blur-xl">
+        <div className="lg:col-span-8 bg-white/90 dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 backdrop-blur-xl shadow-xs">
           {selectedRole ? (
             <div className="space-y-6">
-              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 pb-4 border-b border-slate-800">
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 pb-4 border-b border-slate-200 dark:border-slate-800">
                 <div>
                   <div className="flex items-center gap-3">
-                    <h3 className="text-lg font-bold text-white">{selectedRole.name} Matrix</h3>
+                    <h3 className="text-lg font-bold text-slate-900 dark:text-white">{selectedRole.name} Matrix</h3>
                     <span className={`px-2.5 py-0.5 text-xs font-semibold rounded-full border ${getColorBadge(selectedRole.color)}`}>
                       {selectedRole.code}
                     </span>
                   </div>
-                  <p className="text-xs text-slate-400 mt-0.5">
+                  <p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5">
                     Toggle individual capabilities on or off. Changes persist immediately to active sessions.
                   </p>
                 </div>
 
                 <div className="text-right">
-                  <span className="text-xs text-slate-400">Total Active:</span>
-                  <span className="ml-2 text-sm font-bold text-indigo-400 font-mono">
+                  <span className="text-xs text-slate-500 dark:text-slate-400">Total Active:</span>
+                  <span className="ml-2 text-sm font-bold text-indigo-600 dark:text-indigo-400 font-mono">
                     {(selectedRole.permissions || []).length} Granted
                   </span>
                 </div>
@@ -348,13 +350,13 @@ export const RolePermissionMatrixTab: React.FC = () => {
                   const allActive = activeCount === groupPermKeys.length;
 
                   return (
-                    <div key={gIdx} className="bg-slate-950/60 border border-slate-850 rounded-xl p-4 space-y-3">
+                    <div key={gIdx} className="bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-850 rounded-xl p-4 space-y-3">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           <span className="text-lg">{group.icon}</span>
-                          <h4 className="text-sm font-bold text-slate-200">{group.category}</h4>
+                          <h4 className="text-sm font-bold text-slate-900 dark:text-slate-200">{group.category}</h4>
                         </div>
-                        <span className="text-xs font-mono px-2 py-0.5 rounded bg-slate-900 text-slate-400 border border-slate-800">
+                        <span className="text-xs font-mono px-2 py-0.5 rounded bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-800">
                           {activeCount} / {group.permissions.length} Enabled
                         </span>
                       </div>
@@ -368,28 +370,25 @@ export const RolePermissionMatrixTab: React.FC = () => {
                               onClick={() => handleTogglePermission(perm.key)}
                               className={`p-3 rounded-xl border flex items-start justify-between gap-3 cursor-pointer transition-all select-none ${
                                 isEnabled
-                                  ? 'bg-indigo-950/40 border-indigo-500/40 hover:bg-indigo-950/60'
-                                  : 'bg-slate-900/40 border-slate-800/80 hover:bg-slate-850'
+                                  ? 'bg-indigo-50 dark:bg-indigo-950/40 border-indigo-300 dark:border-indigo-500/40 hover:bg-indigo-100 dark:hover:bg-indigo-950/60'
+                                  : 'bg-white dark:bg-slate-900/40 border-slate-200 dark:border-slate-800/80 hover:bg-slate-100 dark:hover:bg-slate-850'
                               }`}
                             >
                               <div>
-                                <p className={`text-xs font-semibold ${isEnabled ? 'text-indigo-300' : 'text-slate-300'}`}>
+                                <p className={`text-xs font-semibold ${isEnabled ? 'text-indigo-700 dark:text-indigo-300' : 'text-slate-800 dark:text-slate-300'}`}>
                                   {perm.label}
                                 </p>
-                                <p className="text-[11px] text-slate-400 mt-0.5 leading-relaxed">
+                                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 leading-relaxed">
                                   {perm.desc}
                                 </p>
-                                <span className="inline-block mt-1 text-[10px] font-mono text-slate-400">
-                                  {perm.key}
-                                </span>
                               </div>
 
-                              <div className={`mt-0.5 w-5 h-5 rounded-md flex items-center justify-center border transition-all ${
-                                isEnabled 
-                                  ? 'bg-indigo-600 border-indigo-500 text-white' 
-                                  : 'bg-slate-800 border-slate-700 text-transparent'
-                              }`}>
-                                <Check className="w-3.5 h-3.5" />
+                              <div className="mt-0.5">
+                                {isEnabled ? (
+                                  <CheckSquare className="w-5 h-5 text-indigo-600 dark:text-indigo-400 shrink-0" />
+                                ) : (
+                                  <Square className="w-5 h-5 text-slate-300 dark:text-slate-600 shrink-0" />
+                                )}
                               </div>
                             </div>
                           );
@@ -401,9 +400,9 @@ export const RolePermissionMatrixTab: React.FC = () => {
               </div>
             </div>
           ) : (
-            <div className="text-center py-20 text-slate-500">
-              <Shield className="w-12 h-12 mx-auto mb-3 opacity-30" />
-              <p>Select a role from the left to view and configure its capability matrix.</p>
+            <div className="py-20 text-center text-slate-400">
+              <Shield className="w-12 h-12 mx-auto mb-3 text-slate-600" />
+              <p className="text-sm font-medium">Select a role from the left panel to configure its permission matrix.</p>
             </div>
           )}
         </div>

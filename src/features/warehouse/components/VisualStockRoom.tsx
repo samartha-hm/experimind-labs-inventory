@@ -1651,13 +1651,13 @@ export default function VisualStockRoom() {
               </button>
             </div>
 
-            <div className="bg-white text-slate-900 border-2 border-slate-900 p-4 rounded-xl space-y-1 shadow-lg">
-              <div className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">SHELF LOCATION</div>
-              <div className="font-black text-base uppercase tracking-tight text-slate-950">{printingBinCode}</div>
-              <div className="py-2 flex justify-center">
-                <BarcodeSvg value={printingBinCode} format="CODE128" width={1.8} height={40} displayValue={false} className="h-10 w-auto max-w-[200px]" />
+            <div className="bg-white text-slate-900 border-2 border-slate-900 p-5 rounded-2xl space-y-2 shadow-xl">
+              <div className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">SHELF LOCATION</div>
+              <div className="font-black text-lg uppercase tracking-tight text-slate-950">{printingBinCode}</div>
+              <div className="py-2 flex justify-center bg-white rounded-lg">
+                <BarcodeSvg value={printingBinCode} format="CODE128" width={2.4} height={70} displayValue={false} className="h-20 w-auto max-w-[260px]" />
               </div>
-              <div className="text-[10px] font-mono font-black text-slate-950 tracking-widest">{printingBinCode}</div>
+              <div className="text-xs font-mono font-black text-slate-950 tracking-widest">{printingBinCode}</div>
             </div>
 
             <button
