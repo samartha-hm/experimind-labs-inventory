@@ -297,18 +297,20 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       if (resPos.status === 'fulfilled' && Array.isArray(resPos.value)) {
         setPurchaseOrders(resPos.value.map((po: any) => ({
           id: po.id,
-          poNumber: po.order_number,
+          poNumber: po.po_number || po.order_number || po.id,
+          vendorId: po.vendor_id,
           vendorName: po.vendor?.name || 'Standard Supplier',
-          createdAt: po.created_at,
-          expectedDate: po.expected_delivery_date,
+          orderDate: po.order_date ? new Date(po.order_date).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10),
+          expectedDate: po.expected_date ? new Date(po.expected_date).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10),
           status: po.status || 'draft',
           totalAmount: Number(po.total_amount) || 0,
+          itemCount: (po.lines || []).length || 1,
           items: (po.lines || []).map((l: any) => ({
             id: l.id,
-            itemId: l.item_id,
-            name: l.item_name || 'Component',
-            quantity: Number(l.quantity) || 0,
-            receivedQty: Number(l.received_qty) || 0,
+            itemId: l.inventory_item_id || l.item_id,
+            name: l.inventory_item?.name || l.item_name || 'Component',
+            quantity: Number(l.qty_ordered || l.quantity) || 0,
+            receivedQty: Number(l.qty_received || l.received_qty) || 0,
             unitPrice: Number(l.unit_cost) || 0
           }))
         })));
@@ -317,17 +319,21 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       if (resSos.status === 'fulfilled' && Array.isArray(resSos.value)) {
         setSalesOrders(resSos.value.map((so: any) => ({
           id: so.id,
-          soNumber: so.order_number,
+          soNumber: so.so_number || so.order_number || so.id,
+          customerId: so.customer_id,
           customerName: so.customer?.name || 'Direct Customer',
-          createdAt: so.created_at,
-          status: so.status || 'pending',
+          orderDate: so.order_date ? new Date(so.order_date).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10),
+          requiredDate: so.required_date ? new Date(so.required_date).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10),
+          status: so.status || 'draft',
           totalAmount: Number(so.total_amount) || 0,
+          itemCount: (so.lines || []).length || 1,
           notes: so.notes || '',
           items: (so.lines || []).map((l: any) => ({
             id: l.id,
-            itemId: l.item_id,
-            name: l.item_name || 'Component',
-            quantity: Number(l.quantity) || 0,
+            itemId: l.inventory_item_id || l.item_id,
+            name: l.inventory_item?.name || l.item_name || 'Component',
+            quantity: Number(l.qty_ordered || l.quantity) || 0,
+            shippedQty: Number(l.qty_shipped || l.quantity) || 0,
             unitPrice: Number(l.unit_price) || 0
           }))
         })));
@@ -949,19 +955,25 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   // Purchase Orders
   const addPurchaseOrder = async (po: any) => {
     try {
-      const payload = {
-        vendor_id: po.vendorId || vendors[0]?.id || '',
-        po_number: po.poNumber || `PO-${Date.now()}`,
-        order_date: po.orderDate || new Date().toISOString(),
-        expected_date: po.expectedDate || new Date().toISOString(),
+      const payload: any = {
+        vendor_id: po.vendorId || (vendors.length > 0 ? vendors[0].id : undefined),
+        vendor_name: po.vendorName,
+        po_number: po.poNumber || `PO-${new Date().getFullYear()}-${Date.now().toString().slice(-4)}`,
+        order_date: po.orderDate || new Date().toISOString().slice(0, 10),
+        expected_date: po.expectedDate || new Date().toISOString().slice(0, 10),
         status: po.status || 'draft',
-        lines: []
+        total_amount: Number(po.totalAmount) || 0,
+        lines: (po.items || []).map((i: any) => ({
+          inventory_item_id: i.itemId || i.id,
+          qty_ordered: Number(i.quantity || i.qty) || 1,
+          unit_cost: Number(i.unitPrice || i.unitCost) || 0
+        }))
       };
-      await apiFetch('/api/v1/purchase-order', {
+      const created = await apiFetch('/api/v1/purchase-order', {
         method: 'POST',
         body: JSON.stringify(payload)
       });
-      loadAllData();
+      await loadAllData();
 
       logTransaction({
         id: `tx_${Date.now()}`,
@@ -971,6 +983,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         items: [],
         diffs: [{ field: 'po_number', oldValue: null, newValue: payload.po_number }]
       });
+      return created?.id;
     } catch (e: any) {
       alert(`Error creating Purchase Order: ${e.message}`);
     }
@@ -990,7 +1003,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         method: 'PUT',
         body: JSON.stringify(payload)
       });
-      loadAllData();
+      await loadAllData();
 
       if (oldPo) {
         logTransaction({
@@ -1011,7 +1024,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     try {
       const po = purchaseOrders.find(item => item.id === id);
       await apiFetch(`/api/v1/purchase-order/${id}`, { method: 'DELETE' });
-      loadAllData();
+      await loadAllData();
 
       if (po) {
         logTransaction({
@@ -1031,19 +1044,25 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   // Sales Orders
   const addSalesOrder = async (so: any) => {
     try {
-      const payload = {
-        customer_id: so.customerId || customers[0]?.id || '',
-        so_number: so.soNumber || `SO-${Date.now()}`,
-        order_date: so.orderDate || new Date().toISOString(),
-        required_date: so.requiredDate || new Date().toISOString(),
+      const payload: any = {
+        customer_id: so.customerId || (customers.length > 0 ? customers[0].id : undefined),
+        customer_name: so.customerName,
+        so_number: so.soNumber || `SO-${new Date().getFullYear()}-${Date.now().toString().slice(-4)}`,
+        order_date: so.orderDate || new Date().toISOString().slice(0, 10),
+        required_date: so.requiredDate || new Date().toISOString().slice(0, 10),
         status: so.status || 'draft',
-        lines: []
+        total_amount: Number(so.totalAmount) || 0,
+        lines: (so.items || []).map((i: any) => ({
+          inventory_item_id: i.itemId || i.id,
+          qty_ordered: Number(i.quantity || i.qty) || 1,
+          unit_price: Number(i.unitPrice) || 0
+        }))
       };
-      await apiFetch('/api/v1/sales-order', {
+      const created = await apiFetch('/api/v1/sales-order', {
         method: 'POST',
         body: JSON.stringify(payload)
       });
-      loadAllData();
+      await loadAllData();
 
       logTransaction({
         id: `tx_${Date.now()}`,
@@ -1053,6 +1072,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         items: [],
         diffs: [{ field: 'so_number', oldValue: null, newValue: payload.so_number }]
       });
+      return created?.id;
     } catch (e: any) {
       alert(`Error creating Sales Order: ${e.message}`);
     }

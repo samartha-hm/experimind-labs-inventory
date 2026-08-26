@@ -27,34 +27,50 @@ export class SalesOrderService {
   async create(
     dto: Partial<SalesOrder> & {
       customer_id?: string;
-      customer?: { id: string };
+      customer_name?: string;
+      customer?: { id: string; name?: string };
       lines?: { inventory_item_id?: string; item_id?: string; qty_ordered: number; unit_price: number }[];
     },
     organizationId?: string
   ): Promise<SalesOrder> {
     const orgId = organizationId || (dto as any).organization_id || "00000000-0000-0000-0000-000000000000";
-    const customerId = dto.customer_id || dto.customer?.id;
-    if (!customerId) {
-      throw new Error("customer_id is required to create a sales order");
-    }
+    let customerId = dto.customer_id || dto.customer?.id;
 
     const queryRunner = AppDataSource.createQueryRunner();
     await queryRunner.connect();
     await queryRunner.startTransaction();
 
     try {
-      // Validate Customer belongs to caller's organization
-      const customer = await queryRunner.manager.findOne(Customer, {
-        where: { id: customerId, organization_id: orgId },
-      });
+      // Validate or resolve Customer
+      let customer: Customer | null = null;
+      if (customerId) {
+        customer = await queryRunner.manager.findOne(Customer, {
+          where: { id: customerId, organization_id: orgId },
+        });
+      }
+
       if (!customer) {
-        throw new Error(`Customer ${customerId} not found or belongs to another organization`);
+        const customerName = dto.customer_name || (dto as any).customerName || 'Direct Customer';
+        customer = await queryRunner.manager.findOne(Customer, {
+          where: { name: customerName, organization_id: orgId },
+        });
+        if (!customer) {
+          customer = queryRunner.manager.create(Customer, {
+            organization_id: orgId,
+            name: customerName,
+            customer_code: `CUST-${Date.now().toString().slice(-4)}`,
+            email: "customer@client.com",
+            phone: "+91 9876543211"
+          });
+          customer = await queryRunner.manager.save(customer);
+        }
+        customerId = customer.id;
       }
 
       // Generate SO number if not provided
       const soNumber = dto.so_number || `SO-${Date.now().toString().slice(-6)}`;
 
-      let totalAmount = 0;
+      let totalAmount = Number(dto.total_amount) || 0;
       const linesToCreate: { inventory_item: InventoryItem; inventory_item_id: string; qty_ordered: number; qty_picked: number; qty_shipped: number; unit_price: number }[] = [];
 
       if (dto.lines && Array.isArray(dto.lines)) {

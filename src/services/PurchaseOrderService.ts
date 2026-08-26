@@ -27,34 +27,50 @@ export class PurchaseOrderService {
   async create(
     dto: Partial<PurchaseOrder> & {
       vendor_id?: string;
-      vendor?: { id: string };
+      vendor_name?: string;
+      vendor?: { id: string; name?: string };
       lines?: { inventory_item_id?: string; item_id?: string; qty_ordered: number; unit_cost: number }[];
     },
     organizationId?: string
   ): Promise<PurchaseOrder> {
     const orgId = organizationId || (dto as any).organization_id || "00000000-0000-0000-0000-000000000000";
-    const vendorId = dto.vendor_id || dto.vendor?.id;
-    if (!vendorId) {
-      throw new Error("vendor_id is required to create a purchase order");
-    }
+    let vendorId = dto.vendor_id || dto.vendor?.id;
 
     const queryRunner = AppDataSource.createQueryRunner();
     await queryRunner.connect();
     await queryRunner.startTransaction();
 
     try {
-      // Validate Vendor belongs to caller's organization
-      const vendor = await queryRunner.manager.findOne(Vendor, {
-        where: { id: vendorId, organization_id: orgId },
-      });
+      // Validate or resolve Vendor
+      let vendor: Vendor | null = null;
+      if (vendorId) {
+        vendor = await queryRunner.manager.findOne(Vendor, {
+          where: { id: vendorId, organization_id: orgId },
+        });
+      }
+
       if (!vendor) {
-        throw new Error(`Vendor ${vendorId} not found or belongs to another organization`);
+        const vendorName = dto.vendor_name || (dto as any).vendorName || 'ExperiMind Vendor';
+        vendor = await queryRunner.manager.findOne(Vendor, {
+          where: { name: vendorName, organization_id: orgId },
+        });
+        if (!vendor) {
+          vendor = queryRunner.manager.create(Vendor, {
+            organization_id: orgId,
+            name: vendorName,
+            vendor_code: `VEND-${Date.now().toString().slice(-4)}`,
+            email: "vendor@supplier.com",
+            phone: "+91 9876543210"
+          });
+          vendor = await queryRunner.manager.save(vendor);
+        }
+        vendorId = vendor.id;
       }
 
       // Generate PO number if not provided
       const poNumber = dto.po_number || `PO-${Date.now().toString().slice(-6)}`;
 
-      let totalAmount = 0;
+      let totalAmount = Number(dto.total_amount) || 0;
       const linesToCreate: { inventory_item: InventoryItem; inventory_item_id: string; qty_ordered: number; qty_received: number; unit_cost: number }[] = [];
 
       if (dto.lines && Array.isArray(dto.lines)) {
