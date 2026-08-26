@@ -1,4 +1,5 @@
 import React, { useRef } from 'react';
+import { createPortal } from 'react-dom';
 import {
   FileText,
   Printer,
@@ -32,9 +33,9 @@ export default function PODocumentGeneratorModal({ po, isOpen, onClose }: PODocu
   const gstAmount = subtotal * 0.18;
   const grandTotal = subtotal + gstAmount;
 
-  return (
-    <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-md flex items-center justify-center p-4 z-50 animate-fadeIn">
-      <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl w-full max-w-4xl max-h-[92vh] flex flex-col overflow-hidden">
+  return createPortal(
+    <div className="fixed inset-0 w-screen h-screen z-[99999] bg-slate-950/70 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto animate-fadeIn">
+      <div className="relative my-auto bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl w-full max-w-4xl max-h-[92vh] flex flex-col overflow-hidden">
         {/* Modal Top Actions Header */}
         <div className="p-4 bg-slate-950 text-white flex items-center justify-between border-b border-slate-800 shrink-0">
           <div className="flex items-center gap-2">
@@ -177,6 +178,7 @@ export default function PODocumentGeneratorModal({ po, isOpen, onClose }: PODocu
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

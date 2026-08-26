@@ -22,9 +22,10 @@ export class CreateInventoryDto {
   @MaxLength(2000)
   description?: string;
 
+  @IsOptional()
   @IsNumber({ maxDecimalPlaces: 2 })
   @Min(0)
-  base_price!: number;
+  base_price?: number;
 
   @IsOptional()
   @IsInt()
@@ -63,7 +64,7 @@ export class CreateInventoryDto {
   is_hidden?: boolean;
 
   @IsOptional()
-  @IsUrl()
+  @IsString()
   image_url?: string;
 
   @IsOptional()
@@ -136,7 +137,7 @@ export class UpdateInventoryDto {
   is_hidden?: boolean;
 
   @IsOptional()
-  @IsUrl()
+  @IsString()
   image_url?: string;
 
   @IsOptional()

@@ -26,6 +26,10 @@ import { CustomerOrder } from "./entity/CustomerOrder.ts";
 import { CustomerOrderLine } from "./entity/CustomerOrderLine.ts";
 import { StockAdjustment } from "./entity/StockAdjustment.ts";
 import { RefreshToken } from "./entity/RefreshToken.ts";
+import { PhysicalRack } from "./entity/PhysicalRack.ts";
+import { FloorPlanLayout } from "./entity/FloorPlanLayout.ts";
+import { CustomElementType } from "./entity/CustomElementType.ts";
+import { SerialNumber } from "./entity/SerialNumber.ts";
 import { Init1689500000000 } from "./migration/1689500000000-Init.ts";
 import { AddOrgAuditOrdersInvoices1689500000001 } from "./migration/1689500000001-AddOrgAuditOrdersInvoices.ts";
 import { SeedDefaultOrganization1689500000002 } from "./migration/1689500000002-SeedDefaultOrganization.ts";
@@ -33,6 +37,7 @@ import { AlignEntitiesAndSchema1689500000003 } from "./migration/1689500000003-A
 import { CleanSchemaAlignment1689500000004 } from "./migration/1689500000004-CleanSchemaAlignment.ts";
 import { FinalSchemaReconciliation1689500000005 } from "./migration/1689500000005-FinalSchemaReconciliation.ts";
 import { SeedAdminUser1689500000006 } from "./migration/1689500000006-SeedAdminUser.ts";
+import { AddVisualWarehouseAndSerialNumbers1689500000007 } from "./migration/1689500000007-AddVisualWarehouseAndSerialNumbers.ts";
 
 const isLocalhostDb = env.databaseUrl.includes("localhost") || env.databaseUrl.includes("127.0.0.1");
 
@@ -67,7 +72,20 @@ export const AppDataSource = new DataSource({
     CustomerOrderLine,
     StockAdjustment,
     RefreshToken,
+    PhysicalRack,
+    FloorPlanLayout,
+    CustomElementType,
+    SerialNumber,
   ],
-  migrations: [Init1689500000000, AddOrgAuditOrdersInvoices1689500000001, SeedDefaultOrganization1689500000002, AlignEntitiesAndSchema1689500000003, CleanSchemaAlignment1689500000004, FinalSchemaReconciliation1689500000005, SeedAdminUser1689500000006],
+  migrations: [
+    Init1689500000000,
+    AddOrgAuditOrdersInvoices1689500000001,
+    SeedDefaultOrganization1689500000002,
+    AlignEntitiesAndSchema1689500000003,
+    CleanSchemaAlignment1689500000004,
+    FinalSchemaReconciliation1689500000005,
+    SeedAdminUser1689500000006,
+    AddVisualWarehouseAndSerialNumbers1689500000007,
+  ],
   subscribers: [],
 });

@@ -1,4 +1,5 @@
 import React from 'react';
+import { createPortal } from 'react-dom';
 import { X, Printer, Download, Building2, ShieldCheck, CheckCircle2 } from 'lucide-react';
 
 interface DocumentPreviewModalProps {
@@ -61,9 +62,9 @@ export default function DocumentPreviewModal({
   const tax = subtotal * 0.08; // 8% Tax calculation
   const grandTotal = subtotal + tax;
 
-  return (
-    <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-in fade-in duration-200">
-      <div className="bg-white rounded-3xl border border-slate-200/80 shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col overflow-hidden">
+  return createPortal(
+    <div className="fixed inset-0 w-screen h-screen z-[99999] bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto animate-fadeIn">
+      <div className="relative my-auto bg-white rounded-3xl border border-slate-200/80 shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col overflow-hidden">
         {/* Modal Top Actions */}
         <div className="p-4 bg-slate-900 text-white flex items-center justify-between border-b border-slate-800">
           <div className="flex items-center gap-2">
@@ -187,6 +188,7 @@ export default function DocumentPreviewModal({
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

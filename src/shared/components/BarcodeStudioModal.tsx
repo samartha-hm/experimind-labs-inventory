@@ -114,8 +114,8 @@ export default function BarcodeStudioModal({ isOpen, onClose, inventory }: Barco
   if (!isOpen) return null;
 
   return createPortal(
-    <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-md flex items-center justify-center p-4 z-[9999] overflow-y-auto animate-fadeIn">
-      <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-2xl max-w-4xl w-full p-6 border border-slate-200 dark:border-slate-800 space-y-6 animate-scaleUp my-8 max-h-[92vh] flex flex-col">
+    <div className="fixed inset-0 w-screen h-screen z-[99999] bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto animate-fadeIn">
+      <div className="relative my-auto bg-white dark:bg-slate-900 rounded-3xl shadow-2xl max-w-4xl w-full p-6 border border-slate-200 dark:border-slate-800 space-y-6 animate-scaleUp max-h-[92vh] flex flex-col">
         {/* Modal Header */}
         <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-4 shrink-0">
           <div className="flex items-center gap-3">

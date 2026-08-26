@@ -1,4 +1,5 @@
 import React from 'react';
+import { createPortal } from 'react-dom';
 import { Bot, X, CheckCircle2, Clock, Terminal, ShieldCheck, Database, Layers } from 'lucide-react';
 
 interface AIAgentResearchDrawerProps {
@@ -17,8 +18,8 @@ export default function AIAgentResearchDrawer({ isOpen, onClose }: AIAgentResear
     { timestamp: '18:38:22', type: 'idle', text: 'Agent sleeping until next schedule interval (300s).' },
   ];
 
-  return (
-    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex justify-end z-[9999] animate-fadeIn">
+  return createPortal(
+    <div className="fixed inset-0 w-screen h-screen z-[99999] bg-slate-900/60 backdrop-blur-sm flex justify-end animate-fadeIn">
       <div className="bg-slate-950 text-white w-full max-w-md h-full shadow-2xl p-6 flex flex-col justify-between border-l border-slate-800 animate-slideLeft space-y-4">
         <div className="space-y-4">
           <div className="flex items-center justify-between border-b border-slate-800 pb-4">
@@ -74,6 +75,7 @@ export default function AIAgentResearchDrawer({ isOpen, onClose }: AIAgentResear
           CompAI Agentic Workflow Engine • Human-in-the-Loop Safeguard Active
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

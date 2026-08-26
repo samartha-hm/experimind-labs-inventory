@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import {
   ShoppingBag,
   Search,
@@ -43,6 +44,7 @@ import {
 } from 'lucide-react';
 import { InventoryItem } from '@/src/types';
 import { useToast } from '@/src/contexts/ToastContext';
+import ItemImage from '@/src/shared/components/ItemImage';
 
 interface ShopTabProps {
   inventory: InventoryItem[];
@@ -487,9 +489,10 @@ export default function ShopTab({ inventory, onPlaceOrder }: ShopTabProps) {
                 <div className="space-y-3">
                   <div className="w-full h-44 rounded-2xl bg-slate-100 dark:bg-slate-800 border border-slate-200/60 dark:border-slate-700 flex items-center justify-center overflow-hidden relative group/img">
                     {asset.imageUrl ? (
-                      <img
+                      <ItemImage
                         src={asset.imageUrl}
                         alt={asset.name}
+                        category={asset.category}
                         className="w-full h-full object-cover group-hover/img:scale-108 transition-transform duration-300"
                       />
                     ) : (
@@ -579,7 +582,7 @@ export default function ShopTab({ inventory, onPlaceOrder }: ShopTabProps) {
                   <div className="flex items-center gap-4 min-w-0">
                     <div className="w-12 h-12 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center shrink-0 overflow-hidden">
                       {asset.imageUrl ? (
-                        <img src={asset.imageUrl} alt={asset.name} className="w-full h-full object-cover" />
+                        <ItemImage src={asset.imageUrl} alt={asset.name} category={asset.category} className="w-full h-full object-cover" />
                       ) : (
                         <Box className="w-5 h-5 text-indigo-400" />
                       )}
@@ -628,9 +631,9 @@ export default function ShopTab({ inventory, onPlaceOrder }: ShopTabProps) {
       )}
 
       {/* Asset Detail Quick View Modal */}
-      {selectedAsset && (
-        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-md flex items-center justify-center p-4 z-50 animate-fadeIn">
-          <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200 dark:border-slate-800 shadow-2xl w-full max-w-lg space-y-5 relative">
+      {selectedAsset && createPortal(
+        <div className="fixed inset-0 w-screen h-screen z-[99999] bg-slate-950/70 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto animate-fadeIn">
+          <div className="relative my-auto bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200 dark:border-slate-800 shadow-2xl w-full max-w-lg space-y-5">
             <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
               <div>
                 <span className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider">
@@ -645,7 +648,7 @@ export default function ShopTab({ inventory, onPlaceOrder }: ShopTabProps) {
 
             <div className="w-full h-56 rounded-2xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center overflow-hidden">
               {selectedAsset.imageUrl ? (
-                <img src={selectedAsset.imageUrl} alt={selectedAsset.name} className="w-full h-full object-cover" />
+                <ItemImage src={selectedAsset.imageUrl} alt={selectedAsset.name} category={selectedAsset.category} className="w-full h-full object-cover" />
               ) : (
                 <Box className="w-12 h-12 text-indigo-400" />
               )}
@@ -659,34 +662,39 @@ export default function ShopTab({ inventory, onPlaceOrder }: ShopTabProps) {
                 <div>Barcode: <strong className="text-slate-900 dark:text-slate-100">{selectedAsset.barcode || 'EL-STD'}</strong></div>
               </div>
 
-              {selectedAsset.description && (
-                <p className="text-slate-500 dark:text-slate-400 text-xs leading-relaxed pt-1">
-                  {selectedAsset.description}
-                </p>
-              )}
+              <div className="flex items-baseline justify-between pt-2">
+                <span className="text-2xl font-black text-slate-900 dark:text-slate-100 font-mono">
+                  ₹{(selectedAsset.basePrice || 10.0).toFixed(2)}
+                </span>
+                <span className="text-[10px] text-slate-400">Exclusive of 18% GST</span>
+              </div>
             </div>
 
-            <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
-              <div>
-                <span className="text-[10px] font-bold text-slate-400 uppercase">Unit Price</span>
-                <div className="text-xl font-black text-slate-900 dark:text-slate-100 font-mono">₹{(selectedAsset.basePrice || 10.0).toFixed(2)}</div>
-              </div>
-
+            <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex justify-end gap-2">
               <button
-                disabled={selectedAsset.stockQty === 0}
-                onClick={(e) => addToCart(selectedAsset, 1, e)}
-                className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-6 py-3 rounded-2xl text-xs shadow-lg shadow-indigo-600/30 transition-all cursor-pointer flex items-center gap-2"
+                onClick={() => setSelectedAsset(null)}
+                className="px-4 py-2.5 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold rounded-xl text-xs cursor-pointer"
+              >
+                Close
+              </button>
+              <button
+                onClick={() => {
+                  addToCart(selectedAsset);
+                  setSelectedAsset(null);
+                }}
+                className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl text-xs shadow-md transition-colors cursor-pointer flex items-center gap-1.5"
               >
                 <Plus className="w-4 h-4" /> Add to Cart
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Slide-Over Quick Cart Drawer */}
-      {isCartDrawerOpen && (
-        <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-xs flex justify-end z-50 animate-fadeIn">
+      {isCartDrawerOpen && createPortal(
+        <div className="fixed inset-0 w-screen h-screen z-[99999] bg-slate-950/60 backdrop-blur-xs flex justify-end animate-fadeIn">
           <div className="bg-white dark:bg-slate-900 w-full max-w-md h-full shadow-2xl border-l border-slate-200 dark:border-slate-800 flex flex-col justify-between">
             {/* Cart Header */}
             <div className="p-4 bg-slate-950 text-white flex items-center justify-between border-b border-slate-800">
@@ -780,14 +788,15 @@ export default function ShopTab({ inventory, onPlaceOrder }: ShopTabProps) {
               </div>
             )}
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Complete Checkout Modal */}
-      {isCheckoutOpen && (
-        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-md flex items-center justify-center p-4 z-50 animate-fadeIn">
-          <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden">
-            <div className="p-4 bg-slate-950 text-white flex items-center justify-between border-b border-slate-800">
+      {isCheckoutOpen && createPortal(
+        <div className="fixed inset-0 w-screen h-screen z-[99999] bg-slate-950/70 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto animate-fadeIn">
+          <div className="relative my-auto bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden">
+            <div className="p-4 bg-slate-950 text-white flex items-center justify-between border-b border-slate-800 shrink-0">
               <h3 className="text-base font-bold flex items-center gap-2">
                 <ShoppingBag className="w-5 h-5 text-indigo-400" /> Experimind Storefront Checkout
               </h3>
@@ -796,7 +805,7 @@ export default function ShopTab({ inventory, onPlaceOrder }: ShopTabProps) {
               </button>
             </div>
 
-            <form onSubmit={handleCheckoutSubmit} className="p-6 overflow-y-auto space-y-5 text-xs text-slate-700 dark:text-slate-300">
+            <form onSubmit={handleCheckoutSubmit} className="p-6 overflow-y-auto space-y-5 text-xs text-slate-700 dark:text-slate-300 custom-scrollbar">
               {/* Order Purpose & Payment Method */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
@@ -858,7 +867,7 @@ export default function ShopTab({ inventory, onPlaceOrder }: ShopTabProps) {
                   <label className="block font-bold text-slate-500 uppercase tracking-wider text-[10px] mb-1">Email Address</label>
                   <input
                     type="email"
-                    placeholder="customer@experimindlabs.com"
+                    placeholder="adarsh@experimindlabs.com"
                     value={customerEmail}
                     onChange={(e) => setCustomerEmail(e.target.value)}
                     className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs focus:outline-none"
@@ -868,7 +877,7 @@ export default function ShopTab({ inventory, onPlaceOrder }: ShopTabProps) {
                 <div>
                   <label className="block font-bold text-slate-500 uppercase tracking-wider text-[10px] mb-1">Phone Number</label>
                   <input
-                    type="text"
+                    type="tel"
                     placeholder="+91 98765 43210"
                     value={customerPhone}
                     onChange={(e) => setCustomerPhone(e.target.value)}
@@ -933,7 +942,8 @@ export default function ShopTab({ inventory, onPlaceOrder }: ShopTabProps) {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import {
   PackageCheck,
   Plus,
@@ -302,12 +303,12 @@ export default function SalesOrdersTab({ role }: SalesOrdersTabProps) {
       )}
 
       {/* Edit SO Modal */}
-      {editingSo && (
-        <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl w-full max-w-lg p-6 space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <h3 className="text-base font-bold text-slate-900">Edit Sales Order {editingSo.soNumber}</h3>
-              <button onClick={() => setEditingSo(null)} className="p-1 text-slate-400 hover:text-slate-700">
+      {editingSo && createPortal(
+        <div className="fixed inset-0 w-screen h-screen z-[99999] bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto animate-fadeIn">
+          <div className="relative my-auto bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl w-full max-w-lg p-6 space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+              <h3 className="text-base font-bold text-slate-900 dark:text-white">Edit Sales Order {editingSo.soNumber}</h3>
+              <button onClick={() => setEditingSo(null)} className="p-1 text-slate-400 hover:text-slate-700 dark:hover:text-white cursor-pointer">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -320,7 +321,7 @@ export default function SalesOrdersTab({ role }: SalesOrdersTabProps) {
                   required
                   value={editingSo.customerName}
                   onChange={(e) => setEditingSo({ ...editingSo, customerName: e.target.value })}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs focus:outline-none"
+                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs focus:outline-none text-slate-900 dark:text-white"
                 />
               </div>
 
@@ -331,7 +332,7 @@ export default function SalesOrdersTab({ role }: SalesOrdersTabProps) {
                     type="email"
                     value={editingSo.customerEmail || ''}
                     onChange={(e) => setEditingSo({ ...editingSo, customerEmail: e.target.value })}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs focus:outline-none"
+                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs focus:outline-none text-slate-900 dark:text-white"
                   />
                 </div>
                 <div>
@@ -340,7 +341,7 @@ export default function SalesOrdersTab({ role }: SalesOrdersTabProps) {
                     type="text"
                     value={editingSo.phone || ''}
                     onChange={(e) => setEditingSo({ ...editingSo, phone: e.target.value })}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs focus:outline-none"
+                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs focus:outline-none text-slate-900 dark:text-white"
                   />
                 </div>
               </div>
@@ -351,7 +352,7 @@ export default function SalesOrdersTab({ role }: SalesOrdersTabProps) {
                   type="text"
                   value={editingSo.address || ''}
                   onChange={(e) => setEditingSo({ ...editingSo, address: e.target.value })}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs focus:outline-none"
+                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs focus:outline-none text-slate-900 dark:text-white"
                 />
               </div>
 
@@ -361,7 +362,7 @@ export default function SalesOrdersTab({ role }: SalesOrdersTabProps) {
                   type="text"
                   value={editingSo.purpose || ''}
                   onChange={(e) => setEditingSo({ ...editingSo, purpose: e.target.value })}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs focus:outline-none"
+                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs focus:outline-none text-slate-900 dark:text-white"
                 />
               </div>
 
@@ -371,7 +372,7 @@ export default function SalesOrdersTab({ role }: SalesOrdersTabProps) {
                   <select
                     value={editingSo.status}
                     onChange={(e) => setEditingSo({ ...editingSo, status: e.target.value })}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs focus:outline-none"
+                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs focus:outline-none text-slate-900 dark:text-white"
                   >
                     <option value="draft">Draft</option>
                     <option value="picking">Picking</option>
@@ -387,38 +388,39 @@ export default function SalesOrdersTab({ role }: SalesOrdersTabProps) {
                     step="0.01"
                     value={editingSo.totalAmount}
                     onChange={(e) => setEditingSo({ ...editingSo, totalAmount: parseFloat(e.target.value) || 0 })}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs focus:outline-none font-mono"
+                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs focus:outline-none font-mono text-slate-900 dark:text-white"
                   />
                 </div>
               </div>
 
-              <div className="pt-3 border-t border-slate-100 flex justify-end gap-2">
+              <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex justify-end gap-2">
                 <button
                   type="button"
                   onClick={() => setEditingSo(null)}
-                  className="px-4 py-2 bg-slate-100 text-slate-700 font-bold rounded-xl"
+                  className="px-4 py-2 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold rounded-xl cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-md"
+                  className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-md cursor-pointer"
                 >
                   Update Sales Order
                 </button>
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Create SO Modal */}
-      {isCreateModalOpen && (
-        <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl w-full max-w-lg p-6 space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <h3 className="text-base font-bold text-slate-900">Create Sales Order</h3>
-              <button onClick={() => setIsCreateModalOpen(false)} className="p-1 text-slate-400 hover:text-slate-700">
+      {isCreateModalOpen && createPortal(
+        <div className="fixed inset-0 w-screen h-screen z-[99999] bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto animate-fadeIn">
+          <div className="relative my-auto bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl w-full max-w-lg p-6 space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+              <h3 className="text-base font-bold text-slate-900 dark:text-white">Create Sales Order</h3>
+              <button onClick={() => setIsCreateModalOpen(false)} className="p-1 text-slate-400 hover:text-slate-700 dark:hover:text-white cursor-pointer">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -432,7 +434,7 @@ export default function SalesOrdersTab({ role }: SalesOrdersTabProps) {
                   placeholder="e.g. Apex High School Robotics Club"
                   value={newSo.customerName}
                   onChange={(e) => setNewSo({ ...newSo, customerName: e.target.value })}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs focus:outline-none"
+                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs focus:outline-none text-slate-900 dark:text-white"
                 />
               </div>
 
@@ -443,7 +445,7 @@ export default function SalesOrdersTab({ role }: SalesOrdersTabProps) {
                     type="email"
                     value={newSo.customerEmail}
                     onChange={(e) => setNewSo({ ...newSo, customerEmail: e.target.value })}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs focus:outline-none"
+                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs focus:outline-none text-slate-900 dark:text-white"
                   />
                 </div>
                 <div>
@@ -452,7 +454,7 @@ export default function SalesOrdersTab({ role }: SalesOrdersTabProps) {
                     type="text"
                     value={newSo.phone}
                     onChange={(e) => setNewSo({ ...newSo, phone: e.target.value })}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs focus:outline-none"
+                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs focus:outline-none text-slate-900 dark:text-white"
                   />
                 </div>
               </div>
@@ -463,7 +465,7 @@ export default function SalesOrdersTab({ role }: SalesOrdersTabProps) {
                   type="text"
                   value={newSo.address}
                   onChange={(e) => setNewSo({ ...newSo, address: e.target.value })}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs focus:outline-none"
+                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs focus:outline-none text-slate-900 dark:text-white"
                 />
               </div>
 
@@ -473,7 +475,7 @@ export default function SalesOrdersTab({ role }: SalesOrdersTabProps) {
                   type="text"
                   value={newSo.purpose}
                   onChange={(e) => setNewSo({ ...newSo, purpose: e.target.value })}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs focus:outline-none"
+                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs focus:outline-none text-slate-900 dark:text-white"
                 />
               </div>
 
@@ -484,7 +486,7 @@ export default function SalesOrdersTab({ role }: SalesOrdersTabProps) {
                     type="date"
                     value={newSo.requiredDate}
                     onChange={(e) => setNewSo({ ...newSo, requiredDate: e.target.value })}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs focus:outline-none"
+                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs focus:outline-none text-slate-900 dark:text-white"
                   />
                 </div>
                 <div>
@@ -495,29 +497,30 @@ export default function SalesOrdersTab({ role }: SalesOrdersTabProps) {
                     placeholder="1200.00"
                     value={newSo.totalAmount}
                     onChange={(e) => setNewSo({ ...newSo, totalAmount: e.target.value })}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs focus:outline-none font-mono"
+                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs focus:outline-none font-mono text-slate-900 dark:text-white"
                   />
                 </div>
               </div>
 
-              <div className="pt-3 border-t border-slate-100 flex justify-end gap-2">
+              <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex justify-end gap-2">
                 <button
                   type="button"
                   onClick={() => setIsCreateModalOpen(false)}
-                  className="px-4 py-2 bg-slate-100 text-slate-700 font-bold rounded-xl"
+                  className="px-4 py-2 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold rounded-xl cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-md"
+                  className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-md cursor-pointer"
                 >
                   Create Sales Order
                 </button>
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

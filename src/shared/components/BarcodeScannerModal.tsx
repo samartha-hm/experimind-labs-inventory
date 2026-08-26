@@ -106,7 +106,7 @@ export default function BarcodeScannerModal({
   onClose,
   initialMode = 'inspect'
 }: BarcodeScannerModalProps) {
-  const { inventory, kits = [], updateInventoryItem, logTransaction, bins = [] } = useData();
+  const { inventory, kits = [], updateInventoryItem, logTransaction, bins = [], lookupSerialNumber } = useData();
   const { showToast } = useToast();
 
   // Mode Selection
@@ -114,6 +114,7 @@ export default function BarcodeScannerModal({
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [inboundNote, setInboundNote] = useState('');
   const [outboundNote, setOutboundNote] = useState('');
+  const [matchedSerial, setMatchedSerial] = useState<any | null>(null);
 
   // 1. CUSTOMIZABLE QUANTITY MULTIPLIERS
   const [stepPresets, setStepPresets] = useState<number[]>(() => {
@@ -357,7 +358,21 @@ export default function BarcodeScannerModal({
       }
     }
 
-    const matchedItem = findItemByCode(cleanCode);
+    let matchedItem = findItemByCode(cleanCode);
+    let foundSerial: any = null;
+
+    if (!matchedItem) {
+      foundSerial = await lookupSerialNumber(cleanCode);
+      if (foundSerial) {
+        matchedItem = foundSerial.inventoryItem || inventory.find(i => i.id === foundSerial.inventoryItemId) || null;
+        setMatchedSerial(foundSerial);
+      } else {
+        setMatchedSerial(null);
+      }
+    } else {
+      foundSerial = await lookupSerialNumber(cleanCode);
+      setMatchedSerial(foundSerial || null);
+    }
 
     if (matchedItem) {
       setScannedItem(matchedItem);
@@ -365,7 +380,7 @@ export default function BarcodeScannerModal({
 
       // Append to Recent Activity Feed
       setRecentScanLog(prev => [
-        { code: cleanCode, name: matchedItem.name, time: new Date().toLocaleTimeString(), success: true, mode: activeMode.toUpperCase() },
+        { code: cleanCode, name: foundSerial ? `[SN] ${foundSerial.serialNumber} (${matchedItem!.name})` : matchedItem!.name, time: new Date().toLocaleTimeString(), success: true, mode: activeMode.toUpperCase() },
         ...prev.slice(0, 19)
       ]);
 
@@ -383,18 +398,23 @@ export default function BarcodeScannerModal({
         showToast('info', 'Component Identified', `Step 2: Point at destination Bin barcode or select a bin below for "${matchedItem.name}"`);
       } else {
         // Inspect & Monitor Mode
-        showToast('success', 'Component Matched', `${matchedItem.name} (Barcode: ${matchedItem.barcode || matchedItem.id})`);
+        if (foundSerial) {
+          showToast('success', 'Serialized Unit Matched', `Serial: ${foundSerial.serialNumber} (Status: ${foundSerial.status})`);
+        } else {
+          showToast('success', 'Component Matched', `${matchedItem.name} (Barcode: ${matchedItem.barcode || matchedItem.id})`);
+        }
       }
     } else {
       setScannedItem(null);
+      setMatchedSerial(null);
       if (soundEnabled) playScanBeep('error');
       setRecentScanLog(prev => [
         { code: cleanCode, name: 'Unrecognized Barcode', time: new Date().toLocaleTimeString(), success: false, mode: activeMode.toUpperCase() },
         ...prev.slice(0, 19)
       ]);
-      showToast('error', 'Barcode Not Found', `Decoded code "${cleanCode}", but no matching component was found in catalog.`);
+      showToast('error', 'Barcode Not Found', `Decoded code "${cleanCode}", but no matching component or serial unit was found in catalog.`);
     }
-  }, [activeMode, relocateStep, scannedItem, findItemByCode, soundEnabled, customQtyStep, inboundNote, outboundNote, activeKit]);
+  }, [activeMode, relocateStep, scannedItem, findItemByCode, lookupSerialNumber, soundEnabled, customQtyStep, inboundNote, outboundNote, activeKit, inventory]);
 
   const handleCodeScannedRef = useRef(handleCodeScanned);
   useEffect(() => {
@@ -406,6 +426,17 @@ export default function BarcodeScannerModal({
     if (!isOpen || !videoRef.current) return;
     setCameraError(null);
     setIsStartingCamera(true);
+
+    if (!navigator?.mediaDevices || typeof navigator.mediaDevices.getUserMedia !== 'function') {
+      const isHttps = typeof window !== 'undefined' && (window.location.protocol === 'https:' || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+      const msg = isHttps
+        ? 'No camera hardware detected. Hardware USB barcode scanner, photo file upload, and manual SKU search are active.'
+        : 'Camera streaming requires HTTPS or localhost. Hardware USB barcode guns, photo uploads, and manual lookup are ready.';
+      setCameraError(msg);
+      setIsStartingCamera(false);
+      setIsCameraActive(false);
+      return;
+    }
 
     try {
       if (streamRef.current) {
@@ -882,8 +913,8 @@ export default function BarcodeScannerModal({
   if (!isOpen) return null;
 
   return createPortal(
-    <div className="fixed inset-0 bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-3 md:p-6 z-[9999] overflow-y-auto animate-fadeIn select-none">
-      <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl w-full max-w-4xl overflow-hidden flex flex-col max-h-[94vh] my-auto relative">
+    <div className="fixed inset-0 w-screen h-screen z-[99999] bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-3 md:p-6 overflow-y-auto animate-fadeIn select-none">
+      <div className="relative my-auto bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl w-full max-w-4xl overflow-hidden flex flex-col max-h-[94vh]">
         
         {/* ========================================================================= */}
         {/* TOP HEADER */}
@@ -1347,6 +1378,37 @@ export default function BarcodeScannerModal({
                   </button>
                 </div>
               </div>
+
+              {/* 🧬 Matched Serialized Unit DNA Banner */}
+              {matchedSerial && (
+                <div className="p-3.5 bg-gradient-to-r from-indigo-950/60 to-purple-950/60 border border-indigo-500/40 rounded-2xl flex flex-wrap items-center justify-between gap-3 animate-fadeIn">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-xl bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center text-indigo-400">
+                      <QrCode className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono text-xs font-bold text-white tracking-wide">
+                          SN: {matchedSerial.serialNumber}
+                        </span>
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+                          {matchedSerial.status}
+                        </span>
+                      </div>
+                      <div className="text-[11px] text-slate-400">
+                        Location: {matchedSerial.warehouseId} / {matchedSerial.binId || 'Unassigned'} • Batch: {matchedSerial.batchNumber || 'N/A'}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="text-right text-[11px]">
+                    <span className="text-slate-400 block">Unit Cost: ₹{Number(matchedSerial.unitCost || 0).toLocaleString('en-IN')}</span>
+                    <span className="text-emerald-400 font-medium">
+                      {matchedSerial.warrantyExpiry ? `Warranty to ${new Date(matchedSerial.warrantyExpiry).toLocaleDateString()}` : 'Standard Warranty'}
+                    </span>
+                  </div>
+                </div>
+              )}
 
               {/* Quick Specs Grid */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
@@ -2023,9 +2085,9 @@ export default function BarcodeScannerModal({
       {/* ========================================================================= */}
       {/* 1. IN-MODAL COMPONENT QUICK-EDITOR MODAL */}
       {/* ========================================================================= */}
-      {isEditingItemModal && scannedItem && (
-        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 z-[10000] animate-fadeIn">
-          <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl w-full max-w-lg p-6 space-y-4 max-h-[90vh] overflow-y-auto custom-scrollbar">
+      {isEditingItemModal && scannedItem && createPortal(
+        <div className="fixed inset-0 w-screen h-screen z-[100000] bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto animate-fadeIn">
+          <div className="relative my-auto bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl w-full max-w-lg p-6 space-y-4 max-h-[90vh] overflow-y-auto custom-scrollbar">
             <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
               <h3 className="text-base font-black text-slate-900 dark:text-white flex items-center gap-2">
                 <Edit2 className="w-5 h-5 text-indigo-600" />
@@ -2148,15 +2210,16 @@ export default function BarcodeScannerModal({
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* ========================================================================= */}
       {/* 2. MANAGE QUICK TEST BARCODE CHIPS MODAL */}
       {/* ========================================================================= */}
-      {isManagingChipsModal && (
-        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 z-[10000] animate-fadeIn">
-          <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl w-full max-w-md p-6 space-y-4 max-h-[85vh] overflow-y-auto custom-scrollbar">
+      {isManagingChipsModal && createPortal(
+        <div className="fixed inset-0 w-screen h-screen z-[100000] bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto animate-fadeIn">
+          <div className="relative my-auto bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl w-full max-w-md p-6 space-y-4 max-h-[85vh] overflow-y-auto custom-scrollbar">
             <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
               <h3 className="text-base font-black text-slate-900 dark:text-white flex items-center gap-2">
                 <Tag className="w-5 h-5 text-indigo-600" />
@@ -2239,15 +2302,16 @@ export default function BarcodeScannerModal({
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* ========================================================================= */}
       {/* 3. CUSTOMIZE QUANTITY MULTIPLIERS MODAL */}
       {/* ========================================================================= */}
-      {isEditingStepsModal && (
-        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 z-[10000] animate-fadeIn">
-          <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl w-full max-w-md p-6 space-y-4">
+      {isEditingStepsModal && createPortal(
+        <div className="fixed inset-0 w-screen h-screen z-[100000] bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto animate-fadeIn">
+          <div className="relative my-auto bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl w-full max-w-md p-6 space-y-4">
             <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
               <h3 className="text-base font-black text-slate-900 dark:text-white flex items-center gap-2">
                 <Settings className="w-5 h-5 text-indigo-600" />
@@ -2296,7 +2360,8 @@ export default function BarcodeScannerModal({
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
     </div>,

@@ -1,9 +1,11 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { X, Upload, Image as ImageIcon, Package, Clock, Settings, MapPin } from 'lucide-react';
 import { InventoryItem, KitBOM } from '@/src/types';
 import { uploadImage } from '@/src/utils/storage';
 import { useData } from '@/src/DataContext';
 import DiffViewer from '@/src/components/DiffViewer';
+import ItemImage from '@/src/shared/components/ItemImage';
 
 interface EditPartModalProps {
   item: InventoryItem;
@@ -87,9 +89,9 @@ export default function EditPartModal({
     }
   };
 
-  return (
-    <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fadeIn">
-      <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]">
+  return createPortal(
+    <div className="fixed inset-0 w-screen h-screen z-[99999] bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto animate-fadeIn">
+      <div className="relative my-auto bg-white dark:bg-slate-900 rounded-3xl shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh] border border-slate-200 dark:border-slate-800">
         <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between sticky top-0 bg-white z-10">
           <h2 className="text-xl font-black text-slate-800 flex items-center gap-2">
             <Package className="w-5 h-5 text-indigo-600" />
@@ -129,7 +131,7 @@ export default function EditPartModal({
                   {imageFile ? (
                     <img src={URL.createObjectURL(imageFile)} alt="Preview" className="w-full h-full object-cover" />
                   ) : item.imageUrl ? (
-                    <img src={item.imageUrl} alt={item.name} className="w-full h-full object-cover" />
+                    <ItemImage src={item.imageUrl} alt={item.name} category={item.category} className="w-full h-full object-cover" />
                   ) : (
                     <ImageIcon className="w-8 h-8 text-slate-300 mb-2" />
                   )}
@@ -376,6 +378,7 @@ export default function EditPartModal({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

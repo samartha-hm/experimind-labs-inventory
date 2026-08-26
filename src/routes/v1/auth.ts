@@ -1,23 +1,27 @@
 import { Router } from "express";
 import { AuthService } from "../../services/AuthService.ts";
 import { env } from "../../config/env.ts";
+import jwt from "jsonwebtoken";
 
 const router = Router();
 const authService = new AuthService();
 
-const COOKIE_OPTIONS = {
-  httpOnly: true,
-  secure: env.nodeEnv === "production",
-  sameSite: "strict" as const,
-  path: "/api/v1/auth",
-  maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
-};
+function getCookieOptions(req: any) {
+  const isHttps = req.secure || req.headers["x-forwarded-proto"] === "https";
+  return {
+    httpOnly: true,
+    secure: isHttps,
+    sameSite: "lax" as const,
+    path: "/api/v1/auth",
+    maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+  };
+}
 
 /**
  * POST /api/v1/auth/register
  */
 router.post("/register", async (req, res) => {
-  const { email, password, name, role } = req.body;
+  const { email, password, name } = req.body;
   if (!email || !password) {
     return res.status(400).json({ error: "Email and password are required" });
   }
@@ -29,7 +33,7 @@ router.post("/register", async (req, res) => {
       "viewer" // Public registration is strictly forced to viewer role
     );
 
-    res.cookie("refreshToken", refreshToken, COOKIE_OPTIONS);
+    res.cookie("refreshToken", refreshToken, getCookieOptions(req));
     res.status(201).json({
       user: {
         id: user.id,
@@ -54,7 +58,7 @@ router.post("/login", async (req, res) => {
   }
   try {
     const { user, token, refreshToken } = await authService.login(email, password);
-    res.cookie("refreshToken", refreshToken, COOKIE_OPTIONS);
+    res.cookie("refreshToken", refreshToken, getCookieOptions(req));
     res.json({
       user: {
         id: user.id,
@@ -67,6 +71,34 @@ router.post("/login", async (req, res) => {
   } catch (e: any) {
     res.status(400).json({ error: e.message });
   }
+});
+
+/**
+ * POST /api/v1/auth/guest
+ */
+router.post("/guest", async (req, res) => {
+  if (!env.allowGuest) {
+    return res.status(403).json({ error: "Guest sign-in is disabled in this environment." });
+  }
+  const requestedRole = (req.body?.role as string) || env.guestRole || "admin";
+  const guestUser = {
+    id: "guest-admin-session",
+    email: `guest-${requestedRole}@experimindlabs.com`,
+    name: `Guest ${requestedRole.charAt(0).toUpperCase() + requestedRole.slice(1)}`,
+    role: requestedRole,
+    organization_id: "00000000-0000-0000-0000-000000000000",
+  };
+  const token = jwt.sign(
+    {
+      sub: guestUser.id,
+      email: guestUser.email,
+      role: guestUser.role,
+      orgId: guestUser.organization_id,
+    },
+    env.jwtSecret,
+    { expiresIn: "12h" }
+  );
+  res.json({ user: guestUser, token });
 });
 
 /**
@@ -109,17 +141,17 @@ router.post("/reset-password", async (req, res) => {
 router.post("/refresh-token", async (req, res) => {
   const refreshToken = req.cookies?.refreshToken || req.body?.refreshToken;
   if (!refreshToken) {
-    return res.status(400).json({ error: "refreshToken cookie or body field is required" });
+    return res.status(200).json({ user: null, token: null });
   }
   try {
     const result = await authService.refreshAccessToken(refreshToken);
-    res.cookie("refreshToken", result.refreshToken, COOKIE_OPTIONS);
+    res.cookie("refreshToken", result.refreshToken, getCookieOptions(req));
     res.json({
       token: result.token,
       user: result.user,
     });
   } catch (e: any) {
-    res.status(401).json({ error: e.message });
+    res.status(200).json({ user: null, token: null, error: e.message });
   }
 });
 
@@ -133,7 +165,7 @@ router.post("/logout", async (req, res) => {
       await authService.revokeRefreshToken(refreshToken);
     } catch (_) {}
   }
-  res.clearCookie("refreshToken", COOKIE_OPTIONS);
+  res.clearCookie("refreshToken", getCookieOptions(req));
   res.json({ message: "Successfully logged out." });
 });
 

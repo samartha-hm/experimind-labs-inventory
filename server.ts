@@ -29,6 +29,9 @@ import userRoutes from "./src/routes/v1/users.ts";
 import orderRoutes from "./src/routes/v1/orders.ts";
 
 import auditLogRoutes from "./src/routes/v1/audit-log.ts";
+import warehouseVisualRoutes from "./src/routes/v1/warehouse-visual.ts";
+import serialNumberRoutes from "./src/routes/v1/serial-number.ts";
+import imageProxyRoutes from "./src/routes/v1/image-proxy.ts";
 
 // Initialize Postgres (with retry)
 async function connectDatabase(retries = 3): Promise<void> {
@@ -57,8 +60,14 @@ async function startServer() {
   // Trust Reverse Proxies (Nginx / Cloudflare / Ingress)
   app.set("trust proxy", 1);
 
-  // Security Headers & CORS
-  app.use(helmet({ contentSecurityPolicy: false }));
+  // Security Headers & CORS (Disable COOP & OriginAgentCluster on HTTP to eliminate browser console warnings)
+  app.use(
+    helmet({
+      contentSecurityPolicy: false,
+      crossOriginOpenerPolicy: false,
+      originAgentCluster: false,
+    })
+  );
   app.use(cors({
     origin: env.nodeEnv === "production" ? env.appUrl : true,
     credentials: true,
@@ -103,8 +112,9 @@ async function startServer() {
     }
   });
 
-  // ===== Razorpay Webhook Public Endpoint =====
+  // ===== Public Asset & Webhook Endpoints =====
   app.use("/api/public/webhook", webhookRoutes);
+  app.use("/api/v1/image-proxy", imageProxyRoutes);
 
   // ===== Versioned API (protected) =====
   app.use("/api/v1/auth", authLimiter, authRoutes);
@@ -122,6 +132,8 @@ async function startServer() {
   app.use("/api/v1/report", authenticateJwt, requireTenant, reportRoutes);
   app.use("/api/v1/setting", authenticateJwt, requireTenant, settingRoutes);
   app.use("/api/v1/audit-log", authenticateJwt, requireTenant, auditLogRoutes);
+  app.use("/api/v1/warehouse-visual", authenticateJwt, requireTenant, warehouseVisualRoutes);
+  app.use("/api/v1/serials", authenticateJwt, requireTenant, serialNumberRoutes);
 
   // ===== Protected AI analysis endpoint =====
   app.post("/api/analyze", aiLimiter, authenticateJwt, requireTenant, async (req, res) => {

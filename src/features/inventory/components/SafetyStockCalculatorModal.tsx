@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Calculator, XCircle, ShieldCheck, CheckCircle2, TrendingUp, AlertTriangle } from 'lucide-react';
 import { InventoryItem } from '@/src/types';
 import { useToast } from '@/src/contexts/ToastContext';
@@ -29,9 +30,9 @@ export default function SafetyStockCalculatorModal({ isOpen, onClose, item, onUp
     onClose();
   };
 
-  return (
-    <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-md flex items-center justify-center p-4 z-[9999] animate-fadeIn">
-      <div className="bg-white rounded-3xl shadow-2xl max-w-lg w-full p-6 border border-slate-100 space-y-5 animate-scaleUp">
+  return createPortal(
+    <div className="fixed inset-0 w-screen h-screen z-[99999] bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto animate-fadeIn">
+      <div className="relative my-auto bg-white rounded-3xl shadow-2xl max-w-lg w-full p-6 border border-slate-100 space-y-5 animate-scaleUp">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-slate-100 pb-3">
           <div className="flex items-center gap-2">
@@ -124,6 +125,7 @@ export default function SafetyStockCalculatorModal({ isOpen, onClose, item, onUp
           <CheckCircle2 className="w-4 h-4" /> Apply {reorderPoint} {item.unit} Threshold to {item.name}
         </button>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Search, Command, Box, Boxes, ShoppingBag, ShoppingCart, Building2, Zap, History, XCircle, ArrowRight } from 'lucide-react';
 import { InventoryItem, KitBOM } from '@/src/types';
 
@@ -56,9 +57,9 @@ export default function CommandPaletteModal({ isOpen, onClose, inventory, kits, 
     onClose();
   };
 
-  return (
-    <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-md flex items-start justify-center pt-20 p-4 z-[9999] animate-fadeIn">
-      <div className="bg-white rounded-3xl shadow-2xl max-w-2xl w-full border border-slate-100 overflow-hidden space-y-0 animate-scaleUp">
+  return createPortal(
+    <div className="fixed inset-0 w-screen h-screen z-[99999] bg-slate-950/70 backdrop-blur-md flex items-start justify-center pt-20 p-4 overflow-y-auto animate-fadeIn">
+      <div className="relative bg-white rounded-3xl shadow-2xl max-w-2xl w-full border border-slate-100 overflow-hidden space-y-0 animate-scaleUp">
         {/* Search Bar Input */}
         <div className="p-4 border-b border-slate-100 flex items-center gap-3 bg-slate-50/50">
           <Command className="w-5 h-5 text-indigo-600 shrink-0" />
@@ -158,6 +159,7 @@ export default function CommandPaletteModal({ isOpen, onClose, inventory, kits, 
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

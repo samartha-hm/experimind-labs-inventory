@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import {
   Calendar,
   AlertTriangle,
@@ -210,9 +211,9 @@ export default function BatchExpiryTab() {
       </div>
 
       {/* New Batch Modal */}
-      {isModalOpen && (
-        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-md flex items-center justify-center p-4 z-50 animate-fadeIn">
-          <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl w-full max-w-lg overflow-hidden">
+      {isModalOpen && createPortal(
+        <div className="fixed inset-0 w-screen h-screen z-[99999] bg-slate-950/70 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto animate-fadeIn">
+          <div className="relative my-auto bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl w-full max-w-lg overflow-hidden">
             <div className="p-4 bg-slate-950 text-white flex items-center justify-between border-b border-slate-800">
               <h3 className="text-base font-bold flex items-center gap-2">
                 <Calendar className="w-5 h-5 text-rose-400" /> Register Inventory Batch & Lot
@@ -258,13 +259,13 @@ export default function BatchExpiryTab() {
                     required
                     value={batchQty}
                     onChange={(e) => setBatchQty(e.target.value)}
-                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-2.5 text-xs font-mono font-bold"
+                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-2 font-mono font-bold"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block font-bold uppercase text-[10px] text-slate-400 mb-1">Expiration Date *</label>
+                <label className="block font-bold uppercase text-[10px] text-slate-400 mb-1">Expiration / Best Before Date *</label>
                 <input
                   type="date"
                   required
@@ -292,20 +293,21 @@ export default function BatchExpiryTab() {
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className="px-4 py-2 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl font-bold"
+                  className="px-4 py-2 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl font-bold cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-bold shadow-md"
+                  className="px-5 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-bold shadow-md cursor-pointer"
                 >
                   Register Lot
                 </button>
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

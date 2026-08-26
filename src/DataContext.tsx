@@ -17,7 +17,7 @@ interface DataContextType {
   loading: boolean;
   
   // Inventory
-  addInventoryItem: (item: Omit<InventoryItem, 'id'>) => Promise<void>;
+  addInventoryItem: (item: Omit<InventoryItem, 'id'>) => Promise<string | null>;
   updateInventoryItem: (id: string, updates: Partial<InventoryItem>) => Promise<void>;
   deleteInventoryItem: (id: string) => Promise<void>;
   
@@ -57,6 +57,22 @@ interface DataContextType {
   // Bins
   addBin: (bin: any) => Promise<void>;
   deleteBin: (id: string) => Promise<void>;
+
+  // Visual Warehouse & Floor Plans (PostgreSQL Persistence)
+  physicalRacks: any[];
+  savePhysicalRacks: (racks: any[]) => Promise<void>;
+  getFloorPlan: (whCode: string) => Promise<{ elements: any[]; templates: any[] }>;
+  saveFloorPlan: (whCode: string, elements: any[], templates: any[]) => Promise<void>;
+  elementTypes: any[];
+  saveElementType: (typeData: any) => Promise<void>;
+
+  // Serial Numbers
+  serialNumbers: any[];
+  loadSerialNumbers: (filters?: any) => Promise<any[]>;
+  lookupSerialNumber: (serial: string) => Promise<any>;
+  registerBulkSerials: (payload: any) => Promise<any>;
+  updateSerialStatus: (id: string, status: string, location?: string, notes?: string) => Promise<void>;
+  deleteSerialNumber: (id: string) => Promise<void>;
 }
 
 const DataContext = createContext<DataContextType>({
@@ -69,6 +85,9 @@ const DataContext = createContext<DataContextType>({
   salesOrders: [],
   warehouses: [],
   bins: [],
+  physicalRacks: [],
+  elementTypes: [],
+  serialNumbers: [],
   loading: true,
   addInventoryItem: async () => {},
   updateInventoryItem: async () => {},
@@ -94,6 +113,15 @@ const DataContext = createContext<DataContextType>({
   deleteWarehouse: async () => {},
   addBin: async () => {},
   deleteBin: async () => {},
+  savePhysicalRacks: async () => {},
+  getFloorPlan: async () => ({ elements: [], templates: [] }),
+  saveFloorPlan: async () => {},
+  saveElementType: async () => {},
+  loadSerialNumbers: async () => [],
+  lookupSerialNumber: async () => null,
+  registerBulkSerials: async () => {},
+  updateSerialStatus: async () => {},
+  deleteSerialNumber: async () => {},
 });
 
 // Conversion functions (PostgreSQL snake_case <-> Frontend camelCase)
@@ -146,6 +174,9 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [salesOrders, setSalesOrders] = useState<any[]>([]);
   const [warehouses, setWarehouses] = useState<any[]>([]);
   const [bins, setBins] = useState<any[]>([]);
+  const [physicalRacks, setPhysicalRacks] = useState<any[]>([]);
+  const [elementTypes, setElementTypes] = useState<any[]>([]);
+  const [serialNumbers, setSerialNumbers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   const loadAllData = async () => {
@@ -159,10 +190,13 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         apiFetch('/api/v1/purchase-order'),
         apiFetch('/api/v1/sales-order'),
         apiFetch('/api/v1/warehouse'),
-        apiFetch('/api/v1/bin')
+        apiFetch('/api/v1/bin'),
+        apiFetch('/api/v1/warehouse-visual/physical-racks'),
+        apiFetch('/api/v1/warehouse-visual/element-types'),
+        apiFetch('/api/v1/serials')
       ]);
 
-      const [resInv, resKits, resTx, resVendors, resCustomers, resPos, resSos, resWh, resBins] = results;
+      const [resInv, resKits, resTx, resVendors, resCustomers, resPos, resSos, resWh, resBins, resRacks, resElemTypes, resSerials] = results;
 
       if (resInv.status === 'fulfilled' && Array.isArray(resInv.value)) {
         setInventory(resInv.value.map(mapItemToFrontend));
@@ -268,6 +302,18 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         })));
       }
 
+      if (resRacks.status === 'fulfilled' && resRacks.value?.data) {
+        setPhysicalRacks(resRacks.value.data);
+      }
+
+      if (resElemTypes.status === 'fulfilled' && resElemTypes.value?.data) {
+        setElementTypes(resElemTypes.value.data);
+      }
+
+      if (resSerials.status === 'fulfilled' && resSerials.value?.data) {
+        setSerialNumbers(resSerials.value.data);
+      }
+
     } catch (e) {
       console.error('Error loading data from PostgreSQL:', e);
     } finally {
@@ -289,19 +335,24 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       setSalesOrders([]);
       setWarehouses([]);
       setBins([]);
+      setPhysicalRacks([]);
+      setElementTypes([]);
+      setSerialNumbers([]);
       setLoading(false);
     }
   }, [user, token]);
 
   // CRUD Implementations
 
-  const addInventoryItem = async (item: Omit<InventoryItem, 'id'>) => {
+  const addInventoryItem = async (item: Omit<InventoryItem, 'id'>): Promise<string | null> => {
     try {
       const payload = mapItemToBackend(item);
       if (!payload.sku) payload.sku = `SKU-${Date.now()}`;
       if (payload.base_price === undefined) payload.base_price = 0;
-      if (payload.quantity === undefined) payload.quantity = 0;
-      if (payload.threshold === undefined) payload.threshold = 5;
+      if (payload.quantity === undefined) payload.quantity = item.stockQty ?? 0;
+      if (payload.threshold === undefined) payload.threshold = item.threshold ?? 5;
+      if (item.category) payload.category = item.category;
+      if (item.binLocation) payload.bin_location = item.binLocation;
 
       const created = await apiFetch('/api/v1/inventory', {
         method: 'POST',
@@ -334,8 +385,10 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
           setInventory(prev => [frontend, ...prev]);
         }
       });
+      return newItem.id;
     } catch (e: any) {
       alert(`Add Item Error: ${e.message}`);
+      return null;
     }
   };
 
@@ -1120,13 +1173,127 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  // Visual Warehouse Persistence Functions
+  const savePhysicalRacks = async (racks: any[]) => {
+    try {
+      setPhysicalRacks(racks);
+      await apiFetch('/api/v1/warehouse-visual/physical-racks/bulk', {
+        method: 'POST',
+        body: JSON.stringify({ racks })
+      });
+    } catch (e) {
+      console.warn('Backend save failed; preserved in client cache:', e);
+    }
+  };
+
+  const getFloorPlan = async (whCode: string) => {
+    try {
+      const res = await apiFetch(`/api/v1/warehouse-visual/floorplan/${whCode}`);
+      return res?.data || { elements: [], templates: [] };
+    } catch (e) {
+      console.warn('Backend floor plan fetch failed:', e);
+      return { elements: [], templates: [] };
+    }
+  };
+
+  const saveFloorPlan = async (whCode: string, elements: any[], templates: any[]) => {
+    try {
+      await apiFetch(`/api/v1/warehouse-visual/floorplan/${whCode}`, {
+        method: 'POST',
+        body: JSON.stringify({ elements, templates })
+      });
+    } catch (e) {
+      console.warn('Backend floor plan save failed:', e);
+    }
+  };
+
+  const saveElementType = async (typeData: any) => {
+    try {
+      const res = await apiFetch('/api/v1/warehouse-visual/element-types', {
+        method: 'POST',
+        body: JSON.stringify(typeData)
+      });
+      if (res?.data) {
+        setElementTypes(prev => [...prev, res.data]);
+      }
+    } catch (e) {
+      console.warn('Backend element type save failed:', e);
+    }
+  };
+
+  // Serial Numbers Functions
+  const loadSerialNumbers = async (filters?: any) => {
+    try {
+      const queryParams = new URLSearchParams(filters || {}).toString();
+      const res = await apiFetch(`/api/v1/serials${queryParams ? `?${queryParams}` : ''}`);
+      if (res?.data) {
+        setSerialNumbers(res.data);
+        return res.data;
+      }
+      return [];
+    } catch (e) {
+      console.warn('Error loading serial numbers:', e);
+      return [];
+    }
+  };
+
+  const lookupSerialNumber = async (serial: string) => {
+    try {
+      const res = await apiFetch(`/api/v1/serials/lookup/${encodeURIComponent(serial)}`);
+      return res?.data || null;
+    } catch (e) {
+      return null;
+    }
+  };
+
+  const registerBulkSerials = async (payload: any) => {
+    try {
+      const res = await apiFetch('/api/v1/serials/bulk', {
+        method: 'POST',
+        body: JSON.stringify(payload)
+      });
+      if (res?.data) {
+        setSerialNumbers(prev => [...res.data, ...prev]);
+      }
+      return res;
+    } catch (e: any) {
+      throw e;
+    }
+  };
+
+  const updateSerialStatus = async (id: string, status: string, location?: string, notes?: string) => {
+    try {
+      const res = await apiFetch(`/api/v1/serials/${id}/status`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status, location, notes })
+      });
+      if (res?.data) {
+        setSerialNumbers(prev => prev.map(s => s.id === id ? res.data : s));
+      }
+    } catch (e: any) {
+      throw e;
+    }
+  };
+
+  const deleteSerialNumber = async (id: string) => {
+    try {
+      await apiFetch(`/api/v1/serials/${id}`, { method: 'DELETE' });
+      setSerialNumbers(prev => prev.filter(s => s.id !== id));
+    } catch (e: any) {
+      throw e;
+    }
+  };
+
   return (
     <DataContext.Provider value={{
       inventory, kits, transactions, vendors, customers, purchaseOrders, salesOrders, warehouses, bins, loading,
+      physicalRacks, elementTypes, serialNumbers,
       addInventoryItem, updateInventoryItem, deleteInventoryItem, addKitBOM, updateKitBOM, deleteKitBOM, logTransaction,
       addVendor, updateVendor, deleteVendor, addCustomer, updateCustomer, deleteCustomer,
       addPurchaseOrder, updatePurchaseOrder, deletePurchaseOrder, addSalesOrder, updateSalesOrder, deleteSalesOrder,
-      addWarehouse, updateWarehouse, deleteWarehouse, addBin, deleteBin
+      addWarehouse, updateWarehouse, deleteWarehouse, addBin, deleteBin,
+      savePhysicalRacks, getFloorPlan, saveFloorPlan, saveElementType,
+      loadSerialNumbers, lookupSerialNumber, registerBulkSerials, updateSerialStatus, deleteSerialNumber
     }}>
       {children}
     </DataContext.Provider>

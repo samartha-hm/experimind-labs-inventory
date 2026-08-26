@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import {
   Search,
   Plus,
@@ -29,9 +30,12 @@ import {
   Copy,
   Barcode,
   Check,
+  ShieldCheck,
 } from 'lucide-react';
 import { InventoryItem, KitBOM } from '@/src/types';
 import EditPartModal from '@/src/features/inventory/components/EditPartModal';
+import SerialNumbersModal from '@/src/features/inventory/components/SerialNumbersModal';
+import ItemImage from '@/src/shared/components/ItemImage';
 import { uploadImage } from '@/src/utils/storage';
 import { useData } from '@/src/DataContext';
 import { useToast } from '@/src/contexts/ToastContext';
@@ -85,6 +89,8 @@ export default function InventoryTab({
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
+  const [isSerialModalOpen, setIsSerialModalOpen] = useState(false);
+  const [serialModalItemId, setSerialModalItemId] = useState<string | undefined>(undefined);
   const [itemSteps, setItemSteps] = useState<Record<string, number>>({});
 
   // Quick Relocate Modal State
@@ -271,26 +277,26 @@ export default function InventoryTab({
   };
 
   return (
-    <div className="space-y-6 relative w-full animate-fadeIn">
+    <div className="space-y-6 relative w-full animate-fadeIn max-w-full overflow-hidden">
       {/* Top Banner */}
-      <div className="bg-white/90 dark:bg-slate-900/90 backdrop-blur-md p-6 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-sm hover:shadow-md transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
+      <div className="bg-white/90 dark:bg-slate-900/90 backdrop-blur-md p-5 sm:p-6 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-sm hover:shadow-md transition-all flex flex-col xl:flex-row xl:items-center justify-between gap-4">
+        <div className="min-w-0">
           <h2 className="text-xl font-black text-slate-900 dark:text-white flex items-center gap-2.5 tracking-tight">
-            <div className="p-2.5 bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 rounded-2xl border border-indigo-100/80 dark:border-indigo-800">
+            <div className="p-2.5 bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 rounded-2xl border border-indigo-100/80 dark:border-indigo-800 shrink-0">
               <Box className="w-5 h-5" />
             </div>
-            Items & Master Catalog
+            <span>Items & Master Catalog</span>
           </h2>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 font-medium">
             Manage components, stock math, safety limits, and physical warehouse bin storage locations.
           </p>
         </div>
 
-        <div className="flex items-center gap-3 self-start sm:self-auto shrink-0">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-2.5 shrink-0">
           <div className="bg-slate-100/90 dark:bg-slate-800/90 p-1 rounded-2xl border border-slate-200/80 dark:border-slate-700 flex items-center gap-1">
             <button
               onClick={() => setViewMode('grid')}
-              className={`p-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+              className={`px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
                 viewMode === 'grid'
                   ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-xs border border-slate-200/60 dark:border-slate-700'
                   : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
@@ -298,11 +304,11 @@ export default function InventoryTab({
               title="Grid Cards"
             >
               <LayoutGrid className="w-4 h-4" />
-              <span className="hidden md:inline">Differentiated Cards</span>
+              <span className="hidden sm:inline">Cards</span>
             </button>
             <button
               onClick={() => setViewMode('table')}
-              className={`p-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+              className={`px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
                 viewMode === 'table'
                   ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-xs border border-slate-200/60 dark:border-slate-700'
                   : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
@@ -310,35 +316,49 @@ export default function InventoryTab({
               title="Compact Table"
             >
               <List className="w-4 h-4" />
-              <span className="hidden md:inline">Compact Table</span>
+              <span className="hidden sm:inline">Table</span>
             </button>
           </div>
 
           {onOpenBarcodeScanner && (
             <button
               onClick={onOpenBarcodeScanner}
-              className="bg-slate-900 hover:bg-slate-800 text-white font-bold px-4 py-2.5 rounded-2xl shadow-xs transition-all flex items-center gap-1.5 cursor-pointer text-xs shrink-0"
+              className="bg-slate-900 hover:bg-slate-800 text-white font-bold px-3.5 py-2.5 rounded-2xl shadow-xs transition-all flex items-center gap-1.5 cursor-pointer text-xs shrink-0"
+              title="Scan Barcode / QR with Camera or Gun"
             >
               <QrCode className="w-4 h-4 text-indigo-400" />
-              <span>Scan Barcode</span>
+              <span className="hidden sm:inline">Scan Barcode</span>
             </button>
           )}
+
+          <button
+            onClick={() => {
+              setSerialModalItemId(undefined);
+              setIsSerialModalOpen(true);
+            }}
+            className="bg-emerald-50 dark:bg-emerald-950/50 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300 font-bold px-3.5 py-2.5 rounded-2xl border border-emerald-200/80 dark:border-emerald-800 transition-all flex items-center gap-1.5 cursor-pointer text-xs shrink-0"
+            title="Individual Serial Numbers & Pedigree"
+          >
+            <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+            <span className="hidden sm:inline">Serials</span>
+          </button>
 
           {onOpenBarcodeStudio && (
             <button
               onClick={onOpenBarcodeStudio}
-              className="bg-indigo-50 dark:bg-indigo-950/60 hover:bg-indigo-100 text-indigo-700 dark:text-indigo-300 font-bold px-4 py-2.5 rounded-2xl border border-indigo-200/80 dark:border-indigo-800 transition-all flex items-center gap-1.5 cursor-pointer text-xs shrink-0"
+              className="bg-indigo-50 dark:bg-indigo-950/60 hover:bg-indigo-100 text-indigo-700 dark:text-indigo-300 font-bold px-3.5 py-2.5 rounded-2xl border border-indigo-200/80 dark:border-indigo-800 transition-all flex items-center gap-1.5 cursor-pointer text-xs shrink-0"
+              title="Print Industrial Barcode Labels"
             >
               <Printer className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
-              <span>Label Studio</span>
+              <span className="hidden sm:inline">Label Studio</span>
             </button>
           )}
 
           <button
             onClick={() => setIsAdding(!isAdding)}
-            className="bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white font-bold px-5 py-2.5 rounded-2xl shadow-md shadow-indigo-600/20 transition-all flex items-center gap-2 cursor-pointer text-xs"
+            className="bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white font-bold px-4 sm:px-5 py-2.5 rounded-2xl shadow-md shadow-indigo-600/20 transition-all flex items-center gap-2 cursor-pointer text-xs shrink-0"
           >
-            <Plus className="w-4 h-4" /> {isAdding ? 'Close Form' : 'Add New Item'}
+            <Plus className="w-4 h-4" /> <span>{isAdding ? 'Close Form' : 'Add Item'}</span>
           </button>
         </div>
       </div>
@@ -600,7 +620,7 @@ export default function InventoryTab({
                   <div className="flex items-start justify-between gap-2">
                     <div className="w-12 h-12 rounded-2xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center shrink-0 overflow-hidden group-hover:scale-105 transition-transform">
                       {item.imageUrl ? (
-                        <img src={item.imageUrl} alt={item.name} className="w-full h-full object-cover" />
+                        <ItemImage src={item.imageUrl} alt={item.name} category={item.category} className="w-full h-full object-cover" />
                       ) : isCommon ? (
                         <InfinityIcon className="w-6 h-6 text-indigo-600" />
                       ) : (
@@ -812,9 +832,9 @@ export default function InventoryTab({
       )}
 
       {/* QUICK RELOCATE STORAGE BIN MODAL */}
-      {quickRelocateItem && (
-        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 z-[9999] animate-fadeIn">
-          <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl w-full max-w-md p-6 space-y-4">
+      {quickRelocateItem && createPortal(
+        <div className="fixed inset-0 w-screen h-screen z-[99999] bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto animate-fadeIn">
+          <div className="relative my-auto bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl w-full max-w-md p-6 space-y-4">
             <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
               <h3 className="text-base font-black text-slate-900 dark:text-white flex items-center gap-2">
                 <MapPin className="w-5 h-5 text-amber-500" />
@@ -880,85 +900,93 @@ export default function InventoryTab({
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Side Drawer Details */}
-      {drawerItem && (
-        <div className="fixed inset-y-0 right-0 w-96 bg-white dark:bg-slate-900 shadow-2xl border-l border-slate-200/80 dark:border-slate-800 z-50 p-6 overflow-y-auto space-y-6 animate-in slide-in-from-right duration-200">
-          <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-4">
-            <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
-              <Box className="w-5 h-5 text-indigo-600" /> Item Details & Bin
-            </h3>
-            <button
-              onClick={() => setDrawerItem(null)}
-              className="p-1 text-slate-400 hover:text-slate-700 dark:hover:text-white rounded-lg cursor-pointer"
-            >
-              <X className="w-5 h-5" />
-            </button>
-          </div>
-
-          <div className="space-y-4">
-            <div className="flex items-center gap-4">
-              <div className="w-16 h-16 rounded-2xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center overflow-hidden shrink-0">
-                {drawerItem.imageUrl ? (
-                  <img src={drawerItem.imageUrl} alt={drawerItem.name} className="w-full h-full object-cover" />
-                ) : (
-                  <Box className="w-6 h-6 text-indigo-600" />
-                )}
-              </div>
-              <div>
-                <h4 className="text-base font-bold text-slate-900 dark:text-white">{drawerItem.name}</h4>
-                <span className="text-xs font-semibold px-2.5 py-0.5 bg-indigo-50 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 rounded-full border border-indigo-100 dark:border-indigo-800">
-                  {drawerItem.category || 'General'}
-                </span>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3 pt-2">
-              <div className="p-3 bg-slate-50 dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700">
-                <div className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Current Stock</div>
-                <div className="text-xl font-bold text-slate-900 dark:text-white mt-1">{drawerItem.stockQty} {drawerItem.unit}</div>
-              </div>
-
-              <div className="p-3 bg-slate-50 dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700">
-                <div className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Reorder Threshold</div>
-                <div className="text-xl font-bold text-amber-600 mt-1">{drawerItem.threshold} {drawerItem.unit}</div>
-              </div>
-            </div>
-
-            <div className="space-y-3 pt-4 border-t border-slate-100 dark:border-slate-800 text-xs text-slate-600 dark:text-slate-300">
-              <div className="flex items-center justify-between">
-                <span className="font-bold text-slate-400 uppercase tracking-wider text-[10px]">Storage Bin</span>
-                <span className="font-mono font-bold text-amber-600 dark:text-amber-400">
-                  📍 {drawerItem.binLocation || 'Rack - Shelf 1'}
-                </span>
-              </div>
-
-              <div className="flex items-center justify-between">
-                <span className="font-bold text-slate-400 uppercase tracking-wider text-[10px]">Barcode / SKU</span>
-                <span className="font-mono font-bold text-slate-900 dark:text-white">{drawerItem.barcode || `EL-${drawerItem.id}`}</span>
-              </div>
-
-              <div className="flex items-center justify-between">
-                <span className="font-bold text-slate-400 uppercase tracking-wider text-[10px]">Base Price</span>
-                <span className="font-bold text-slate-900 dark:text-white">${(drawerItem.basePrice || 0).toFixed(2)}</span>
-              </div>
-            </div>
-
-            <div className="pt-4 border-t border-slate-100 dark:border-slate-800 flex gap-2">
+      {drawerItem && createPortal(
+        <div className="fixed inset-0 w-screen h-screen z-[99999] pointer-events-none">
+          <div 
+            onClick={() => setDrawerItem(null)}
+            className="fixed inset-0 bg-slate-950/40 backdrop-blur-xs pointer-events-auto animate-fadeIn"
+          />
+          <div className="fixed inset-y-0 right-0 w-96 bg-white dark:bg-slate-900 shadow-2xl border-l border-slate-200/80 dark:border-slate-800 p-6 overflow-y-auto space-y-6 pointer-events-auto animate-in slide-in-from-right duration-200">
+            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-4">
+              <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                <Box className="w-5 h-5 text-indigo-600" /> Item Details & Bin
+              </h3>
               <button
-                onClick={() => {
-                  setEditingItem(drawerItem);
-                  setDrawerItem(null);
-                }}
-                className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 rounded-xl text-xs transition-all cursor-pointer shadow-xs"
+                onClick={() => setDrawerItem(null)}
+                className="p-1 text-slate-400 hover:text-slate-700 dark:hover:text-white rounded-lg cursor-pointer"
               >
-                Edit Item & Properties
+                <X className="w-5 h-5" />
               </button>
             </div>
+
+            <div className="space-y-4">
+              <div className="flex items-center gap-4">
+                <div className="w-16 h-16 rounded-2xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center overflow-hidden shrink-0">
+                  {drawerItem.imageUrl ? (
+                    <ItemImage src={drawerItem.imageUrl} alt={drawerItem.name} category={drawerItem.category} className="w-full h-full object-cover" />
+                  ) : (
+                    <Box className="w-6 h-6 text-indigo-600" />
+                  )}
+                </div>
+                <div>
+                  <h4 className="text-base font-bold text-slate-900 dark:text-white">{drawerItem.name}</h4>
+                  <span className="text-xs font-semibold px-2.5 py-0.5 bg-indigo-50 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 rounded-full border border-indigo-100 dark:border-indigo-800">
+                    {drawerItem.category || 'General'}
+                  </span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 pt-2">
+                <div className="p-3 bg-slate-50 dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700">
+                  <div className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Current Stock</div>
+                  <div className="text-xl font-bold text-slate-900 dark:text-white mt-1">{drawerItem.stockQty} {drawerItem.unit}</div>
+                </div>
+
+                <div className="p-3 bg-slate-50 dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700">
+                  <div className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Reorder Threshold</div>
+                  <div className="text-xl font-bold text-amber-600 mt-1">{drawerItem.threshold} {drawerItem.unit}</div>
+                </div>
+              </div>
+
+              <div className="space-y-3 pt-4 border-t border-slate-100 dark:border-slate-800 text-xs text-slate-600 dark:text-slate-300">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-slate-400 uppercase tracking-wider text-[10px]">Storage Bin</span>
+                  <span className="font-mono font-bold text-amber-600 dark:text-amber-400">
+                    📍 {drawerItem.binLocation || 'Rack - Shelf 1'}
+                  </span>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-slate-400 uppercase tracking-wider text-[10px]">Barcode / SKU</span>
+                  <span className="font-mono font-bold text-slate-900 dark:text-white">{drawerItem.barcode || `EL-${drawerItem.id}`}</span>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-slate-400 uppercase tracking-wider text-[10px]">Base Price</span>
+                  <span className="font-bold text-slate-900 dark:text-white">₹{Number(drawerItem.unitCost ?? drawerItem.basePrice ?? 0).toFixed(2)}</span>
+                </div>
+              </div>
+
+              <div className="pt-4 border-t border-slate-100 dark:border-slate-800 flex gap-2">
+                <button
+                  onClick={() => {
+                    setEditingItem(drawerItem);
+                    setDrawerItem(null);
+                  }}
+                  className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 rounded-xl text-xs transition-all cursor-pointer shadow-xs"
+                >
+                  Edit Item & Properties
+                </button>
+              </div>
+            </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Edit Component Modal */}
@@ -972,6 +1000,13 @@ export default function InventoryTab({
           kits={kits}
         />
       )}
+
+      {/* Serial Numbers Unit Tracking Modal */}
+      <SerialNumbersModal
+        isOpen={isSerialModalOpen}
+        onClose={() => setIsSerialModalOpen(false)}
+        preselectedItemId={serialModalItemId}
+      />
     </div>
   );
 }

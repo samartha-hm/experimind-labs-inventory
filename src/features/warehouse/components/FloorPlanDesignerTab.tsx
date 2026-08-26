@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import {
   Layers,
   MapPin,
@@ -345,7 +346,7 @@ const COLOR_PRESETS = [
 ];
 
 export default function FloorPlanDesignerTab() {
-  const { warehouses, inventory, bins } = useData();
+  const { warehouses, inventory, bins, getFloorPlan, saveFloorPlan: saveFloorPlanToBackend, elementTypes: backendElementTypes, saveElementType } = useData();
   const { showToast } = useToast();
 
   const [selectedWhCode, setSelectedWhCode] = useState<string>(warehouses[0]?.code || 'WH-MAIN-01');
@@ -391,8 +392,9 @@ export default function FloorPlanDesignerTab() {
     return Array.from(zones);
   }, [systemPhysicalRacks, bins]);
 
-  // 2. CUSTOM ELEMENT TYPES STATE
+  // 2. CUSTOM ELEMENT TYPES STATE (Synced with PostgreSQL + LocalStorage fallback)
   const [elementTypes, setElementTypes] = useState<CustomElementType[]>(() => {
+    if (backendElementTypes && backendElementTypes.length > 0) return backendElementTypes;
     try {
       const saved = localStorage.getItem('experimind_custom_element_types_v2');
       return saved ? JSON.parse(saved) : DEFAULT_ELEMENT_TYPES;
@@ -401,12 +403,18 @@ export default function FloorPlanDesignerTab() {
     }
   });
 
+  useEffect(() => {
+    if (backendElementTypes && backendElementTypes.length > 0) {
+      setElementTypes(backendElementTypes);
+    }
+  }, [backendElementTypes]);
+
   const [isNewTypeModalOpen, setIsNewTypeModalOpen] = useState(false);
   const [newTypeName, setNewTypeName] = useState('');
   const [newTypeEmoji, setNewTypeEmoji] = useState('🔬');
   const [newTypeColor, setNewTypeColor] = useState('#06b6d4');
 
-  const handleSaveCustomType = (e: React.FormEvent) => {
+  const handleSaveCustomType = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newTypeName.trim()) return;
 
@@ -422,6 +430,8 @@ export default function FloorPlanDesignerTab() {
     try {
       localStorage.setItem('experimind_custom_element_types_v2', JSON.stringify(updated));
     } catch (_) {}
+
+    await saveElementType(newType);
 
     setTemplateType(key);
     setTemplateColor(newTypeColor);
@@ -445,6 +455,7 @@ export default function FloorPlanDesignerTab() {
     try {
       localStorage.setItem('experimind_custom_spatial_palette_v3', JSON.stringify(newTemplates));
     } catch (_) {}
+    saveFloorPlanToBackend(selectedWhCode, elements, newTemplates);
   };
 
   // Palette Template Modal State (Add or Edit)
@@ -457,6 +468,7 @@ export default function FloorPlanDesignerTab() {
   const [templateZone, setTemplateZone] = useState('Zone A (High Velocity)');
   const [templateWidth, setTemplateWidth] = useState(220);
   const [templateHeight, setTemplateHeight] = useState(100);
+  const [templateRotation, setTemplateRotation] = useState<0 | 90 | 180 | 270>(0);
   const [templateLinkedRack, setTemplateLinkedRack] = useState('');
 
   // Palette Search Filter
@@ -484,19 +496,34 @@ export default function FloorPlanDesignerTab() {
     }
   });
 
-  // Switch Warehouse Layout
+  // Switch Warehouse Layout & Load from PostgreSQL Backend
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem(`experimind_floorplan_v3_${selectedWhCode}`);
-      if (saved) {
-        setElements(JSON.parse(saved));
-      } else if (DEFAULT_FLOOR_PLANS[selectedWhCode]) {
-        setElements(DEFAULT_FLOOR_PLANS[selectedWhCode]);
-      } else {
-        setElements(DEFAULT_FLOOR_PLANS['WH-MAIN-01'] || []);
-      }
-      setSelectedElementId(null);
-    } catch (_) {}
+    const fetchLayout = async () => {
+      try {
+        const backendLayout = await getFloorPlan(selectedWhCode);
+        if (backendLayout && Array.isArray(backendLayout.elements) && backendLayout.elements.length > 0) {
+          setElements(backendLayout.elements);
+          if (Array.isArray(backendLayout.templates) && backendLayout.templates.length > 0) {
+            setPaletteTemplates(backendLayout.templates);
+          }
+          return;
+        }
+      } catch (_) {}
+
+      try {
+        const saved = localStorage.getItem(`experimind_floorplan_v3_${selectedWhCode}`);
+        if (saved) {
+          setElements(JSON.parse(saved));
+        } else if (DEFAULT_FLOOR_PLANS[selectedWhCode]) {
+          setElements(DEFAULT_FLOOR_PLANS[selectedWhCode]);
+        } else {
+          setElements(DEFAULT_FLOOR_PLANS['WH-MAIN-01'] || []);
+        }
+      } catch (_) {}
+    };
+
+    fetchLayout();
+    setSelectedElementId(null);
   }, [selectedWhCode]);
 
   // Persist Layout changes
@@ -505,6 +532,7 @@ export default function FloorPlanDesignerTab() {
     try {
       localStorage.setItem(`experimind_floorplan_v3_${selectedWhCode}`, JSON.stringify(newElements));
     } catch (_) {}
+    saveFloorPlanToBackend(selectedWhCode, newElements, paletteTemplates);
   };
 
   const selectedElement = useMemo(() => {
@@ -1178,9 +1206,9 @@ export default function FloorPlanDesignerTab() {
       {/* ========================================================================= */}
       {/* 1. PALETTE TEMPLATE CREATOR / EDITOR MODAL WITH SYSTEM CONNECTIONS */}
       {/* ========================================================================= */}
-      {isPaletteModalOpen && (
-        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 z-[9999] animate-fadeIn">
-          <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl w-full max-w-xl p-6 space-y-4 max-h-[90vh] overflow-y-auto custom-scrollbar">
+      {isPaletteModalOpen && createPortal(
+        <div className="fixed inset-0 w-screen h-screen z-[99999] bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto animate-fadeIn">
+          <div className="relative my-auto bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl w-full max-w-xl p-6 space-y-4 max-h-[90vh] overflow-y-auto custom-scrollbar">
             <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
               <div className="flex items-center gap-2">
                 <Box className="w-5 h-5 text-indigo-600" />
@@ -1217,16 +1245,16 @@ export default function FloorPlanDesignerTab() {
                   ))}
                 </select>
                 <p className="text-[10px] text-indigo-600 dark:text-indigo-400">
-                  Linking automatically binds the rack's real-time parts inventory count and compartment location.
+                  ⚡ Choosing a physical rack links this visual layout element to live stock occupancy and bins!
                 </p>
               </div>
 
               <div>
-                <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">Element Label *</label>
+                <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">Display Label *</label>
                 <input
                   type="text"
                   required
-                  placeholder="e.g. 🔬 Optical Sensor Testing Bay"
+                  placeholder="e.g. Chemical Storage Rack 01, ESD Soldering Bench..."
                   value={templateLabel}
                   onChange={(e) => setTemplateLabel(e.target.value)}
                   className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 dark:text-white focus:outline-none"
@@ -1234,56 +1262,51 @@ export default function FloorPlanDesignerTab() {
               </div>
 
               <div>
-                <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">Subtitle / Equipment Purpose</label>
+                <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">Subtitle / Details (Optional)</label>
                 <input
                   type="text"
-                  placeholder="e.g. Spectrometer & Lux Meter Bench"
+                  placeholder="e.g. Flammables & Acid Cabinet, Heavy Pallet Bay..."
                   value={templateSublabel}
                   onChange={(e) => setTemplateSublabel(e.target.value)}
                   className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 dark:text-white focus:outline-none"
                 />
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-3">
                 
                 {/* ELEMENT TYPE WITH CUSTOM TYPE CREATOR */}
                 <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <label className="text-[10px] font-bold uppercase text-slate-400">Element Category / Type</label>
+                  <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">Element Category *</label>
+                  <div className="flex items-center gap-1.5">
+                    <select
+                      value={templateType}
+                      onChange={(e) => setTemplateType(e.target.value)}
+                      className="flex-1 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 dark:text-white focus:outline-none"
+                    >
+                      {elementTypes.map(t => (
+                        <option key={t.key} value={t.key}>{t.iconEmoji} {t.label}</option>
+                      ))}
+                    </select>
                     <button
                       type="button"
                       onClick={() => setIsNewTypeModalOpen(true)}
-                      className="text-[10px] text-indigo-600 dark:text-indigo-400 font-bold hover:underline flex items-center gap-0.5 cursor-pointer"
+                      className="p-2 bg-indigo-50 dark:bg-indigo-950/60 hover:bg-indigo-100 text-indigo-600 dark:text-indigo-400 rounded-xl border border-indigo-200 dark:border-indigo-800 cursor-pointer"
+                      title="Create Custom Element Category"
                     >
-                      <Plus className="w-3 h-3" /> + New Type
+                      <Plus className="w-4 h-4" />
                     </button>
                   </div>
-                  <select
-                    value={templateType}
-                    onChange={(e) => {
-                      setTemplateType(e.target.value);
-                      const found = elementTypes.find(t => t.key === e.target.value);
-                      if (found) setTemplateColor(found.defaultColor);
-                    }}
-                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 dark:text-white focus:outline-none"
-                  >
-                    {elementTypes.map((t) => (
-                      <option key={t.key} value={t.key}>
-                        {t.iconEmoji} {t.label}
-                      </option>
-                    ))}
-                  </select>
                 </div>
 
                 {/* FACILITY ZONE WITH AUTOCOMPLETE LIST */}
                 <div>
-                  <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">Facility Zone</label>
+                  <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">Warehouse Zone</label>
                   <input
                     type="text"
-                    list="facility-zones-datalist"
-                    placeholder="e.g. Zone A (High Velocity)"
+                    placeholder="e.g. Zone A, Cleanroom, Bay 1..."
                     value={templateZone}
                     onChange={(e) => setTemplateZone(e.target.value)}
+                    list="facility-zones-datalist"
                     className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 dark:text-white focus:outline-none"
                   />
                   <datalist id="facility-zones-datalist">
@@ -1294,30 +1317,51 @@ export default function FloorPlanDesignerTab() {
                 </div>
               </div>
 
-              {/* QUICK SELECT AVAILABLE ZONES PILLS */}
-              <div className="space-y-1">
-                <span className="text-[10px] font-bold text-slate-400 uppercase block">Quick Assign Existing Zone:</span>
-                <div className="flex flex-wrap items-center gap-1.5">
-                  {availableFacilityZones.slice(0, 5).map((z, idx) => (
-                    <button
-                      key={idx}
-                      type="button"
-                      onClick={() => setTemplateZone(z)}
-                      className={`px-2 py-0.5 rounded-lg text-[10px] font-mono font-bold transition-all cursor-pointer ${
-                        templateZone === z
-                          ? 'bg-indigo-600 text-white'
-                          : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200'
-                      }`}
-                    >
-                      {z}
-                    </button>
-                  ))}
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">Width (px)</label>
+                  <input
+                    type="number"
+                    min={60}
+                    max={600}
+                    step={10}
+                    value={templateWidth}
+                    onChange={(e) => setTemplateWidth(Number(e.target.value))}
+                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 dark:text-white focus:outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">Height (px)</label>
+                  <input
+                    type="number"
+                    min={40}
+                    max={500}
+                    step={10}
+                    value={templateHeight}
+                    onChange={(e) => setTemplateHeight(Number(e.target.value))}
+                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 dark:text-white focus:outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">Rotation</label>
+                  <select
+                    value={templateRotation}
+                    onChange={(e) => setTemplateRotation(Number(e.target.value) as any)}
+                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 dark:text-white focus:outline-none"
+                  >
+                    <option value={0}>0° (Horizontal)</option>
+                    <option value={90}>90° (Vertical)</option>
+                    <option value={180}>180°</option>
+                    <option value={270}>270°</option>
+                  </select>
                 </div>
               </div>
 
               {/* Color Preset Palette */}
               <div>
-                <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1.5">Theme Color</label>
+                <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1.5">Color Accent</label>
                 <div className="flex flex-wrap items-center gap-2">
                   {COLOR_PRESETS.map((preset) => (
                     <button
@@ -1333,34 +1377,6 @@ export default function FloorPlanDesignerTab() {
                       {templateColor === preset.value && <Check className="w-4 h-4 text-white stroke-[3]" />}
                     </button>
                   ))}
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">Default Width (px)</label>
-                  <input
-                    type="number"
-                    min={80}
-                    max={500}
-                    step={10}
-                    value={templateWidth}
-                    onChange={(e) => setTemplateWidth(Number(e.target.value))}
-                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 dark:text-white focus:outline-none"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">Default Height (px)</label>
-                  <input
-                    type="number"
-                    min={40}
-                    max={400}
-                    step={10}
-                    value={templateHeight}
-                    onChange={(e) => setTemplateHeight(Number(e.target.value))}
-                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 dark:text-white focus:outline-none"
-                  />
                 </div>
               </div>
 
@@ -1381,15 +1397,16 @@ export default function FloorPlanDesignerTab() {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* ========================================================================= */}
       {/* 2. CUSTOM ELEMENT TYPE CREATOR MODAL */}
       {/* ========================================================================= */}
-      {isNewTypeModalOpen && (
-        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 z-[10000] animate-fadeIn">
-          <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl w-full max-w-md p-6 space-y-4">
+      {isNewTypeModalOpen && createPortal(
+        <div className="fixed inset-0 w-screen h-screen z-[100000] bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto animate-fadeIn">
+          <div className="relative my-auto bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl w-full max-w-md p-6 space-y-4">
             <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
               <h3 className="text-base font-black text-slate-900 dark:text-white flex items-center gap-2">
                 <Sparkles className="w-5 h-5 text-indigo-600" />
@@ -1451,28 +1468,29 @@ export default function FloorPlanDesignerTab() {
                 <button
                   type="button"
                   onClick={() => setIsNewTypeModalOpen(false)}
-                  className="px-4 py-2 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold rounded-xl"
+                  className="px-4 py-2 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold rounded-xl cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-md"
+                  className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-md cursor-pointer"
                 >
                   Save Category Type
                 </button>
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* ========================================================================= */}
       {/* 3. CANVAS ELEMENT PROPERTIES MODAL */}
       {/* ========================================================================= */}
-      {isEditingElementModal && selectedElement && (
-        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 z-[9999] animate-fadeIn">
-          <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl w-full max-w-md p-6 space-y-4">
+      {isEditingElementModal && selectedElement && createPortal(
+        <div className="fixed inset-0 w-screen h-screen z-[99999] bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto animate-fadeIn">
+          <div className="relative my-auto bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl w-full max-w-md p-6 space-y-4">
             <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
               <h3 className="text-base font-black text-slate-900 dark:text-white flex items-center gap-2">
                 <Edit2 className="w-5 h-5 text-indigo-600" />
@@ -1513,10 +1531,10 @@ export default function FloorPlanDesignerTab() {
                 <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">Warehouse Zone</label>
                 <input
                   type="text"
-                  list="canvas-facility-zones-datalist"
-                  placeholder="e.g. Zone A (High Velocity)"
+                  placeholder="e.g. Zone A, Staging Bay 3..."
                   value={editZone}
                   onChange={(e) => setEditZone(e.target.value)}
+                  list="canvas-facility-zones-datalist"
                   className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 dark:text-white focus:outline-none"
                 />
                 <datalist id="canvas-facility-zones-datalist">
@@ -1557,20 +1575,21 @@ export default function FloorPlanDesignerTab() {
                 <button
                   type="button"
                   onClick={() => setIsEditingElementModal(false)}
-                  className="px-4 py-2 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold rounded-xl"
+                  className="px-4 py-2 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold rounded-xl cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-md"
+                  className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-md cursor-pointer"
                 >
                   Save Changes
                 </button>
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

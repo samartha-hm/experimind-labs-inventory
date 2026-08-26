@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Sparkles, Zap, Webhook, Play, CheckCircle2, XCircle, Plus, ToggleLeft, ToggleRight, Clock, Code, AlertTriangle, ShieldCheck } from 'lucide-react';
 import { WorkflowRule } from '@/src/types';
 import { useToast } from '@/src/contexts/ToastContext';
@@ -178,14 +179,14 @@ export default function AutomationTab() {
       </div>
 
       {/* Webhook Test Simulation Modal */}
-      {isTestModalOpen && selectedRule && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-3xl shadow-2xl max-w-xl w-full p-6 border border-slate-100 space-y-4">
+      {isTestModalOpen && selectedRule && createPortal(
+        <div className="fixed inset-0 w-screen h-screen z-[99999] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto animate-fadeIn">
+          <div className="relative my-auto bg-white rounded-3xl shadow-2xl max-w-xl w-full p-6 border border-slate-100 space-y-4">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <h3 className="font-bold text-slate-800 text-base flex items-center gap-2">
                 <Code className="w-5 h-5 text-indigo-600" /> Webhook Test Simulator
               </h3>
-              <button onClick={() => setIsTestModalOpen(false)} className="p-1 hover:bg-slate-100 rounded-full transition-colors text-slate-400">
+              <button onClick={() => setIsTestModalOpen(false)} className="p-1 hover:bg-slate-100 rounded-full transition-colors text-slate-400 cursor-pointer">
                 <XCircle className="w-5 h-5" />
               </button>
             </div>
@@ -217,7 +218,8 @@ export default function AutomationTab() {
               </div>
             )}
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

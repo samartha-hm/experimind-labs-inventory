@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import {
   Shield,
   Plus,
@@ -151,9 +152,9 @@ export default function CustomRolesModal({ isOpen, onClose }: CustomRolesModalPr
     ? newRolePerms
     : (selectedRole?.permissions || {}) as Record<string, boolean>;
 
-  return (
-    <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 z-[9999] animate-fadeIn">
-      <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl w-full max-w-5xl h-[88vh] flex flex-col overflow-hidden">
+  return createPortal(
+    <div className="fixed inset-0 w-screen h-screen z-[99999] bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto animate-fadeIn">
+      <div className="relative my-auto bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl w-full max-w-5xl h-[88vh] flex flex-col overflow-hidden">
         
         {/* Top Header */}
         <div className="p-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between gap-4 shrink-0">
@@ -370,6 +371,7 @@ export default function CustomRolesModal({ isOpen, onClose }: CustomRolesModalPr
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

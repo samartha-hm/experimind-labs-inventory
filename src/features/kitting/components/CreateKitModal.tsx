@@ -1,4 +1,5 @@
 import React, { useState, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { X, Upload, Image as ImageIcon, Sparkles } from 'lucide-react';
 import { KitBOM } from '@/src/types';
 import { uploadImage } from '@/src/utils/storage';
@@ -61,9 +62,9 @@ export default function CreateKitModal({ isOpen, onClose, onCreateKit }: CreateK
     }
   };
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-fadeIn">
-      <div className="bg-white rounded-3xl w-full max-w-lg overflow-hidden shadow-2xl border border-slate-100 flex flex-col">
+  return createPortal(
+    <div className="fixed inset-0 w-screen h-screen z-[99999] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm overflow-y-auto animate-fadeIn">
+      <div className="relative my-auto bg-white dark:bg-slate-900 rounded-3xl w-full max-w-lg overflow-hidden shadow-2xl border border-slate-200 dark:border-slate-800 flex flex-col">
         <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
           <div className="flex items-center gap-3">
              <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600">
@@ -141,6 +142,7 @@ export default function CreateKitModal({ isOpen, onClose, onCreateKit }: CreateK
           </div>
         </form>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

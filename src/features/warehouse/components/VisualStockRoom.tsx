@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import {
   Layers,
   Box,
@@ -35,6 +36,7 @@ import { useData } from '@/src/DataContext';
 import { useToast } from '@/src/contexts/ToastContext';
 import { InventoryItem } from '@/src/types';
 import BarcodeSvg from '@/src/shared/components/BarcodeSvg';
+import ItemImage from '@/src/shared/components/ItemImage';
 
 export type StorageUnitType = 'steel_shelf' | 'plywood_grid' | 'cabinet';
 
@@ -59,75 +61,108 @@ export interface PhysicalRack {
 const STORAGE_KEY = 'experimind_custom_physical_racks_v2';
 
 export default function VisualStockRoom() {
-  const { inventory, warehouses, updateInventoryItem, logTransaction } = useData();
+  const { inventory, warehouses, physicalRacks, savePhysicalRacks, updateInventoryItem, logTransaction } = useData();
   const { showToast } = useToast();
 
   // Storage Type Mode & Active Rack
   const [selectedRackId, setSelectedRackId] = useState<string>('RACK_1');
   const [searchFilter, setSearchFilter] = useState('');
 
-  // Initial Default Storage Units (Steel Racks, Plywood Grid, Safety Cabinet)
+  // Initial Default Storage Units (Steel Racks, FabLab Bins, Safety Cabinet, Plywood Grid)
   const initialRacks: PhysicalRack[] = useMemo(() => [
     {
-      id: 'RACK_1',
-      code: 'Rack 1',
-      name: 'Rack 1 — Main Assembly & Science Lab Shelf',
-      zone: 'Zone A (High Velocity)',
+      id: 'FABLAB_1',
+      code: 'FabLab Station',
+      name: 'FabLab Station — Maker & Prototyping Bins',
+      zone: 'Zone A (Active Prototyping)',
       type: 'steel_shelf',
       warehouseCode: warehouses[0]?.code || 'WH-MAIN-01',
       shelves: [
-        { id: 'R1-S1', name: 'Shelf 1 (Top Tier)', levelNumber: 1, bins: ['Rack - Shelf 1', 'Rack 1, Shelf A', 'Rack 1, Shelf B', 'BIN-R1-S1-04'] },
-        { id: 'R1-S2', name: 'Shelf 2 (Upper Middle)', levelNumber: 2, bins: ['Rack - Shelf 2', 'Rack 1, Shelf C', 'Rack 1, Shelf D', 'BIN-R1-S2-04'] },
-        { id: 'R1-S3', name: 'Shelf 3 (Lower Middle)', levelNumber: 3, bins: ['Rack - Shelf 3', 'Rack 1, Shelf E', 'Rack 1, Shelf F', 'BIN-R1-S3-04'] },
-        { id: 'R1-S4', name: 'Shelf 4 (Heavy Base Tier)', levelNumber: 4, bins: ['Rack - Shelf 4', 'Rack 1, Shelf G', 'Rack 1, Shelf H', 'BIN-R1-S4-04'] },
+        { id: 'FL-S0', name: 'Main FabLab Bench & Common Trays', levelNumber: 1, bins: ['Fablab', 'Fablab - Bench', 'Fablab - Common'] },
+        { id: 'FL-S1', name: 'Tier 1 — Microcontrollers & Dev Boards', levelNumber: 2, bins: ['Fablab - Shelf 1', 'Fablab - Shelf 2'] },
+        { id: 'FL-S2', name: 'Tier 2 — Sensors & Actuators', levelNumber: 3, bins: ['Fablab - Shelf 3', 'Fablab - Shelf 4'] },
+        { id: 'FL-S3', name: 'Tier 3 — Power Supplies & Robotics', levelNumber: 4, bins: ['Fablab - Shelf 5', 'Fablab - Shelf 6'] },
+        { id: 'FL-S4', name: 'Tier 4 — Mechanical Tools & Hardware', levelNumber: 5, bins: ['Fablab - Shelf 7', 'Fablab - Shelf 8', 'Fablab - Shelf 9'] },
       ]
     },
     {
-      id: 'PLYWOOD_GRID_1',
-      code: 'Plywood Unit 1',
-      name: '🪵 Plywood Pigeonhole Grid Organizer (Rectangular Boxes)',
-      zone: 'Zone B (Small Parts & Hardware)',
-      type: 'plywood_grid',
+      id: 'RACK_1',
+      code: 'Rack Bay 1',
+      name: 'Storage Bay 1 (Shelves 1 to 10)',
+      zone: 'Zone B (Primary Component Racks)',
+      type: 'steel_shelf',
       warehouseCode: warehouses[0]?.code || 'WH-MAIN-01',
-      gridConfig: { rows: 4, cols: 6 },
       shelves: [
-        { id: 'PW-R1', name: 'Row A (Top Boxes)', levelNumber: 1, bins: ['PLY-A1', 'PLY-A2', 'PLY-A3', 'PLY-A4', 'PLY-A5', 'PLY-A6'] },
-        { id: 'PW-R2', name: 'Row B (Upper Mid Boxes)', levelNumber: 2, bins: ['PLY-B1', 'PLY-B2', 'PLY-B3', 'PLY-B4', 'PLY-B5', 'PLY-B6'] },
-        { id: 'PW-R3', name: 'Row C (Lower Mid Boxes)', levelNumber: 3, bins: ['PLY-C1', 'PLY-C2', 'PLY-C3', 'PLY-C4', 'PLY-C5', 'PLY-C6'] },
-        { id: 'PW-R4', name: 'Row D (Base Deep Trays)', levelNumber: 4, bins: ['PLY-D1', 'PLY-D2', 'PLY-D3', 'PLY-D4', 'PLY-D5', 'PLY-D6'] },
+        { id: 'R1-L1', name: 'Level 1 (Shelves 1 - 2)', levelNumber: 1, bins: ['Rack - Shelf 1', 'Rack - Shelf 2'] },
+        { id: 'R1-L2', name: 'Level 2 (Shelves 3 - 4)', levelNumber: 2, bins: ['Rack - Shelf 3', 'Rack - Shelf 4'] },
+        { id: 'R1-L3', name: 'Level 3 (Shelves 5 - 6)', levelNumber: 3, bins: ['Rack - Shelf 5', 'Rack - Shelf 6', 'Rack - Shelf 6 - gram'] },
+        { id: 'R1-L4', name: 'Level 4 (Shelves 7 - 8)', levelNumber: 4, bins: ['Rack - Shelf 7', 'Rack - Shelf 8'] },
+        { id: 'R1-L5', name: 'Level 5 (Shelves 9 - 10)', levelNumber: 5, bins: ['Rack - Shelf 9', 'Rack - Shelf 10', 'Rack'] },
       ]
     },
     {
       id: 'RACK_2',
-      code: 'Rack 2',
-      name: 'Rack 2 — Electronics & Sensor Cleanroom',
-      zone: 'Zone C (ESD Cleanroom)',
+      code: 'Rack Bay 2',
+      name: 'Storage Bay 2 (Shelves 11 to 20)',
+      zone: 'Zone B (Primary Component Racks)',
       type: 'steel_shelf',
       warehouseCode: warehouses[0]?.code || 'WH-MAIN-01',
       shelves: [
-        { id: 'R2-S1', name: 'Shelf 1 (Microcontrollers)', levelNumber: 1, bins: ['Bin A-01', 'Bin A-02', 'Bin A-03', 'Bin A-04'] },
-        { id: 'R2-S2', name: 'Shelf 2 (ICs & Transistors)', levelNumber: 2, bins: ['Bin B-01', 'Bin B-02', 'Bin B-03', 'Bin B-04'] },
-        { id: 'R2-S3', name: 'Shelf 3 (Displays & Modules)', levelNumber: 3, bins: ['Bin C-01', 'Bin C-02', 'Bin C-03', 'Bin C-04'] },
-        { id: 'R2-S4', name: 'Shelf 4 (Power & Battery Packs)', levelNumber: 4, bins: ['Bin D-01', 'Bin D-02', 'Bin D-03', 'Bin D-04'] },
+        { id: 'R2-L1', name: 'Level 1 (Shelves 11 - 12)', levelNumber: 1, bins: ['Rack - Shelf 11', 'Rack - Shelf 12'] },
+        { id: 'R2-L2', name: 'Level 2 (Shelves 13 - 14)', levelNumber: 2, bins: ['Rack - Shelf 13', 'Rack - Shelf 14'] },
+        { id: 'R2-L3', name: 'Level 3 (Shelves 15 - 16)', levelNumber: 3, bins: ['Rack - Shelf 15', 'Rack - Shelf 16'] },
+        { id: 'R2-L4', name: 'Level 4 (Shelves 17 - 18)', levelNumber: 4, bins: ['Rack - Shelf 17', 'Rack - Shelf 18'] },
+        { id: 'R2-L5', name: 'Level 5 (Shelves 19 - 20)', levelNumber: 5, bins: ['Rack - Shelf 19', 'Rack - Shelf 20'] },
       ]
     },
     {
       id: 'RACK_3',
-      code: 'Cabinet A',
-      name: 'Chemical & Safety Storage Cabinet',
-      zone: 'Zone D (Hazmat Containment)',
+      code: 'Rack Bay 3',
+      name: 'Storage Bay 3 (Shelves 21 to 28 & Stock)',
+      zone: 'Zone C (High-Density Storage & Bulk Stock)',
+      type: 'steel_shelf',
+      warehouseCode: warehouses[0]?.code || 'WH-MAIN-01',
+      shelves: [
+        { id: 'R3-L1', name: 'Level 1 (Shelves 21 - 22)', levelNumber: 1, bins: ['Rack - Shelf 21', 'Rack - Shelf 22'] },
+        { id: 'R3-L2', name: 'Level 2 (Shelves 23 - 24)', levelNumber: 2, bins: ['Rack - Shelf 23', 'Rack - Shelf 24'] },
+        { id: 'R3-L3', name: 'Level 3 (Shelves 25 - 26)', levelNumber: 3, bins: ['Rack - Shelf 25', 'Rack - Shelf 26'] },
+        { id: 'R3-L4', name: 'Level 4 (Shelves 27 - 28)', levelNumber: 4, bins: ['Rack - Shelf 27', 'Rack - Shelf 28'] },
+        { id: 'R3-L5', name: 'Level 5 (Receiving & General Stock)', levelNumber: 5, bins: ['Stock', 'Stock Bay'] },
+      ]
+    },
+    {
+      id: 'CABINET_1',
+      code: 'Chemical & Glass Cabinet',
+      name: 'Chemical & Glassware Containment Cabinet',
+      zone: 'Zone D (Hazmat & Reagents)',
       type: 'cabinet',
       warehouseCode: warehouses[0]?.code || 'WH-MAIN-01',
       shelves: [
-        { id: 'R3-S1', name: 'Tier 1 (Reagents & Salts)', levelNumber: 1, bins: ['Chemical Cabinet - 1', 'Chemical Cabinet - 2'] },
-        { id: 'R3-S2', name: 'Tier 2 (Solvents & Acids)', levelNumber: 2, bins: ['Chemical Cabinet - 3', 'Chemical Cabinet - 4'] },
-        { id: 'R3-S3', name: 'Tier 3 (Glassware & Pipettes)', levelNumber: 3, bins: ['Glassware Shelf 1', 'Glassware Shelf 2'] },
+        { id: 'CAB-T1', name: 'Tier 1 — Reagents, Salts & Acids', levelNumber: 1, bins: ['Chemical Cabinet', 'Chemical Cabinet - 1', 'Chemical Cabinet - 2'] },
+        { id: 'CAB-T2', name: 'Tier 2 — Solvents & Solutions', levelNumber: 2, bins: ['Chemical Cabinet - 3', 'Chemical Cabinet - 4'] },
+        { id: 'CAB-T3', name: 'Tier 3 — Precision Lab Glassware', levelNumber: 3, bins: ['Glassware Shelf', 'Glassware Shelf 1', 'Glassware Shelf 2'] },
+      ]
+    },
+    {
+      id: 'PLYWOOD_GRID_1',
+      code: 'Plywood Organizer',
+      name: '🪵 Wooden Pigeonhole Grid Matrix',
+      zone: 'Zone E (Small Hardware & Screws)',
+      type: 'plywood_grid',
+      warehouseCode: warehouses[0]?.code || 'WH-MAIN-01',
+      gridConfig: { rows: 4, cols: 6 },
+      shelves: [
+        { id: 'PW-R1', name: 'Row A (Top Compartments)', levelNumber: 1, bins: ['PLY-A1', 'PLY-A2', 'PLY-A3', 'PLY-A4', 'PLY-A5', 'PLY-A6'] },
+        { id: 'PW-R2', name: 'Row B (Upper Mid Compartments)', levelNumber: 2, bins: ['PLY-B1', 'PLY-B2', 'PLY-B3', 'PLY-B4', 'PLY-B5', 'PLY-B6'] },
+        { id: 'PW-R3', name: 'Row C (Lower Mid Compartments)', levelNumber: 3, bins: ['PLY-C1', 'PLY-C2', 'PLY-C3', 'PLY-C4', 'PLY-C5', 'PLY-C6'] },
+        { id: 'PW-R4', name: 'Row D (Deep Base Trays)', levelNumber: 4, bins: ['PLY-D1', 'PLY-D2', 'PLY-D3', 'PLY-D4', 'PLY-D5', 'PLY-D6'] },
       ]
     },
   ], [warehouses]);
 
-  // Load / Persist Custom Storage Units
+  // Load / Persist Custom Storage Units (PostgreSQL Backend with LocalStorage Cache Fallback)
   const [racks, setRacks] = useState<PhysicalRack[]>(() => {
+    if (physicalRacks && physicalRacks.length > 0) return physicalRacks;
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
       if (saved) {
@@ -139,9 +174,19 @@ export default function VisualStockRoom() {
   });
 
   useEffect(() => {
+    if (physicalRacks && physicalRacks.length > 0) {
+      setRacks(physicalRacks);
+    }
+  }, [physicalRacks]);
+
+  useEffect(() => {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(racks));
     } catch (_) {}
+    const t = setTimeout(() => {
+      savePhysicalRacks(racks);
+    }, 600);
+    return () => clearTimeout(t);
   }, [racks]);
 
   // Active Storage Unit
@@ -189,12 +234,12 @@ export default function VisualStockRoom() {
   // 8. Print Shelf Sticker Modal
   const [printingBinCode, setPrintingBinCode] = useState<string | null>(null);
 
-  // Helper: Get items in a specific bin
+  // Helper: Get items in a specific bin (exact match)
   const getItemsForBin = (binCode: string): InventoryItem[] => {
     const clean = binCode.trim().toLowerCase();
     return inventory.filter(item => {
       const itemBin = (item.binLocation || '').trim().toLowerCase();
-      return itemBin === clean || itemBin.includes(clean);
+      return itemBin === clean;
     });
   };
 
@@ -770,7 +815,7 @@ export default function VisualStockRoom() {
                             <div className="flex items-center gap-2">
                               <div className="w-7 h-7 rounded-lg bg-amber-950 border border-amber-700 flex items-center justify-center shrink-0 overflow-hidden text-amber-300">
                                 {primaryItem.imageUrl ? (
-                                  <img src={primaryItem.imageUrl} alt={primaryItem.name} className="w-full h-full object-cover" />
+                                  <ItemImage src={primaryItem.imageUrl} alt={primaryItem.name} category={primaryItem.category} className="w-full h-full object-cover" />
                                 ) : (
                                   <Box className="w-3.5 h-3.5" />
                                 )}
@@ -952,7 +997,7 @@ export default function VisualStockRoom() {
                             <div className="flex items-center gap-2.5">
                               <div className="w-9 h-9 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center shrink-0 overflow-hidden text-indigo-400">
                                 {primaryItem.imageUrl ? (
-                                  <img src={primaryItem.imageUrl} alt={primaryItem.name} className="w-full h-full object-cover" />
+                                  <ItemImage src={primaryItem.imageUrl} alt={primaryItem.name} category={primaryItem.category} className="w-full h-full object-cover" />
                                 ) : (
                                   <Box className="w-4 h-4" />
                                 )}
@@ -1069,9 +1114,9 @@ export default function VisualStockRoom() {
       {/* ========================================================================= */}
       {/* 1. MODAL: CREATE NEW PHYSICAL STORAGE UNIT / RACK */}
       {/* ========================================================================= */}
-      {isCreateRackOpen && (
-        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 z-[9999] animate-fadeIn">
-          <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl w-full max-w-lg p-6 space-y-4">
+      {isCreateRackOpen && createPortal(
+        <div className="fixed inset-0 w-screen h-screen z-[99999] bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto animate-fadeIn">
+          <div className="relative my-auto bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl w-full max-w-lg p-6 space-y-4">
             <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
               <div>
                 <h3 className="text-base font-black text-slate-900 dark:text-white flex items-center gap-2">
@@ -1185,7 +1230,7 @@ export default function VisualStockRoom() {
                 <button
                   type="button"
                   onClick={() => setIsCreateRackOpen(false)}
-                  className="px-4 py-2 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold rounded-xl"
+                  className="px-4 py-2 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold rounded-xl cursor-pointer"
                 >
                   Cancel
                 </button>
@@ -1198,15 +1243,16 @@ export default function VisualStockRoom() {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* ========================================================================= */}
       {/* 2. MODAL: EDIT STORAGE UNIT INFO */}
       {/* ========================================================================= */}
-      {isEditRackOpen && (
-        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 z-[9999] animate-fadeIn">
-          <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl w-full max-w-lg p-6 space-y-4">
+      {isEditRackOpen && createPortal(
+        <div className="fixed inset-0 w-screen h-screen z-[99999] bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto animate-fadeIn">
+          <div className="relative my-auto bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl w-full max-w-lg p-6 space-y-4">
             <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
               <div>
                 <h3 className="text-base font-black text-slate-900 dark:text-white flex items-center gap-2">
@@ -1296,7 +1342,7 @@ export default function VisualStockRoom() {
                   <button
                     type="button"
                     onClick={() => setIsEditRackOpen(false)}
-                    className="px-4 py-2 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold rounded-xl"
+                    className="px-4 py-2 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold rounded-xl cursor-pointer"
                   >
                     Cancel
                   </button>
@@ -1310,15 +1356,16 @@ export default function VisualStockRoom() {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* ========================================================================= */}
       {/* 3. MODAL: RENAME INDIVIDUAL BOX / BIN CODE */}
       {/* ========================================================================= */}
-      {editingBin && (
-        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 z-[9999] animate-fadeIn">
-          <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl w-full max-w-md p-6 space-y-4">
+      {editingBin && createPortal(
+        <div className="fixed inset-0 w-screen h-screen z-[99999] bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto animate-fadeIn">
+          <div className="relative my-auto bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl w-full max-w-md p-6 space-y-4">
             <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
               <h3 className="text-base font-black text-slate-900 dark:text-white flex items-center gap-2">
                 <Edit2 className="w-5 h-5 text-indigo-600" />
@@ -1353,7 +1400,7 @@ export default function VisualStockRoom() {
                 <button
                   type="button"
                   onClick={() => setEditingBin(null)}
-                  className="px-4 py-2 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold rounded-xl"
+                  className="px-4 py-2 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold rounded-xl cursor-pointer"
                 >
                   Cancel
                 </button>
@@ -1366,15 +1413,16 @@ export default function VisualStockRoom() {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* ========================================================================= */}
       {/* 4. MODAL: EDIT TIER / ROW NAME */}
       {/* ========================================================================= */}
-      {editingTier && (
-        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 z-[9999] animate-fadeIn">
-          <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl w-full max-w-md p-6 space-y-4">
+      {editingTier && createPortal(
+        <div className="fixed inset-0 w-screen h-screen z-[99999] bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto animate-fadeIn">
+          <div className="relative my-auto bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl w-full max-w-md p-6 space-y-4">
             <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
               <h3 className="text-base font-black text-slate-900 dark:text-white flex items-center gap-2">
                 <Edit2 className="w-5 h-5 text-indigo-600" />
@@ -1417,28 +1465,29 @@ export default function VisualStockRoom() {
                 <button
                   type="button"
                   onClick={() => setEditingTier(null)}
-                  className="px-4 py-2 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold rounded-xl"
+                  className="px-4 py-2 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold rounded-xl cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-md"
+                  className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-md cursor-pointer"
                 >
                   Save Tier Name
                 </button>
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* ========================================================================= */}
       {/* 5. MODAL: 1-CLICK ALLOT STOCK INTO BIN SLOT */}
       {/* ========================================================================= */}
-      {allottingSlot && (
-        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 z-[9999] animate-fadeIn">
-          <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl w-full max-w-xl p-6 space-y-4 max-h-[85vh] flex flex-col">
+      {allottingSlot && createPortal(
+        <div className="fixed inset-0 w-screen h-screen z-[99999] bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto animate-fadeIn">
+          <div className="relative my-auto bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl w-full max-w-xl p-6 space-y-4 max-h-[85vh] flex flex-col">
             <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3 shrink-0">
               <div>
                 <h3 className="text-base font-black text-slate-900 dark:text-white flex items-center gap-2">
@@ -1493,14 +1542,15 @@ export default function VisualStockRoom() {
                 ))}
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* ========================================================================= */}
       {/* 6. DRAWER: INSPECT & MANAGE OCCUPIED BIN */}
       {/* ========================================================================= */}
-      {activeBinCode && (
-        <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm flex justify-end z-[9999] animate-fadeIn">
+      {activeBinCode && createPortal(
+        <div className="fixed inset-0 w-screen h-screen z-[99999] bg-slate-950/60 backdrop-blur-sm flex justify-end animate-fadeIn">
           <div className="w-full max-w-md bg-white dark:bg-slate-900 h-full p-6 shadow-2xl border-l border-slate-200 dark:border-slate-800 overflow-y-auto space-y-6 animate-in slide-in-from-right duration-200">
             <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-4">
               <div>
@@ -1584,15 +1634,16 @@ export default function VisualStockRoom() {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* ========================================================================= */}
       {/* 7. PRINT PHYSICAL STICKER MODAL */}
       {/* ========================================================================= */}
-      {printingBinCode && (
-        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 z-[99999] animate-fadeIn">
-          <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl w-full max-w-sm p-6 space-y-4 text-center">
+      {printingBinCode && createPortal(
+        <div className="fixed inset-0 w-screen h-screen z-[99999] bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto animate-fadeIn">
+          <div className="relative my-auto bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl w-full max-w-sm p-6 space-y-4 text-center">
             <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
               <h3 className="text-sm font-black text-slate-900 dark:text-white">Print Shelf Barcode Sticker</h3>
               <button onClick={() => setPrintingBinCode(null)} className="p-1 text-slate-400 hover:text-white cursor-pointer">
@@ -1619,7 +1670,8 @@ export default function VisualStockRoom() {
               <Printer className="w-4 h-4" /> Send to Printer
             </button>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

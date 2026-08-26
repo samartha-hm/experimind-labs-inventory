@@ -41,6 +41,7 @@ import ApprovalCenterTab from '@/src/features/compliance/components/ApprovalCent
 import GlobalLogisticsMapTab from '@/src/features/procurement/components/GlobalLogisticsMapTab';
 import BarcodeStudioModal from '@/src/shared/components/BarcodeStudioModal';
 import BarcodeScannerModal from '@/src/shared/components/BarcodeScannerModal';
+import OfflineStatusBar from '@/src/shared/components/OfflineStatusBar';
 import { TenantProvider } from '@/src/contexts/TenantContext';
 import { ToastProvider } from '@/src/contexts/ToastContext';
 import { ApprovalProvider } from '@/src/contexts/ApprovalContext';
@@ -626,6 +627,7 @@ export default function App() {
         <ApprovalProvider>
           <DataProvider>
             <ToastContainer />
+            <OfflineStatusBar />
             <MainApp />
           </DataProvider>
         </ApprovalProvider>

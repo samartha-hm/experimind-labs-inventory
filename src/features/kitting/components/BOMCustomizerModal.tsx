@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { X, Plus, Trash2, Save, Sparkles, Upload, Image as ImageIcon, Search, Settings, Clock } from 'lucide-react';
 import { InventoryItem, KitBOM, BOMRequirement } from '@/src/types';
 import { uploadImage } from '@/src/utils/storage';
@@ -144,9 +145,9 @@ export default function BOMCustomizerModal({
     return matchesSearch && matchesCategory;
   });
 
-  return (
-    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-3xl w-full max-h-[92vh] flex flex-col overflow-hidden animate-fadeIn">
+  return createPortal(
+    <div className="fixed inset-0 w-screen h-screen z-[99999] bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto animate-fadeIn">
+      <div className="relative my-auto bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl max-w-3xl w-full max-h-[92vh] flex flex-col overflow-hidden">
         {/* Modal Header */}
         <div className="bg-slate-50 border-b border-slate-100 p-5 flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -469,6 +470,7 @@ export default function BOMCustomizerModal({
           </div>
         )}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
