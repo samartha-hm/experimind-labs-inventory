@@ -35,6 +35,8 @@ import { WarehouseTransfer } from "./entity/WarehouseTransfer.ts";
 import { WarehouseTransferLine } from "./entity/WarehouseTransferLine.ts";
 import { CycleCount } from "./entity/CycleCount.ts";
 import { CycleCountLine } from "./entity/CycleCountLine.ts";
+import { Role } from "./entity/Role.ts";
+import { Session } from "./entity/Session.ts";
 import { Init1689500000000 } from "./migration/1689500000000-Init.ts";
 import { AddOrgAuditOrdersInvoices1689500000001 } from "./migration/1689500000001-AddOrgAuditOrdersInvoices.ts";
 import { SeedDefaultOrganization1689500000002 } from "./migration/1689500000002-SeedDefaultOrganization.ts";
@@ -44,6 +46,7 @@ import { FinalSchemaReconciliation1689500000005 } from "./migration/168950000000
 import { SeedAdminUser1689500000006 } from "./migration/1689500000006-SeedAdminUser.ts";
 import { AddVisualWarehouseAndSerialNumbers1689500000007 } from "./migration/1689500000007-AddVisualWarehouseAndSerialNumbers.ts";
 import { AddStockLedgerAndWmsOps1689500000008 } from "./migration/1689500000008-AddStockLedgerAndWmsOps.ts";
+import { AddRbacAndSessions1689500000009 } from "./migration/1689500000009-AddRbacAndSessions.ts";
 
 const isLocalhostDb = env.databaseUrl.includes("localhost") || env.databaseUrl.includes("127.0.0.1");
 
@@ -87,6 +90,8 @@ export const AppDataSource = new DataSource({
     WarehouseTransferLine,
     CycleCount,
     CycleCountLine,
+    Role,
+    Session,
   ],
   migrations: [
     Init1689500000000,
@@ -98,6 +103,7 @@ export const AppDataSource = new DataSource({
     SeedAdminUser1689500000006,
     AddVisualWarehouseAndSerialNumbers1689500000007,
     AddStockLedgerAndWmsOps1689500000008,
+    AddRbacAndSessions1689500000009,
   ],
   subscribers: [],
 });

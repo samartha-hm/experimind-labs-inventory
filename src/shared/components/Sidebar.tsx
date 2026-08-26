@@ -13,6 +13,7 @@ import {
   LogOut,
   ChevronRight,
   ShieldCheck,
+  Shield,
   History,
   Zap,
   Coins,
@@ -114,9 +115,11 @@ export default function Sidebar({
       ],
     },
     {
-      title: 'COMPLIANCE & AUDIT',
+      title: 'COMPLIANCE & GOVERNANCE',
       items: [
-        { id: 'approval_center', label: 'Approval Center & Roles', icon: <ShieldCheck className="w-4 h-4" />, badge: pendingCount > 0 ? `${pendingCount} Pending` : 'Governance', badgeColor: pendingCount > 0 ? 'bg-amber-500/30 text-amber-300 border-amber-500/40' : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' },
+        { id: 'roles_permissions', label: 'Role & Permission Matrix', icon: <Shield className="w-4 h-4" />, badge: 'RBAC', badgeColor: 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30' },
+        { id: 'user_directory', label: 'User Directory & Access', icon: <Users className="w-4 h-4" />, badge: 'Users', badgeColor: 'bg-blue-500/20 text-blue-300 border-blue-500/30' },
+        { id: 'approval_center', label: 'Approval Center', icon: <ShieldCheck className="w-4 h-4" />, badge: pendingCount > 0 ? `${pendingCount} Pending` : 'Tier 1/2', badgeColor: pendingCount > 0 ? 'bg-amber-500/30 text-amber-300 border-amber-500/40' : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' },
         { id: 'compliance', label: 'SOC2 & GDPR Security', icon: <Lock className="w-4 h-4" />, badge: 'SHA256', badgeColor: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' },
         { id: 'history', label: 'Revision History', icon: <History className="w-4 h-4" />, badge: 'Audit', badgeColor: 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30' },
       ],

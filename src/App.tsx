@@ -40,6 +40,8 @@ import CompAIVoiceAssistant from '@/src/features/copilot/components/CompAIVoiceA
 import Warehouse3DDigitalTwin from '@/src/features/warehouse/components/Warehouse3DDigitalTwin';
 import FloorPlanDesignerTab from '@/src/features/warehouse/components/FloorPlanDesignerTab';
 import ApprovalCenterTab from '@/src/features/compliance/components/ApprovalCenterTab';
+import { RolePermissionMatrixTab } from '@/src/features/compliance/components/RolePermissionMatrixTab';
+import { UserDirectoryTab } from '@/src/features/compliance/components/UserDirectoryTab';
 import GlobalLogisticsMapTab from '@/src/features/procurement/components/GlobalLogisticsMapTab';
 import BarcodeStudioModal from '@/src/shared/components/BarcodeStudioModal';
 import BarcodeScannerModal from '@/src/shared/components/BarcodeScannerModal';
@@ -399,6 +401,14 @@ function MainApp() {
 
               {activeTab === 'compliance' && (
                 <ComplianceSecurityTab />
+              )}
+
+              {activeTab === 'roles_permissions' && (
+                <RolePermissionMatrixTab />
+              )}
+
+              {activeTab === 'user_directory' && (
+                <UserDirectoryTab />
               )}
 
               {activeTab === 'purchase_orders' && (

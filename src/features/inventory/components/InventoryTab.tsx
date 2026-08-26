@@ -35,6 +35,7 @@ import {
 import { InventoryItem, KitBOM } from '@/src/types';
 import EditPartModal from '@/src/features/inventory/components/EditPartModal';
 import SerialNumbersModal from '@/src/features/inventory/components/SerialNumbersModal';
+import { BulkImportModal } from '@/src/features/inventory/components/BulkImportModal';
 import ItemImage from '@/src/shared/components/ItemImage';
 import { uploadImage } from '@/src/utils/storage';
 import { useData } from '@/src/DataContext';
@@ -91,6 +92,7 @@ export default function InventoryTab({
   const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
   const [isSerialModalOpen, setIsSerialModalOpen] = useState(false);
   const [serialModalItemId, setSerialModalItemId] = useState<string | undefined>(undefined);
+  const [isBulkImportOpen, setIsBulkImportOpen] = useState(false);
   const [itemSteps, setItemSteps] = useState<Record<string, number>>({});
 
   // Quick Relocate Modal State
@@ -353,6 +355,15 @@ export default function InventoryTab({
               <span className="hidden sm:inline">Label Studio</span>
             </button>
           )}
+
+          <button
+            onClick={() => setIsBulkImportOpen(true)}
+            className="bg-slate-800 hover:bg-slate-750 text-slate-200 font-bold px-3.5 py-2.5 rounded-2xl border border-slate-700 transition-all flex items-center gap-1.5 cursor-pointer text-xs shrink-0"
+            title="Import Product Catalog & Opening Balances via CSV"
+          >
+            <Upload className="w-4 h-4 text-emerald-400" />
+            <span className="hidden sm:inline">CSV Import</span>
+          </button>
 
           <button
             onClick={() => setIsAdding(!isAdding)}
@@ -1006,6 +1017,18 @@ export default function InventoryTab({
         isOpen={isSerialModalOpen}
         onClose={() => setIsSerialModalOpen(false)}
         preselectedItemId={serialModalItemId}
+      />
+
+      {/* Bulk CSV Import Modal */}
+      <BulkImportModal
+        isOpen={isBulkImportOpen}
+        onClose={() => setIsBulkImportOpen(false)}
+        onSuccess={() => {
+          if (useData) {
+            // refresh data
+            window.location.reload();
+          }
+        }}
       />
     </div>
   );

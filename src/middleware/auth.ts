@@ -42,3 +42,12 @@ export const authenticateJwt = (
     return res.status(401).json({ error: "Invalid or expired JWT token" });
   }
 };
+
+export const requireRole = (...allowedRoles: string[]) => {
+  return (req: Request, res: Response, next: NextFunction) => {
+    if (!req.user || !allowedRoles.includes(req.user.role)) {
+      return res.status(403).json({ error: "Insufficient permissions to perform this action" });
+    }
+    next();
+  };
+};
