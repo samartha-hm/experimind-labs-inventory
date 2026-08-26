@@ -30,6 +30,11 @@ import { PhysicalRack } from "./entity/PhysicalRack.ts";
 import { FloorPlanLayout } from "./entity/FloorPlanLayout.ts";
 import { CustomElementType } from "./entity/CustomElementType.ts";
 import { SerialNumber } from "./entity/SerialNumber.ts";
+import { StockLedger } from "./entity/StockLedger.ts";
+import { WarehouseTransfer } from "./entity/WarehouseTransfer.ts";
+import { WarehouseTransferLine } from "./entity/WarehouseTransferLine.ts";
+import { CycleCount } from "./entity/CycleCount.ts";
+import { CycleCountLine } from "./entity/CycleCountLine.ts";
 import { Init1689500000000 } from "./migration/1689500000000-Init.ts";
 import { AddOrgAuditOrdersInvoices1689500000001 } from "./migration/1689500000001-AddOrgAuditOrdersInvoices.ts";
 import { SeedDefaultOrganization1689500000002 } from "./migration/1689500000002-SeedDefaultOrganization.ts";
@@ -38,6 +43,7 @@ import { CleanSchemaAlignment1689500000004 } from "./migration/1689500000004-Cle
 import { FinalSchemaReconciliation1689500000005 } from "./migration/1689500000005-FinalSchemaReconciliation.ts";
 import { SeedAdminUser1689500000006 } from "./migration/1689500000006-SeedAdminUser.ts";
 import { AddVisualWarehouseAndSerialNumbers1689500000007 } from "./migration/1689500000007-AddVisualWarehouseAndSerialNumbers.ts";
+import { AddStockLedgerAndWmsOps1689500000008 } from "./migration/1689500000008-AddStockLedgerAndWmsOps.ts";
 
 const isLocalhostDb = env.databaseUrl.includes("localhost") || env.databaseUrl.includes("127.0.0.1");
 
@@ -76,6 +82,11 @@ export const AppDataSource = new DataSource({
     FloorPlanLayout,
     CustomElementType,
     SerialNumber,
+    StockLedger,
+    WarehouseTransfer,
+    WarehouseTransferLine,
+    CycleCount,
+    CycleCountLine,
   ],
   migrations: [
     Init1689500000000,
@@ -86,6 +97,7 @@ export const AppDataSource = new DataSource({
     FinalSchemaReconciliation1689500000005,
     SeedAdminUser1689500000006,
     AddVisualWarehouseAndSerialNumbers1689500000007,
+    AddStockLedgerAndWmsOps1689500000008,
   ],
   subscribers: [],
 });

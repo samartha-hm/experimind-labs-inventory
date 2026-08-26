@@ -179,3 +179,105 @@ export interface KittingAnalysis {
     shortage: number;
   }[];
 }
+
+export type StockTransactionType =
+  | 'PO_RECEIPT'
+  | 'SO_SHIPMENT'
+  | 'TRANSFER_IN'
+  | 'TRANSFER_OUT'
+  | 'MANUAL_ADJUSTMENT'
+  | 'KIT_CONSUMPTION'
+  | 'KIT_PRODUCTION'
+  | 'CYCLE_COUNT_VARIANCE'
+  | 'INITIAL_BALANCE'
+  | 'RETURN_RESTOCK';
+
+export interface StockLedgerEntry {
+  id: string;
+  organization_id: string;
+  item_id: string;
+  item_name: string;
+  item_sku: string;
+  warehouse_id?: string;
+  bin_location?: string;
+  lot_number?: string;
+  serial_number?: string;
+  qty_delta: number;
+  unit_cost: number;
+  running_balance: number;
+  transaction_type: StockTransactionType;
+  reference_type?: string;
+  reference_id?: string;
+  reason_code?: string;
+  notes?: string;
+  actor_id?: string;
+  actor_name?: string;
+  created_at: string;
+}
+
+export interface WarehouseTransferLine {
+  id: string;
+  transfer_id?: string;
+  item_id: string;
+  item_name: string;
+  item_sku: string;
+  requested_qty: number;
+  received_qty: number;
+  source_bin?: string;
+  destination_bin?: string;
+}
+
+export interface WarehouseTransfer {
+  id: string;
+  organization_id?: string;
+  transfer_number: string;
+  source_warehouse_code: string;
+  source_bin?: string;
+  destination_warehouse_code: string;
+  destination_bin?: string;
+  status: 'draft' | 'in_transit' | 'received' | 'cancelled';
+  carrier?: string;
+  tracking_number?: string;
+  dispatched_at?: string;
+  received_at?: string;
+  notes?: string;
+  created_by_name?: string;
+  lines: WarehouseTransferLine[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CycleCountLine {
+  id: string;
+  cycle_count_id?: string;
+  item_id: string;
+  item_name: string;
+  item_sku: string;
+  bin_location?: string;
+  system_qty: number;
+  counted_qty?: number;
+  variance_qty: number;
+  unit_cost: number;
+  variance_value: number;
+  variance_reason?: string;
+}
+
+export interface CycleCount {
+  id: string;
+  organization_id?: string;
+  audit_number: string;
+  title: string;
+  warehouse_code?: string;
+  target_zone_or_category?: string;
+  status: 'draft' | 'in_progress' | 'pending_review' | 'approved_posted' | 'cancelled';
+  is_blind_count: boolean;
+  total_variance_value: number;
+  assigned_auditor_name?: string;
+  approved_by_name?: string;
+  completed_at?: string;
+  notes?: string;
+  lines: CycleCountLine[];
+  created_at: string;
+  updated_at: string;
+}
+

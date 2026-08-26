@@ -32,6 +32,8 @@ import auditLogRoutes from "./src/routes/v1/audit-log.ts";
 import warehouseVisualRoutes from "./src/routes/v1/warehouse-visual.ts";
 import serialNumberRoutes from "./src/routes/v1/serial-number.ts";
 import imageProxyRoutes from "./src/routes/v1/image-proxy.ts";
+import { stockLedgerRouter } from "./src/routes/v1/stock-ledger.ts";
+import { wmsOperationsRouter } from "./src/routes/v1/wms-operations.ts";
 
 // Initialize Postgres (with retry)
 async function connectDatabase(retries = 3): Promise<void> {
@@ -134,6 +136,8 @@ async function startServer() {
   app.use("/api/v1/audit-log", authenticateJwt, requireTenant, auditLogRoutes);
   app.use("/api/v1/warehouse-visual", authenticateJwt, requireTenant, warehouseVisualRoutes);
   app.use("/api/v1/serials", authenticateJwt, requireTenant, serialNumberRoutes);
+  app.use("/api/v1/stock-ledger", authenticateJwt, requireTenant, stockLedgerRouter);
+  app.use("/api/v1/wms", authenticateJwt, requireTenant, wmsOperationsRouter);
 
   // ===== Protected AI analysis endpoint =====
   app.post("/api/analyze", aiLimiter, authenticateJwt, requireTenant, async (req, res) => {

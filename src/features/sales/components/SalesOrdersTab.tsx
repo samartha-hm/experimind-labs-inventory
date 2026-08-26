@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 
 import DocumentPreviewModal from '@/src/shared/components/DocumentPreviewModal';
+import SOFulfillmentModal from '@/src/features/sales/components/SOFulfillmentModal';
 import { useData } from '@/src/DataContext';
 
 interface SalesOrdersTabProps {
@@ -41,8 +42,9 @@ export default function SalesOrdersTab({ role }: SalesOrdersTabProps) {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [selectedSoForPreview, setSelectedSoForPreview] = useState<any | null>(null);
 
-  // Edit SO Modal state
+  // Edit SO Modal state & Fulfillment Modal state
   const [editingSo, setEditingSo] = useState<any | null>(null);
+  const [fulfillingSo, setFulfillingSo] = useState<any | null>(null);
 
   const [newSo, setNewSo] = useState({
     customerName: '',
@@ -227,11 +229,25 @@ export default function SalesOrdersTab({ role }: SalesOrdersTabProps) {
 
               <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
                 <span className="text-base font-black text-slate-900 font-mono">₹{so.totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
-                <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${
-                  so.status === 'delivered' ? 'bg-emerald-100 text-emerald-800' : so.status === 'picking' ? 'bg-amber-100 text-amber-800' : 'bg-slate-100 text-slate-600'
-                }`}>
-                  {so.status}
-                </span>
+                <div className="flex items-center gap-1.5">
+                  <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
+                    so.status === 'shipped' || so.status === 'completed' ? 'bg-emerald-100 text-emerald-800' : 'bg-purple-100 text-purple-800'
+                  }`}>
+                    {so.status}
+                  </span>
+                  {so.status !== 'shipped' && so.status !== 'completed' && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setFulfillingSo(so);
+                      }}
+                      className="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-[10px] font-bold flex items-center gap-1 cursor-pointer shadow-xs"
+                      title="Pick & Dispatch Order"
+                    >
+                      <Truck className="w-3 h-3" /> Fulfill
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
           ))}
@@ -263,7 +279,15 @@ export default function SalesOrdersTab({ role }: SalesOrdersTabProps) {
                     </span>
                   </td>
                   <td className="p-4 font-mono font-bold text-slate-900">₹{so.totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
-                  <td className="p-4 text-right space-x-2">
+                  <td className="p-4 text-right space-x-1.5 whitespace-nowrap">
+                    {so.status !== 'shipped' && so.status !== 'completed' && (
+                      <button
+                        onClick={() => setFulfillingSo(so)}
+                        className="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-[10px] font-bold inline-flex items-center gap-1 cursor-pointer shadow-xs"
+                      >
+                        <Truck className="w-3 h-3" /> Fulfill
+                      </button>
+                    )}
                     <button onClick={() => setSelectedSoForPreview(so)} className="p-1 text-slate-400 hover:text-purple-600">
                       <Eye className="w-4 h-4" />
                     </button>
@@ -279,6 +303,15 @@ export default function SalesOrdersTab({ role }: SalesOrdersTabProps) {
             </tbody>
           </table>
         </div>
+      )}
+
+      {/* SO Outbound Fulfillment Modal */}
+      {fulfillingSo && (
+        <SOFulfillmentModal
+          isOpen={Boolean(fulfillingSo)}
+          onClose={() => setFulfillingSo(null)}
+          salesOrder={fulfillingSo}
+        />
       )}
 
       {/* Commercial Invoice Document Preview Modal */}

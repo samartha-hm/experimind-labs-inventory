@@ -18,10 +18,12 @@ import {
   Trash2,
   X,
   Eye,
+  PackageCheck,
 } from 'lucide-react';
 
 import DocumentPreviewModal from '@/src/shared/components/DocumentPreviewModal';
 import PODocumentGeneratorModal from '@/src/features/procurement/components/PODocumentGeneratorModal';
+import POReceivingModal from '@/src/features/procurement/components/POReceivingModal';
 import { useData } from '@/src/DataContext';
 import { useApproval } from '@/src/contexts/ApprovalContext';
 
@@ -43,6 +45,7 @@ export default function PurchaseOrdersTab({ role }: PurchaseOrdersTabProps) {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [selectedPoForPreview, setSelectedPoForPreview] = useState<any | null>(null);
   const [editingPo, setEditingPo] = useState<any | null>(null);
+  const [receivingPo, setReceivingPo] = useState<any | null>(null);
 
   const { createApprovalRequest, thresholds } = useApproval();
 
@@ -242,11 +245,25 @@ export default function PurchaseOrdersTab({ role }: PurchaseOrdersTabProps) {
 
               <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
                 <span className="text-base font-black text-slate-900 font-mono">₹{po.totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
-                <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${
-                  po.status === 'received' ? 'bg-emerald-100 text-emerald-800' : po.status === 'approved' ? 'bg-blue-100 text-blue-800' : 'bg-slate-100 text-slate-600'
-                }`}>
-                  {po.status}
-                </span>
+                <div className="flex items-center gap-1.5">
+                  <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
+                    po.status === 'received' ? 'bg-emerald-100 text-emerald-800' : po.status === 'approved' ? 'bg-blue-100 text-blue-800' : 'bg-slate-100 text-slate-600'
+                  }`}>
+                    {po.status}
+                  </span>
+                  {po.status !== 'received' && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setReceivingPo(po);
+                      }}
+                      className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-[10px] font-bold flex items-center gap-1 cursor-pointer shadow-xs"
+                      title="Dock Receive Goods"
+                    >
+                      <PackageCheck className="w-3 h-3" /> Receive
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
           ))}
@@ -278,7 +295,15 @@ export default function PurchaseOrdersTab({ role }: PurchaseOrdersTabProps) {
                     </span>
                   </td>
                   <td className="p-4 font-mono font-bold text-slate-900">₹{po.totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
-                  <td className="p-4 text-right space-x-2">
+                  <td className="p-4 text-right space-x-1.5 whitespace-nowrap">
+                    {po.status !== 'received' && (
+                      <button
+                        onClick={() => setReceivingPo(po)}
+                        className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-[10px] font-bold inline-flex items-center gap-1 cursor-pointer shadow-xs"
+                      >
+                        <PackageCheck className="w-3 h-3" /> Receive
+                      </button>
+                    )}
                     <button onClick={() => setSelectedPoForPreview(po)} className="p-1 text-slate-400 hover:text-indigo-600">
                       <Eye className="w-4 h-4" />
                     </button>
@@ -294,6 +319,15 @@ export default function PurchaseOrdersTab({ role }: PurchaseOrdersTabProps) {
             </tbody>
           </table>
         </div>
+      )}
+
+      {/* PO Inbound Dock Receiving Modal */}
+      {receivingPo && (
+        <POReceivingModal
+          isOpen={Boolean(receivingPo)}
+          onClose={() => setReceivingPo(null)}
+          purchaseOrder={receivingPo}
+        />
       )}
 
       {/* Commercial Document Preview Modal */}

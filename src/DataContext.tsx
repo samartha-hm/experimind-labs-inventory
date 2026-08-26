@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { InventoryItem, KitBOM, TransactionRecord, BOMRequirement } from './types';
+import { InventoryItem, KitBOM, TransactionRecord, BOMRequirement, StockLedgerEntry, WarehouseTransfer, CycleCount } from './types';
 import { useAuth } from './AuthContext';
 import { apiFetch } from './utils/api';
 import { useUndoRedo } from '@/src/contexts/UndoRedoContext';
@@ -73,6 +73,23 @@ interface DataContextType {
   registerBulkSerials: (payload: any) => Promise<any>;
   updateSerialStatus: (id: string, status: string, location?: string, notes?: string) => Promise<void>;
   deleteSerialNumber: (id: string) => Promise<void>;
+
+  // Immutable Stock Ledger & WMS Operations
+  stockLedger: StockLedgerEntry[];
+  wmsTransfers: WarehouseTransfer[];
+  wmsCycleCounts: CycleCount[];
+  loadStockLedger: (filters?: any) => Promise<StockLedgerEntry[]>;
+  postStockAdjustment: (itemId: string, qtyDelta: number, binLocation?: string, reasonCode?: string, notes?: string) => Promise<any>;
+  receivePurchaseOrderWms: (poId: string, receiptLines: any[]) => Promise<any>;
+  fulfillSalesOrderWms: (soId: string, fulfillmentLines: any[], carrier?: string, trackingNumber?: string) => Promise<any>;
+  loadWmsTransfers: () => Promise<WarehouseTransfer[]>;
+  createWmsTransfer: (data: any) => Promise<WarehouseTransfer>;
+  dispatchWmsTransfer: (transferId: string, carrier?: string, trackingNumber?: string) => Promise<WarehouseTransfer>;
+  receiveWmsTransfer: (transferId: string, receiptLines?: any[]) => Promise<WarehouseTransfer>;
+  loadWmsCycleCounts: () => Promise<CycleCount[]>;
+  createWmsCycleCount: (data: any) => Promise<CycleCount>;
+  submitWmsCycleCount: (countId: string, counts: any[]) => Promise<CycleCount>;
+  approveWmsCycleCount: (countId: string) => Promise<CycleCount>;
 }
 
 const DataContext = createContext<DataContextType>({
@@ -88,8 +105,11 @@ const DataContext = createContext<DataContextType>({
   physicalRacks: [],
   elementTypes: [],
   serialNumbers: [],
+  stockLedger: [],
+  wmsTransfers: [],
+  wmsCycleCounts: [],
   loading: true,
-  addInventoryItem: async () => {},
+  addInventoryItem: async () => null,
   updateInventoryItem: async () => {},
   deleteInventoryItem: async () => {},
   addKitBOM: async () => '',
@@ -122,6 +142,18 @@ const DataContext = createContext<DataContextType>({
   registerBulkSerials: async () => {},
   updateSerialStatus: async () => {},
   deleteSerialNumber: async () => {},
+  loadStockLedger: async () => [],
+  postStockAdjustment: async () => {},
+  receivePurchaseOrderWms: async () => {},
+  fulfillSalesOrderWms: async () => {},
+  loadWmsTransfers: async () => [],
+  createWmsTransfer: async () => ({} as any),
+  dispatchWmsTransfer: async () => ({} as any),
+  receiveWmsTransfer: async () => ({} as any),
+  loadWmsCycleCounts: async () => [],
+  createWmsCycleCount: async () => ({} as any),
+  submitWmsCycleCount: async () => ({} as any),
+  approveWmsCycleCount: async () => ({} as any),
 });
 
 // Conversion functions (PostgreSQL snake_case <-> Frontend camelCase)
@@ -177,6 +209,9 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [physicalRacks, setPhysicalRacks] = useState<any[]>([]);
   const [elementTypes, setElementTypes] = useState<any[]>([]);
   const [serialNumbers, setSerialNumbers] = useState<any[]>([]);
+  const [stockLedger, setStockLedger] = useState<StockLedgerEntry[]>([]);
+  const [wmsTransfers, setWmsTransfers] = useState<WarehouseTransfer[]>([]);
+  const [wmsCycleCounts, setWmsCycleCounts] = useState<CycleCount[]>([]);
   const [loading, setLoading] = useState(true);
 
   const loadAllData = async () => {
@@ -193,10 +228,13 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         apiFetch('/api/v1/bin'),
         apiFetch('/api/v1/warehouse-visual/physical-racks'),
         apiFetch('/api/v1/warehouse-visual/element-types'),
-        apiFetch('/api/v1/serials')
+        apiFetch('/api/v1/serials'),
+        apiFetch('/api/v1/stock-ledger?limit=150'),
+        apiFetch('/api/v1/wms/transfers'),
+        apiFetch('/api/v1/wms/cycle-counts')
       ]);
 
-      const [resInv, resKits, resTx, resVendors, resCustomers, resPos, resSos, resWh, resBins, resRacks, resElemTypes, resSerials] = results;
+      const [resInv, resKits, resTx, resVendors, resCustomers, resPos, resSos, resWh, resBins, resRacks, resElemTypes, resSerials, resLedger, resTransfers, resAudits] = results;
 
       if (resInv.status === 'fulfilled' && Array.isArray(resInv.value)) {
         setInventory(resInv.value.map(mapItemToFrontend));
@@ -259,24 +297,39 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       if (resPos.status === 'fulfilled' && Array.isArray(resPos.value)) {
         setPurchaseOrders(resPos.value.map((po: any) => ({
           id: po.id,
-          poNumber: po.po_number,
-          vendorName: po.vendor?.name || 'Supplier',
-          orderDate: po.order_date,
-          expectedDate: po.expected_date,
-          status: po.status,
-          totalAmount: Number(po.total_amount) || 0
+          poNumber: po.order_number,
+          vendorName: po.vendor?.name || 'Standard Supplier',
+          createdAt: po.created_at,
+          expectedDate: po.expected_delivery_date,
+          status: po.status || 'draft',
+          totalAmount: Number(po.total_amount) || 0,
+          items: (po.lines || []).map((l: any) => ({
+            id: l.id,
+            itemId: l.item_id,
+            name: l.item_name || 'Component',
+            quantity: Number(l.quantity) || 0,
+            receivedQty: Number(l.received_qty) || 0,
+            unitPrice: Number(l.unit_cost) || 0
+          }))
         })));
       }
 
       if (resSos.status === 'fulfilled' && Array.isArray(resSos.value)) {
         setSalesOrders(resSos.value.map((so: any) => ({
           id: so.id,
-          soNumber: so.so_number,
-          customerName: so.customer?.name || 'Customer',
-          orderDate: so.order_date,
-          requiredDate: so.required_date,
-          status: so.status,
-          totalAmount: Number(so.total_amount) || 0
+          soNumber: so.order_number,
+          customerName: so.customer?.name || 'Direct Customer',
+          createdAt: so.created_at,
+          status: so.status || 'pending',
+          totalAmount: Number(so.total_amount) || 0,
+          notes: so.notes || '',
+          items: (so.lines || []).map((l: any) => ({
+            id: l.id,
+            itemId: l.item_id,
+            name: l.item_name || 'Component',
+            quantity: Number(l.quantity) || 0,
+            unitPrice: Number(l.unit_price) || 0
+          }))
         })));
       }
 
@@ -312,6 +365,18 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
       if (resSerials.status === 'fulfilled' && resSerials.value?.data) {
         setSerialNumbers(resSerials.value.data);
+      }
+
+      if (resLedger.status === 'fulfilled' && resLedger.value?.entries) {
+        setStockLedger(resLedger.value.entries);
+      }
+
+      if (resTransfers.status === 'fulfilled' && Array.isArray(resTransfers.value)) {
+        setWmsTransfers(resTransfers.value);
+      }
+
+      if (resAudits.status === 'fulfilled' && Array.isArray(resAudits.value)) {
+        setWmsCycleCounts(resAudits.value);
       }
 
     } catch (e) {
@@ -1284,16 +1349,180 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  // Stock Ledger & WMS Operations Functions
+  const loadStockLedger = async (filters?: any) => {
+    try {
+      const queryParams = new URLSearchParams(filters || {}).toString();
+      const res = await apiFetch(`/api/v1/stock-ledger${queryParams ? `?${queryParams}` : ''}`);
+      if (res?.entries) {
+        setStockLedger(res.entries);
+        return res.entries;
+      }
+      return [];
+    } catch (e) {
+      console.warn('Error loading stock ledger:', e);
+      return [];
+    }
+  };
+
+  const postStockAdjustment = async (itemId: string, qtyDelta: number, binLocation?: string, reasonCode?: string, notes?: string) => {
+    try {
+      const res = await apiFetch('/api/v1/stock-ledger/adjust', {
+        method: 'POST',
+        body: JSON.stringify({ itemId, qtyDelta, binLocation, reasonCode: reasonCode || 'Manual Stock Adjustment', notes })
+      });
+      loadAllData();
+      return res;
+    } catch (e: any) {
+      throw e;
+    }
+  };
+
+  const receivePurchaseOrderWms = async (poId: string, receiptLines: any[]) => {
+    try {
+      const res = await apiFetch(`/api/v1/wms/purchase-orders/${poId}/receive`, {
+        method: 'POST',
+        body: JSON.stringify({ receiptLines })
+      });
+      loadAllData();
+      return res;
+    } catch (e: any) {
+      throw e;
+    }
+  };
+
+  const fulfillSalesOrderWms = async (soId: string, fulfillmentLines: any[], carrier?: string, trackingNumber?: string) => {
+    try {
+      const res = await apiFetch(`/api/v1/wms/sales-orders/${soId}/fulfill`, {
+        method: 'POST',
+        body: JSON.stringify({ fulfillmentLines, carrier, trackingNumber })
+      });
+      loadAllData();
+      return res;
+    } catch (e: any) {
+      throw e;
+    }
+  };
+
+  const loadWmsTransfers = async () => {
+    try {
+      const res = await apiFetch('/api/v1/wms/transfers');
+      if (Array.isArray(res)) {
+        setWmsTransfers(res);
+        return res;
+      }
+      return [];
+    } catch (e) {
+      console.warn('Error loading transfers:', e);
+      return [];
+    }
+  };
+
+  const createWmsTransfer = async (data: any) => {
+    try {
+      const res = await apiFetch('/api/v1/wms/transfers', {
+        method: 'POST',
+        body: JSON.stringify(data)
+      });
+      loadAllData();
+      return res;
+    } catch (e: any) {
+      throw e;
+    }
+  };
+
+  const dispatchWmsTransfer = async (transferId: string, carrier?: string, trackingNumber?: string) => {
+    try {
+      const res = await apiFetch(`/api/v1/wms/transfers/${transferId}/dispatch`, {
+        method: 'POST',
+        body: JSON.stringify({ carrier, trackingNumber })
+      });
+      loadAllData();
+      return res;
+    } catch (e: any) {
+      throw e;
+    }
+  };
+
+  const receiveWmsTransfer = async (transferId: string, receiptLines?: any[]) => {
+    try {
+      const res = await apiFetch(`/api/v1/wms/transfers/${transferId}/receive`, {
+        method: 'POST',
+        body: JSON.stringify({ receiptLines })
+      });
+      loadAllData();
+      return res;
+    } catch (e: any) {
+      throw e;
+    }
+  };
+
+  const loadWmsCycleCounts = async () => {
+    try {
+      const res = await apiFetch('/api/v1/wms/cycle-counts');
+      if (Array.isArray(res)) {
+        setWmsCycleCounts(res);
+        return res;
+      }
+      return [];
+    } catch (e) {
+      console.warn('Error loading cycle counts:', e);
+      return [];
+    }
+  };
+
+  const createWmsCycleCount = async (data: any) => {
+    try {
+      const res = await apiFetch('/api/v1/wms/cycle-counts', {
+        method: 'POST',
+        body: JSON.stringify(data)
+      });
+      loadAllData();
+      return res;
+    } catch (e: any) {
+      throw e;
+    }
+  };
+
+  const submitWmsCycleCount = async (countId: string, counts: any[]) => {
+    try {
+      const res = await apiFetch(`/api/v1/wms/cycle-counts/${countId}/submit`, {
+        method: 'POST',
+        body: JSON.stringify({ counts })
+      });
+      loadAllData();
+      return res;
+    } catch (e: any) {
+      throw e;
+    }
+  };
+
+  const approveWmsCycleCount = async (countId: string) => {
+    try {
+      const res = await apiFetch(`/api/v1/wms/cycle-counts/${countId}/approve`, {
+        method: 'POST'
+      });
+      loadAllData();
+      return res;
+    } catch (e: any) {
+      throw e;
+    }
+  };
+
   return (
     <DataContext.Provider value={{
       inventory, kits, transactions, vendors, customers, purchaseOrders, salesOrders, warehouses, bins, loading,
       physicalRacks, elementTypes, serialNumbers,
+      stockLedger, wmsTransfers, wmsCycleCounts,
       addInventoryItem, updateInventoryItem, deleteInventoryItem, addKitBOM, updateKitBOM, deleteKitBOM, logTransaction,
       addVendor, updateVendor, deleteVendor, addCustomer, updateCustomer, deleteCustomer,
       addPurchaseOrder, updatePurchaseOrder, deletePurchaseOrder, addSalesOrder, updateSalesOrder, deleteSalesOrder,
       addWarehouse, updateWarehouse, deleteWarehouse, addBin, deleteBin,
       savePhysicalRacks, getFloorPlan, saveFloorPlan, saveElementType,
-      loadSerialNumbers, lookupSerialNumber, registerBulkSerials, updateSerialStatus, deleteSerialNumber
+      loadSerialNumbers, lookupSerialNumber, registerBulkSerials, updateSerialStatus, deleteSerialNumber,
+      loadStockLedger, postStockAdjustment, receivePurchaseOrderWms, fulfillSalesOrderWms,
+      loadWmsTransfers, createWmsTransfer, dispatchWmsTransfer, receiveWmsTransfer,
+      loadWmsCycleCounts, createWmsCycleCount, submitWmsCycleCount, approveWmsCycleCount
     }}>
       {children}
     </DataContext.Provider>

@@ -71,6 +71,8 @@ export default function Sidebar({
           badge: lowStockCount > 0 ? `${lowStockCount} low` : undefined,
           badgeColor: 'bg-amber-500/20 text-amber-300 border-amber-500/30',
         },
+        { id: 'stock_ledger', label: 'Stock Ledger & Audit', icon: <History className="w-4 h-4" />, badge: 'Ledger', badgeColor: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' },
+        { id: 'warehouse_floor', label: 'Warehouse Floor Mode', icon: <ShieldCheck className="w-4 h-4" />, badge: 'Scanner', badgeColor: 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30' },
         { id: 'kitting', label: 'Composite Kits (BOM)', icon: <Package className="w-4 h-4" /> },
         { id: 'batch_expiry', label: 'Batch Expiry Tracker', icon: <Tag className="w-4 h-4" />, badge: 'Lots', badgeColor: 'bg-rose-500/20 text-rose-300 border-rose-500/30' },
         { id: 'warehouses', label: 'Warehouses & Bins', icon: <Warehouse className="w-4 h-4" /> },

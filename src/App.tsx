@@ -34,6 +34,8 @@ import ComplianceSecurityTab from '@/src/features/compliance/ComplianceSecurityT
 import WarehouseHeatmapTab from '@/src/features/warehouse/components/WarehouseHeatmapTab';
 import StockTransferTab from '@/src/features/warehouse/components/StockTransferTab';
 import BatchExpiryTab from '@/src/features/inventory/components/BatchExpiryTab';
+import StockLedgerTab from '@/src/features/inventory/components/StockLedgerTab';
+import WarehouseFloorMode from '@/src/features/warehouse/components/WarehouseFloorMode';
 import CompAIVoiceAssistant from '@/src/features/copilot/components/CompAIVoiceAssistant';
 import Warehouse3DDigitalTwin from '@/src/features/warehouse/components/Warehouse3DDigitalTwin';
 import FloorPlanDesignerTab from '@/src/features/warehouse/components/FloorPlanDesignerTab';
@@ -409,6 +411,14 @@ function MainApp() {
 
               {(activeTab === 'partners' || activeTab === 'vendors' || activeTab === 'customers') && (
                 <PartnersTab role={role} />
+              )}
+
+              {activeTab === 'stock_ledger' && (
+                <StockLedgerTab />
+              )}
+
+              {activeTab === 'warehouse_floor' && (
+                <WarehouseFloorMode />
               )}
 
               {activeTab === 'warehouses' && (
