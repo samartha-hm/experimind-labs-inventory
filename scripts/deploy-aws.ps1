@@ -25,7 +25,7 @@ Write-Host "`n[2/5] Creating deployment archive..." -ForegroundColor Yellow
 $tarFile = "deploy_bundle.tar.gz"
 if (Test-Path $tarFile) { Remove-Item $tarFile -Force }
 
-tar --exclude="node_modules" --exclude="apps/storefront/node_modules" -czf $tarFile dist apps package.json package-lock.json ecosystem.config.cjs scripts src/entity src/migration tsconfig.json
+tar --exclude="node_modules" --exclude="apps/storefront/node_modules" -czf $tarFile dist apps package.json package-lock.json ecosystem.config.cjs scripts src tsconfig.json
 
 # 3. Transfer files to remote server
 Write-Host "`n[3/5] Uploading deployment package and setup scripts to AWS server..." -ForegroundColor Yellow

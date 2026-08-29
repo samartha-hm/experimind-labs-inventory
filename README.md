@@ -1,5 +1,5 @@
 # NEXAINVENTORY ERP — ENTERPRISE SYSTEM MANUAL
-**Experimind Labs Supply Chain, WMS Floor, Financials & Governance Platform**
+**Experimind Labs Supply Chain, WMS Digital Twin, Regulated QMS & Governance Platform**
 
 [![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![React](https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)](https://reactjs.org/)
@@ -7,43 +7,52 @@
 [![Express.js](https://img.shields.io/badge/Express.js-000000?style=for-the-badge&logo=express&logoColor=white)](https://expressjs.com/)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-316192?style=for-the-badge&logo=postgresql&logoColor=white)](https://www.postgresql.org/)
 [![TailwindCSS](https://img.shields.io/badge/Tailwind_CSS_v4-38B2AC?style=for-the-badge&logo=tailwind-css&logoColor=white)](https://tailwindcss.com/)
+[![Compliance](https://img.shields.io/badge/FDA_21_CFR_Part_11-Compliant-emerald?style=for-the-badge)](https://www.fda.gov/)
 
 **NexaInventory ERP** is an enterprise-grade, single-codebase supply chain orchestration, WMS digital twin, assembly kitting, double-entry stock ledger, and fulfillment platform developed for **Experimind Labs**.
 
 ---
 
+## 🌐 Production Deployments & Domains
+
+- 🏢 **Platform ERP & WMS Cockpit**: [https://inventory.experimindlabs.com/](https://inventory.experimindlabs.com/)
+- 🛍️ **Public Customer Storefront**: [https://shop.experimindlabs.com/](https://shop.experimindlabs.com/)
+- ⚡ **Direct Server IP (AWS EC2)**: `http://13.233.142.180`
+
+---
+
 ## 🌟 Master Capability Matrix
 
-### 1. 📦 Inventory, Kitting & Double-Entry Ledger
+### 1. 📦 Inventory, Multi-Location WMS & Double-Entry Ledger
+- **Multi-Location Topology (`stock_locations`)**: Per-warehouse, per-zone, and per-bin on-hand, allocated, reserved, and quarantined inventory.
+- **Lot Master & Expiry (FEFO)**: [`stock_lots`](src/entity/StockLot.ts) with manufacture/expiry dates, First-Expired First-Out picking, and Certificate of Analysis (CoA) document links.
+- **Dual Units of Measure (UoM)**: [`uom_conversions`](src/entity/UomConversion.ts) supporting automated bulk-to-each conversions.
 - **Append-Only Stock Ledger (`stock_ledger`)**: Running balance calculation, FIFO costing, and supervised manual adjustments with mandatory audit reason codes.
 - **Multi-Level Assembly Kitting (BOM)**: Formula manager, bottleneck calculator, and 1-click Pack/Unpack engine.
-- **Serial & Lot Tracking**: Unit-level tracking and expiry batch management (FEFO).
 - **Universal CSV Catalog Importer**: Drag-and-drop CSV importer with live pre-validation diff grid and atomic opening balance ledger posting.
 
-### 2. 🏭 Warehouse Operations (WMS) & Digital Twin
-- **2D Blueprint Floor Plan Designer**: Interactive canvas editor for storage racks, inbound docks, kitting benches, and traffic aisles.
-- **2D Storage Density Heatmap**: Color-coded bin capacity and congestion visualizer.
-- **3D WebGL Digital Twin**: Hardware-accelerated multi-tier racking visualizer with orbit controls.
-- **Touchscreen Floor Operator Console**: Mobile tablet layout with hardware USB laser barcode scanner listener (`useBarcodeGunListener`).
-- **Multi-Stage Stock Transfer Orders (STO)**: Full 3-phase transfer workflow (`Draft` ➔ `In-Transit` ➔ `Received`).
-- **Cycle Counting & Blind Auditing**: Blind counting manifests, discrepancy calculations, and manager reconciliation.
+### 2. 🛡️ FDA 21 CFR Part 11 Compliance & Cryptographic Audit Trail
+- **SHA-256 Hash-Chained Audit Trail (`audit_events`)**: Append-only tamper-evident audit ledger where every event cryptographically hashes the previous event in the chain.
+- **Mathematical Chain Integrity Verifier**: Real-time console that walks the entire Merkle chain sequentially, detecting any altered records, deletions, or hash mismatches.
+- **21 CFR Part 11 Electronic Signatures**: Password and TOTP re-authentication with cryptographic SHA-256 digest manifests bound to target record states and signature meanings (`APPROVED`, `REVIEWED`, `QUALITY_RELEASED`, `CAPA_CLOSED`).
 
-### 3. 🏷️ Barcode & Thermal Label Studio
-- **High-Resolution Vector Barcodes**: ISO/IEC Code-128 and QR codes with prominent physical location badges (`LOC: Rack - Shelf 1`).
-- **Multi-Format PDF Sheet Export**: Avery 5160 (A4 24-up), A4 40-up, and continuous thermal rolls (50x25mm / 70x35mm).
-- **Universal Barcode Scanner Hub**: ZXing-C++ WebAssembly scanner supporting camera feeds, photo uploads, and hardware barcode guns.
+### 3. 🔬 Quality Management System (QMS) & Regulated Suite
+- **Inbound Inspections**: Sampling checklists, defect counting, and automated NCR triggering on inspection failure.
+- **Deviations (NCR)**: Non-conformance reporting, severity triage, root-cause investigation, and disposition approvals.
+- **Corrective and Preventive Actions (CAPA)**: 5-Whys root-cause methodology, multi-owner action item tracking, and effectiveness verification.
+- **Engineering Change Orders (ECO)**: BOM revision change control, impact analysis, and Change Control Board (CCB) electronic sign-offs.
+- **Reverse Logistics (RMA)**: Item returns grading, quarantine inspections, and automated stock ledger restock.
 
-### 4. 🛡️ Enterprise Governance & Security
-- **Visual Role-Based Access Control (RBAC)**: 5 pre-configured system roles (`Super Administrator`, `Warehouse Manager`, `Procurement Specialist`, `Floor Operator`, `Auditor`) + Custom Role Builder.
-- **Granular Capability Matrix**: Interactive toggles across 6 modules (*Inventory, WMS, Procurement, Sales, Financials, Governance*).
-- **Enterprise User Directory**: Searchable member roster with 1-click role reassignment.
-- **Active Login Sessions & Security**: Real-time connected device audit and emergency **"Terminate All Other Sessions"** revocation.
+### 4. 🏷️ GS1-128 Barcodes, Zebra ZPL-II & Real-Time Sync
+- **GS1-128 Composite Encoding/Parsing**: Application Identifiers `(01)` GTIN, `(10)` Lot, `(17)` Expiry, `(21)` Serial, `(00)` SSCC.
+- **Industrial Zebra ZPL-II Printing**: Direct thermal and thermal transfer 203 DPI label generation for SKUs, bins, and pallet containers.
+- **Real-Time Server-Sent Events (SSE)**: Live `/api/v1/stream/events` channel broadcasting instant stock and PO updates without full table re-fetching.
 
-### 5. 💰 Financials, GST & Integrations
-- **GST Calculation Engine**: Automated intra-state (50/50 CGST + SGST) vs inter-state (100% IGST) tax calculations with HSN breakdown.
-- **E-Invoicing (IRP) Compliance**: 64-character IRN hash and QR payload generation.
-- **Zoho Books 2-Way Synchronization**: Chart of accounts, items, invoices, and vendor bills.
-- **Predictive Analytics & AI BI**: ABC/XYZ revenue classification, Holt-Winters stock forecasting, and AI Logistics Voice Copilot.
+### 5. 🔐 Enterprise Security & MFA
+- **RFC 6238 TOTP Multi-Factor Authentication**: Built-in Base32 decoding, HMAC-SHA1 dynamic truncation, ±1 drift window verification, and backup recovery codes.
+- **Strict Role-Based Access Control (RBAC)**: Fine-grained database-backed permission validation, eliminating universal admin bypasses.
+- **SSRF & Network Hardening**: Private IP, loopback, and cloud metadata blocking on all proxy routes.
+- **Active Session Audit & Revocation**: Real-time connected device tracking and 1-click session invalidation.
 
 ---
 
@@ -58,24 +67,24 @@
 # 1. Install dependencies
 npm install
 
-# 2. Verify TypeScript types
+# 2. Verify TypeScript types (Zero errors)
 npm run typecheck
 
-# 3. Run complete unit test suite (22 tests)
+# 3. Run complete automated test suite (34 tests across 8 suites)
 npm test
 
 # 4. Start local development server
 npm run dev
 
-# 5. Build production bundle
+# 5. Build production bundle (Vite PWA + Node backend)
 npm run build
 ```
 
 ---
 
-## 📚 Complete Documentation Library (Stored Locally on Laptop)
+## 📚 Complete Documentation Library
 
-- 📖 **[Master Enterprise System Documentation](docs/ENTERPRISE_SYSTEM_DOCUMENTATION.md)** — *Full technical architecture, all 36+ database schemas, REST APIs, and deployment guides.*
+- 📖 **[Master Enterprise System Documentation](docs/ENTERPRISE_SYSTEM_DOCUMENTATION.md)** — *Full technical architecture, all 40+ database schemas, REST APIs, and deployment guides.*
 - 🛠️ **[Detailed Technical Documentation](docs/DETAILED_TECHNICAL_DOCUMENTATION.md)** — *Component lifecycle, undo/redo architecture, and state models.*
 - 🚀 **[Setup & Deployment Guide](docs/SETUP_AND_DEPLOYMENT.md)** — *AWS EC2, Nginx, PM2, and SSL Certbot setup.*
 - 🔧 **[Troubleshooting Guide](docs/TROUBLESHOOTING.md)** — *Common diagnostic commands, database recovery, and service logs.*

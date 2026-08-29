@@ -480,4 +480,94 @@ Modern browsers strictly disallow ServiceWorker registration (`sw.js`) over untr
 
 ---
 
+## 19. FDA 21 CFR PART 11 & ALCOA+ CRYPTOGRAPHIC AUDIT ARCHITECTURE
+
+### 19.1 Mathematical Hash Chaining
+The platform features an append-only, tamper-evident audit ledger (`audit_events` table) enforcing **ALCOA+** (Attributable, Legible, Contemporaneous, Original, Accurate + Complete, Consistent, Enduring, Available) compliance.
+
+Every audit event is cryptographically bound to the preceding event in the organization's chain:
+$$\text{event\_hash} = \text{SHA256}(\text{previous\_hash} + \text{org\_id} + \text{actor\_id} + \text{action} + \text{entity\_type} + \text{entity\_id} + \text{before\_state} + \text{after\_state} + \text{timestamp})$$
+
+- **Genesis Block**: The chain begins with a 64-character zero hash (`0000000000000000000000000000000000000000000000000000000000000000`).
+- **Chain Verification**: [`AuditService.verifyChainIntegrity()`](file:///e:/experimindlabs/inventory/src/services/AuditService.ts) sequentially recalculates every hash in the tenant's history. Any database record insertion, deletion, or column modification produces a broken hash pointer that is instantly pinpointed to the exact sequence number.
+
+---
+
+## 20. REGULATED QUALITY MANAGEMENT SYSTEM (QMS)
+
+The QMS suite provides full lifecycle tracking for medical device and regulated electronics manufacturing under **ISO 9001 and ISO 13485**:
+
+```
+[ Inbound Supplier Delivery ]
+             │
+             ▼
+   [ Quality Inspection ] ──── (Passed) ────► [ Release to General Stock ]
+             │
+         (Failed)
+             ▼
+   [ Deviation / NCR Logged ] ──── (Under Investigation)
+             │
+             ▼
+   [ Disposition Approved ] (Scrap / Rework / RTV)
+             │
+             ▼
+   [ CAPA Initiated (5-Whys) ] ──── (Action Plans) ────► [ Effectiveness Verified & Closed ]
+```
+
+1. **Inbound Inspections (`quality_inspections`)**: Records sampling checklists, measured values, defect counts, and inspection notes. Failed inspections automatically trigger an linked NCR record.
+2. **Deviations / NCR (`deviations`)**: Severity triage (`CRITICAL`, `MAJOR`, `MINOR`), immediate containment actions, root-cause investigation, and disposition assignment (`USE_AS_IS`, `REWORK`, `SCRAP`, `RETURN_TO_VENDOR`).
+3. **Corrective and Preventive Actions (`capas`)**: 5-Whys methodology, multi-stakeholder corrective/preventive action assignments, target completion dates, and effectiveness verification.
+4. **Engineering Change Orders (`change_requests`)**: BOM revision change control, impact assessments, and Change Control Board (CCB) sign-offs.
+5. **Reverse Logistics (`rmas` & `rma_lines`)**: Item-level condition grading (`NEW_UNOPENED`, `OPEN_BOX`, `DAMAGED`), quarantine inspection, and automatic stock ledger restock on disposition.
+
+---
+
+## 21. FDA 21 CFR PART 11 ELECTRONIC SIGNATURES
+
+The Electronic Signature engine ([`ElectronicSignatureService.ts`](file:///e:/experimindlabs/inventory/src/services/ElectronicSignatureService.ts) & [`ElectronicSignatureModal.tsx`](file:///e:/experimindlabs/inventory/src/shared/components/ElectronicSignatureModal.tsx)) enforces the legal equivalent of handwritten signatures:
+
+- **Identity Re-Authentication**: Signers must provide account password confirmation and 2FA TOTP code (if MFA is enabled).
+- **Cryptographic Binding**:
+  $$\text{record\_hash} = \text{SHA256}(\text{JSON.stringify}(\text{recordData}))$$
+  $$\text{signature\_digest} = \text{SHA256}(\text{record\_hash} + \text{userId} + \text{signerName} + \text{meaning} + \text{timestamp})$$
+- **Standardized Signature Meanings**: `AUTHORED`, `REVIEWED`, `APPROVED`, `QUALITY_RELEASED`, `DISPOSITION_APPROVED`, `COUNT_VARIANCE_APPROVED`, `CAPA_CLOSED`.
+- **Post-Signature Tamper Detection**: If a signed record is modified, `ElectronicSignatureService.verifyRecordSignature()` flags the violation.
+
+---
+
+## 22. GS1-128 BARCODES & ZEBRA ZPL-II PRINTING
+
+### 22.1 GS1-128 Application Identifiers
+The GS1 engine ([`Gs1BarcodeService.ts`](file:///e:/experimindlabs/inventory/src/services/Gs1BarcodeService.ts)) encodes and parses standard composite barcode strings:
+- `(01)`: 14-digit Global Trade Item Number (GTIN)
+- `(10)`: Batch / Lot Number
+- `(17)`: Expiration Date (`YYMMDD`)
+- `(21)`: Serial Number
+- `(00)`: Serial Shipping Container Code (SSCC-18)
+
+### 22.2 Industrial Zebra ZPL-II Code Generation
+[`ZplPrintService.ts`](file:///e:/experimindlabs/inventory/src/services/ZplPrintService.ts) generates 203 DPI industrial Zebra Programming Language (ZPL-II) code for direct thermal and thermal transfer printers (e.g. Zebra ZT411, ZD421).
+
+---
+
+## 23. REAL-TIME SERVER-SENT EVENTS (SSE) STREAM
+
+To eliminate redundant 15-endpoint polling loops, the server exposes a persistent Server-Sent Events stream at `GET /api/v1/stream/events`:
+
+- **Tenant Isolation**: Broadcasts are targeted per organization ID.
+- **Keepalive Heartbeat**: Automated 25-second ping prevents proxy timeouts.
+- **Event Types**: `STOCK_UPDATE`, `PO_UPDATE`, `SO_UPDATE`, `TRANSFER_UPDATE`, `CYCLE_COUNT_UPDATE`, `QMS_ALERT`.
+- **Reactive UI**: [`src/DataContext.tsx`](file:///e:/experimindlabs/inventory/src/DataContext.tsx) automatically updates local React state upon receiving events.
+
+---
+
+## 24. DOMAIN ROUTING & PRODUCTION ACCESS
+
+- 🏢 **Platform ERP Cockpit**: [https://inventory.experimindlabs.com/](https://inventory.experimindlabs.com/)
+- 🛍️ **Public Customer Storefront**: [https://shop.experimindlabs.com/](https://shop.experimindlabs.com/)
+- ⚡ **Direct Server IP**: `http://13.233.142.180`
+
+---
+
 *This document is maintained strictly on your machine at `docs/ENTERPRISE_SYSTEM_DOCUMENTATION.md`.*
+
