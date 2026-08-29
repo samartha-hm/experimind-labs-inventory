@@ -22,8 +22,10 @@ import { InventoryItem, KitBOM } from '@/src/types';
 import BarcodeStudioModal from '@/src/shared/components/BarcodeStudioModal';
 import BarcodeScannerModal from '@/src/shared/components/BarcodeScannerModal';
 import TenantOnboardingModal from '@/src/features/tenant/components/TenantOnboardingModal';
+import UserProfileModal from '@/src/shared/components/UserProfileModal';
 import { useTenant } from '@/src/contexts/TenantContext';
 import { useUndoRedo } from '@/src/contexts/UndoRedoContext';
+import { useAuth } from '@/src/AuthContext';
 
 interface HeaderProps {
   inventory: InventoryItem[];
@@ -52,12 +54,14 @@ export default function Header({
   onOpenBarcodeScanner,
   onToggleMobileMenu,
 }: HeaderProps) {
+  const { user } = useAuth();
   const { activeTenant, tenants, setActiveTenantId, theme, toggleTheme } = useTenant();
   const { past, future, undo, redo, isProcessing } = useUndoRedo();
   const [isQuickCreateOpen, setIsQuickCreateOpen] = useState(false);
   const [isTenantMenuOpen, setIsTenantMenuOpen] = useState(false);
   const [isOnboardingOpen, setIsOnboardingOpen] = useState(false);
   const [isScannerOpen, setIsScannerOpen] = useState(false);
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
 
   const lowStockCount = inventory.filter(
     (item) => item.stockQty < item.threshold && !item.isCommon
@@ -238,6 +242,22 @@ export default function Header({
               </div>
             )}
           </div>
+
+          {/* User Account Profile Pill */}
+          <div className="relative">
+            <button
+              onClick={() => setIsProfileOpen(true)}
+              className="flex items-center gap-2 p-1.5 pl-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 text-xs font-bold transition-all cursor-pointer"
+              title="Open Account Profile & Security Settings"
+            >
+              <div className="w-7 h-7 rounded-lg bg-gradient-to-tr from-indigo-600 to-purple-600 flex items-center justify-center text-white text-xs font-black shadow-xs">
+                {(user?.name || user?.email || 'A').charAt(0).toUpperCase()}
+              </div>
+              <span className="hidden md:inline text-slate-800 dark:text-slate-200 font-bold max-w-[120px] truncate">
+                {user?.name || 'Account'}
+              </span>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -245,6 +265,12 @@ export default function Header({
       <TenantOnboardingModal
         isOpen={isOnboardingOpen}
         onClose={() => setIsOnboardingOpen(false)}
+      />
+
+      {/* User Profile Modal */}
+      <UserProfileModal
+        isOpen={isProfileOpen}
+        onClose={() => setIsProfileOpen(false)}
       />
     </header>
   );

@@ -297,9 +297,16 @@ export default function VisualStockRoom() {
       shelves: tiers
     };
 
-    setRacks(prev => [...prev, createdUnit]);
+    const nextRacks = [...racks, createdUnit];
+    setRacks(nextRacks);
     setSelectedRackId(createdUnit.id);
     setIsCreateRackOpen(false);
+    
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(nextRacks));
+    } catch (_) {}
+    savePhysicalRacks(nextRacks);
+    
     showToast('success', 'Storage Unit Created', `Created "${createdUnit.name}" with ${numTiers} tiers.`);
   };
 
@@ -320,7 +327,7 @@ export default function VisualStockRoom() {
     e.preventDefault();
     if (!editRackForm.name.trim() || !editRackForm.code.trim()) return;
 
-    setRacks(prev => prev.map(rack => {
+    const nextRacks = racks.map(rack => {
       if (rack.id !== selectedRackId) return rack;
       return {
         ...rack,
@@ -330,22 +337,38 @@ export default function VisualStockRoom() {
         zone: editRackForm.zone.trim(),
         warehouseCode: editRackForm.warehouseCode
       };
-    }));
+    });
+
+    setRacks(nextRacks);
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(nextRacks));
+    } catch (_) {}
+    savePhysicalRacks(nextRacks);
 
     showToast('success', 'Storage Unit Updated', `Saved changes for "${editRackForm.name}"`);
     setIsEditRackOpen(false);
   };
 
   // DELETE STORAGE UNIT
-  const handleDeleteStorageUnit = () => {
+  const handleDeleteStorageUnit = async () => {
     if (racks.length <= 1) {
       alert('You must have at least one active storage unit.');
       return;
     }
     if (confirm(`Are you sure you want to delete storage unit "${activeRack.name}"?`)) {
-      const remaining = racks.filter(r => r.id !== selectedRackId);
+      const targetId = activeRack.id;
+      const targetCode = activeRack.code;
+      const remaining = racks.filter(r => r.id !== targetId && r.code !== targetCode);
+      
       setRacks(remaining);
-      setSelectedRackId(remaining[0].id);
+      setSelectedRackId(remaining[0]?.id || remaining[0]?.code || 'FABLAB_1');
+      
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(remaining));
+      } catch (_) {}
+      
+      await savePhysicalRacks(remaining);
+      
       showToast('info', 'Storage Unit Removed', `Deleted "${activeRack.name}".`);
       setIsEditRackOpen(false);
     }
@@ -664,9 +687,9 @@ export default function VisualStockRoom() {
           </div>
         </div>
 
-        {/* Selected Storage Unit Meta Bar */}
-        <div className="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-200/60 dark:border-slate-700/60 flex flex-wrap items-center justify-between gap-2 text-xs font-medium">
-          <div className="flex items-center gap-3">
+        {/* Selected Storage Unit Meta Bar with Edit & Delete Controls */}
+        <div className="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-200/60 dark:border-slate-700/60 flex flex-wrap items-center justify-between gap-3 text-xs font-medium">
+          <div className="flex flex-wrap items-center gap-3">
             <span className="font-mono text-indigo-600 dark:text-indigo-400 font-bold">{activeRack.code}</span>
             <span className="text-slate-400">•</span>
             <span className="text-slate-700 dark:text-slate-300 font-bold">{activeRack.name}</span>
@@ -675,6 +698,30 @@ export default function VisualStockRoom() {
             <span className="px-2 py-0.5 rounded-md bg-indigo-100 dark:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 text-[10px] font-bold">
               Facility: {activeRack.warehouseCode}
             </span>
+
+            {/* Direct Edit & Delete Action Buttons */}
+            <div className="flex items-center gap-1.5 ml-2">
+              <button
+                type="button"
+                onClick={handleOpenEditRack}
+                className="px-2.5 py-1 bg-white dark:bg-slate-800 hover:bg-slate-100 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-600 rounded-lg text-[11px] font-bold transition-all cursor-pointer flex items-center gap-1 shadow-xs"
+                title="Edit Unit Name, Code, Facility & Zone"
+              >
+                <Edit2 className="w-3 h-3 text-indigo-500" />
+                <span>Edit Unit</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleDeleteStorageUnit}
+                disabled={racks.length <= 1}
+                className="px-2.5 py-1 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg text-[11px] font-bold transition-all cursor-pointer flex items-center gap-1 disabled:opacity-40"
+                title="Delete this entire storage unit"
+              >
+                <Trash2 className="w-3 h-3 text-rose-600" />
+                <span>Delete Unit</span>
+              </button>
+            </div>
           </div>
 
           <div className="flex items-center gap-3 text-xs font-mono">

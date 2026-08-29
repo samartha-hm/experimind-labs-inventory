@@ -45,11 +45,28 @@ router.post("/physical-racks/bulk", async (req: Request, res: Response): Promise
       return;
     }
 
+    const where: any = {};
+    if (orgId) where.organizationId = orgId;
+    const existingDbRacks = await rackRepo.find({ where });
+
+    // 1. Delete any racks in the database that are no longer in the incoming racks array
+    const incomingCodes = new Set(racks.map((r) => r.code).filter(Boolean));
+    const incomingIds = new Set(racks.map((r) => r.id).filter(Boolean));
+
+    const toDelete = existingDbRacks.filter(
+      (dbRack) => !incomingCodes.has(dbRack.code) && !incomingIds.has(dbRack.id)
+    );
+
+    if (toDelete.length > 0) {
+      await rackRepo.remove(toDelete);
+    }
+
+    // 2. Upsert the remaining/new racks
     const savedRacks: PhysicalRack[] = [];
     for (const r of racks) {
-      let existing = await rackRepo.findOne({
-        where: { code: r.code, ...(orgId ? { organizationId: orgId } : {}) },
-      });
+      let existing = existingDbRacks.find(
+        (db) => (r.id && db.id === r.id) || (r.code && db.code === r.code)
+      );
 
       if (!existing) {
         existing = rackRepo.create({
@@ -63,6 +80,7 @@ router.post("/physical-racks/bulk", async (req: Request, res: Response): Promise
           organizationId: orgId,
         });
       } else {
+        existing.code = r.code ?? existing.code;
         existing.name = r.name ?? existing.name;
         existing.zone = r.zone ?? existing.zone;
         existing.type = r.type ?? existing.type;
@@ -118,7 +136,10 @@ router.put("/physical-racks/:id", async (req: Request, res: Response): Promise<v
     const updates = req.body;
 
     const rack = await rackRepo.findOne({
-      where: { id, ...(orgId ? { organizationId: orgId } : {}) },
+      where: [
+        { id, ...(orgId ? { organizationId: orgId } : {}) },
+        { code: id, ...(orgId ? { organizationId: orgId } : {}) },
+      ],
     });
 
     if (!rack) {
@@ -141,7 +162,10 @@ router.delete("/physical-racks/:id", async (req: Request, res: Response): Promis
     const orgId = (req as any).orgId || (req as any).organizationId;
 
     const rack = await rackRepo.findOne({
-      where: { id, ...(orgId ? { organizationId: orgId } : {}) },
+      where: [
+        { id, ...(orgId ? { organizationId: orgId } : {}) },
+        { code: id, ...(orgId ? { organizationId: orgId } : {}) },
+      ],
     });
 
     if (!rack) {

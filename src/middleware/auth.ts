@@ -18,11 +18,17 @@ export const authenticateJwt = (
   next: NextFunction
 ) => {
   const authHeader = req.headers.authorization;
-  if (!authHeader?.startsWith("Bearer ")) {
-    return res.status(401).json({ error: "Missing or malformed Authorization header" });
+  let token: string | undefined;
+
+  if (authHeader?.startsWith("Bearer ")) {
+    token = authHeader.split(" ")[1];
+  } else if (req.query && typeof req.query.token === "string") {
+    token = req.query.token;
   }
 
-  const token = authHeader.split(" ")[1];
+  if (!token) {
+    return res.status(401).json({ error: "Missing or malformed Authorization token" });
+  }
 
   try {
     const payload = jwt.verify(token, env.jwtSecret) as JwtPayload & {

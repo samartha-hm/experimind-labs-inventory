@@ -83,9 +83,9 @@ export class SerialNumber {
   @Column({ type: "jsonb", default: [] })
   history!: SerialAuditLog[];
 
-  @Column({ type: "uuid", nullable: true })
+  @Column({ type: "uuid", default: "00000000-0000-0000-0000-000000000000" })
   @Index()
-  organizationId?: string;
+  organizationId: string = "00000000-0000-0000-0000-000000000000";
 
   @CreateDateColumn({ type: "timestamptz" })
   createdAt!: Date;

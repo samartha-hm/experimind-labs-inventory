@@ -37,6 +37,19 @@ import { CycleCount } from "./entity/CycleCount.ts";
 import { CycleCountLine } from "./entity/CycleCountLine.ts";
 import { Role } from "./entity/Role.ts";
 import { Session } from "./entity/Session.ts";
+import { StockLocation } from "./entity/StockLocation.ts";
+import { StockLot } from "./entity/StockLot.ts";
+import { StockByLot } from "./entity/StockByLot.ts";
+import { UomConversion } from "./entity/UomConversion.ts";
+import { AuditEvent } from "./entity/AuditEvent.ts";
+import { ElectronicSignature } from "./entity/ElectronicSignature.ts";
+import { QualityInspection } from "./entity/QualityInspection.ts";
+import { Deviation } from "./entity/Deviation.ts";
+import { Capa } from "./entity/Capa.ts";
+import { ChangeRequest } from "./entity/ChangeRequest.ts";
+import { Rma } from "./entity/Rma.ts";
+import { RmaLine } from "./entity/RmaLine.ts";
+
 import { Init1689500000000 } from "./migration/1689500000000-Init.ts";
 import { AddOrgAuditOrdersInvoices1689500000001 } from "./migration/1689500000001-AddOrgAuditOrdersInvoices.ts";
 import { SeedDefaultOrganization1689500000002 } from "./migration/1689500000002-SeedDefaultOrganization.ts";
@@ -47,6 +60,8 @@ import { SeedAdminUser1689500000006 } from "./migration/1689500000006-SeedAdminU
 import { AddVisualWarehouseAndSerialNumbers1689500000007 } from "./migration/1689500000007-AddVisualWarehouseAndSerialNumbers.ts";
 import { AddStockLedgerAndWmsOps1689500000008 } from "./migration/1689500000008-AddStockLedgerAndWmsOps.ts";
 import { AddRbacAndSessions1689500000009 } from "./migration/1689500000009-AddRbacAndSessions.ts";
+import { EnterpriseMultiLocationAndAuditCore1689500000010 } from "./migration/1689500000010-EnterpriseMultiLocationAndAuditCore.ts";
+import { AddQmsAndESignatures1689500000011 } from "./migration/1689500000011-AddQmsAndESignatures.ts";
 
 const isLocalhostDb = env.databaseUrl.includes("localhost") || env.databaseUrl.includes("127.0.0.1");
 
@@ -56,6 +71,11 @@ export const AppDataSource = new DataSource({
   ssl: isLocalhostDb ? false : { rejectUnauthorized: false },
   synchronize: false, // Use migrations for production DB schema changes
   logging: env.nodeEnv === "development" ? ["error", "warn"] : ["error"],
+  extra: {
+    max: 25, // Connection pool size
+    idleTimeoutMillis: 30000,
+    connectionTimeoutMillis: 5000,
+  },
   entities: [
     User,
     InventoryItem,
@@ -92,6 +112,18 @@ export const AppDataSource = new DataSource({
     CycleCountLine,
     Role,
     Session,
+    StockLocation,
+    StockLot,
+    StockByLot,
+    UomConversion,
+    AuditEvent,
+    ElectronicSignature,
+    QualityInspection,
+    Deviation,
+    Capa,
+    ChangeRequest,
+    Rma,
+    RmaLine,
   ],
   migrations: [
     Init1689500000000,
@@ -104,6 +136,8 @@ export const AppDataSource = new DataSource({
     AddVisualWarehouseAndSerialNumbers1689500000007,
     AddStockLedgerAndWmsOps1689500000008,
     AddRbacAndSessions1689500000009,
+    EnterpriseMultiLocationAndAuditCore1689500000010,
+    AddQmsAndESignatures1689500000011,
   ],
   subscribers: [],
 });

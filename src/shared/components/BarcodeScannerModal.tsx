@@ -52,7 +52,8 @@ import {
   Copy,
   Filter,
   Download,
-  AlertCircle
+  AlertCircle,
+  Shield
 } from 'lucide-react';
 import { useData } from '@/src/DataContext';
 import { useToast } from '@/src/contexts/ToastContext';
@@ -430,8 +431,8 @@ export default function BarcodeScannerModal({
     if (!navigator?.mediaDevices || typeof navigator.mediaDevices.getUserMedia !== 'function') {
       const isHttps = typeof window !== 'undefined' && (window.location.protocol === 'https:' || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
       const msg = isHttps
-        ? 'No camera hardware detected. Hardware USB barcode scanner, photo file upload, and manual SKU search are active.'
-        : 'Camera streaming requires HTTPS or localhost. Hardware USB barcode guns, photo uploads, and manual lookup are ready.';
+        ? 'No camera hardware detected. Use the Mobile Camera Snapper, photo upload, or manual SKU search.'
+        : 'Continuous video streaming requires HTTPS. Tap "Snap & Scan Camera" below or switch to HTTPS to enable live scanning.';
       setCameraError(msg);
       setIsStartingCamera(false);
       setIsCameraActive(false);
@@ -443,14 +444,37 @@ export default function BarcodeScannerModal({
         streamRef.current.getTracks().forEach(t => t.stop());
       }
 
-      const constraints: MediaStreamConstraints = {
-        audio: false,
-        video: deviceIdToUse
-          ? { deviceId: { exact: deviceIdToUse }, width: { ideal: 1280 }, height: { ideal: 720 } }
-          : { facingMode, width: { ideal: 1280 }, height: { ideal: 720 } }
-      };
+      let stream: MediaStream | null = null;
+      
+      // Stage 1: Try exact or ideal deviceId / environment facing mode
+      try {
+        const constraints: MediaStreamConstraints = {
+          audio: false,
+          video: deviceIdToUse
+            ? { deviceId: { exact: deviceIdToUse }, width: { ideal: 1280 }, height: { ideal: 720 } }
+            : { facingMode: { ideal: facingMode }, width: { ideal: 1280 }, height: { ideal: 720 } }
+        };
+        stream = await navigator.mediaDevices.getUserMedia(constraints);
+      } catch (err1) {
+        // Stage 2: Fallback to basic facingMode constraint
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({
+            audio: false,
+            video: { facingMode }
+          });
+        } catch (err2) {
+          // Stage 3: Fallback to any available video stream
+          stream = await navigator.mediaDevices.getUserMedia({
+            audio: false,
+            video: true
+          });
+        }
+      }
 
-      const stream = await navigator.mediaDevices.getUserMedia(constraints);
+      if (!stream) {
+        throw new Error('Could not initialize video stream on this device.');
+      }
+
       streamRef.current = stream;
 
       if (videoRef.current) {
@@ -472,21 +496,23 @@ export default function BarcodeScannerModal({
       setIsStartingCamera(false);
 
       // Enumerate available hardware cameras
-      const devices = await navigator.mediaDevices.enumerateDevices();
-      const videoDevices = devices.filter(d => d.kind === 'videoinput');
-      setAvailableCameras(videoDevices);
-      if (videoDevices.length > 0 && !selectedCameraId) {
-        const activeTrack = stream.getVideoTracks()[0];
-        const activeSettings = activeTrack.getSettings();
-        setSelectedCameraId(activeSettings.deviceId || videoDevices[0].deviceId);
-      }
+      try {
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const videoDevices = devices.filter(d => d.kind === 'videoinput');
+        setAvailableCameras(videoDevices);
+        if (videoDevices.length > 0 && !selectedCameraId) {
+          const activeTrack = stream.getVideoTracks()[0];
+          const activeSettings = activeTrack?.getSettings?.();
+          setSelectedCameraId(activeSettings?.deviceId || videoDevices[0].deviceId);
+        }
+      } catch (_) {}
 
       // Initialize frame capture canvas
       if (!frameCanvasRef.current) {
         frameCanvasRef.current = document.createElement('canvas');
       }
 
-      // Continuous Scanning Frame Loop (Runs every 160ms)
+      // Continuous Scanning Frame Loop (Runs every 150ms)
       if (scanIntervalRef.current) clearInterval(scanIntervalRef.current);
       
       let lastFrameDecodeTime = 0;
@@ -496,7 +522,7 @@ export default function BarcodeScannerModal({
         }
 
         const now = Date.now();
-        if (now - lastFrameDecodeTime < 250) return;
+        if (now - lastFrameDecodeTime < 200) return;
 
         isProcessingFrameRef.current = true;
         try {
@@ -515,6 +541,10 @@ export default function BarcodeScannerModal({
             
             if (decodedResult && decodedResult.trim()) {
               lastFrameDecodeTime = now;
+              // Trigger haptic vibration on mobile
+              if (typeof navigator !== 'undefined' && navigator.vibrate) {
+                try { navigator.vibrate(60); } catch (_) {}
+              }
               handleCodeScannedRef.current(decodedResult);
             }
           }
@@ -522,7 +552,7 @@ export default function BarcodeScannerModal({
         } finally {
           isProcessingFrameRef.current = false;
         }
-      }, 160);
+      }, 150);
 
     } catch (err: any) {
       if (err.name !== 'AbortError') {
@@ -912,91 +942,100 @@ export default function BarcodeScannerModal({
 
   if (!isOpen) return null;
 
+  const isCurrentHttp = typeof window !== 'undefined' && window.location.protocol === 'http:' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
+
   return createPortal(
-    <div className="fixed inset-0 w-screen h-screen z-[99999] bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-3 md:p-6 overflow-y-auto animate-fadeIn select-none">
-      <div className="relative my-auto bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl w-full max-w-4xl overflow-hidden flex flex-col max-h-[94vh]">
+    <div className="fixed inset-0 w-screen h-screen z-[99999] bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-1.5 sm:p-3 md:p-6 overflow-y-auto animate-fadeIn select-none">
+      <div className="relative my-auto bg-white dark:bg-slate-900 rounded-2xl sm:rounded-3xl border border-slate-200/90 dark:border-slate-800 shadow-2xl w-full max-w-4xl overflow-hidden flex flex-col max-h-[96vh]">
         
         {/* ========================================================================= */}
-        {/* TOP HEADER */}
+        {/* TOP HEADER (COMPACT & MOBILE POLISHED) */}
         {/* ========================================================================= */}
-        <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/70 dark:bg-slate-900/80 backdrop-blur-md shrink-0">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-indigo-600 flex items-center justify-center text-white shadow-lg shadow-indigo-600/30">
-              <QrCode className="w-5 h-5" />
+        <div className="px-3.5 py-2.5 sm:px-5 sm:py-3 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/90 dark:bg-slate-900/90 backdrop-blur-md shrink-0">
+          <div className="flex items-center gap-2.5 sm:gap-3">
+            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-gradient-to-tr from-indigo-600 to-violet-600 flex items-center justify-center text-white shadow-md shadow-indigo-600/30 ring-1 ring-white/20 shrink-0">
+              <QrCode className="w-4 h-4 sm:w-5 sm:h-5" />
             </div>
             <div>
-              <div className="flex items-center gap-2">
-                <h2 className="text-base font-black text-slate-900 dark:text-white tracking-tight">
+              <div className="flex items-center gap-1.5 sm:gap-2">
+                <h2 className="text-xs sm:text-sm md:text-base font-black text-slate-900 dark:text-white tracking-tight">
                   Universal Barcode & QR Scanner Hub
                 </h2>
-                <span className="px-2 py-0.5 rounded-md text-[9px] font-mono font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
-                  WASM & HARDWARE ACCELERATED
+                <span className="hidden sm:inline-flex px-1.5 py-0.5 rounded text-[8px] sm:text-[9px] font-mono font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                  WASM PRO
                 </span>
               </div>
-              <p className="text-[11px] text-slate-500 dark:text-slate-400 font-mono">
-                ZXing-C++ WebAssembly • 100% Customizable & Editable Batch Audit Suite
+              <p className="text-[10px] sm:text-[11px] text-slate-500 dark:text-slate-400 font-medium truncate max-w-[200px] sm:max-w-none">
+                Real-time Multi-Mode Inventory & Batch Audit Workstation
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1 sm:gap-1.5">
             {/* Audio Toggle */}
             <button
+              type="button"
               onClick={() => setSoundEnabled(!soundEnabled)}
-              className={`p-2 rounded-xl border transition-all cursor-pointer ${
+              className={`p-1.5 sm:p-2 rounded-lg sm:rounded-xl border transition-all cursor-pointer ${
                 soundEnabled
                   ? 'bg-amber-50 dark:bg-amber-950/60 border-amber-200 dark:border-amber-800 text-amber-600 dark:text-amber-400'
                   : 'bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-400'
               }`}
-              title={soundEnabled ? 'Scanner Beep Active' : 'Scanner Muted'}
+              title={soundEnabled ? 'Scanner Audio Beep Active' : 'Scanner Audio Muted'}
             >
-              {soundEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
+              {soundEnabled ? <Volume2 className="w-3.5 h-3.5" /> : <VolumeX className="w-3.5 h-3.5" />}
             </button>
 
             {/* Manage Quick Chips */}
             <button
+              type="button"
               onClick={() => setIsManagingChipsModal(true)}
-              className="p-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 transition-all cursor-pointer"
-              title="Customize quick test barcode chips"
+              className="p-1.5 sm:p-2 rounded-lg sm:rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-all cursor-pointer"
+              title="Customize pinned quick test barcodes"
             >
-              <Tag className="w-4 h-4 text-indigo-500" />
+              <Tag className="w-3.5 h-3.5 text-indigo-500" />
             </button>
 
             {/* Recent History Toggle */}
             <button
+              type="button"
               onClick={() => setIsHistoryOpen(!isHistoryOpen)}
-              className={`px-3 py-2 rounded-xl text-xs font-bold border transition-all flex items-center gap-1.5 cursor-pointer ${
+              className={`px-2 py-1.5 sm:px-2.5 sm:py-2 rounded-lg sm:rounded-xl text-[11px] sm:text-xs font-bold border transition-all flex items-center gap-1 cursor-pointer ${
                 isHistoryOpen
-                  ? 'bg-indigo-600 text-white border-indigo-500'
-                  : 'bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200'
+                  ? 'bg-indigo-600 text-white border-indigo-500 shadow-sm'
+                  : 'bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
               }`}
             >
               <History className="w-3.5 h-3.5" />
-              <span>Log ({recentScanLog.length})</span>
+              <span className="hidden sm:inline">Log</span>
+              <span className="px-1 py-0.2 rounded text-[9px] sm:text-[10px] bg-indigo-500/20 text-indigo-600 dark:text-indigo-300 font-mono">
+                {recentScanLog.length}
+              </span>
             </button>
 
             {/* Close Modal */}
             <button
+              type="button"
               onClick={onClose}
-              className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+              className="p-1.5 sm:p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-lg sm:rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
             >
-              <X className="w-5 h-5" />
+              <X className="w-4 h-4 sm:w-5 sm:h-5" />
             </button>
           </div>
         </div>
 
         {/* ========================================================================= */}
-        {/* RESPONSIVE 6-MODE OPERATION NAVIGATION BAR */}
+        {/* RESPONSIVE 6-MODE SEGMENTED NAVIGATION BAR */}
         {/* ========================================================================= */}
-        <div className="px-6 py-2.5 bg-white dark:bg-slate-900 border-b border-slate-100 dark:border-slate-800 shrink-0">
-          <div className="flex flex-wrap items-center gap-1.5">
+        <div className="px-3 py-2 sm:px-5 sm:py-2 bg-slate-50/50 dark:bg-slate-900/60 border-b border-slate-100 dark:border-slate-800 shrink-0">
+          <div className="grid grid-cols-3 sm:grid-cols-6 gap-1 p-0.5 sm:p-1 bg-slate-100/80 dark:bg-slate-950/80 rounded-xl sm:rounded-2xl border border-slate-200/80 dark:border-slate-800">
             {[
-              { mode: 'inspect', label: '1. Inspect & Monitor', icon: Search, color: 'text-indigo-500' },
-              { mode: 'inbound', label: '2. Inbound (+ Receive)', icon: Plus, color: 'text-emerald-500' },
-              { mode: 'outbound', label: '3. Outbound (- Pick)', icon: Minus, color: 'text-rose-500' },
-              { mode: 'batch', label: '4. Batch Audit Session', icon: FileSpreadsheet, color: 'text-amber-500' },
-              { mode: 'relocate', label: '5. Bin Putaway / Relocate', icon: MapPin, color: 'text-cyan-500' },
-              { mode: 'kit_picking', label: '6. Kit BOM Checklist', icon: ClipboardList, color: 'text-purple-500' },
+              { mode: 'inspect', label: 'Inspect', icon: Search, color: 'text-indigo-500' },
+              { mode: 'inbound', label: 'Inbound (+)', icon: Plus, color: 'text-emerald-500' },
+              { mode: 'outbound', label: 'Outbound (-)', icon: Minus, color: 'text-rose-500' },
+              { mode: 'batch', label: 'Batch Audit', icon: FileSpreadsheet, color: 'text-amber-500' },
+              { mode: 'relocate', label: 'Bin Putaway', icon: MapPin, color: 'text-cyan-500' },
+              { mode: 'kit_picking', label: 'Kit Pick', icon: ClipboardList, color: 'text-purple-500' },
             ].map((tab) => {
               const Icon = tab.icon;
               const isActive = activeMode === tab.mode;
@@ -1004,18 +1043,19 @@ export default function BarcodeScannerModal({
               return (
                 <button
                   key={tab.mode}
+                  type="button"
                   onClick={() => {
                     setActiveMode(tab.mode as ScanOperationMode);
                     setRelocateStep('scan_item');
                   }}
-                  className={`px-3 py-2 rounded-xl font-black text-xs transition-all flex items-center gap-1.5 cursor-pointer shrink-0 ${
+                  className={`py-1.5 px-1 sm:py-2 sm:px-2 rounded-lg sm:rounded-xl font-bold text-[10px] sm:text-xs transition-all flex items-center justify-center gap-1 cursor-pointer text-center truncate ${
                     isActive
-                      ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20'
-                      : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800/80'
+                      ? 'bg-white dark:bg-slate-800 text-indigo-600 dark:text-white shadow-xs ring-1 ring-slate-200/80 dark:ring-slate-700'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-white/50 dark:hover:bg-slate-800/40'
                   }`}
                 >
-                  <Icon className={`w-3.5 h-3.5 ${isActive ? 'text-white' : tab.color}`} />
-                  <span>{tab.label}</span>
+                  <Icon className={`w-3 h-3 sm:w-3.5 sm:h-3.5 shrink-0 ${isActive ? 'text-indigo-600 dark:text-indigo-400' : tab.color}`} />
+                  <span className="truncate">{tab.label}</span>
                 </button>
               );
             })}
@@ -1025,32 +1065,32 @@ export default function BarcodeScannerModal({
         {/* ========================================================================= */}
         {/* MAIN SCROLLABLE CONTENT BODY */}
         {/* ========================================================================= */}
-        <div className="p-6 overflow-y-auto space-y-5 custom-scrollbar flex-1">
+        <div className="p-3 sm:p-4 md:p-5 overflow-y-auto space-y-3 sm:space-y-4 custom-scrollbar flex-1">
           
           {/* Mode Context Description & Customizable Qty Step Bar */}
-          <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/80 flex flex-wrap items-center justify-between gap-2 text-xs">
-            <div className="flex items-center gap-2">
-              <span className="font-bold text-slate-800 dark:text-slate-200">
-                {activeMode === 'inspect' && '🔍 Mode 1: Component Inspection & Real-time Stock Health'}
-                {activeMode === 'inbound' && '📥 Mode 2: Inbound Goods Receiving & Intake (+ Stock)'}
-                {activeMode === 'outbound' && '📤 Mode 3: Outbound Picking & Dispatch Deduct (- Stock)'}
-                {activeMode === 'batch' && '📋 Mode 4: Batch Multi-Scan Audit & Bulk Inventory Editing Workstation'}
-                {activeMode === 'relocate' && '📍 Mode 5: Storage Bin Putaway & Slot Relocation'}
-                {activeMode === 'kit_picking' && '🧰 Mode 6: Kit BOM Assembly & Picking Checklist'}
+          <div className="p-2 sm:p-2.5 rounded-xl sm:rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/80 dark:border-slate-800 flex flex-wrap items-center justify-between gap-1.5 text-[11px] sm:text-xs">
+            <div className="flex items-center gap-1.5">
+              <span className="font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1">
+                {activeMode === 'inspect' && '🔍 Inspect Mode: Component Specs & Real-Time Stock Health'}
+                {activeMode === 'inbound' && '📥 Inbound Mode: Quick Intake & Goods Receiving (+ Stock)'}
+                {activeMode === 'outbound' && '📤 Outbound Mode: Dispatch Picking & Material Deduction (- Stock)'}
+                {activeMode === 'batch' && '📋 Batch Audit: Multi-Scan Session & Valuation Diff Ledger'}
+                {activeMode === 'relocate' && '📍 Putaway Mode: Facility Bin Slotting & Relocation'}
+                {activeMode === 'kit_picking' && '🧰 Kit BOM Mode: Assembly Picking & Verification Checklist'}
               </span>
             </div>
 
             {/* Quick Step Quantity Multipliers */}
             {(activeMode === 'inbound' || activeMode === 'outbound' || activeMode === 'batch') && (
-              <div className="flex items-center gap-1.5">
-                <span className="text-[10px] uppercase font-bold text-slate-400">Qty Multiplier:</span>
-                <div className="flex items-center bg-white dark:bg-slate-900 rounded-xl p-0.5 border border-slate-200 dark:border-slate-700">
+              <div className="flex items-center gap-1">
+                <span className="text-[9px] sm:text-[10px] uppercase font-bold text-slate-400">Step:</span>
+                <div className="flex items-center bg-white dark:bg-slate-900 rounded-lg sm:rounded-xl p-0.5 border border-slate-200 dark:border-slate-700">
                   {stepPresets.map((step) => (
                     <button
                       key={step}
                       type="button"
                       onClick={() => setCustomQtyStep(step)}
-                      className={`px-2 py-0.5 rounded-lg text-[10px] font-mono font-bold transition-all cursor-pointer ${
+                      className={`px-1.5 py-0.2 sm:px-2 sm:py-0.5 rounded-md text-[9px] sm:text-[10px] font-mono font-bold transition-all cursor-pointer ${
                         customQtyStep === step
                           ? 'bg-indigo-600 text-white shadow-xs'
                           : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
@@ -1065,10 +1105,10 @@ export default function BarcodeScannerModal({
                       setStepInputText(stepPresets.join(', '));
                       setIsEditingStepsModal(true);
                     }}
-                    className="px-1.5 py-0.5 text-slate-400 hover:text-indigo-600 text-[10px] cursor-pointer"
+                    className="px-1 py-0.2 text-slate-400 hover:text-indigo-600 text-[9px] cursor-pointer"
                     title="Customize quantity multiplier steps"
                   >
-                    <Settings className="w-3 h-3" />
+                    <Settings className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
                   </button>
                 </div>
               </div>
@@ -1076,15 +1116,15 @@ export default function BarcodeScannerModal({
 
             {/* Kit Selector for Kit BOM Picking Mode */}
             {activeMode === 'kit_picking' && (
-              <div className="flex items-center gap-2">
-                <span className="text-[10px] uppercase font-bold text-slate-400">Target Kit:</span>
+              <div className="flex items-center gap-1.5">
+                <span className="text-[9px] sm:text-[10px] uppercase font-bold text-slate-400">Target Kit:</span>
                 <select
                   value={selectedKitId}
                   onChange={(e) => {
                     setSelectedKitId(e.target.value);
                     setScannedKitItems({});
                   }}
-                  className="px-2.5 py-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-900 dark:text-white"
+                  className="px-2 py-0.5 sm:px-2.5 sm:py-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg sm:rounded-xl text-[11px] sm:text-xs font-bold text-slate-900 dark:text-white cursor-pointer"
                 >
                   {kits.map(k => (
                     <option key={k.id} value={k.id}>{k.name} ({k.items?.length || 0} Parts)</option>
@@ -1095,27 +1135,27 @@ export default function BarcodeScannerModal({
           </div>
 
           {/* ========================================================================= */}
-          {/* CAMERA VIEWFINDER & HARDWARE HUD */}
+          {/* AUTHENTIC INDUSTRIAL LASER SCANNER HUD & VIEWFINDER */}
           {/* ========================================================================= */}
-          <div className="space-y-2">
+          <div className="space-y-1.5">
             
             {/* Viewfinder Controls Toolbar */}
-            <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
-              <div className="flex items-center gap-2">
-                <span className="font-bold text-slate-400 text-[11px] flex items-center gap-1.5">
-                  <Camera className="w-3.5 h-3.5 text-indigo-500" />
-                  Live Camera Feed:
+            <div className="flex flex-wrap items-center justify-between gap-1.5 text-xs">
+              <div className="flex items-center gap-1.5">
+                <span className="font-bold text-slate-500 dark:text-slate-400 text-[10px] sm:text-[11px] flex items-center gap-1">
+                  <span className={`w-2 h-2 rounded-full ${isCameraActive ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}`} />
+                  {isCameraActive ? 'Live Scanner Active' : 'Optical Viewfinder:'}
                 </span>
                 
-                {/* Readable Camera Switcher Dropdown */}
-                {availableCameras.length > 0 && (
+                {/* Camera Switcher Dropdown */}
+                {availableCameras.length > 1 && (
                   <select
                     value={selectedCameraId}
                     onChange={(e) => {
                       setSelectedCameraId(e.target.value);
                       startCameraStream(e.target.value);
                     }}
-                    className="px-2.5 py-1 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-800 dark:text-slate-200 focus:outline-none cursor-pointer max-w-[200px] truncate"
+                    className="px-2 py-0.5 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-[10px] sm:text-[11px] font-bold text-slate-800 dark:text-slate-200 focus:outline-none cursor-pointer max-w-[160px] truncate"
                   >
                     {availableCameras.map((cam, idx) => (
                       <option key={cam.deviceId} value={cam.deviceId}>
@@ -1127,124 +1167,165 @@ export default function BarcodeScannerModal({
               </div>
 
               {/* Hardware Quick Action Controls */}
-              <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-1">
                 <button
                   type="button"
                   onClick={handleFlipCamera}
-                  className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl text-[11px] font-bold transition-all flex items-center gap-1 cursor-pointer"
+                  className="px-2 py-0.5 sm:px-2.5 sm:py-1 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-lg sm:rounded-xl text-[10px] sm:text-[11px] font-bold transition-all flex items-center gap-1 cursor-pointer"
                   title="Switch between front and back camera"
                 >
-                  <FlipHorizontal className="w-3.5 h-3.5" /> Flip
+                  <FlipHorizontal className="w-3 h-3 sm:w-3.5 sm:h-3.5" /> Flip
                 </button>
 
                 <button
                   type="button"
                   onClick={handleToggleTorch}
-                  className={`px-2.5 py-1 rounded-xl text-[11px] font-bold transition-all flex items-center gap-1 cursor-pointer ${
+                  className={`px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-lg sm:rounded-xl text-[10px] sm:text-[11px] font-bold transition-all flex items-center gap-1 cursor-pointer ${
                     isTorchOn
-                      ? 'bg-amber-500 text-slate-950 font-black'
+                      ? 'bg-amber-500 text-slate-950 font-black shadow-xs'
                       : 'bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300'
                   }`}
                   title="Toggle hardware flashlight"
                 >
-                  <Flashlight className="w-3.5 h-3.5" /> {isTorchOn ? 'Torch ON' : 'Torch'}
+                  <Flashlight className="w-3 h-3 sm:w-3.5 sm:h-3.5" /> {isTorchOn ? 'Torch ON' : 'Torch'}
                 </button>
 
                 <button
                   type="button"
                   onClick={() => setIsCameraPaused(!isCameraPaused)}
-                  className={`px-2.5 py-1 rounded-xl text-[11px] font-bold transition-all flex items-center gap-1 cursor-pointer ${
+                  className={`px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-lg sm:rounded-xl text-[10px] sm:text-[11px] font-bold transition-all flex items-center gap-1 cursor-pointer ${
                     isCameraPaused
-                      ? 'bg-emerald-600 text-white'
+                      ? 'bg-emerald-600 text-white shadow-xs'
                       : 'bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300'
                   }`}
                 >
-                  {isCameraPaused ? <Play className="w-3.5 h-3.5" /> : <Pause className="w-3.5 h-3.5" />}
+                  {isCameraPaused ? <Play className="w-3 h-3 sm:w-3.5 sm:h-3.5" /> : <Pause className="w-3 h-3 sm:w-3.5 sm:h-3.5" />}
                   {isCameraPaused ? 'Resume' : 'Pause'}
                 </button>
               </div>
             </div>
 
-            {/* Video Viewfinder Container */}
-            <div className={`relative rounded-3xl overflow-hidden bg-slate-950 border-2 transition-all shadow-2xl h-[240px] md:h-[280px] flex items-center justify-center ${
-              scanPulse ? 'border-emerald-400 ring-4 ring-emerald-500/30' : 'border-slate-800'
+            {/* Video Viewfinder Container with Realistic Scanner HUD */}
+            <div className={`relative rounded-2xl sm:rounded-3xl overflow-hidden bg-slate-950 border-2 transition-all shadow-xl h-[190px] sm:h-[230px] md:h-[260px] flex items-center justify-center ${
+              scanPulse ? 'border-emerald-400 ring-4 ring-emerald-500/40' : 'border-slate-800'
             }`}>
               
               <video
                 ref={videoRef}
                 playsInline
+                autoPlay
                 muted
                 className="w-full h-full object-cover"
               />
 
-              {/* Viewfinder Target Reticle & Laser Sweep Animation */}
-              <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
-                <div className="w-[75%] h-[60%] border-2 border-dashed border-indigo-400/70 rounded-2xl relative flex items-center justify-center backdrop-contrast-125">
-                  <div className="absolute -top-1 -left-1 w-4 h-4 border-t-2 border-l-2 border-indigo-400" />
-                  <div className="absolute -top-1 -right-1 w-4 h-4 border-t-2 border-r-2 border-indigo-400" />
-                  <div className="absolute -bottom-1 -left-1 w-4 h-4 border-b-2 border-l-2 border-indigo-400" />
-                  <div className="absolute -bottom-1 -right-1 w-4 h-4 border-b-2 border-r-2 border-indigo-400" />
+              {/* Realistic Industrial Scanner Targeting Reticle */}
+              <div className="absolute inset-0 pointer-events-none flex items-center justify-center p-4">
+                <div className="w-[72%] max-w-[360px] h-[65%] max-h-[170px] border-2 border-dashed border-indigo-400/50 rounded-2xl relative flex items-center justify-center backdrop-contrast-125">
+                  {/* Glowing Corner Brackets */}
+                  <div className="absolute -top-1.5 -left-1.5 w-5 h-5 border-t-3 border-l-3 border-cyan-400 rounded-tl-md shadow-[0_0_8px_#22d3ee]" />
+                  <div className="absolute -top-1.5 -right-1.5 w-5 h-5 border-t-3 border-r-3 border-cyan-400 rounded-tr-md shadow-[0_0_8px_#22d3ee]" />
+                  <div className="absolute -bottom-1.5 -left-1.5 w-5 h-5 border-b-3 border-l-3 border-cyan-400 rounded-bl-md shadow-[0_0_8px_#22d3ee]" />
+                  <div className="absolute -bottom-1.5 -right-1.5 w-5 h-5 border-b-3 border-r-3 border-cyan-400 rounded-br-md shadow-[0_0_8px_#22d3ee]" />
 
-                  {/* Animated Red Laser Sweep Line */}
-                  <div className="w-full h-0.5 bg-rose-500 shadow-[0_0_12px_#f43f5e] animate-pulse" />
+                  {/* Center Optical Crosshair */}
+                  <div className="w-6 h-6 flex items-center justify-center opacity-70">
+                    <div className="w-full h-0.5 bg-cyan-400/80" />
+                    <div className="h-full w-0.5 bg-cyan-400/80 absolute" />
+                  </div>
 
-                  {/* Target Guide Text */}
-                  <div className="absolute px-3 py-1 rounded-full bg-slate-950/85 border border-slate-700 text-[10px] font-mono font-bold text-white shadow-lg tracking-wider">
+                  {/* Animated High-Intensity Red Laser Sweep Line */}
+                  <div className="absolute inset-x-2 h-0.5 bg-gradient-to-r from-transparent via-rose-500 to-transparent shadow-[0_0_15px_#f43f5e] animate-pulse" />
+
+                  {/* Target Guide Badge */}
+                  <div className="absolute -bottom-3 px-2.5 py-0.5 rounded-full bg-slate-950/90 border border-slate-700 text-[9px] font-mono font-bold text-cyan-300 shadow-lg tracking-wider">
                     {activeMode === 'relocate' && relocateStep === 'scan_bin'
-                      ? '🎯 ALIGN DESTINATION BIN BARCODE'
-                      : '🎯 ALIGN BARCODE / QR HERE'}
+                      ? '🎯 AIM AT DESTINATION BIN'
+                      : '🎯 AIM BARCODE / QR HERE'}
                   </div>
                 </div>
               </div>
 
               {/* Camera Loading Overlay */}
               {isStartingCamera && (
-                <div className="absolute inset-0 bg-slate-950/90 flex flex-col items-center justify-center text-white space-y-2 z-10">
+                <div className="absolute inset-0 bg-slate-950/85 flex flex-col items-center justify-center text-white space-y-2 z-10">
                   <RefreshCw className="w-6 h-6 animate-spin text-indigo-400" />
-                  <span className="text-xs font-bold">Initializing WASM Video Feed...</span>
+                  <span className="text-xs font-bold">Initializing Optical Engine...</span>
                 </div>
               )}
 
-              {/* Camera Error / Permission Fallback */}
+              {/* Camera Error / Permission Fallback with 1-Click Mobile Snapper & HTTPS Trigger */}
               {cameraError && (
-                <div className="absolute inset-0 bg-slate-950/95 flex flex-col items-center justify-center p-6 text-center text-white space-y-3 z-10">
-                  <AlertTriangle className="w-8 h-8 text-amber-400" />
-                  <p className="text-xs text-slate-300 max-w-md">{cameraError}</p>
-                  <button
-                    onClick={() => startCameraStream()}
-                    className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl text-xs shadow-md cursor-pointer flex items-center gap-1.5"
-                  >
-                    <RefreshCw className="w-3.5 h-3.5" /> Retry Camera Access
-                  </button>
+                <div className="absolute inset-0 bg-slate-950/90 backdrop-blur-xs flex flex-col items-center justify-center p-4 sm:p-6 text-center text-white space-y-2.5 z-10 animate-fadeIn">
+                  <div className="w-10 h-10 rounded-2xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-amber-400">
+                    <Camera className="w-5 h-5" />
+                  </div>
+                  <p className="text-xs text-slate-300 max-w-sm font-medium leading-tight">{cameraError}</p>
+
+                  <div className="flex flex-wrap items-center justify-center gap-2 pt-1">
+                    {/* Native Mobile Camera Instant Shutter */}
+                    <label className="px-4 py-2 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white font-black text-xs rounded-xl shadow-lg cursor-pointer flex items-center gap-1.5 transform active:scale-95 transition-all">
+                      <Camera className="w-4 h-4 text-cyan-300" />
+                      <span>📸 Snap & Scan Camera</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        capture="environment"
+                        onChange={handleFileUpload}
+                        className="hidden"
+                      />
+                    </label>
+
+                    {/* HTTPS Switcher Button if currently on plain HTTP */}
+                    {isCurrentHttp && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          window.location.href = window.location.href.replace('http:', 'https:');
+                        }}
+                        className="px-3 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl shadow-md cursor-pointer flex items-center gap-1"
+                        title="Switch to HTTPS to unlock live continuous video scanning"
+                      >
+                        <Shield className="w-3.5 h-3.5" /> Unlock HTTPS Stream
+                      </button>
+                    )}
+
+                    <button
+                      type="button"
+                      onClick={() => startCameraStream()}
+                      className="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs rounded-xl border border-slate-700 cursor-pointer flex items-center gap-1"
+                    >
+                      <RefreshCw className="w-3.5 h-3.5" /> Retry
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
           </div>
 
           {/* ========================================================================= */}
-          {/* MANUAL CODE & PHOTO UPLOAD BAR */}
+          {/* UNIFIED MANUAL CODE LOOKUP & PHOTO UPLOAD BAR (COMPACT) */}
           {/* ========================================================================= */}
-          <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-center">
+          <div className="p-1 sm:p-1.5 bg-slate-50 dark:bg-slate-800/40 rounded-xl sm:rounded-2xl border border-slate-200/80 dark:border-slate-800 flex flex-col sm:flex-row items-stretch sm:items-center gap-1.5 sm:gap-2">
             
             {/* Manual Text Barcode / SKU Input */}
-            <div className="md:col-span-8 flex items-center gap-2">
-              <div className="relative flex-1">
-                <Barcode className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-                <input
-                  type="text"
-                  placeholder="Scan or type Barcode / SKU (e.g. EL-1, EL-2, RACK-01)..."
-                  value={manualCode}
-                  onChange={(e) => setManualCode(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && manualCode.trim()) {
-                      handleCodeScanned(manualCode);
-                      setManualCode('');
-                    }
-                  }}
-                  className="w-full pl-10 pr-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs font-mono font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
-                />
-              </div>
+            <div className="relative flex-1">
+              <Barcode className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                type="text"
+                placeholder="Scan or type SKU / Barcode (e.g. EL-1, EL-2)..."
+                value={manualCode}
+                onChange={(e) => setManualCode(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && manualCode.trim()) {
+                    handleCodeScanned(manualCode);
+                    setManualCode('');
+                  }
+                }}
+                className="w-full pl-9 pr-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg sm:rounded-xl text-xs font-mono font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 shadow-2xs"
+              />
+            </div>
 
+            <div className="flex items-center gap-1.5">
               <button
                 type="button"
                 onClick={() => {
@@ -1253,17 +1334,15 @@ export default function BarcodeScannerModal({
                     setManualCode('');
                   }
                 }}
-                className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-2xl shadow-md transition-all flex items-center gap-1.5 cursor-pointer shrink-0"
+                className="flex-1 sm:flex-none px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-lg sm:rounded-xl shadow-xs transition-all flex items-center justify-center gap-1 cursor-pointer shrink-0"
               >
-                <Search className="w-4 h-4" /> Lookup
+                <Search className="w-3.5 h-3.5" /> Lookup
               </button>
-            </div>
 
-            {/* Photo Barcode Uploader */}
-            <div className="md:col-span-4">
-              <label className="w-full py-2.5 px-3 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs font-bold text-slate-700 dark:text-slate-200 transition-all flex items-center justify-center gap-2 cursor-pointer truncate">
-                <UploadCloud className="w-4 h-4 text-indigo-500 shrink-0" />
-                <span className="truncate">{isProcessingFile ? 'Decoding Photo...' : 'Upload Barcode Photo'}</span>
+              {/* Photo Barcode Uploader */}
+              <label className="flex-1 sm:flex-none py-2 px-3 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700/80 border border-slate-200 dark:border-slate-700 rounded-lg sm:rounded-xl text-xs font-bold text-slate-700 dark:text-slate-200 transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs shrink-0">
+                <UploadCloud className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
+                <span className="truncate">{isProcessingFile ? 'Decoding...' : 'Photo Upload'}</span>
                 <input
                   type="file"
                   accept="image/*"
@@ -1275,30 +1354,31 @@ export default function BarcodeScannerModal({
           </div>
 
           {/* ========================================================================= */}
-          {/* CUSTOMIZABLE QUICK TEST SAMPLES BAR */}
+          {/* CUSTOMIZABLE QUICK TEST SAMPLES BAR (COMPACT & HORIZONTALLY SCROLLABLE) */}
           {/* ========================================================================= */}
-          <div className="p-3 bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-slate-200/80 dark:border-slate-800 space-y-2">
+          <div className="p-2.5 sm:p-3 bg-slate-50 dark:bg-slate-800/40 rounded-xl sm:rounded-2xl border border-slate-200/80 dark:border-slate-800 space-y-1.5">
             <div className="flex items-center justify-between text-xs">
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+              <span className="text-[9px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1">
                 <Tag className="w-3 h-3 text-indigo-500" />
-                Quick Test Samples & Pinned SKUs ({quickChips.length})
+                Quick Test Pinned SKUs ({quickChips.length})
               </span>
 
               <button
+                type="button"
                 onClick={() => setIsManagingChipsModal(true)}
-                className="text-[10px] text-indigo-600 dark:text-indigo-400 font-bold hover:underline flex items-center gap-1 cursor-pointer"
+                className="text-[9px] sm:text-[10px] text-indigo-600 dark:text-indigo-400 font-bold hover:underline flex items-center gap-0.5 cursor-pointer"
               >
-                <PlusCircle className="w-3 h-3" /> + Add / Manage Pinned SKUs
+                <PlusCircle className="w-3 h-3" /> + Manage
               </button>
             </div>
 
-            <div className="flex flex-wrap items-center gap-1.5">
+            <div className="flex items-center gap-1 sm:gap-1.5 overflow-x-auto custom-scrollbar pb-0.5 flex-nowrap sm:flex-wrap">
               {quickChips.map((chip) => (
                 <button
                   key={chip.code}
                   type="button"
                   onClick={() => handleCodeScanned(chip.code)}
-                  className="px-2.5 py-1 rounded-xl bg-white dark:bg-slate-900 hover:bg-indigo-50 dark:hover:bg-indigo-950 text-slate-800 dark:text-slate-200 hover:text-indigo-600 font-mono text-[11px] font-bold transition-all border border-slate-200 dark:border-slate-700 shadow-xs cursor-pointer flex items-center gap-1.5 group"
+                  className="px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-lg sm:rounded-xl bg-white dark:bg-slate-900 hover:bg-indigo-50 dark:hover:bg-indigo-950 text-slate-800 dark:text-slate-200 hover:text-indigo-600 font-mono text-[10px] sm:text-[11px] font-bold transition-all border border-slate-200 dark:border-slate-700 shadow-2xs cursor-pointer flex items-center gap-1 group shrink-0"
                 >
                   <span>{chip.code}</span>
                   {chip.label && (
@@ -1328,6 +1408,7 @@ export default function BarcodeScannerModal({
                 </div>
               </div>
               <button
+                type="button"
                 onClick={() => {
                   setUploadedPhotoPreview(null);
                   setUploadedPhotoCode(null);
@@ -1343,8 +1424,8 @@ export default function BarcodeScannerModal({
           {/* SCANNED ITEM CARD (WITH 1-CLICK COMPONENT QUICK-EDITOR) */}
           {/* ========================================================================= */}
           {scannedItem && (
-            <div className="p-5 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-xl space-y-4 animate-fadeIn">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800 pb-4">
+            <div className="p-4 sm:p-5 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-lg space-y-4 animate-fadeIn">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800 pb-3.5">
                 <div className="space-y-1">
                   <div className="flex items-center gap-2">
                     <span className="px-2.5 py-0.5 rounded-lg bg-indigo-50 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 font-mono font-bold text-[10px]">
@@ -1367,11 +1448,11 @@ export default function BarcodeScannerModal({
                     </span>
                   </div>
 
-                  {/* ✏️ Quick Edit Component Button */}
+                  {/* Quick Edit Component Button */}
                   <button
                     type="button"
                     onClick={handleOpenEditItemModal}
-                    className="px-3 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-xs"
+                    className="px-3 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs"
                     title="Edit component specifications directly in modal"
                   >
                     <Edit2 className="w-3.5 h-3.5 text-indigo-500" /> Edit Specs
@@ -1379,7 +1460,7 @@ export default function BarcodeScannerModal({
                 </div>
               </div>
 
-              {/* 🧬 Matched Serialized Unit DNA Banner */}
+              {/* Matched Serialized Unit DNA Banner */}
               {matchedSerial && (
                 <div className="p-3.5 bg-gradient-to-r from-indigo-950/60 to-purple-950/60 border border-indigo-500/40 rounded-2xl flex flex-wrap items-center justify-between gap-3 animate-fadeIn">
                   <div className="flex items-center gap-2.5">
@@ -1411,7 +1492,7 @@ export default function BarcodeScannerModal({
               )}
 
               {/* Quick Specs Grid */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-xs">
                 <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/80">
                   <span className="text-[10px] font-bold text-slate-400 uppercase block">Storage Bin</span>
                   <strong className="text-slate-900 dark:text-white font-mono flex items-center gap-1 mt-0.5 truncate">
@@ -1447,10 +1528,11 @@ export default function BarcodeScannerModal({
               {activeMode === 'inbound' && (
                 <div className="p-4 bg-emerald-50/70 dark:bg-emerald-950/40 rounded-2xl border border-emerald-200 dark:border-emerald-800/80 space-y-3">
                   <div className="flex items-center justify-between">
-                    <span className="font-bold text-xs text-emerald-900 dark:text-emerald-200">
+                    <span className="font-bold text-xs text-emerald-950 dark:text-emerald-200">
                       Inbound Goods Intake: +{customQtyStep} {scannedItem.unit}
                     </span>
                     <button
+                      type="button"
                       onClick={() => handleAdjustStock(scannedItem, customQtyStep, inboundNote)}
                       className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl shadow-md cursor-pointer"
                     >
@@ -1462,7 +1544,7 @@ export default function BarcodeScannerModal({
                     placeholder="Optional Inbound PO / Invoice / Lot reference..."
                     value={inboundNote}
                     onChange={(e) => setInboundNote(e.target.value)}
-                    className="w-full px-3 py-1.5 bg-white dark:bg-slate-900 border border-emerald-300 dark:border-emerald-700 rounded-xl text-xs text-slate-900 dark:text-white focus:outline-none"
+                    className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-emerald-300 dark:border-emerald-700 rounded-xl text-xs text-slate-900 dark:text-white focus:outline-none"
                   />
                 </div>
               )}
@@ -1470,10 +1552,11 @@ export default function BarcodeScannerModal({
               {activeMode === 'outbound' && (
                 <div className="p-4 bg-rose-50/70 dark:bg-rose-950/40 rounded-2xl border border-rose-200 dark:border-rose-800/80 space-y-3">
                   <div className="flex items-center justify-between">
-                    <span className="font-bold text-xs text-rose-900 dark:text-rose-200">
+                    <span className="font-bold text-xs text-rose-950 dark:text-rose-200">
                       Outbound Picking Deduct: -{customQtyStep} {scannedItem.unit}
                     </span>
                     <button
+                      type="button"
                       onClick={() => handleAdjustStock(scannedItem, -customQtyStep, outboundNote)}
                       className="px-4 py-2 bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs rounded-xl shadow-md cursor-pointer"
                     >
@@ -1485,7 +1568,7 @@ export default function BarcodeScannerModal({
                     placeholder="Optional Outbound Order / Dispatch allocation note..."
                     value={outboundNote}
                     onChange={(e) => setOutboundNote(e.target.value)}
-                    className="w-full px-3 py-1.5 bg-white dark:bg-slate-900 border border-rose-300 dark:border-rose-700 rounded-xl text-xs text-slate-900 dark:text-white focus:outline-none"
+                    className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-rose-300 dark:border-rose-700 rounded-xl text-xs text-slate-900 dark:text-white focus:outline-none"
                   />
                 </div>
               )}
@@ -1514,6 +1597,7 @@ export default function BarcodeScannerModal({
                     </select>
 
                     <button
+                      type="button"
                       onClick={() => {
                         if (relocateBinTarget) handleExecuteBinRelocation(scannedItem.id, relocateBinTarget);
                       }}
@@ -1554,22 +1638,22 @@ export default function BarcodeScannerModal({
             <div className="space-y-4 animate-fadeIn">
               
               {/* Batch Financial Impact & Metrics Strip */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                <div className="p-3.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                <div className="p-3.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xs">
                   <span className="text-[10px] uppercase font-bold text-slate-400 block">Unique SKUs</span>
                   <span className="text-xl font-black text-slate-900 dark:text-white font-mono">
                     {batchSummary.totalItems} <span className="text-xs font-normal text-slate-400">items</span>
                   </span>
                 </div>
 
-                <div className="p-3.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs">
+                <div className="p-3.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xs">
                   <span className="text-[10px] uppercase font-bold text-slate-400 block">Total Units</span>
                   <span className="text-xl font-black text-indigo-600 dark:text-indigo-400 font-mono">
                     {batchSummary.totalUnits} <span className="text-xs font-normal text-slate-400">pcs</span>
                   </span>
                 </div>
 
-                <div className="p-3.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs">
+                <div className="p-3.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xs">
                   <span className="text-[10px] uppercase font-bold text-slate-400 block">Net Stock Variance</span>
                   <span className={`text-xl font-black font-mono flex items-center gap-1 ${
                     batchSummary.netVarianceUnits > 0
@@ -1582,7 +1666,7 @@ export default function BarcodeScannerModal({
                   </span>
                 </div>
 
-                <div className="p-3.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs">
+                <div className="p-3.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xs">
                   <span className="text-[10px] uppercase font-bold text-slate-400 block">Net Valuation Diff</span>
                   <span className={`text-xl font-black font-mono flex items-center gap-1 ${
                     batchSummary.netValueImpact > 0
@@ -1597,7 +1681,7 @@ export default function BarcodeScannerModal({
               </div>
 
               {/* Main Batch Audit Container */}
-              <div className="p-5 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-xl space-y-4">
+              <div className="p-4 sm:p-5 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-lg space-y-4">
                 
                 {/* Header & Main Actions */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800 pb-3">
@@ -1613,6 +1697,7 @@ export default function BarcodeScannerModal({
 
                   <div className="flex items-center gap-2">
                     <button
+                      type="button"
                       onClick={() => setShowCatalogPicker(!showCatalogPicker)}
                       className="px-3 py-1.5 bg-indigo-50 dark:bg-indigo-950/60 hover:bg-indigo-100 dark:hover:bg-indigo-900/80 text-indigo-700 dark:text-indigo-300 font-bold rounded-xl text-xs transition-all flex items-center gap-1 cursor-pointer"
                     >
@@ -1620,6 +1705,7 @@ export default function BarcodeScannerModal({
                     </button>
 
                     <button
+                      type="button"
                       onClick={handleExportBatchCSV}
                       disabled={batchList.length === 0}
                       className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold rounded-xl text-xs disabled:opacity-40 cursor-pointer flex items-center gap-1"
@@ -1628,6 +1714,7 @@ export default function BarcodeScannerModal({
                     </button>
 
                     <button
+                      type="button"
                       onClick={handleCommitBatch}
                       disabled={batchList.length === 0}
                       className="px-4 py-1.5 bg-amber-500 hover:bg-amber-600 text-slate-950 font-black rounded-xl text-xs shadow-md disabled:opacity-40 cursor-pointer flex items-center gap-1"
@@ -1646,6 +1733,7 @@ export default function BarcodeScannerModal({
                         Search & Add Components to Batch Session:
                       </span>
                       <button
+                        type="button"
                         onClick={() => setShowCatalogPicker(false)}
                         className="text-xs text-slate-400 hover:text-slate-600 dark:hover:text-white"
                       >
@@ -1688,9 +1776,7 @@ export default function BarcodeScannerModal({
                   </div>
                 )}
 
-                {/* ========================================================================= */}
-                {/* 🎛️ BULK ACTION BAR (APPLY TO ALL OR SELECTED ROWS) */}
-                {/* ========================================================================= */}
+                {/* Bulk Action Bar */}
                 {batchList.length > 0 && (
                   <div className="p-3 bg-slate-50 dark:bg-slate-800/80 rounded-2xl border border-slate-200 dark:border-slate-700 space-y-2.5">
                     <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
@@ -1967,7 +2053,7 @@ export default function BarcodeScannerModal({
           {/* MODE 6: KIT BOM PICKING & ASSEMBLY CHECKLIST CARD */}
           {/* ========================================================================= */}
           {activeMode === 'kit_picking' && activeKit && (
-            <div className="p-5 bg-purple-50/70 dark:bg-purple-950/40 rounded-3xl border border-purple-200 dark:border-purple-800/80 space-y-4 animate-fadeIn">
+            <div className="p-4 sm:p-5 bg-purple-50/70 dark:bg-purple-950/40 rounded-2xl border border-purple-200 dark:border-purple-800/80 space-y-4 animate-fadeIn">
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="font-black text-sm text-purple-950 dark:text-purple-200 flex items-center gap-2">
@@ -2043,13 +2129,14 @@ export default function BarcodeScannerModal({
           {/* RECENT SCAN LOG DRAWER */}
           {/* ========================================================================= */}
           {isHistoryOpen && (
-            <div className="p-5 bg-slate-50 dark:bg-slate-800/60 rounded-3xl border border-slate-200 dark:border-slate-700 space-y-3 animate-fadeIn">
+            <div className="p-4 sm:p-5 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-200 dark:border-slate-700 space-y-3 animate-fadeIn">
               <div className="flex items-center justify-between">
                 <h4 className="font-bold text-xs text-slate-900 dark:text-white flex items-center gap-1.5">
                   <History className="w-3.5 h-3.5 text-indigo-500" />
                   Recent Scan History & Audit Trail
                 </h4>
                 <button
+                  type="button"
                   onClick={() => setRecentScanLog([])}
                   className="text-[10px] text-slate-400 hover:text-rose-500 font-bold cursor-pointer"
                 >

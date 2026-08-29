@@ -28,50 +28,65 @@ export class StockLedgerService {
 
   /**
    * Atomically posts a stock movement to the immutable ledger and updates the item's on-hand quantity
+   * using PostgreSQL strict database ACID transactions with pessimistic row locking (SELECT FOR UPDATE).
    */
   public static async postEntry(params: PostLedgerEntryParams): Promise<StockLedger> {
     const orgId = params.organizationId || "00000000-0000-0000-0000-000000000000";
 
-    // 1. Fetch current inventory item to determine accurate SKU, name, and current running balance
-    const item = await this.itemRepo.findOne({ where: { id: params.itemId } });
-    if (!item) {
-      throw new Error(`Inventory item not found for ID: ${params.itemId}`);
-    }
+    return await AppDataSource.transaction("READ COMMITTED", async (transactionalEntityManager) => {
+      // 1. Acquire pessimistic row lock (SELECT ... FOR UPDATE) on target inventory item
+      const item = await transactionalEntityManager.findOne(InventoryItem, {
+        where: { id: params.itemId },
+        lock: { mode: "pessimistic_write" },
+      });
 
-    const currentQty = Number(item.quantity || 0);
-    const newRunningBalance = currentQty + Number(params.qtyDelta);
+      if (!item) {
+        throw new Error(`Inventory item not found for ID: ${params.itemId}`);
+      }
 
-    const ledgerEntry = this.ledgerRepo.create({
-      organization_id: orgId,
-      item_id: item.id,
-      item_name: params.itemName || item.name,
-      item_sku: params.itemSku || item.sku,
-      warehouse_id: params.warehouseId,
-      bin_location: params.binLocation || item.bin_location,
-      lot_number: params.lotNumber,
-      serial_number: params.serialNumber,
-      qty_delta: params.qtyDelta,
-      unit_cost: params.unitCost !== undefined ? params.unitCost : Number(item.base_price || 0),
-      running_balance: newRunningBalance,
-      transaction_type: params.transactionType,
-      reference_type: params.referenceType,
-      reference_id: params.referenceId,
-      reason_code: params.reasonCode || `${params.transactionType} Execution`,
-      notes: params.notes,
-      actor_id: params.actorId,
-      actor_name: params.actorName || "System Operator",
+      const currentQty = Number(item.quantity || 0);
+      const newRunningBalance = currentQty + Number(params.qtyDelta);
+
+      if (newRunningBalance < 0 && params.qtyDelta < 0) {
+        throw new Error(
+          `Insufficient stock for SKU ${item.sku}: Available ${currentQty}, requested deduction ${Math.abs(params.qtyDelta)}`
+        );
+      }
+
+      // 2. Create and insert immutable ledger entry inside the same atomic transaction
+      const ledgerEntry = transactionalEntityManager.create(StockLedger, {
+        organization_id: orgId,
+        item_id: item.id,
+        item_name: params.itemName || item.name,
+        item_sku: params.itemSku || item.sku,
+        warehouse_id: params.warehouseId,
+        bin_location: params.binLocation || item.bin_location,
+        lot_number: params.lotNumber,
+        serial_number: params.serialNumber,
+        qty_delta: params.qtyDelta,
+        unit_cost: params.unitCost !== undefined ? params.unitCost : Number(item.base_price || 0),
+        running_balance: newRunningBalance,
+        transaction_type: params.transactionType,
+        reference_type: params.referenceType,
+        reference_id: params.referenceId,
+        reason_code: params.reasonCode || `${params.transactionType} Execution`,
+        notes: params.notes,
+        actor_id: params.actorId,
+        actor_name: params.actorName || "System Operator",
+      });
+
+      const savedEntry = await transactionalEntityManager.save(StockLedger, ledgerEntry);
+
+      // 3. Update locked inventory item on-hand balance and location
+      item.quantity = newRunningBalance;
+      if (params.binLocation && params.binLocation.trim()) {
+        item.bin_location = params.binLocation.trim();
+      }
+      item.updated_at = new Date();
+      await transactionalEntityManager.save(InventoryItem, item);
+
+      return savedEntry;
     });
-
-    const savedEntry = await this.ledgerRepo.save(ledgerEntry);
-
-    // 2. Synchronize item's cached on-hand quantity and optional updated binLocation
-    item.quantity = newRunningBalance;
-    if (params.binLocation && params.binLocation.trim()) {
-      item.bin_location = params.binLocation.trim();
-    }
-    await this.itemRepo.save(item);
-
-    return savedEntry;
   }
 
   /**

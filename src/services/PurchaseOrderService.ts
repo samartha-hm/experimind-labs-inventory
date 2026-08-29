@@ -2,6 +2,7 @@ import { PurchaseOrder } from "../entity/PurchaseOrder";
 import { PurchaseOrderLine } from "../entity/PurchaseOrderLine";
 import { Vendor } from "../entity/Vendor";
 import { InventoryItem } from "../entity/InventoryItem";
+import { StockLedger } from "../entity/StockLedger";
 import { AppDataSource } from "../db";
 
 export class PurchaseOrderService {
@@ -173,12 +174,15 @@ export class PurchaseOrderService {
   async receiveItems(
     poId: string,
     receptions: { lineId: string; quantityReceived: number }[],
-    organizationId?: string
+    organizationId?: string,
+    actorName?: string
   ): Promise<PurchaseOrder> {
     const po = await this.findById(poId, organizationId);
     if (!po) {
       throw new Error(`Purchase order ${poId} not found or access denied.`);
     }
+
+    const orgId = organizationId || po.organization_id || "00000000-0000-0000-0000-000000000000";
 
     const queryRunner = AppDataSource.createQueryRunner();
     await queryRunner.connect();
@@ -195,13 +199,45 @@ export class PurchaseOrderService {
           throw new Error(`Line ${reception.lineId} does not belong to PO ${poId}`);
         }
 
-        line.qty_received += reception.quantityReceived;
+        const qtyDelta = Number(reception.quantityReceived);
+        if (qtyDelta <= 0) continue;
+
+        line.qty_received += qtyDelta;
         await queryRunner.manager.save(line);
 
-        // Increment stock in inventory item
-        if (line.inventory_item) {
-          line.inventory_item.quantity += reception.quantityReceived;
-          await queryRunner.manager.save(line.inventory_item);
+        // Pessimistic lock and update inventory item with atomic ledger entry
+        if (line.inventory_item_id) {
+          const item = await queryRunner.manager.findOne(InventoryItem, {
+            where: { id: line.inventory_item_id },
+            lock: { mode: "pessimistic_write" },
+          });
+
+          if (item) {
+            const currentQty = Number(item.quantity || 0);
+            const newQty = currentQty + qtyDelta;
+            item.quantity = newQty;
+            item.updated_at = new Date();
+            await queryRunner.manager.save(InventoryItem, item);
+
+            // Post to immutable stock ledger in same atomic transaction
+            const ledgerEntry = queryRunner.manager.create(StockLedger, {
+              organization_id: orgId,
+              item_id: item.id,
+              item_name: item.name,
+              item_sku: item.sku,
+              bin_location: item.bin_location,
+              qty_delta: qtyDelta,
+              unit_cost: Number(line.unit_cost || item.base_price || 0),
+              running_balance: newQty,
+              transaction_type: "PO_RECEIPT",
+              reference_type: "purchase_order",
+              reference_id: po.po_number || po.id,
+              reason_code: `Inward PO Goods Receipt`,
+              notes: `Received from PO ${po.po_number || po.id}`,
+              actor_name: actorName || "Warehouse Receiver",
+            });
+            await queryRunner.manager.save(StockLedger, ledgerEntry);
+          }
         }
       }
 

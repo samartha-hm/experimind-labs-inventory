@@ -1,9 +1,8 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   LayoutDashboard,
   Box,
   Package,
-  Layers,
   ShoppingCart,
   PackageCheck,
   Users,
@@ -15,19 +14,21 @@ import {
   ShieldCheck,
   Shield,
   History,
-  Zap,
   Coins,
   FileCheck,
+  FileCheck2,
+  FileText,
+  Clock,
   Link2,
-  TrendingUp,
   Lock,
-  MapPin,
   ArrowRightLeft,
   Tag,
   Globe,
 } from 'lucide-react';
 
 import { useApproval } from '@/src/contexts/ApprovalContext';
+import { useAuth } from '@/src/AuthContext';
+import UserProfileModal from '@/src/shared/components/UserProfileModal';
 
 interface SidebarProps {
   activeTab: string;
@@ -52,76 +53,60 @@ export default function Sidebar({
   isOpenMobile = false,
   onCloseMobile,
 }: SidebarProps) {
+  const { user } = useAuth();
   const { pendingCount } = useApproval();
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
 
   const sections = [
     {
-      title: 'CORE',
+      title: 'OPERATIONAL COMMAND',
       items: [
-        { id: 'overview', label: 'Dashboard', icon: <LayoutDashboard className="w-4 h-4" /> },
-        { id: 'shop', label: 'Storefront Portal', icon: <ShoppingCart className="w-4 h-4" />, badge: 'Store Live', badgeColor: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' },
+        { id: 'overview', label: 'Executive Cockpit', icon: <LayoutDashboard className="w-4 h-4" /> },
+        { id: 'sales_orders', label: 'Sales & Dispatches', icon: <PackageCheck className="w-4 h-4" />, badge: openSoCount > 0 ? `${openSoCount}` : undefined, badgeColor: 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30' },
+        { id: 'shop', label: 'Storefront Portal', icon: <ShoppingCart className="w-4 h-4" />, badge: 'Live', badgeColor: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' },
       ],
     },
     {
-      title: 'INVENTORY MANAGEMENT',
+      title: 'INVENTORY & TOPOLOGY',
       items: [
         {
           id: 'inventory',
-          label: 'Items & Catalog',
+          label: 'Items & Stock Catalog',
           icon: <Box className="w-4 h-4" />,
           badge: lowStockCount > 0 ? `${lowStockCount} low` : undefined,
           badgeColor: 'bg-amber-500/20 text-amber-300 border-amber-500/30',
         },
-        { id: 'stock_ledger', label: 'Stock Ledger & Audit', icon: <History className="w-4 h-4" />, badge: 'Ledger', badgeColor: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' },
-        { id: 'warehouse_floor', label: 'Warehouse Floor Mode', icon: <ShieldCheck className="w-4 h-4" />, badge: 'Scanner', badgeColor: 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30' },
         { id: 'kitting', label: 'Composite Kits (BOM)', icon: <Package className="w-4 h-4" /> },
-        { id: 'batch_expiry', label: 'Batch Expiry Tracker', icon: <Tag className="w-4 h-4" />, badge: 'Lots', badgeColor: 'bg-rose-500/20 text-rose-300 border-rose-500/30' },
         { id: 'warehouses', label: 'Warehouses & Bins', icon: <Warehouse className="w-4 h-4" /> },
-        { id: 'floor_plan', label: 'Warehouse 2D Floor Plan', icon: <Layers className="w-4 h-4" />, badge: 'Blueprint', badgeColor: 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30' },
-        { id: 'warehouse_heatmap', label: 'Warehouse 2D Heatmap', icon: <MapPin className="w-4 h-4" /> },
-        { id: 'warehouse_3d', label: '3D Digital Twin Map', icon: <Layers className="w-4 h-4" />, badge: '3D WebGL', badgeColor: 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30' },
-        { id: 'stock_transfer', label: 'Stock Transfer (STO)', icon: <ArrowRightLeft className="w-4 h-4" /> },
+        { id: 'stock_transfer', label: 'Stock Transfers (WMS)', icon: <ArrowRightLeft className="w-4 h-4" /> },
+        { id: 'cycle_counts', label: 'Physical Cycle Counts', icon: <FileCheck2 className="w-4 h-4" /> },
+        { id: 'serial_numbers', label: 'Serial Number Registry', icon: <Tag className="w-4 h-4" /> },
+        { id: 'batch_expiry', label: 'Batch & Expiry Manager', icon: <Clock className="w-4 h-4" /> },
       ],
     },
     {
-      title: 'FINANCE & GST',
+      title: 'PROCUREMENT & PARTNERS',
       items: [
-        { id: 'gst', label: 'GST & E-Invoicing (IRP)', icon: <FileCheck className="w-4 h-4" />, badge: 'India', badgeColor: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' },
-        { id: 'zoho', label: 'Zoho Books Sync', icon: <Link2 className="w-4 h-4" />, badge: '2-Way', badgeColor: 'bg-blue-500/20 text-blue-300 border-blue-500/30' },
-        { id: 'valuation', label: 'Financial Valuation', icon: <Coins className="w-4 h-4" />, badge: 'FIFO/MA', badgeColor: 'bg-purple-500/20 text-purple-300 border-purple-500/30' },
+        { id: 'purchase_orders', label: 'Inbound POs', icon: <Building2 className="w-4 h-4" />, badge: openPoCount > 0 ? `${openPoCount}` : undefined, badgeColor: 'bg-blue-500/20 text-blue-300 border-blue-500/30' },
+        { id: 'vendors', label: 'Suppliers & Schools', icon: <Users className="w-4 h-4" /> },
       ],
     },
     {
-      title: 'SALES & FULFILLMENT',
+      title: 'LEDGER & VALUATION',
       items: [
-        { id: 'sales_orders', label: 'Sales Orders', icon: <PackageCheck className="w-4 h-4" />, badge: openSoCount > 0 ? `${openSoCount}` : undefined, badgeColor: 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30' },
-        { id: 'customers', label: 'Customers', icon: <Users className="w-4 h-4" /> },
+        { id: 'stock_ledger', label: 'Immutable Stock Ledger', icon: <History className="w-4 h-4" /> },
+        { id: 'valuation', label: 'FIFO Asset Valuation', icon: <Coins className="w-4 h-4" /> },
+        { id: 'gst', label: 'Tax Invoices & Challans', icon: <FileText className="w-4 h-4" />, badge: 'GST', badgeColor: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' },
       ],
     },
     {
-      title: 'PURCHASES & LOGISTICS',
+      title: 'GOVERNANCE & AUDIT',
       items: [
-        { id: 'purchase_orders', label: 'Purchase Orders', icon: <ShoppingCart className="w-4 h-4" />, badge: openPoCount > 0 ? `${openPoCount}` : undefined, badgeColor: 'bg-blue-500/20 text-blue-300 border-blue-500/30' },
-        { id: 'global_logistics', label: 'Global Freight & Logistics', icon: <Globe className="w-4 h-4" />, badge: 'Freight', badgeColor: 'bg-blue-500/20 text-blue-300 border-blue-500/30' },
-        { id: 'vendors', label: 'Vendors Directory', icon: <Building2 className="w-4 h-4" /> },
-      ],
-    },
-    {
-      title: 'INTELLIGENCE & BI',
-      items: [
-        { id: 'analytics', label: 'Predictive BI & ABC/XYZ', icon: <TrendingUp className="w-4 h-4" />, badge: 'Forecast', badgeColor: 'bg-purple-500/20 text-purple-300 border-purple-500/30' },
-        { id: 'copilot', label: 'AI Logistics Copilot', icon: <Sparkles className="w-4 h-4" />, badge: 'AI Pro', badgeColor: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' },
-        { id: 'automations', label: 'Automations & Webhooks', icon: <Zap className="w-4 h-4" />, badge: 'Engine', badgeColor: 'bg-amber-500/20 text-amber-300 border-amber-500/30' },
-      ],
-    },
-    {
-      title: 'COMPLIANCE & GOVERNANCE',
-      items: [
-        { id: 'roles_permissions', label: 'Role & Permission Matrix', icon: <Shield className="w-4 h-4" />, badge: 'RBAC', badgeColor: 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30' },
-        { id: 'user_directory', label: 'User Directory & Access', icon: <Users className="w-4 h-4" />, badge: 'Users', badgeColor: 'bg-blue-500/20 text-blue-300 border-blue-500/30' },
-        { id: 'approval_center', label: 'Approval Center', icon: <ShieldCheck className="w-4 h-4" />, badge: pendingCount > 0 ? `${pendingCount} Pending` : 'Tier 1/2', badgeColor: pendingCount > 0 ? 'bg-amber-500/30 text-amber-300 border-amber-500/40' : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' },
-        { id: 'compliance', label: 'SOC2 & GDPR Security', icon: <Lock className="w-4 h-4" />, badge: 'SHA256', badgeColor: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' },
-        { id: 'history', label: 'Revision History', icon: <History className="w-4 h-4" />, badge: 'Audit', badgeColor: 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30' },
+        { id: 'qms_suite', label: 'QMS Quality Suite', icon: <ShieldCheck className="w-4 h-4" />, badge: 'ISO/GMP', badgeColor: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' },
+        { id: 'audit_verifier', label: '21 CFR Part 11 Audit', icon: <Lock className="w-4 h-4" />, badge: 'SHA-256', badgeColor: 'bg-cyan-500/20 text-cyan-300 border-cyan-500/30' },
+        { id: 'user_directory', label: 'Team Directory & RBAC', icon: <Users className="w-4 h-4" />, badge: 'Users', badgeColor: 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30' },
+        { id: 'approval_center', label: 'Approval Center', icon: <Shield className="w-4 h-4" />, badge: pendingCount > 0 ? `${pendingCount}` : undefined, badgeColor: 'bg-amber-500/30 text-amber-300 border-amber-500/40' },
+        { id: 'compliance', label: 'Legacy Audit Logs', icon: <History className="w-4 h-4" /> },
       ],
     },
   ];
@@ -142,85 +127,108 @@ export default function Sidebar({
         }`}
       >
         {/* Brand Header */}
-        <div className="p-5 flex items-center gap-3 border-b border-slate-200 dark:border-slate-800/80">
-          <div className="p-2 bg-gradient-to-tr from-indigo-600 to-indigo-500 rounded-xl text-white shadow-lg shadow-indigo-600/30 ring-1 ring-white/20">
-            <Layers className="w-5 h-5" />
-          </div>
-          <div>
-            <h1 className="text-slate-900 dark:text-white font-bold text-base tracking-tight flex items-center gap-1.5">
-              NexaInventory <span className="text-[9px] px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-600 dark:text-indigo-300 border border-indigo-500/30 font-semibold uppercase">v2 SaaS</span>
-            </h1>
-            <p className="text-[10px] text-slate-500 dark:text-slate-400 font-semibold tracking-wider uppercase">Experimind Labs Engine</p>
+        <div className="p-5 border-b border-slate-100 dark:border-slate-800/60 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-indigo-600 via-indigo-500 to-sky-400 flex items-center justify-center shadow-lg shadow-indigo-500/25 border border-indigo-400/30">
+              <Sparkles className="w-5 h-5 text-white animate-pulse" />
+            </div>
+            <div>
+              <div className="flex items-center gap-1.5">
+                <span className="font-extrabold text-slate-900 dark:text-white tracking-tight text-sm">ExperiMind</span>
+                <span className="text-[10px] font-bold bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800 px-1.5 py-0.2 rounded-md">ERP</span>
+              </div>
+              <p className="text-[10px] text-slate-400 dark:text-slate-500 font-medium">Inventory & STEM Systems</p>
+            </div>
           </div>
         </div>
 
         {/* Navigation Sections */}
-        <div className="flex-1 py-4 px-3 space-y-5 overflow-y-auto custom-scrollbar">
-          {sections.map((sec, sIdx) => (
-            <div key={sIdx} className="space-y-1">
-              <div className="text-[10px] uppercase font-bold tracking-widest text-slate-400 dark:text-slate-500 px-3 py-1">
+        <div className="flex-1 overflow-y-auto px-3 py-4 space-y-6 [scrollbar-width:none]">
+          {sections.map((sec, idx) => (
+            <div key={idx} className="space-y-1">
+              <h4 className="px-3 text-[10px] font-extrabold tracking-wider text-slate-400 dark:text-slate-500 uppercase">
                 {sec.title}
+              </h4>
+              <div className="space-y-0.5 pt-1">
+                {sec.items.map((item) => {
+                  const isActive = activeTab === item.id;
+                  return (
+                    <button
+                      key={item.id}
+                      onClick={() => {
+                        setActiveTab(item.id);
+                        if (onCloseMobile) onCloseMobile();
+                      }}
+                      className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition-all duration-150 cursor-pointer ${
+                        isActive
+                          ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/25 font-bold'
+                          : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-900/80 hover:text-slate-900 dark:hover:text-slate-200'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <span className={isActive ? 'text-white' : 'text-slate-400 dark:text-slate-500'}>
+                          {item.icon}
+                        </span>
+                        <span>{item.label}</span>
+                      </div>
+                      {item.badge && (
+                        <span
+                          className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full border ${
+                            isActive
+                              ? 'bg-white/20 text-white border-white/30'
+                              : item.badgeColor || 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700'
+                          }`}
+                        >
+                          {item.badge}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
               </div>
-              {sec.items.map((item) => {
-                const isActive = activeTab === item.id;
-                return (
-                  <button
-                    key={item.id}
-                    onClick={() => {
-                      setActiveTab(item.id);
-                      if (onCloseMobile) onCloseMobile();
-                    }}
-                    className={`w-full flex items-center justify-between px-3 py-2 rounded-xl transition-all font-semibold text-xs cursor-pointer group ${
-                      isActive
-                        ? 'bg-indigo-600 text-white shadow-md shadow-indigo-900/30'
-                        : 'hover:bg-slate-100 dark:hover:bg-slate-900 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2.5">
-                      <span className={isActive ? 'text-white' : 'text-slate-500 dark:text-slate-400 group-hover:text-slate-900 dark:group-hover:text-slate-200'}>
-                        {item.icon}
-                      </span>
-                      <span>{item.label}</span>
-                    </div>
-
-                    {item.badge && (
-                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${item.badgeColor || 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300'}`}>
-                        {item.badge}
-                      </span>
-                    )}
-                  </button>
-                );
-              })}
             </div>
           ))}
         </div>
 
-        {/* User & Access Profile Footer */}
-        <div className="p-4 border-t border-slate-200 dark:border-slate-800/80 space-y-3 bg-slate-50/80 dark:bg-slate-950/60">
-          <div className="bg-white dark:bg-slate-900/80 rounded-xl p-3 border border-slate-200 dark:border-slate-800/80 flex items-center justify-between shadow-xs">
+        {/* Footer Role & Profile Trigger & Sign Out */}
+        <div className="p-3 border-t border-slate-100 dark:border-slate-800/60 bg-slate-50/50 dark:bg-slate-950/50 space-y-2">
+          <button
+            type="button"
+            onClick={() => setIsProfileOpen(true)}
+            className="w-full flex items-center justify-between p-2 rounded-xl bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800/80 border border-slate-200/80 dark:border-slate-800 transition-all cursor-pointer text-left group"
+            title="Click to manage profile & password"
+          >
             <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-lg bg-indigo-600/20 text-indigo-600 dark:text-indigo-400 border border-indigo-500/30 flex items-center justify-center font-bold text-xs">
-                <ShieldCheck className="w-4 h-4" />
+              <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-indigo-600 to-purple-600 flex items-center justify-center text-white text-xs font-black shadow-xs">
+                {(user?.name || user?.email || 'A').charAt(0).toUpperCase()}
               </div>
-              <div>
-                <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">Access Level</div>
-                <div className="text-xs font-bold text-slate-800 dark:text-slate-200 capitalize flex items-center gap-1.5">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.6)]" />
-                  {role || 'Admin Access'}
-                </div>
+              <div className="flex flex-col truncate">
+                <span className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate group-hover:text-indigo-600">
+                  {user?.name || 'My Profile'}
+                </span>
+                <span className="text-[10px] text-slate-400 font-medium capitalize">
+                  {role === 'admin' ? 'Administrator' : role === 'editor' ? 'Inventory Manager' : role === 'employee' ? 'Lab Staff' : role || 'User'}
+                </span>
               </div>
             </div>
-          </div>
+            <ChevronRight className="w-4 h-4 text-slate-400 group-hover:translate-x-0.5 transition-transform" />
+          </button>
 
           <button
             onClick={onSignOut}
-            className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl transition-all font-semibold text-xs text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-900 hover:text-rose-600 dark:hover:text-rose-400 border border-transparent hover:border-slate-200 dark:hover:border-slate-800 cursor-pointer"
+            className="w-full flex items-center justify-center gap-2 px-3 py-2 text-xs font-bold text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 rounded-xl transition-all border border-transparent hover:border-red-200 dark:hover:border-red-900/40 cursor-pointer"
           >
             <LogOut className="w-3.5 h-3.5" />
-            Sign Out Session
+            <span>Sign Out</span>
           </button>
         </div>
       </aside>
+
+      {/* User Profile Modal */}
+      <UserProfileModal
+        isOpen={isProfileOpen}
+        onClose={() => setIsProfileOpen(false)}
+      />
     </>
   );
 }

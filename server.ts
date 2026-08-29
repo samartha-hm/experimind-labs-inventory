@@ -37,6 +37,11 @@ import { wmsOperationsRouter } from "./src/routes/v1/wms-operations.ts";
 import rbacRoutes from "./src/routes/v1/rbac.ts";
 import sessionRoutes from "./src/routes/v1/session.ts";
 import bulkImportRoutes from "./src/routes/v1/bulk-import.ts";
+import storefrontRoutes from "./src/routes/v1/storefront.ts";
+import realtimeRoutes from "./src/routes/v1/realtime.ts";
+import eSignatureRoutes from "./src/routes/v1/e-signature.ts";
+import qmsRoutes from "./src/routes/v1/qms.ts";
+import auditEventsRoutes from "./src/routes/v1/audit-events.ts";
 
 // Initialize Postgres (with retry)
 async function connectDatabase(retries = 3): Promise<void> {
@@ -65,10 +70,19 @@ async function startServer() {
   // Trust Reverse Proxies (Nginx / Cloudflare / Ingress)
   app.set("trust proxy", 1);
 
-  // Security Headers & CORS (Disable COOP & OriginAgentCluster on HTTP to eliminate browser console warnings)
+  // Security Headers with Content Security Policy & CORS
   app.use(
     helmet({
-      contentSecurityPolicy: false,
+      contentSecurityPolicy: {
+        directives: {
+          defaultSrc: ["'self'"],
+          scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
+          styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+          fontSrc: ["'self'", "https://fonts.gstatic.com", "data:"],
+          imgSrc: ["'self'", "data:", "blob:", "https:", "http:"],
+          connectSrc: ["'self'", "ws:", "wss:", "https:", "http:"],
+        },
+      },
       crossOriginOpenerPolicy: false,
       originAgentCluster: false,
     })
@@ -119,11 +133,12 @@ async function startServer() {
 
   // ===== Public Asset & Webhook Endpoints =====
   app.use("/api/public/webhook", webhookRoutes);
+  app.use("/api/public/storefront", storefrontRoutes);
   app.use("/api/v1/image-proxy", imageProxyRoutes);
 
   // ===== Versioned API (protected) =====
   app.use("/api/v1/auth", authLimiter, authRoutes);
-  app.use("/api/v1/orders", orderRoutes);
+  app.use("/api/v1/orders", authenticateJwt, requireTenant, orderRoutes);
   app.use("/api/v1/users", authenticateJwt, requireTenant, userRoutes);
   app.use("/api/v1/inventory", authenticateJwt, requireTenant, inventoryRoutes);
   app.use("/api/v1/warehouse", authenticateJwt, requireTenant, warehouseRoutes);
@@ -144,6 +159,12 @@ async function startServer() {
   app.use("/api/v1/rbac", authenticateJwt, requireTenant, rbacRoutes);
   app.use("/api/v1/sessions", authenticateJwt, requireTenant, sessionRoutes);
   app.use("/api/v1/bulk-import", authenticateJwt, requireTenant, bulkImportRoutes);
+  
+  // Realtime & Compliance Extensions
+  app.use("/api/v1/stream", realtimeRoutes);
+  app.use("/api/v1/e-signature", eSignatureRoutes);
+  app.use("/api/v1/qms", qmsRoutes);
+  app.use("/api/v1/audit-events", auditEventsRoutes);
 
   // ===== Protected AI analysis endpoint =====
   app.post("/api/analyze", aiLimiter, authenticateJwt, requireTenant, async (req, res) => {
@@ -156,45 +177,34 @@ async function startServer() {
         selectedKitId,
       } = req.body;
 
-      if (!inventory || !kits) {
-        return res
-          .status(400)
-          .json({ error: "Missing inventory or kits data" });
-      }
-
-      if (!process.env.GEMINI_API_KEY) {
-        return res.status(400).json({
-          error:
-            "Gemini API key is not configured. Please add GEMINI_API_KEY under Settings > Secrets in AI Studio.",
+      if (!env.geminiApiKey) {
+        return res.status(503).json({
+          error: "Gemini API key is not configured.",
         });
       }
 
-      const client = getGeminiClient();
+      const client = new GoogleGenAI({ apiKey: env.geminiApiKey });
 
-      const lowStockItems = inventory.filter(
-        (item: any) => item.stockQty < item.threshold && !item.isCommon
+      const outOfStockItems = (inventory || []).filter(
+        (i: any) => (i.quantity ?? 0) <= 0
       );
-      const outOfStockItems = inventory.filter(
-        (item: any) => item.stockQty === 0
+      const lowStockItems = (inventory || []).filter(
+        (i: any) => (i.quantity ?? 0) > 0 && (i.quantity ?? 0) <= (i.threshold ?? 5)
       );
 
-      const systemInstruction = `You are an expert Hardware supply-chain logistics manager and procurement analyst.
-Your job is to analyze the stock levels, kit BOM requirements, and current shortages for the "Tester Pro" educational electronics kit.
-Provide professional, highly structured, actionable guidance on:
-1. Critical procurement needs (which components to order immediately, prioritising parts with lead times or absolute zero stock like MQ-135, Air Quality sensor, etc.).
-2. Workarounds or kitting suggestions (e.g., if out of certain sensors, pack alternative kits or partial kits).
-3. Draft a precise email or purchase list for suppliers that can be copy-pasted.
-Keep the tone helpful, objective, and professional. Use markdown tables and lists for clarity.`;
+      const systemInstruction = `
+You are an expert Warehouse Management and Production Planning Copilot for Experimind Labs.
+Analyze the provided laboratory inventory stock levels, BOM requirements, kit pack states, and shortage risks.
+Provide clear, actionable recommendations with root causes, priority badges [CRITICAL | WARNING | NORMAL], and concrete procurement/replenishment actions.
+`;
 
       const prompt = `
-Analyze the following inventory and kitting situation.
-Selected Kit: ${selectedKitId || "All"}
-Current stock list:
+Current Inventory Status:
 ${JSON.stringify(
-        inventory.map((item: any) => ({
+        (inventory || []).map((item: any) => ({
           name: item.name,
-          category: item.category,
-          qty: item.stockQty,
+          sku: item.sku,
+          quantity: item.quantity,
           threshold: item.threshold,
           isCommon: item.isCommon,
         })),
@@ -218,7 +228,7 @@ User is asking: "${customPrompt ||
 `;
 
       const response = await client.models.generateContent({
-        model: "gemini-3.5-flash",
+        model: "gemini-2.0-flash",
         contents: prompt,
         config: {
           systemInstruction,
@@ -230,15 +240,6 @@ User is asking: "${customPrompt ||
         analysis: response.text ?? "No analysis generated.",
       });
     } catch (error: any) {
-      const errorStr = String(error);
-      if (errorStr.includes("503") || errorStr.includes("UNAVAILABLE")) {
-        console.warn("Gemini API is currently experiencing high demand.");
-        return res.status(503).json({
-          error:
-            "The AI model is currently experiencing high demand. Please try again in a few moments.",
-        });
-      }
-
       console.error("Gemini analysis error:", error);
       res.status(500).json({
         error:

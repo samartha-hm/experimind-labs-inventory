@@ -46,32 +46,13 @@ END
 sudo -u postgres psql -c "SELECT 1 FROM pg_database WHERE datname = 'experimind_inventory'" | grep -q 1 || sudo -u postgres createdb -O experimind experimind_inventory
 
 echo "=== 6. Configuring Nginx Reverse Proxy ==="
-sudo tee /etc/nginx/sites-available/experimind > /dev/null <<'EOF'
-server {
-    listen 80 default_server;
-    listen [::]:80 default_server;
-    server_name _;
-
-    client_max_body_size 100M;
-
-    location / {
-        proxy_pass http://127.0.0.1:3000;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection 'upgrade';
-        proxy_set_header Host $host;
-        proxy_cache_bypass $http_upgrade;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-    }
-}
-EOF
+if [ -f /home/admin/experimind-inventory/scripts/nginx-experimind.conf ]; then
+  sudo cp /home/admin/experimind-inventory/scripts/nginx-experimind.conf /etc/nginx/sites-available/experimind
+fi
 
 sudo rm -f /etc/nginx/sites-enabled/default
 sudo ln -sf /etc/nginx/sites-available/experimind /etc/nginx/sites-enabled/experimind
-sudo nginx -t
-sudo systemctl restart nginx
+sudo nginx -t && sudo systemctl reload nginx || sudo systemctl restart nginx
 sudo systemctl enable nginx
 
 echo "=== AWS SERVER ENVIRONMENT SETUP COMPLETE! ==="

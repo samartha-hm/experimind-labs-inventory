@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <defs>
+    <linearGradient id="cube-top" x1="16" y1="8" x2="48" y2="28" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#818cf8" />
+      <stop offset="1" stop-color="#6366f1" />
+    </linearGradient>
+    <linearGradient id="cube-left" x1="10" y1="24" x2="32" y2="56" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#4f46e5" />
+      <stop offset="1" stop-color="#3730a3" />
+    </linearGradient>
+    <linearGradient id="cube-right" x1="32" y1="24" x2="54" y2="56" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#06b6d4" />
+      <stop offset="1" stop-color="#0284c7" />
+    </linearGradient>
+    <linearGradient id="sparkle-glow" x1="24" y1="24" x2="40" y2="40" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#fef08a" />
+      <stop offset="1" stop-color="#f59e0b" />
+    </linearGradient>
+  </defs>
+
+  <!-- Hexagon Isometric Cube -->
+  <!-- Top Face -->
+  <polygon points="32,6 54,18 32,30 10,18" fill="url(#cube-top)" />
+  
+  <!-- Left Face -->
+  <polygon points="10,18 32,30 32,56 10,44" fill="url(#cube-left)" />
+  
+  <!-- Right Face -->
+  <polygon points="32,30 54,18 54,44 32,56" fill="url(#cube-right)" />
+
+  <!-- Inner Innovation Atom / Sparkle Core -->
+  <circle cx="32" cy="30" r="6" fill="url(#sparkle-glow)" />
+  <circle cx="32" cy="30" r="3" fill="#ffffff" />
+  
+  <!-- Dynamic Orbits -->
+  <ellipse cx="32" cy="30" rx="14" ry="5" transform="rotate(-30 32 30)" stroke="#ffffff" stroke-width="1.5" stroke-opacity="0.8" stroke-dasharray="3 2" fill="none" />
+  <ellipse cx="32" cy="30" rx="14" ry="5" transform="rotate(30 32 30)" stroke="#fef08a" stroke-width="1.5" stroke-opacity="0.8" fill="none" />
+</svg>

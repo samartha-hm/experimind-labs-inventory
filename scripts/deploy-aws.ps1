@@ -15,13 +15,17 @@ Write-Host "==========================================================" -Foregro
 # 1. Run local build
 Write-Host "`n[1/5] Building frontend & server bundle locally..." -ForegroundColor Yellow
 npm run build
+Write-Host "`n[1.5/5] Building Next.js Storefront..." -ForegroundColor Yellow
+Push-Location apps/storefront
+npm run build
+Pop-Location
 
 # 2. Package required deployment files
 Write-Host "`n[2/5] Creating deployment archive..." -ForegroundColor Yellow
 $tarFile = "deploy_bundle.tar.gz"
 if (Test-Path $tarFile) { Remove-Item $tarFile -Force }
 
-tar -czf $tarFile dist package.json package-lock.json ecosystem.config.cjs scripts src/entity src/migration tsconfig.json
+tar --exclude="node_modules" --exclude="apps/storefront/node_modules" -czf $tarFile dist apps package.json package-lock.json ecosystem.config.cjs scripts src/entity src/migration tsconfig.json
 
 # 3. Transfer files to remote server
 Write-Host "`n[3/5] Uploading deployment package and setup scripts to AWS server..." -ForegroundColor Yellow
@@ -42,16 +46,24 @@ tar -xzf /home/admin/deploy_bundle.tar.gz -C $APP_DIR
 cd $APP_DIR
 echo "Installing production dependencies..."
 npm install --omit=dev --no-audit
+chmod -R +x node_modules/.bin 2>/dev/null || true
+
+echo "Installing Next.js storefront dependencies..."
+cd apps/storefront
+npm install --omit=dev --no-audit
+chmod -R +x node_modules/.bin 2>/dev/null || true
+cd $APP_DIR
 
 echo "Running TypeORM database migrations..."
 npm run db:migrate || true
 
-echo "Seeding Admin user & sample catalog..."
+echo "Seeding Admin user and Real Experimind Catalog..."
 npm run bootstrap:admin || true
 npm run db:seed:real || true
 
 echo "Starting / Reloading PM2 process..."
-pm2 startOrReload ecosystem.config.cjs
+pm2 delete all || true
+pm2 start ecosystem.config.cjs
 pm2 save
 
 echo "Checking running PM2 status..."

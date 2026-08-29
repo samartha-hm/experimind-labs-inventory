@@ -249,6 +249,38 @@ router.put("/:id", requireTenant, requireRole("staff", "admin"), async (req, res
   }
 });
 
+// GET /api/v1/inventory/:id/zpl (Zebra label generation)
+router.get("/:id/zpl", requireTenant, async (req, res) => {
+  try {
+    const orgId = (req as any).orgId;
+    const item = await service.getById(req.params.id, orgId);
+    if (!item) return res.status(404).json({ error: "Item not found" });
+
+    const { ZplPrintService } = await import("../../services/ZplPrintService.ts");
+    const { Gs1BarcodeService } = await import("../../services/Gs1BarcodeService.ts");
+
+    const barcodeValue = Gs1BarcodeService.encodeGs1({
+      gtin: item.sku,
+      lotNumber: item.batch_number || "LOT-01",
+      serialNumber: item.serial_number || undefined,
+      expiryDate: item.expiry_date || undefined,
+    }) || item.sku;
+
+    const zpl = ZplPrintService.generateItemLabelZpl({
+      itemName: item.name,
+      sku: item.sku,
+      binLocation: item.bin_location,
+      lotNumber: item.batch_number,
+      expiryDate: item.expiry_date ? new Date(item.expiry_date).toISOString().split("T")[0] : undefined,
+      barcodeValue,
+    });
+
+    res.json({ zpl, barcodeValue, itemName: item.name, sku: item.sku });
+  } catch (e: any) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
 // DELETE /api/v1/inventory/:id (Admins only)
 router.delete("/:id", requireTenant, requireRole("admin"), async (req, res) => {
   try {

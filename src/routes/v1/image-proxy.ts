@@ -1,6 +1,7 @@
 import { Router, Request, Response } from "express";
 import https from "https";
 import http from "http";
+import { URL } from "url";
 
 const router = Router();
 
@@ -8,6 +9,32 @@ const router = Router();
 const imageCache = new Map<string, { buffer: Buffer; contentType: string; timestamp: number }>();
 const MAX_CACHE_SIZE = 500;
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
+
+function isPrivateIpOrHost(hostname: string): boolean {
+  const host = hostname.toLowerCase().trim();
+  if (
+    host === "localhost" ||
+    host.endsWith(".localhost") ||
+    host.endsWith(".local") ||
+    host === "127.0.0.1" ||
+    host === "::1" ||
+    host === "0.0.0.0" ||
+    host.startsWith("10.") ||
+    host.startsWith("192.168.") ||
+    host.startsWith("169.254.")
+  ) {
+    return true;
+  }
+  // Check 172.16.0.0 - 172.31.255.255
+  if (host.startsWith("172.")) {
+    const parts = host.split(".");
+    if (parts.length >= 2) {
+      const secondOctet = parseInt(parts[1], 10);
+      if (secondOctet >= 16 && secondOctet <= 31) return true;
+    }
+  }
+  return false;
+}
 
 function generateSvgPlaceholder(label: string = "Laboratory Asset"): string {
   return `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="400" viewBox="0 0 400 400">
@@ -24,13 +51,29 @@ function generateSvgPlaceholder(label: string = "Laboratory Asset"): string {
   </svg>`;
 }
 
-async function fetchRemoteBuffer(url: string, redirectCount = 0): Promise<{ buffer: Buffer; contentType: string } | null> {
+async function fetchRemoteBuffer(urlStr: string, redirectCount = 0): Promise<{ buffer: Buffer; contentType: string } | null> {
   if (redirectCount > 4) return null;
 
+  let parsedUrl: URL;
+  try {
+    parsedUrl = new URL(urlStr);
+  } catch {
+    return null;
+  }
+
+  // Strictly enforce HTTP(S) protocol and block private/loopback/cloud metadata IPs
+  if (parsedUrl.protocol !== "https:" && parsedUrl.protocol !== "http:") {
+    return null;
+  }
+  if (isPrivateIpOrHost(parsedUrl.hostname)) {
+    console.warn(`[SSRF BLOCKED] Prevented access to restricted target: ${parsedUrl.hostname}`);
+    return null;
+  }
+
   return new Promise((resolve) => {
-    const client = url.startsWith("https") ? https : http;
+    const client = parsedUrl.protocol === "https:" ? https : http;
     const req = client.get(
-      url,
+      urlStr,
       {
         headers: {
           "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
@@ -40,7 +83,7 @@ async function fetchRemoteBuffer(url: string, redirectCount = 0): Promise<{ buff
         timeout: 6000,
       },
       (res) => {
-        // Follow redirects
+        // Follow redirects safely
         if (res.statusCode && res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
           return resolve(fetchRemoteBuffer(res.headers.location, redirectCount + 1));
         }
@@ -50,7 +93,6 @@ async function fetchRemoteBuffer(url: string, redirectCount = 0): Promise<{ buff
         }
 
         const contentType = res.headers["content-type"] || "image/jpeg";
-        // If Google returned HTML instead of image (e.g. login prompt or quota block)
         if (contentType.includes("text/html")) {
           return resolve(null);
         }
@@ -133,3 +175,4 @@ router.get("/", async (req: Request, res: Response): Promise<void> => {
 });
 
 export default router;
+

@@ -393,9 +393,71 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   };
 
   useEffect(() => {
-    if (user) {
+    let sseSource: EventSource | null = null;
+
+    if (user && token) {
       setLoading(true);
       loadAllData();
+
+      // Establish real-time Server-Sent Events (SSE) stream connection
+      try {
+        sseSource = new EventSource(`/api/v1/stream/events?token=${encodeURIComponent(token)}`);
+
+        sseSource.addEventListener("STOCK_UPDATE", (e: MessageEvent) => {
+          try {
+            const payload = JSON.parse(e.data);
+            if (payload?.data?.itemId) {
+              setInventory((prev) =>
+                prev.map((item) =>
+                  item.id === payload.data.itemId
+                    ? {
+                        ...item,
+                        stockQty: Number(payload.data.quantity),
+                        binLocation: payload.data.binLocation || item.binLocation,
+                      }
+                    : item
+                )
+              );
+            }
+          } catch (err) {
+            console.error("Failed to parse realtime stock update event:", err);
+          }
+        });
+
+        sseSource.addEventListener("PO_UPDATE", () => {
+          apiFetch("/api/v1/purchase-order").then((data) => {
+            if (Array.isArray(data)) {
+              setPurchaseOrders(
+                data.map((po: any) => ({
+                  id: po.id,
+                  poNumber: po.po_number || po.order_number || po.id,
+                  vendorId: po.vendor_id,
+                  vendorName: po.vendor?.name || "Standard Supplier",
+                  orderDate: po.order_date
+                    ? new Date(po.order_date).toISOString().slice(0, 10)
+                    : new Date().toISOString().slice(0, 10),
+                  expectedDate: po.expected_date
+                    ? new Date(po.expected_date).toISOString().slice(0, 10)
+                    : new Date().toISOString().slice(0, 10),
+                  status: po.status || "draft",
+                  totalAmount: Number(po.total_amount) || 0,
+                  itemCount: (po.lines || []).length || 1,
+                  items: (po.lines || []).map((l: any) => ({
+                    id: l.id,
+                    itemId: l.inventory_item_id || l.item_id,
+                    name: l.inventory_item?.name || l.item_name || "Component",
+                    quantity: Number(l.qty_ordered || l.quantity) || 0,
+                    receivedQty: Number(l.qty_received || l.received_qty) || 0,
+                    unitPrice: Number(l.unit_cost) || 0,
+                  })),
+                }))
+              );
+            }
+          });
+        });
+      } catch (err) {
+        console.warn("SSE connection error:", err);
+      }
     } else {
       setInventory([]);
       setKits([]);
@@ -411,6 +473,12 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       setSerialNumbers([]);
       setLoading(false);
     }
+
+    return () => {
+      if (sseSource) {
+        sseSource.close();
+      }
+    };
   }, [user, token]);
 
   // CRUD Implementations

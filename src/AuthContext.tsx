@@ -20,6 +20,7 @@ interface AuthContextType {
   registerWithEmailPassword: (email: string, password: string, name: string, role?: string) => Promise<void>;
   signInAsGuest: () => Promise<void>;
   signOut: () => Promise<void>;
+  updateCurrentUser: (updates: Partial<UserProfile>) => void;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -32,6 +33,7 @@ const AuthContext = createContext<AuthContextType>({
   registerWithEmailPassword: async () => {},
   signInAsGuest: async () => {},
   signOut: async () => {},
+  updateCurrentUser: () => {},
 });
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -127,6 +129,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(null);
   };
 
+  const updateCurrentUser = (updates: Partial<UserProfile>) => {
+    setUser(prev => prev ? { ...prev, ...updates } : null);
+  };
+
   const role = user ? user.role : null;
 
   return (
@@ -139,7 +145,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       signInWithEmailPassword,
       registerWithEmailPassword,
       signInAsGuest,
-      signOut
+      signOut,
+      updateCurrentUser
     }}>
       {children}
     </AuthContext.Provider>

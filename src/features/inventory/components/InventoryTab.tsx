@@ -605,7 +605,7 @@ export default function InventoryTab({
         </form>
       )}
 
-      {/* Grid Mode View */}
+      {/* Grid Mode View (Modern Large Visual Showcase) */}
       {viewMode === 'grid' && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
           {filteredAndSortedInventory.map((item) => {
@@ -619,123 +619,153 @@ export default function InventoryTab({
               <div
                 key={item.id}
                 onClick={() => setDrawerItem(item)}
-                className={`rounded-3xl border p-5 shadow-xs hover:shadow-xl hover:-translate-y-0.5 transition-all duration-200 flex flex-col justify-between cursor-pointer group space-y-3 ${
+                className={`rounded-3xl border shadow-xs hover:shadow-xl hover:-translate-y-1 transition-all duration-200 flex flex-col justify-between cursor-pointer group overflow-hidden ${
                   isZero
-                    ? 'bg-rose-50/40 dark:bg-rose-950/20 border-rose-300 dark:border-rose-800'
+                    ? 'bg-white dark:bg-slate-900 border-rose-300 dark:border-rose-800/80 ring-1 ring-rose-400/20'
                     : isLow
-                    ? 'bg-amber-50/30 dark:bg-amber-950/20 border-amber-300 dark:border-amber-800'
+                    ? 'bg-white dark:bg-slate-900 border-amber-300 dark:border-amber-800/80 ring-1 ring-amber-400/20'
                     : 'bg-white dark:bg-slate-900 border-slate-200/80 dark:border-slate-800'
                 }`}
               >
-                <div className="space-y-2.5">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="w-12 h-12 rounded-2xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center shrink-0 overflow-hidden group-hover:scale-105 transition-transform">
-                      {item.imageUrl ? (
-                        <ItemImage src={item.imageUrl} alt={item.name} category={item.category} className="w-full h-full object-cover" />
-                      ) : isCommon ? (
-                        <InfinityIcon className="w-6 h-6 text-indigo-600" />
-                      ) : (
-                        <Box className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
-                      )}
-                    </div>
+                {/* 1. Large High-Clarity Visual Showcase Header */}
+                <div className="w-full h-44 sm:h-48 bg-gradient-to-b from-slate-50 via-slate-100/90 to-slate-200/60 dark:from-slate-800/90 dark:via-slate-800 dark:to-slate-850 relative overflow-hidden flex items-center justify-center p-3 group/img">
+                  {item.imageUrl ? (
+                    <ItemImage
+                      src={item.imageUrl}
+                      alt={item.name}
+                      category={item.category}
+                      className="w-full h-full object-contain filter drop-shadow-sm group-hover/img:scale-108 transition-transform duration-300"
+                    />
+                  ) : isCommon ? (
+                    <InfinityIcon className="w-12 h-12 text-indigo-600 dark:text-indigo-400 opacity-80" />
+                  ) : (
+                    <Box className="w-12 h-12 text-indigo-500/70 dark:text-indigo-400/60" />
+                  )}
 
-                    <div className="flex flex-col items-end gap-1">
-                      {isZero ? (
-                        <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase bg-rose-100 dark:bg-rose-950 text-rose-700 dark:text-rose-300 border border-rose-200">
-                          Out of Stock
-                        </span>
-                      ) : isLow ? (
-                        <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 border border-amber-200">
-                          Low Stock
-                        </span>
-                      ) : isCommon ? (
-                        <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-300">
-                          Unlimited
-                        </span>
-                      ) : (
-                        <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 border border-emerald-200">
-                          In Stock
-                        </span>
-                      )}
-
-                      {/* Interactive Storage Bin Location Badge */}
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setQuickRelocateItem(item);
-                          setTargetBinLocation(item.binLocation || '');
-                        }}
-                        className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/60 hover:bg-amber-100 border border-amber-200/80 dark:border-amber-800/80 px-2 py-0.5 rounded-md cursor-pointer transition-colors"
-                        title="Click to relocate to a different warehouse bin"
-                      >
-                        <MapPin className="w-3 h-3 text-amber-600" />
-                        <span>{item.binLocation || 'Rack - Shelf 1'}</span>
-                      </button>
-                    </div>
+                  {/* Floating Stock Status Badge (Top-Right) */}
+                  <div className="absolute top-2.5 right-2.5">
+                    {isZero ? (
+                      <span className="px-2.5 py-1 rounded-xl text-[10px] font-black uppercase bg-rose-600 text-white shadow-sm flex items-center gap-1">
+                        <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping" />
+                        Out of Stock
+                      </span>
+                    ) : isLow ? (
+                      <span className="px-2.5 py-1 rounded-xl text-[10px] font-black uppercase bg-amber-500 text-white shadow-sm flex items-center gap-1">
+                        <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+                        Low Stock
+                      </span>
+                    ) : isCommon ? (
+                      <span className="px-2.5 py-1 rounded-xl text-[10px] font-black uppercase bg-slate-900/80 text-white shadow-sm backdrop-blur-md">
+                        Unlimited
+                      </span>
+                    ) : (
+                      <span className="px-2.5 py-1 rounded-xl text-[10px] font-bold bg-emerald-600/90 text-white shadow-sm backdrop-blur-md flex items-center gap-1">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-200" />
+                        In Stock
+                      </span>
+                    )}
                   </div>
 
+                  {/* Floating Category Badge (Top-Left) */}
+                  <div className="absolute top-2.5 left-2.5">
+                    <span className={`px-2.5 py-1 rounded-xl text-[10px] font-bold shadow-xs backdrop-blur-md border ${catStyle.bg}`}>
+                      {item.category || 'General'}
+                    </span>
+                  </div>
+
+                  {/* Floating Storage Bin Location Badge (Bottom-Right) */}
+                  <div className="absolute bottom-2.5 right-2.5">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setQuickRelocateItem(item);
+                        setTargetBinLocation(item.binLocation || '');
+                      }}
+                      className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-950 dark:text-amber-200 bg-white/95 dark:bg-slate-900/95 hover:bg-amber-50 dark:hover:bg-slate-800 border border-amber-300 dark:border-amber-700/80 px-2.5 py-1 rounded-xl shadow-xs backdrop-blur-md cursor-pointer transition-all hover:scale-105"
+                      title="Click to relocate to a different warehouse bin"
+                    >
+                      <MapPin className="w-3 h-3 text-amber-600" />
+                      <span>{item.binLocation || 'Rack - Shelf 1'}</span>
+                    </button>
+                  </div>
+
+                  {/* Floating SKU Pill (Bottom-Left) */}
+                  <div className="absolute bottom-2.5 left-2.5">
+                    <span className="px-2 py-0.5 rounded-lg text-[9px] font-mono font-bold bg-slate-950/70 text-slate-200 backdrop-blur-md">
+                      {item.barcode || `EL-${item.id}`}
+                    </span>
+                  </div>
+                </div>
+
+                {/* 2. Product Information & Health Body */}
+                <div className="p-4 sm:p-5 space-y-3">
                   <div>
-                    <h4 className="font-extrabold text-slate-900 dark:text-white text-xs group-hover:text-indigo-600 transition-colors line-clamp-1">
+                    <h4 className="font-black text-slate-900 dark:text-white text-sm sm:text-base group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors line-clamp-1">
                       {item.name}
                     </h4>
-                    <div className="flex items-center gap-1.5 mt-1">
-                      <span className={`text-[9px] font-bold px-2 py-0.5 rounded-md border ${catStyle.bg}`}>
-                        {item.category || 'General'}
-                      </span>
-                      <span className="text-[9px] font-mono text-slate-400">{item.barcode || `EL-${item.id}`}</span>
-                    </div>
                   </div>
 
+                  {/* Stock Gauge Meter */}
                   {!isCommon && (
-                    <div className="space-y-1 pt-1">
-                      <div className="flex justify-between text-[10px] font-bold">
-                        <span className="text-slate-400 uppercase tracking-wider text-[9px]">Stock</span>
-                        <span className="text-slate-900 dark:text-white">{item.stockQty} / {item.threshold} {item.unit}</span>
+                    <div className="space-y-1.5">
+                      <div className="flex justify-between text-xs font-bold">
+                        <span className="text-slate-400 uppercase tracking-wider text-[10px]">Stock Level</span>
+                        <span className="text-slate-900 dark:text-white font-mono">
+                          {item.stockQty} / {item.threshold} {item.unit}
+                        </span>
                       </div>
-                      <div className="w-full bg-slate-100 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden">
+                      <div className="w-full bg-slate-100 dark:bg-slate-800 h-2 rounded-full overflow-hidden p-0.5">
                         <div
-                          className={`h-full rounded-full ${isZero ? 'bg-rose-500' : isLow ? 'bg-amber-500' : 'bg-emerald-500'}`}
+                          className={`h-full rounded-full transition-all duration-300 ${
+                            isZero ? 'bg-rose-500' : isLow ? 'bg-amber-500' : 'bg-emerald-500'
+                          }`}
                           style={{ width: `${Math.max(5, progressPct)}%` }}
                         />
                       </div>
                     </div>
                   )}
-                </div>
 
-                {/* Stock +/- Stepper Controls & Edit Trigger */}
-                <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between" onClick={(e) => e.stopPropagation()}>
-                  <div className="text-xs font-bold text-slate-900 dark:text-white font-mono">₹{Number(item.unitCost ?? item.basePrice ?? 0).toFixed(2)}</div>
-                  <div className="flex items-center gap-1">
-                    <button
-                      onClick={() => onUpdateStock(item.id, Math.max(0, item.stockQty - getItemStep(item.id)))}
-                      className="p-1 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 cursor-pointer transition-colors"
-                      title={`Deduct ${getItemStep(item.id)} ${item.unit}`}
-                    >
-                      <Minus className="w-3 h-3" />
-                    </button>
-                    <input
-                      type="number"
-                      min="1"
-                      value={getItemStep(item.id)}
-                      onChange={(e) => setItemStep(item.id, parseInt(e.target.value, 10))}
-                      className="w-9 text-center py-0.5 px-0.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-md text-[10px] font-bold text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                      title="Step value"
-                    />
-                    <button
-                      onClick={() => onUpdateStock(item.id, item.stockQty + getItemStep(item.id))}
-                      className="p-1 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white cursor-pointer transition-colors shadow-xs"
-                      title={`Add ${getItemStep(item.id)} ${item.unit}`}
-                    >
-                      <Plus className="w-3 h-3" />
-                    </button>
-                    <button
-                      onClick={() => setEditingItem(item)}
-                      className="p-1 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-slate-800 rounded-lg ml-1 cursor-pointer"
-                      title="Edit Item Details"
-                    >
-                      <Edit2 className="w-3.5 h-3.5" />
-                    </button>
+                  {/* 3. Footer Price & Stock Stepper Actions */}
+                  <div className="pt-2.5 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between" onClick={(e) => e.stopPropagation()}>
+                    <div>
+                      <span className="text-[9px] font-bold text-slate-400 uppercase block">Unit Cost</span>
+                      <div className="text-sm font-black text-slate-900 dark:text-white font-mono">
+                        ₹{Number(item.unitCost ?? item.basePrice ?? 0).toFixed(2)}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => onUpdateStock(item.id, Math.max(0, item.stockQty - getItemStep(item.id)))}
+                        className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 cursor-pointer transition-colors"
+                        title={`Deduct ${getItemStep(item.id)} ${item.unit}`}
+                      >
+                        <Minus className="w-3.5 h-3.5" />
+                      </button>
+                      <input
+                        type="number"
+                        min="1"
+                        value={getItemStep(item.id)}
+                        onChange={(e) => setItemStep(item.id, parseInt(e.target.value, 10))}
+                        className="w-10 text-center py-1 px-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-bold text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                        title="Step value"
+                      />
+                      <button
+                        onClick={() => onUpdateStock(item.id, item.stockQty + getItemStep(item.id))}
+                        className="p-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white cursor-pointer transition-colors shadow-xs"
+                        title={`Add ${getItemStep(item.id)} ${item.unit}`}
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        onClick={() => setEditingItem(item)}
+                        className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-slate-800 rounded-lg ml-1 cursor-pointer"
+                        title="Edit Item Details"
+                      >
+                        <Edit2 className="w-4 h-4" />
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -936,20 +966,30 @@ export default function InventoryTab({
             </div>
 
             <div className="space-y-4">
-              <div className="flex items-center gap-4">
-                <div className="w-16 h-16 rounded-2xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center overflow-hidden shrink-0">
-                  {drawerItem.imageUrl ? (
-                    <ItemImage src={drawerItem.imageUrl} alt={drawerItem.name} category={drawerItem.category} className="w-full h-full object-cover" />
-                  ) : (
-                    <Box className="w-6 h-6 text-indigo-600" />
-                  )}
-                </div>
-                <div>
-                  <h4 className="text-base font-bold text-slate-900 dark:text-white">{drawerItem.name}</h4>
-                  <span className="text-xs font-semibold px-2.5 py-0.5 bg-indigo-50 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 rounded-full border border-indigo-100 dark:border-indigo-800">
+              {/* Large Product Hero Showcase */}
+              <div className="w-full h-52 rounded-2xl bg-gradient-to-b from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-850 border border-slate-200/80 dark:border-slate-700/80 flex items-center justify-center p-3 overflow-hidden relative group/img shadow-xs">
+                {drawerItem.imageUrl ? (
+                  <ItemImage
+                    src={drawerItem.imageUrl}
+                    alt={drawerItem.name}
+                    category={drawerItem.category}
+                    className="w-full h-full object-contain filter drop-shadow-md group-hover/img:scale-105 transition-transform duration-300"
+                  />
+                ) : (
+                  <Box className="w-14 h-14 text-indigo-500/70 dark:text-indigo-400/60" />
+                )}
+                <div className="absolute top-2.5 left-2.5">
+                  <span className="text-[10px] font-bold px-2.5 py-1 bg-white/90 dark:bg-slate-900/90 text-indigo-700 dark:text-indigo-300 rounded-xl border border-indigo-200 dark:border-indigo-800 shadow-xs backdrop-blur-md">
                     {drawerItem.category || 'General'}
                   </span>
                 </div>
+              </div>
+
+              <div>
+                <h4 className="text-lg font-black text-slate-900 dark:text-white">{drawerItem.name}</h4>
+                <p className="text-xs text-slate-500 dark:text-slate-400 font-mono mt-0.5">
+                  SKU: {drawerItem.sku || drawerItem.barcode || `EL-${drawerItem.id}`}
+                </p>
               </div>
 
               <div className="grid grid-cols-2 gap-3 pt-2">

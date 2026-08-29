@@ -2,6 +2,7 @@ import { SalesOrder } from "../entity/SalesOrder";
 import { SalesOrderLine } from "../entity/SalesOrderLine";
 import { Customer } from "../entity/Customer";
 import { InventoryItem } from "../entity/InventoryItem";
+import { StockLedger } from "../entity/StockLedger";
 import { AppDataSource } from "../db";
 
 export class SalesOrderService {
@@ -41,7 +42,6 @@ export class SalesOrderService {
     await queryRunner.startTransaction();
 
     try {
-      // Validate or resolve Customer
       let customer: Customer | null = null;
       if (customerId) {
         customer = await queryRunner.manager.findOne(Customer, {
@@ -59,15 +59,14 @@ export class SalesOrderService {
             organization_id: orgId,
             name: customerName,
             customer_code: `CUST-${Date.now().toString().slice(-4)}`,
-            email: "customer@client.com",
-            phone: "+91 9876543211"
+            email: "customer@experimindlabs.com",
+            phone: "+91 9876543210"
           });
           customer = await queryRunner.manager.save(customer);
         }
         customerId = customer.id;
       }
 
-      // Generate SO number if not provided
       const soNumber = dto.so_number || `SO-${Date.now().toString().slice(-6)}`;
 
       let totalAmount = Number(dto.total_amount) || 0;
@@ -175,12 +174,15 @@ export class SalesOrderService {
   async shipItems(
     soId: string,
     shipments: { lineId: string; quantityShipped: number }[],
-    organizationId?: string
+    organizationId?: string,
+    actorName?: string
   ): Promise<SalesOrder> {
     const so = await this.findById(soId, organizationId);
     if (!so) {
       throw new Error(`Sales order ${soId} not found or access denied.`);
     }
+
+    const orgId = organizationId || so.organization_id || "00000000-0000-0000-0000-000000000000";
 
     const queryRunner = AppDataSource.createQueryRunner();
     await queryRunner.connect();
@@ -197,14 +199,54 @@ export class SalesOrderService {
           throw new Error(`Line ${shipment.lineId} does not belong to Sales Order ${soId}`);
         }
 
-        line.qty_shipped += shipment.quantityShipped;
-        await queryRunner.manager.save(line);
+        const qtyToShip = Number(shipment.quantityShipped);
+        if (qtyToShip <= 0) continue;
 
-        // Decrement stock in inventory item (clamping safely to 0)
-        if (line.inventory_item) {
-          line.inventory_item.quantity = Math.max(0, line.inventory_item.quantity - shipment.quantityShipped);
-          await queryRunner.manager.save(line.inventory_item);
+        // Check and acquire pessimistic lock on target inventory item
+        if (line.inventory_item_id) {
+          const item = await queryRunner.manager.findOne(InventoryItem, {
+            where: { id: line.inventory_item_id },
+            lock: { mode: "pessimistic_write" },
+          });
+
+          if (!item) {
+            throw new Error(`Inventory item not found for line ${line.id}`);
+          }
+
+          const currentStock = Number(item.quantity || 0);
+          if (currentStock < qtyToShip) {
+            throw new Error(
+              `Insufficient inventory for SKU ${item.sku} (${item.name}): Available on hand is ${currentStock}, but attempted to ship ${qtyToShip}.`
+            );
+          }
+
+          const newStock = currentStock - qtyToShip;
+          item.quantity = newStock;
+          item.updated_at = new Date();
+          await queryRunner.manager.save(InventoryItem, item);
+
+          // Write append-only immutable ledger record
+          const ledgerEntry = queryRunner.manager.create(StockLedger, {
+            organization_id: orgId,
+            item_id: item.id,
+            item_name: item.name,
+            item_sku: item.sku,
+            bin_location: item.bin_location,
+            qty_delta: -qtyToShip,
+            unit_cost: Number(line.unit_price || item.base_price || 0),
+            running_balance: newStock,
+            transaction_type: "SO_SHIPMENT",
+            reference_type: "sales_order",
+            reference_id: so.so_number || so.id,
+            reason_code: `Customer Order Shipment`,
+            notes: `Dispatched for SO ${so.so_number || so.id}`,
+            actor_name: actorName || "Fulfillment Dispatcher",
+          });
+          await queryRunner.manager.save(StockLedger, ledgerEntry);
         }
+
+        line.qty_shipped += qtyToShip;
+        await queryRunner.manager.save(line);
       }
 
       const allLines = await queryRunner.manager.find(SalesOrderLine, {

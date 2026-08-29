@@ -42,7 +42,10 @@ import FloorPlanDesignerTab from '@/src/features/warehouse/components/FloorPlanD
 import ApprovalCenterTab from '@/src/features/compliance/components/ApprovalCenterTab';
 import { RolePermissionMatrixTab } from '@/src/features/compliance/components/RolePermissionMatrixTab';
 import { UserDirectoryTab } from '@/src/features/compliance/components/UserDirectoryTab';
-import GlobalLogisticsMapTab from '@/src/features/procurement/components/GlobalLogisticsMapTab';
+import { QmsDashboardTab } from '@/src/features/compliance/components/QmsDashboardTab';
+import { AuditTrailVerifierTab } from '@/src/features/compliance/components/AuditTrailVerifierTab';
+import CycleCountsTab from '@/src/features/warehouse/components/CycleCountsTab';
+import SerialNumbersTab from '@/src/features/inventory/components/SerialNumbersTab';
 import BarcodeStudioModal from '@/src/shared/components/BarcodeStudioModal';
 import BarcodeScannerModal from '@/src/shared/components/BarcodeScannerModal';
 import OfflineStatusBar from '@/src/shared/components/OfflineStatusBar';
@@ -59,7 +62,14 @@ function MainApp() {
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   
-  const [activeTab, setActiveTab] = useState<string>('overview');
+  const [activeTab, setActiveTab] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const tabParam = params.get('tab');
+      if (tabParam) return tabParam;
+    }
+    return 'overview';
+  });
   const [selectedKitId, setSelectedKitId] = useState<string>('all');
   const [isBOMModalOpen, setIsBOMModalOpen] = useState(false);
   const [isCreateKitModalOpen, setIsCreateKitModalOpen] = useState(false);
@@ -403,6 +413,14 @@ function MainApp() {
                 <ComplianceSecurityTab />
               )}
 
+              {activeTab === 'qms_suite' && (
+                <QmsDashboardTab />
+              )}
+
+              {activeTab === 'audit_verifier' && (
+                <AuditTrailVerifierTab />
+              )}
+
               {activeTab === 'roles_permissions' && (
                 <RolePermissionMatrixTab />
               )}
@@ -451,12 +469,16 @@ function MainApp() {
                 <StockTransferTab />
               )}
 
-              {activeTab === 'batch_expiry' && (
-                <BatchExpiryTab />
+              {activeTab === 'cycle_counts' && (
+                <CycleCountsTab role={role} />
               )}
 
-              {activeTab === 'global_logistics' && (
-                <GlobalLogisticsMapTab />
+              {activeTab === 'serial_numbers' && (
+                <SerialNumbersTab role={role} />
+              )}
+
+              {activeTab === 'batch_expiry' && (
+                <BatchExpiryTab />
               )}
 
               {activeTab === 'copilot' && (
@@ -623,17 +645,11 @@ export default function App() {
 
           <div className="pt-4 border-t border-slate-800 space-y-3 text-center text-xs">
             <button
-              onClick={() => signInAsGuest('admin')}
-              className="w-full bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold py-2.5 rounded-xl border border-slate-700 transition-all cursor-pointer"
-            >
-              Continue as Guest Admin
-            </button>
-
-            <button
+              type="button"
               onClick={() => setIsRegistering(!isRegistering)}
-              className="text-slate-400 hover:text-white underline cursor-pointer text-[11px]"
+              className="text-indigo-400 hover:text-indigo-300 font-semibold cursor-pointer text-xs transition-colors"
             >
-              {isRegistering ? 'Already have an account? Sign in' : 'Need an account? Register'}
+              {isRegistering ? 'Already have an enterprise account? Sign in' : 'Need an account? Register new user'}
             </button>
           </div>
         </div>

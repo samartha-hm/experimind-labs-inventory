@@ -51,6 +51,21 @@ export class User {
   @Column({ type: "timestamp", nullable: true })
   reset_token_expires?: Date | null;
 
+  @Column({ type: "varchar", nullable: true })
+  mfa_secret?: string | null;
+
+  @Column({ type: "boolean", default: false })
+  mfa_enabled: boolean = false;
+
+  @Column({ type: "jsonb", nullable: true })
+  mfa_backup_codes?: string[] | null;
+
+  @Column({ type: "timestamp", nullable: true })
+  last_password_change?: Date | null;
+
+  @Column({ type: "jsonb", nullable: true })
+  password_history?: string[] | null;
+
   @OneToMany("Transaction", "user")
   transactions!: Transaction[];
 
