@@ -13,9 +13,13 @@ else
   echo "Swapfile already exists."
 fi
 
-echo "=== 2. Updating OS packages and installing prerequisites ==="
-sudo apt-get update -y
-sudo apt-get install -y curl wget git nginx postgresql postgresql-contrib build-essential
+echo "=== 2. Checking OS packages and prerequisites ==="
+if ! command -v nginx &> /dev/null && [ ! -f /usr/sbin/nginx ]; then
+  sudo apt-get update -y
+  sudo apt-get install -y curl wget git nginx postgresql postgresql-contrib build-essential
+else
+  echo "Prerequisites already installed."
+fi
 
 echo "=== 3. Installing Node.js 20 LTS ==="
 if ! command -v node &> /dev/null; then
@@ -25,9 +29,11 @@ fi
 node -v
 npm -v
 
-echo "=== 4. Installing PM2 Process Manager ==="
-sudo npm install -g pm2
-sudo pm2 startup systemd -u admin --hp /home/admin || true
+echo "=== 4. Checking PM2 Process Manager ==="
+if ! command -v pm2 &> /dev/null; then
+  sudo npm install -g pm2
+  sudo pm2 startup systemd -u admin --hp /home/admin || true
+fi
 
 echo "=== 5. Setting up PostgreSQL database & user ==="
 sudo systemctl enable postgresql
