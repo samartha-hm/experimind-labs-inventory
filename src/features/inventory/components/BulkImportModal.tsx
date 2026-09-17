@@ -78,10 +78,10 @@ export const BulkImportModal: React.FC<BulkImportModalProps> = ({ isOpen, onClos
 
   const handleDownloadSample = () => {
     const csvContent = 'data:text/csv;charset=utf-8,' + 
-      'SKU,Item Name,Category,Quantity,Unit Cost,Bin,UOM\n' +
-      'ESP32-WROOM-32,ESP32 Wi-Fi & Bluetooth MCU Module,Microcontrollers,50,350.00,Rack - Shelf 1,pcs\n' +
-      'SHT31-DIS-F,Digital Temperature & Humidity Sensor,Sensors,25,180.00,Rack - Shelf 2,pcs\n' +
-      'OLED-128X64-I2C,0.96 inch I2C OLED Display Module,Displays,40,220.00,Rack - Shelf 3,pcs\n';
+      'SKU,Item Name,Category,Quantity,Unit Cost,Bin,UOM,MPN,Footprint,Mounting,MSL\n' +
+      'ESP32-WROOM-32,ESP32 Wi-Fi & Bluetooth MCU Module,Microcontrollers,50,350.00,Rack - Shelf 1,pcs,ESP32-WROOM-32E,MODULE,SMD,MSL 3\n' +
+      'SHT31-DIS-F,Digital Temperature & Humidity Sensor,Sensors,25,180.00,Rack - Shelf 2,pcs,SHT31-DIS-B,DFN-8,SMD,MSL 1\n' +
+      'OLED-128X64-I2C,0.96 inch I2C OLED Display Module,Displays,40,220.00,Rack - Shelf 3,pcs,SSD1306,MODULE,OTHER,MSL 1\n';
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement('a');
     link.setAttribute('href', encodedUri);

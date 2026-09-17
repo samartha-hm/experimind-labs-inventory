@@ -54,6 +54,15 @@ export interface InventoryItem {
   xyzClass?: 'X' | 'Y' | 'Z';
   monthlyConsumption?: number[];
   forecastedStockoutDays?: number;
+  mpn?: string;
+  manufacturer?: string;
+  packageFootprint?: string;
+  package_footprint?: string;
+  mountingType?: string;
+  mounting_type?: string;
+  mslRating?: string;
+  msl_rating?: string;
+  datasheetUrl?: string;
 }
 
 export interface GSTInvoice {

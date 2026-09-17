@@ -44,6 +44,11 @@ router.post("/items", requireTenant, requireRole("staff", "admin"), async (req, 
       const price = Number(row.unit_price || row.price || row["Price"] || row["Unit Cost"]) || 0;
       const stock = Number(row.stock_qty || row.quantity || row["Stock Qty"] || row["Quantity"]) || 0;
       const bin = row.bin || row.location || row["Bin"] || "Default Shelf";
+      const mpn = row.mpn || row["MPN"] || row["Part Number"];
+      const footprint = row.footprint || row["Footprint"] || row["Package"];
+      const mounting = row.mounting || row["Mounting"] || row["Mounting Type"];
+      const msl = row.msl || row["MSL"] || row["MSL Rating"];
+      const manufacturer = row.manufacturer || row["Manufacturer"] || row["Brand"];
 
       if (!name) {
         errors.push(`Row ${i + 1}: Item name is required`);
@@ -63,11 +68,21 @@ router.post("/items", requireTenant, requireRole("staff", "admin"), async (req, 
           quantity: stock,
           threshold: 10,
           bin_location: bin,
-          is_common: false
+          is_common: false,
+          mpn: mpn || undefined,
+          package_footprint: footprint || undefined,
+          mounting_type: mounting || "SMD",
+          msl_rating: msl || "MSL 1",
+          manufacturer: manufacturer || undefined,
         });
         item = await itemRepo.save(item);
       } else {
         item.quantity = Number(item.quantity) + stock;
+        if (mpn) item.mpn = mpn;
+        if (footprint) item.package_footprint = footprint;
+        if (mounting) item.mounting_type = mounting;
+        if (msl) item.msl_rating = msl;
+        if (manufacturer) item.manufacturer = manufacturer;
         item = await itemRepo.save(item);
       }
 

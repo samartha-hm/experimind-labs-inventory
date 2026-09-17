@@ -175,7 +175,11 @@ export default function InventoryTab({
       const matchesSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         item.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
         (item.barcode && item.barcode.toLowerCase().includes(searchTerm.toLowerCase())) ||
-        (item.binLocation && item.binLocation.toLowerCase().includes(searchTerm.toLowerCase()));
+        (item.binLocation && item.binLocation.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (item.mpn && item.mpn.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (item.package_footprint && item.package_footprint.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (item.packageFootprint && item.packageFootprint.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (item.manufacturer && item.manufacturer.toLowerCase().includes(searchTerm.toLowerCase()));
 
       const matchesCategory =
         selectedCategory === 'All' || selectedCategory === 'ALL' ||
@@ -729,6 +733,20 @@ export default function InventoryTab({
                     <h4 className="font-black text-slate-900 dark:text-white text-sm sm:text-base group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors line-clamp-1">
                       {item.name}
                     </h4>
+                    {(item.mpn || item.package_footprint || item.packageFootprint) && (
+                      <div className="flex items-center gap-1.5 mt-1">
+                        {item.mpn && (
+                          <span className="text-[10px] font-mono font-semibold px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
+                            {item.mpn}
+                          </span>
+                        )}
+                        {(item.package_footprint || item.packageFootprint) && (
+                          <span className="text-[9px] font-mono px-1 py-0.5 rounded bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 border border-indigo-200/50">
+                            {item.package_footprint || item.packageFootprint}
+                          </span>
+                        )}
+                      </div>
+                    )}
                   </div>
 
                   {/* Stock Gauge Meter */}

@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Upload, Image as ImageIcon, Package, Clock, Settings, MapPin } from 'lucide-react';
+import { X, Upload, Image as ImageIcon, Package, Clock, Settings, MapPin, Cpu } from 'lucide-react';
 import { InventoryItem, KitBOM } from '@/src/types';
 import { uploadImage } from '@/src/utils/storage';
 import { useData } from '@/src/DataContext';
@@ -36,6 +36,11 @@ export default function EditPartModal({
   const [binLocation, setBinLocation] = useState(item.binLocation || '');
   const [assignedKitName, setAssignedKitName] = useState(item.assignedKitName || '');
   const [isCommon, setIsCommon] = useState(item.isCommon || false);
+  const [mpn, setMpn] = useState(item.mpn || '');
+  const [manufacturer, setManufacturer] = useState(item.manufacturer || '');
+  const [packageFootprint, setPackageFootprint] = useState(item.package_footprint || item.packageFootprint || '');
+  const [mountingType, setMountingType] = useState(item.mounting_type || item.mountingType || 'SMD');
+  const [mslRating, setMslRating] = useState(item.msl_rating || item.mslRating || 'MSL 1');
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -52,6 +57,11 @@ export default function EditPartModal({
       setBinLocation(item.binLocation || '');
       setAssignedKitName(item.assignedKitName || '');
       setIsCommon(item.isCommon || false);
+      setMpn(item.mpn || '');
+      setManufacturer(item.manufacturer || '');
+      setPackageFootprint(item.package_footprint || item.packageFootprint || '');
+      setMountingType(item.mounting_type || item.mountingType || 'SMD');
+      setMslRating(item.msl_rating || item.mslRating || 'MSL 1');
       setImageFile(null);
     }
   }, [isOpen, item]);
@@ -79,6 +89,14 @@ export default function EditPartModal({
         assignedKitName: assignedKitName.trim() || undefined,
         isCommon,
         imageUrl,
+        mpn: mpn.trim() || undefined,
+        manufacturer: manufacturer.trim() || undefined,
+        package_footprint: packageFootprint.trim() || undefined,
+        packageFootprint: packageFootprint.trim() || undefined,
+        mounting_type: mountingType || undefined,
+        mountingType: mountingType || undefined,
+        msl_rating: mslRating || undefined,
+        mslRating: mslRating || undefined,
       });
       onClose();
     } catch (e) {
@@ -276,6 +294,117 @@ export default function EditPartModal({
                   <option value="Electronics Innovation Kit" />
                   <option value="Prastuti Maths Activity Set" />
                 </datalist>
+              </div>
+
+              {/* Hardware & Electronics Engineering Specs (IPC / JEDEC Standards) */}
+              <div className="p-4 bg-indigo-50/60 border border-indigo-200/80 rounded-2xl space-y-3">
+                <label className="block text-[10px] font-bold text-indigo-950 uppercase tracking-wider flex items-center justify-between">
+                  <span className="flex items-center gap-1.5">
+                    <Cpu className="w-4 h-4 text-indigo-600" />
+                    Hardware & Electronics Specs (IPC / JEDEC)
+                  </span>
+                  <span className="text-[10px] text-indigo-700 font-mono font-normal">PCBA & SMT Parameters</span>
+                </label>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-600 uppercase tracking-wider mb-1">
+                      MPN (Mfg Part Number)
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. ESP32-WROOM-32E, STM32F401, RC0603..."
+                      value={mpn}
+                      onChange={(e) => setMpn(e.target.value)}
+                      className="w-full text-xs font-mono font-bold text-slate-800 border border-indigo-200 rounded-xl p-2.5 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-600 uppercase tracking-wider mb-1">
+                      Manufacturer
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Espressif, STMicroelectronics, TI, Yageo..."
+                      value={manufacturer}
+                      onChange={(e) => setManufacturer(e.target.value)}
+                      className="w-full text-xs font-bold text-slate-800 border border-indigo-200 rounded-xl p-2.5 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-600 uppercase tracking-wider mb-1">
+                      Package / Footprint
+                    </label>
+                    <input
+                      type="text"
+                      list="footprint-options"
+                      placeholder="e.g. 0402, 0603, QFN-32..."
+                      value={packageFootprint}
+                      onChange={(e) => setPackageFootprint(e.target.value)}
+                      className="w-full text-xs font-mono font-bold text-slate-800 border border-indigo-200 rounded-xl p-2.5 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                    />
+                    <datalist id="footprint-options">
+                      <option value="0201" />
+                      <option value="0402" />
+                      <option value="0603" />
+                      <option value="0805" />
+                      <option value="1206" />
+                      <option value="SOT-23" />
+                      <option value="SOIC-8" />
+                      <option value="SOIC-16" />
+                      <option value="QFN-16" />
+                      <option value="QFN-32" />
+                      <option value="LQFP-48" />
+                      <option value="LQFP-64" />
+                      <option value="DIP-8" />
+                      <option value="DIP-16" />
+                      <option value="TO-220" />
+                      <option value="MODULE" />
+                      <option value="HEADER-2.54mm" />
+                      <option value="CHASSIS" />
+                    </datalist>
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-600 uppercase tracking-wider mb-1">
+                      Mounting Type
+                    </label>
+                    <select
+                      value={mountingType}
+                      onChange={(e) => setMountingType(e.target.value)}
+                      className="w-full text-xs font-bold text-slate-800 border border-indigo-200 rounded-xl p-2.5 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                    >
+                      <option value="SMD">SMD (Surface Mount)</option>
+                      <option value="THT">THT (Through-Hole)</option>
+                      <option value="CHASSIS">Chassis Mount</option>
+                      <option value="PANEL">Panel Mount</option>
+                      <option value="OTHER">Other / Mechanical</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-600 uppercase tracking-wider mb-1">
+                      MSL Rating
+                    </label>
+                    <select
+                      value={mslRating}
+                      onChange={(e) => setMslRating(e.target.value)}
+                      className="w-full text-xs font-bold text-slate-800 border border-indigo-200 rounded-xl p-2.5 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                    >
+                      <option value="MSL 1">MSL 1 (Unlimited)</option>
+                      <option value="MSL 2">MSL 2 (1 Year)</option>
+                      <option value="MSL 2a">MSL 2a (4 Weeks)</option>
+                      <option value="MSL 3">MSL 3 (168 Hours)</option>
+                      <option value="MSL 4">MSL 4 (72 Hours)</option>
+                      <option value="MSL 5">MSL 5 (48 Hours)</option>
+                      <option value="MSL 5a">MSL 5a (24 Hours)</option>
+                      <option value="MSL 6">MSL 6 (Mandatory Bake)</option>
+                    </select>
+                  </div>
+                </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4 p-4 bg-slate-50 rounded-2xl border border-slate-100">

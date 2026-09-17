@@ -191,7 +191,16 @@ function mapItemToFrontend(dbItem: any): InventoryItem {
     sku: dbItem.sku || undefined,
     assignedKitName: dbItem.assigned_kit_name || undefined,
     isSellable: dbItem.is_sellable !== undefined ? !!dbItem.is_sellable : true,
-    isHidden: !!dbItem.is_hidden
+    isHidden: !!dbItem.is_hidden,
+    mpn: dbItem.mpn || undefined,
+    manufacturer: dbItem.manufacturer || undefined,
+    packageFootprint: dbItem.package_footprint || undefined,
+    package_footprint: dbItem.package_footprint || undefined,
+    mountingType: dbItem.mounting_type || undefined,
+    mounting_type: dbItem.mounting_type || undefined,
+    mslRating: dbItem.msl_rating || undefined,
+    msl_rating: dbItem.msl_rating || undefined,
+    datasheetUrl: dbItem.datasheet_url || undefined
   };
 }
 
@@ -213,6 +222,15 @@ function mapItemToBackend(item: Partial<InventoryItem>): any {
   if (item.assignedKitName !== undefined) result.assigned_kit_name = item.assignedKitName;
   if (item.isSellable !== undefined) result.is_sellable = item.isSellable;
   if (item.isHidden !== undefined) result.is_hidden = item.isHidden;
+  if (item.mpn !== undefined) result.mpn = item.mpn;
+  if (item.manufacturer !== undefined) result.manufacturer = item.manufacturer;
+  if (item.packageFootprint !== undefined) result.package_footprint = item.packageFootprint;
+  if (item.package_footprint !== undefined) result.package_footprint = item.package_footprint;
+  if (item.mountingType !== undefined) result.mounting_type = item.mountingType;
+  if (item.mounting_type !== undefined) result.mounting_type = item.mounting_type;
+  if (item.mslRating !== undefined) result.msl_rating = item.mslRating;
+  if (item.msl_rating !== undefined) result.msl_rating = item.msl_rating;
+  if (item.datasheetUrl !== undefined) result.datasheet_url = item.datasheetUrl;
   return result;
 }
 

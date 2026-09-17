@@ -83,6 +83,35 @@ export class CreateInventoryDto {
   @IsOptional()
   @IsString()
   bin_location?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(150)
+  mpn?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(150)
+  manufacturer?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  package_footprint?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(50)
+  mounting_type?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(20)
+  msl_rating?: string;
+
+  @IsOptional()
+  @IsString()
+  datasheet_url?: string;
 }
 
 export class UpdateInventoryDto {
@@ -156,6 +185,35 @@ export class UpdateInventoryDto {
   @IsOptional()
   @IsString()
   bin_location?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(150)
+  mpn?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(150)
+  manufacturer?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  package_footprint?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(50)
+  mounting_type?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(20)
+  msl_rating?: string;
+
+  @IsOptional()
+  @IsString()
+  datasheet_url?: string;
 }
 
 // Strict validation helper
