@@ -45,6 +45,7 @@ import {
 import { InventoryItem } from '@/src/types';
 import { useToast } from '@/src/contexts/ToastContext';
 import ItemImage from '@/src/shared/components/ItemImage';
+import SmartSelect from '@/src/shared/components/SmartSelect';
 
 interface ShopTabProps {
   inventory: InventoryItem[];
@@ -386,28 +387,38 @@ export default function ShopTab({ inventory, onPlaceOrder }: ShopTabProps) {
 
           {/* Stock Filter Selector */}
           <div className="flex items-center gap-2 w-full md:w-auto shrink-0">
-            <select
-              value={stockFilter}
-              onChange={(e) => setStockFilter(e.target.value as any)}
-              className="px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-200 focus:outline-none"
-            >
-              <option value="ALL">All Stock Levels</option>
-              <option value="IN_STOCK">In Stock Only</option>
-              <option value="LOW_STOCK">Low Stock Alert</option>
-            </select>
+            <div className="w-40">
+              <SmartSelect
+                value={stockFilter}
+                onChange={(val) => setStockFilter(val as any)}
+                options={[
+                  { value: 'ALL', label: 'All Stock Levels' },
+                  { value: 'IN_STOCK', label: 'In Stock Only' },
+                  { value: 'LOW_STOCK', label: 'Low Stock Alert' },
+                ]}
+                size="sm"
+                placeholder="Stock Level"
+                aria-label="Stock Filter"
+              />
+            </div>
 
             {/* Sort Selector */}
-            <select
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as any)}
-              className="px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-200 focus:outline-none"
-            >
-              <option value="RECOMMENDED">Sort: Featured</option>
-              <option value="PRICE_LOW">Price: Low to High</option>
-              <option value="PRICE_HIGH">Price: High to Low</option>
-              <option value="STOCK_HIGH">Stock: Highest First</option>
-              <option value="NAME_AZ">Name: A to Z</option>
-            </select>
+            <div className="w-44">
+              <SmartSelect
+                value={sortBy}
+                onChange={(val) => setSortBy(val as any)}
+                options={[
+                  { value: 'RECOMMENDED', label: 'Sort: Featured' },
+                  { value: 'PRICE_LOW', label: 'Price: Low to High' },
+                  { value: 'PRICE_HIGH', label: 'Price: High to Low' },
+                  { value: 'STOCK_HIGH', label: 'Stock: Highest First' },
+                  { value: 'NAME_AZ', label: 'Name: A to Z' },
+                ]}
+                size="sm"
+                placeholder="Sort by"
+                aria-label="Sort products"
+              />
+            </div>
 
             {/* View Mode Switcher */}
             <div className="flex items-center bg-slate-100 dark:bg-slate-800 p-1 rounded-xl border border-slate-200 dark:border-slate-700 shrink-0">
@@ -810,26 +821,30 @@ export default function ShopTab({ inventory, onPlaceOrder }: ShopTabProps) {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block font-bold text-slate-900 dark:text-slate-100 uppercase text-[10px] tracking-wider mb-1">Order Purpose</label>
-                  <select
+                  <SmartSelect
                     value={orderType}
-                    onChange={(e) => setOrderType(e.target.value as any)}
-                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-2.5 font-medium text-xs"
-                  >
-                    <option value="PURCHASE">B2B Commercial Order</option>
-                    <option value="INTERNAL">Internal Lab Reservation</option>
-                  </select>
+                    onChange={(val) => setOrderType(val as any)}
+                    options={[
+                      { value: 'PURCHASE', label: 'B2B Commercial Order' },
+                      { value: 'INTERNAL', label: 'Internal Lab Reservation' },
+                    ]}
+                    placeholder="Select order purpose..."
+                    aria-label="Order Purpose"
+                  />
                 </div>
 
                 <div>
                   <label className="block font-bold text-slate-900 dark:text-slate-100 uppercase text-[10px] tracking-wider mb-1">Payment Gateway</label>
-                  <select
+                  <SmartSelect
                     value={paymentMethod}
-                    onChange={(e) => setPaymentMethod(e.target.value as any)}
-                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-2.5 font-medium text-xs"
-                  >
-                    <option value="UPI">Instant UPI Direct Pay (QR)</option>
-                    <option value="RAZORPAY">Razorpay Gateway (Cards/NetBanking)</option>
-                  </select>
+                    onChange={(val) => setPaymentMethod(val as any)}
+                    options={[
+                      { value: 'UPI', label: 'Instant UPI Direct Pay (QR)' },
+                      { value: 'RAZORPAY', label: 'Razorpay Gateway (Cards/NetBanking)' },
+                    ]}
+                    placeholder="Select payment gateway..."
+                    aria-label="Payment Gateway"
+                  />
                 </div>
               </div>
 

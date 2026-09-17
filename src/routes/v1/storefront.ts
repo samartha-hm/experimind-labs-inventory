@@ -150,4 +150,193 @@ router.get("/product/:id", async (req, res) => {
   }
 });
 
+// ===== CMS Storage & Configuration =====
+let memoryCmsStore: any = null;
+
+const DEFAULT_STOREFRONT_CMS = {
+  announcement: {
+    isVisible: true,
+    text: "🎉 National Science Day Special: Free Activity Workbooks with all ExperiMind Labs STEM Kits! Pan-India Delivery.",
+    discountCode: "EXPERIMIND10",
+    linkUrl: "/catalog",
+    badge: "Limited Offer"
+  },
+  hero: {
+    eyebrowBadge: "🔬 Research-First Experiential STEM Education",
+    headline: "Transform Abstract Science & Math into Hands-on Discovery",
+    subtitle: "Engineered by cognitive researchers and master educators at ExperiMind Labs. Trusted by 250+ premier ATL schools, makerspaces, and curious students across India.",
+    primaryCtaText: "Explore STEM Catalog",
+    primaryCtaLink: "/catalog",
+    secondaryCtaText: "Browse ATL Kits",
+    secondaryCtaLink: "/catalog?category=STEM%20Kits",
+    showcaseImageUrl: "https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=1000&auto=format&fit=crop&q=80",
+    trustMetrics: [
+      { label: "Active School Labs", value: "250+" },
+      { label: "Precision STEM Tools", value: "320+" },
+      { label: "Student Hours Inspired", value: "50k+" },
+      { label: "NEP 2020 Aligned", value: "100%" }
+    ]
+  },
+  usps: [
+    {
+      id: "usp_1",
+      icon: "Award",
+      title: "National Award-Winning Pedagogy",
+      description: "Rooted in constructivist cognitive learning models to build deep spatial and empirical intuition."
+    },
+    {
+      id: "usp_2",
+      icon: "ShieldCheck",
+      title: "Lab-Grade Calibration & Safety",
+      description: "Non-toxic, high-durability apparatus built for thousands of hours of intense classroom exploration."
+    },
+    {
+      id: "usp_3",
+      icon: "BookOpen",
+      title: "Complete Curriculum Manuals",
+      description: "Every kit includes graded step-by-step visual guides, theory primers, and real-world project challenges."
+    },
+    {
+      id: "usp_4",
+      icon: "Truck",
+      title: "Direct Lab Dispatch & Warranty",
+      description: "Dispatched from our Karnataka central technical warehouse with institutional GST invoices and prompt support."
+    }
+  ],
+  curriculum: [
+    {
+      grade: "Grades 1–5",
+      title: "Anubhav Sensory Science",
+      focus: "Curiosity, tactile observation, elementary optics, color synthesis, and foundational balance mechanics."
+    },
+    {
+      grade: "Grades 6–8",
+      title: "Middle School Exploration",
+      focus: "3D Geomagic spatial math, circuit building, electromagnetism, ray optics, and density labs."
+    },
+    {
+      grade: "Grades 9–10",
+      title: "Secondary Lab Sciences",
+      focus: "Rigorous physics mechanics, chemical reaction labware, lens equations, and micro-measuring tools."
+    },
+    {
+      grade: "Grades 11–12 & ATL",
+      title: "Innovation & Robotics Hub",
+      focus: "Microcontrollers, sensor fusion, IoT telemetry, prototype fabrication, and advanced apparatus."
+    }
+  ],
+  testimonials: [
+    {
+      id: "t_1",
+      name: "Dr. Sunita Rao",
+      role: "Principal",
+      institution: "Delhi Public School, Bangalore South",
+      quote: "ExperiMind Labs kits have transformed our science periods. The Geomagic 3D kits made spatial geometry intuitive for even our most hesitant students.",
+      rating: 5,
+      verified: true
+    },
+    {
+      id: "t_2",
+      name: "Prof. Arvind Kulkarni",
+      role: "ATL Lab Coordinator",
+      institution: "Vidyaniketan National School",
+      quote: "The durability and precision of ExperiMind Labs physical science modules are unmatched. Our students actively innovate rather than just reading theory.",
+      rating: 5,
+      verified: true
+    },
+    {
+      id: "t_3",
+      name: "Meera Nair",
+      role: "Parent & Educator",
+      institution: "Mysore STEM Circle",
+      quote: "The activity guides are exceptionally well written. My 8th grader built an entire optics bench over the weekend and understood refraction effortlessly.",
+      rating: 5,
+      verified: true
+    }
+  ],
+  faqs: [
+    {
+      id: "faq_1",
+      question: "Are ExperiMind Labs kits aligned with CBSE, ICSE, and State board curricula?",
+      answer: "Yes! All kits are mapped directly to NCERT and NEP 2020 experiential learning mandates for Grades 1 through 12, covering core physics, chemistry, biology, and applied mathematics."
+    },
+    {
+      id: "faq_2",
+      question: "Can educational institutions and ATL labs place bulk orders with institutional GST invoices?",
+      answer: "Absolutely. We issue official B2B Tax Invoices with valid GSTIN and HSN codes, offering dedicated school lab pricing and educational dispatch terms."
+    },
+    {
+      id: "faq_3",
+      question: "What is the typical shipping timeline across India?",
+      answer: "Standard orders are packed within 24 hours at our central lab warehouse and delivered within 3–5 business days via premier air courier partners (Delhivery, BlueDart, DTDC)."
+    },
+    {
+      id: "faq_4",
+      question: "What if a glass component or sensor arrives damaged?",
+      answer: "We offer a 100% Zero-Hassle Replacement Guarantee. Simply contact our support team within 7 days of delivery with your order ID for immediate spare part dispatch."
+    }
+  ],
+  theme: {
+    accentColor: "indigo",
+    schoolDispatchesEmail: "orders@experimindlabs.com",
+    officialPhone: "+91 80 4123 9876",
+    officeAddress: "ExperiMind Labs Pvt Ltd, Tech Research Park, Karnataka, India"
+  }
+};
+
+// GET /api/public/storefront/cms
+router.get("/cms", async (_req, res) => {
+  try {
+    if (!memoryCmsStore) {
+      // Try to load from database if exists
+      try {
+        const rows = await AppDataSource.query(`
+          SELECT value FROM settings WHERE setting_type = 'category' AND value LIKE 'CMS_CONFIG:%' LIMIT 1
+        `);
+        if (rows.length > 0) {
+          const raw = rows[0].value.replace("CMS_CONFIG:", "");
+          memoryCmsStore = JSON.parse(raw);
+        }
+      } catch (err) {
+        // Fallback to default
+      }
+    }
+    res.json(memoryCmsStore || DEFAULT_STOREFRONT_CMS);
+  } catch (e: any) {
+    res.json(DEFAULT_STOREFRONT_CMS);
+  }
+});
+
+// POST /api/public/storefront/cms
+router.post("/cms", async (req, res) => {
+  try {
+    const newConfig = req.body;
+    if (!newConfig || typeof newConfig !== "object") {
+      return res.status(400).json({ error: "Invalid CMS configuration payload" });
+    }
+    memoryCmsStore = {
+      ...DEFAULT_STOREFRONT_CMS,
+      ...newConfig
+    };
+
+    // Save to settings table for persistence across server restarts
+    try {
+      const jsonStr = JSON.stringify(memoryCmsStore);
+      await AppDataSource.query(`
+        DELETE FROM settings WHERE setting_type = 'category' AND value LIKE 'CMS_CONFIG:%'
+      `);
+      await AppDataSource.query(`
+        INSERT INTO settings (id, setting_type, value)
+        VALUES (gen_random_uuid(), 'category', $1)
+      `, [`CMS_CONFIG:${jsonStr}`]);
+    } catch (err) {
+      console.warn("Could not persist CMS to settings table:", err);
+    }
+
+    res.json({ success: true, cms: memoryCmsStore });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message || "Failed to save CMS config" });
+  }
+});
+
 export default router;

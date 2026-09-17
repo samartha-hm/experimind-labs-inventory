@@ -2,8 +2,9 @@
 import { useCartStore } from "@/store/useCartStore";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { CheckCircle2, ShoppingBag, ShieldCheck, ArrowRight, ArrowLeft, Lock, Truck, AlertCircle, Phone, Mail, User, MapPin, Building2, CreditCard } from "lucide-react";
+import { CheckCircle2, ShoppingBag, ShieldCheck, ArrowRight, ArrowLeft, Lock, Truck, AlertCircle, Phone, Mail, User, MapPin, Building2, CreditCard, Package } from "lucide-react";
 import Link from "next/link";
+import SafeProductImage from "@/components/SafeProductImage";
 
 const INDIAN_STATES = [
   "Karnataka", "Maharashtra", "Tamil Nadu", "Kerala", "Telangana", "Andhra Pradesh",
@@ -35,6 +36,31 @@ export default function CheckoutPage() {
 
   useEffect(() => {
     setMounted(true);
+    try {
+      const storedEmail = localStorage.getItem('experimind_customer_email');
+      const storedName = localStorage.getItem('experimind_customer_name');
+      const storedPhone = localStorage.getItem('experimind_customer_phone');
+      const storedAddresses = localStorage.getItem('experimind_saved_addresses');
+
+      let defaultAddr: any = null;
+      if (storedAddresses) {
+        const parsed = JSON.parse(storedAddresses);
+        if (Array.isArray(parsed)) {
+          defaultAddr = parsed.find((a: any) => a.isDefault) || parsed[0];
+        }
+      }
+
+      setFormData((prev) => ({
+        ...prev,
+        name: storedName || defaultAddr?.name || prev.name,
+        email: storedEmail || prev.email,
+        phone: (storedPhone || defaultAddr?.phone || '').replace(/[\s-+]/g, ''),
+        address: defaultAddr?.addressLine || prev.address,
+        city: defaultAddr?.city || prev.city,
+        state: defaultAddr?.state || prev.state,
+        pincode: defaultAddr?.pincode || prev.pincode,
+      }));
+    } catch (_) {}
   }, []);
 
   if (!mounted) return null;
@@ -108,6 +134,25 @@ export default function CheckoutPage() {
         throw new Error(resData.error || 'Failed to process order. Please verify your details.');
       }
 
+      // Auto-save account credentials and recent order to local storage
+      try {
+        localStorage.setItem('experimind_customer_email', formData.email.trim().toLowerCase());
+        localStorage.setItem('experimind_customer_name', formData.name.trim());
+        localStorage.setItem('experimind_customer_phone', cleanPhone);
+
+        const newOrderRecord = {
+          id: resData.id || ('ORD-' + Math.floor(100000 + Math.random() * 900000)),
+          order_number: resData.order_number || resData.id,
+          date: new Date().toISOString(),
+          total: orderTotal,
+          status: 'created'
+        };
+
+        const existingOrders = JSON.parse(localStorage.getItem('experimind_recent_orders') || '[]');
+        const updatedOrders = [newOrderRecord, ...existingOrders.filter((o: any) => o.id !== newOrderRecord.id)];
+        localStorage.setItem('experimind_recent_orders', JSON.stringify(updatedOrders.slice(0, 10)));
+      } catch (_) {}
+
       setOrderConfirmed(resData || { id: 'ORD-' + Math.floor(100000 + Math.random() * 900000) });
       clearCart();
     } catch (err: any) {
@@ -118,6 +163,7 @@ export default function CheckoutPage() {
   };
 
   if (orderConfirmed) {
+    const orderId = orderConfirmed.order_number || orderConfirmed.id;
     return (
       <div className="max-w-3xl mx-auto px-4 py-16 text-center space-y-8 animate-fadeIn">
         <div className="w-24 h-24 bg-emerald-50 text-emerald-600 rounded-3xl flex items-center justify-center mx-auto shadow-md shadow-emerald-500/10 border border-emerald-100">
@@ -132,7 +178,7 @@ export default function CheckoutPage() {
             Thank you for ordering with ExperiMind Labs!
           </h1>
           <p className="text-sm text-slate-500 max-w-lg mx-auto">
-            Your STEM kit order has been recorded in our central inventory ERP. Our lab technicians in Karnataka will prepare your parcel for dispatch.
+            Your STEM kit order <strong className="text-indigo-600 font-mono">#{orderId}</strong> has been recorded in our central inventory ERP. Our lab technicians in Karnataka will prepare your parcel for dispatch.
           </p>
         </div>
 
@@ -143,11 +189,11 @@ export default function CheckoutPage() {
           </div>
           <div className="flex justify-between border-b border-slate-100 pb-3">
             <span className="text-slate-500 font-semibold uppercase tracking-wider text-[10px]">Email Confirmation</span>
-            <span className="font-bold text-slate-900">{formData.email}</span>
+            <span className="font-bold text-slate-900 font-mono">{formData.email}</span>
           </div>
           <div className="flex justify-between border-b border-slate-100 pb-3">
             <span className="text-slate-500 font-semibold uppercase tracking-wider text-[10px]">Contact Mobile</span>
-            <span className="font-bold text-slate-900">+91 {formData.phone.replace(/[\s-+]/g, '')}</span>
+            <span className="font-bold text-slate-900 font-mono">+91 {formData.phone.replace(/[\s-+]/g, '')}</span>
           </div>
           <div className="flex justify-between border-b border-slate-100 pb-3">
             <span className="text-slate-500 font-semibold uppercase tracking-wider text-[10px]">Shipping Destination</span>
@@ -159,12 +205,29 @@ export default function CheckoutPage() {
           </div>
         </div>
 
-        <div className="pt-4 flex justify-center gap-4">
+        {/* Amazon-Style Post Order Actions */}
+        <div className="pt-2 flex flex-wrap items-center justify-center gap-3">
           <Link
-            href="/"
-            className="inline-flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-xs py-4 px-8 rounded-2xl transition-all shadow-lg shadow-indigo-600/25 hover:shadow-indigo-600/40"
+            href={`/track?orderId=${encodeURIComponent(orderId)}`}
+            className="inline-flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-xs py-3.5 px-6 rounded-2xl transition-all shadow-md shadow-indigo-600/20"
           >
-            <span>Return to Storefront</span>
+            <Truck className="h-4 w-4" />
+            <span>Track Order Status</span>
+          </Link>
+
+          <Link
+            href="/account"
+            className="inline-flex items-center gap-2 bg-white hover:bg-slate-50 text-slate-800 font-extrabold text-xs py-3.5 px-6 rounded-2xl transition-all border border-slate-200 shadow-xs"
+          >
+            <Package className="h-4 w-4 text-indigo-600" />
+            <span>View in My Orders</span>
+          </Link>
+
+          <Link
+            href="/catalog"
+            className="inline-flex items-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs py-3.5 px-5 rounded-2xl transition-all"
+          >
+            <span>Continue Shopping</span>
             <ArrowRight className="h-4 w-4" />
           </Link>
         </div>
@@ -179,7 +242,7 @@ export default function CheckoutPage() {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-slate-200/80 pb-6">
         <div>
           <h1 className="text-3xl font-black text-slate-900 tracking-tight">Secure Checkout</h1>
-          <p className="text-xs text-slate-500 mt-1">Direct laboratory dispatch from Experimind Labs (Karnataka, India).</p>
+          <p className="text-xs text-slate-500 mt-1">Direct laboratory dispatch from ExperiMind Labs (Karnataka, India).</p>
         </div>
         <Link href="/cart" className="inline-flex items-center text-xs font-bold text-indigo-600 hover:text-indigo-700 gap-1.5 bg-indigo-50 px-3.5 py-2 rounded-xl border border-indigo-200/60">
           <ArrowLeft className="h-4 w-4" />
@@ -427,12 +490,13 @@ export default function CheckoutPage() {
               {items.map((item) => (
                 <div key={item.id} className="pt-3 flex items-center justify-between text-xs">
                   <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-center p-1.5 shrink-0">
-                      {item.imageUrl ? (
-                        <img src={item.imageUrl} alt={item.name} className="w-full h-full object-contain" />
-                      ) : (
-                        <span className="text-lg">📦</span>
-                      )}
+                    <div className="w-12 h-12 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-center p-1 shrink-0 overflow-hidden">
+                      <SafeProductImage
+                        src={item.imageUrl}
+                        alt={item.name}
+                        category={item.category}
+                        className="w-full h-full object-contain"
+                      />
                     </div>
                     <div>
                       <div className="font-bold text-slate-900 truncate max-w-[180px]">{item.name}</div>
