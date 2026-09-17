@@ -224,8 +224,8 @@ async function startServer() {
   app.use("/api/v1/audit-events", auditEventsRoutes);
 
   // Hardware & Electronics Lab Extensions
-  app.use("/api/v1/bom", authenticateJwt, requireTenant, bomRoutes);
-  app.use("/api/v1/hardware", authenticateJwt, requireTenant, hardwareRoutes);
+  app.use(["/api/v1/bom", "/api/bom"], authenticateJwt, requireTenant, bomRoutes);
+  app.use(["/api/v1/hardware", "/api/hardware"], authenticateJwt, requireTenant, hardwareRoutes);
 
   // ===== Protected AI analysis endpoint =====
   app.post("/api/analyze", aiLimiter, authenticateJwt, requireTenant, async (req, res) => {

@@ -107,10 +107,22 @@ export async function refreshAuthToken(): Promise<{ token: string; refreshToken?
   return refreshPromise;
 }
 
+export function normalizeApiEndpoint(endpoint: string): string {
+  if (endpoint.startsWith('http://') || endpoint.startsWith('https://')) {
+    return endpoint;
+  }
+  if (endpoint.startsWith('/api/')) {
+    return endpoint;
+  }
+  return `/api/v1${endpoint.startsWith('/') ? '' : '/'}${endpoint}`;
+}
+
 export async function apiFetch(endpoint: string, options: RequestInit = {}) {
-  const isAuthEndpoint = endpoint.includes('/auth/login') ||
-    endpoint.includes('/auth/register') ||
-    endpoint.includes('/auth/refresh-token');
+  const targetUrl = normalizeApiEndpoint(endpoint);
+
+  const isAuthEndpoint = targetUrl.includes('/auth/login') ||
+    targetUrl.includes('/auth/register') ||
+    targetUrl.includes('/auth/refresh-token');
 
   const token = getApiAuthToken();
 
@@ -120,7 +132,7 @@ export async function apiFetch(endpoint: string, options: RequestInit = {}) {
     ...((options.headers as Record<string, string>) || {})
   };
 
-  let response = await fetch(endpoint, {
+  let response = await fetch(targetUrl, {
     ...options,
     credentials: 'include',
     headers
@@ -135,7 +147,7 @@ export async function apiFetch(endpoint: string, options: RequestInit = {}) {
         'Authorization': `Bearer ${refreshResult.token}`,
         ...((options.headers as Record<string, string>) || {})
       };
-      response = await fetch(endpoint, {
+      response = await fetch(targetUrl, {
         ...options,
         credentials: 'include',
         headers
@@ -147,14 +159,39 @@ export async function apiFetch(endpoint: string, options: RequestInit = {}) {
   }
 
   if (!response.ok) {
-    let errorMsg = 'An error occurred';
+    let errorMsg = `HTTP ${response.status} ${response.statusText}`;
     try {
-      const errJson = await response.json();
-      errorMsg = errJson.error || errorMsg;
+      const contentType = response.headers.get('content-type') || '';
+      if (contentType.includes('application/json')) {
+        const errJson = await response.json();
+        errorMsg = errJson.error || errJson.message || errorMsg;
+      } else {
+        const text = await response.text();
+        if (text.includes('<!doctype') || text.includes('<html')) {
+          errorMsg = `Server returned HTML instead of JSON for '${targetUrl}'. Endpoint may not exist.`;
+        } else if (text.trim()) {
+          errorMsg = text.trim();
+        }
+      }
     } catch (_) {}
     throw new Error(errorMsg);
   }
 
   if (response.status === 204) return null;
+
+  const contentType = response.headers.get('content-type') || '';
+  if (!contentType.includes('application/json')) {
+    const text = await response.text();
+    if (text.includes('<!doctype') || text.includes('<html')) {
+      throw new Error(`Endpoint '${targetUrl}' served HTML instead of API data. Verify route configuration.`);
+    }
+    try {
+      return JSON.parse(text);
+    } catch (_) {
+      throw new Error(`Invalid JSON received from '${targetUrl}'`);
+    }
+  }
+
   return response.json();
 }
+

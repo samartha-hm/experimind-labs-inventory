@@ -95,7 +95,7 @@ export default function BomTreeManagerTab() {
   useEffect(() => {
     const fetchAssemblies = async () => {
       try {
-        const res = await apiFetch("/inventory?limit=500");
+        const res = await apiFetch("/api/v1/inventory?limit=500");
         if (res) {
           const list = Array.isArray(res) ? res : res.data || [];
           setAssemblies(list);
@@ -115,7 +115,7 @@ export default function BomTreeManagerTab() {
     if (!assemblyId) return;
     setLoading(true);
     try {
-      const res = await apiFetch(`/bom/tree/${assemblyId}`);
+      const res = await apiFetch(`/api/v1/bom/tree/${assemblyId}`);
       if (res && res.success) {
         setTreeData(res.data.tree || []);
         setRootItem(res.data.rootItem || null);
@@ -159,7 +159,7 @@ export default function BomTreeManagerTab() {
     if (!cadCsvInput.trim()) return;
     setIsParsingCad(true);
     try {
-      const res = await apiFetch("/bom/ingest-cad", {
+      const res = await apiFetch("/api/v1/bom/ingest-cad", {
         method: "POST",
         body: JSON.stringify({
           csvContent: cadCsvInput,
@@ -182,7 +182,7 @@ export default function BomTreeManagerTab() {
     if (!parsedCadResult || !selectedAssemblyId) return;
     setIsCommittingCad(true);
     try {
-      const res = await apiFetch("/bom/commit-cad", {
+      const res = await apiFetch("/api/v1/bom/commit-cad", {
         method: "POST",
         body: JSON.stringify({
           parentItemId: selectedAssemblyId,
@@ -210,7 +210,7 @@ export default function BomTreeManagerTab() {
     if (!assemblyId) return;
     setIsAnalyzingShortage(true);
     try {
-      const res = await apiFetch(`/bom/shortage-analysis/${assemblyId}?quantity=${qty}`);
+      const res = await apiFetch(`/api/v1/bom/shortage-analysis/${assemblyId}?quantity=${qty}`);
       if (res && res.success) {
         setShortageResult(res.data);
       }

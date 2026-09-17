@@ -99,7 +99,7 @@ export default function HardwareWorkbenchTab() {
       if (selectedMsl !== "ALL") params.append("mslRating", selectedMsl);
       if (inStockOnly) params.append("inStockOnly", "true");
 
-      const res = await apiFetch(`/hardware/workbench?${params.toString()}`);
+      const res = await apiFetch(`/api/v1/hardware/workbench?${params.toString()}`);
       if (res && res.success) {
         setComponents(res.data || []);
         if (res.data && res.data.length > 0 && !selectedComponent) {
@@ -185,7 +185,7 @@ export default function HardwareWorkbenchTab() {
     if (!selectedLotForSplit) return;
     setIsSplitting(true);
     try {
-      const res = await apiFetch(`/hardware/lots/${selectedLotForSplit.id}/split`, {
+      const res = await apiFetch(`/api/v1/hardware/lots/${selectedLotForSplit.id}/split`, {
         method: "POST",
         body: JSON.stringify({
           splitQuantity: splitQty,
@@ -214,7 +214,7 @@ export default function HardwareWorkbenchTab() {
         body.bakeHours = bakeHours;
       }
 
-      const res = await apiFetch(`/hardware/lots/${lotId}/msl-action`, {
+      const res = await apiFetch(`/api/v1/hardware/lots/${lotId}/msl-action`, {
         method: "POST",
         body: JSON.stringify(body),
       });
