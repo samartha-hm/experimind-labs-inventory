@@ -12,6 +12,9 @@ module.exports = {
         PORT: 3000,
         DATABASE_URL: 'postgres://experimind:ExperimindPass2026!@127.0.0.1:5432/experimind_inventory',
         JWT_SECRET: 'experimind_jwt_super_secret_production_key_2026_x89',
+        JWT_EXPIRES_IN: '24h',
+        JWT_REFRESH_EXPIRES_IN: '30d',
+        APP_URL: 'https://inventory.experimindlabs.com',
         ALLOW_GUEST: 'false',
         GUEST_ROLE: 'viewer'
       }
@@ -27,7 +30,8 @@ module.exports = {
       max_memory_restart: '200M',
       env: {
         NODE_ENV: 'production',
-        PORT: 3001
+        PORT: 3001,
+        API_URL: 'http://127.0.0.1:3000/api'
       }
     }
   ]

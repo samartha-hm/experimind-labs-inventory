@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { apiFetch, setApiAuthToken } from './utils/api';
+import { apiFetch, setApiAuthToken, clearApiAuth, refreshAuthToken, getApiAuthToken, getApiRefreshToken } from './utils/api';
 
 export type AppRole = 'admin' | 'manager' | 'staff' | 'viewer';
 
@@ -37,34 +37,109 @@ const AuthContext = createContext<AuthContextType>({
 });
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<UserProfile | null>(null);
-  const [token, setToken] = useState<string | null>(null);
+  const [user, setUser] = useState<UserProfile | null>(() => {
+    try {
+      const saved = localStorage.getItem('experimind_user_profile');
+      if (saved) return JSON.parse(saved);
+    } catch (_) {}
+    return null;
+  });
+  const [token, setToken] = useState<string | null>(() => {
+    try {
+      return localStorage.getItem('experimind_auth_token');
+    } catch (_) {}
+    return null;
+  });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    setApiAuthToken(token);
+    if (token) {
+      setApiAuthToken(token);
+    }
   }, [token]);
 
   useEffect(() => {
-    // Silent refresh using HttpOnly cookie on startup
+    // Listen for auth expired events dispatched from api.ts
+    const handleAuthExpired = () => {
+      setToken(null);
+      setUser(null);
+    };
+
+    window.addEventListener('experimind_auth_expired', handleAuthExpired);
+    return () => {
+      window.removeEventListener('experimind_auth_expired', handleAuthExpired);
+    };
+  }, []);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    // 1. Silent refresh / session validation on startup
     const tryRefreshSession = async () => {
+      const storedToken = localStorage.getItem('experimind_auth_token');
+      const storedRefreshToken = localStorage.getItem('experimind_refresh_token');
+
+      // If no token or refresh token at all, stay logged out and finish loading
+      if (!storedToken && !storedRefreshToken) {
+        if (isMounted) {
+          setToken(null);
+          setUser(null);
+          setLoading(false);
+        }
+        return;
+      }
+
       try {
-        const res = await apiFetch('/api/v1/auth/refresh-token', { method: 'POST' });
-        if (res && res.token && res.user) {
-          setApiAuthToken(res.token);
-          setToken(res.token);
-          setUser(res.user);
-          return;
+        const refreshResult = await refreshAuthToken();
+        if (refreshResult && refreshResult.token) {
+          if (isMounted) {
+            setToken(refreshResult.token);
+            if (refreshResult.user) {
+              setUser(refreshResult.user);
+            }
+          }
+        } else {
+          // Token is dead / expired and refresh failed
+          if (isMounted) {
+            setToken(null);
+            setUser(null);
+            clearApiAuth();
+          }
         }
       } catch (e) {
-        setApiAuthToken(null);
-        setToken(null);
-        setUser(null);
+        if (isMounted) {
+          setToken(null);
+          setUser(null);
+          clearApiAuth();
+        }
       } finally {
-        setLoading(false);
+        if (isMounted) {
+          setLoading(false);
+        }
       }
     };
+
     tryRefreshSession();
+
+    // 2. Proactive 10-minute token renewal timer (keeps active sessions permanently alive)
+    const refreshTimer = setInterval(async () => {
+      if (localStorage.getItem('experimind_auth_token') || localStorage.getItem('experimind_refresh_token')) {
+        try {
+          const refreshResult = await refreshAuthToken();
+          if (refreshResult && refreshResult.token && isMounted) {
+            setToken(refreshResult.token);
+            if (refreshResult.user) {
+              setUser(refreshResult.user);
+            }
+          }
+        } catch (_) {}
+      }
+    }, 10 * 60 * 1000);
+
+    return () => {
+      isMounted = false;
+      clearInterval(refreshTimer);
+    };
   }, []);
 
   const signInWithEmailPassword = async (email: string, password: string) => {
@@ -75,9 +150,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         body: JSON.stringify({ email, password })
       });
       if (res && res.token && res.user) {
-        setApiAuthToken(res.token);
+        setApiAuthToken(res.token, res.refreshToken);
         setToken(res.token);
         setUser(res.user);
+        try {
+          localStorage.setItem('experimind_user_profile', JSON.stringify(res.user));
+        } catch (_) {}
       }
     } catch (e: any) {
       alert(`Login Error: ${e.message}`);
@@ -95,9 +173,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         body: JSON.stringify({ email, password, name, role })
       });
       if (res && res.token && res.user) {
-        setApiAuthToken(res.token);
+        setApiAuthToken(res.token, res.refreshToken);
         setToken(res.token);
         setUser(res.user);
+        try {
+          localStorage.setItem('experimind_user_profile', JSON.stringify(res.user));
+        } catch (_) {}
       }
     } catch (e: any) {
       alert(`Registration Error: ${e.message}`);
@@ -125,12 +206,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch (e) {
       // Ignore logout errors
     }
+    setApiAuthToken(null, null);
     setToken(null);
     setUser(null);
+    try {
+      localStorage.removeItem('experimind_user_profile');
+    } catch (_) {}
   };
 
   const updateCurrentUser = (updates: Partial<UserProfile>) => {
-    setUser(prev => prev ? { ...prev, ...updates } : null);
+    setUser(prev => {
+      const updated = prev ? { ...prev, ...updates } : null;
+      if (updated) {
+        try {
+          localStorage.setItem('experimind_user_profile', JSON.stringify(updated));
+        } catch (_) {}
+      }
+      return updated;
+    });
   };
 
   const role = user ? user.role : null;

@@ -23,10 +23,10 @@ export const env = {
   port: Number(process.env.PORT ?? 3000),
   databaseUrl: process.env.DATABASE_URL ?? "postgres://postgres:postgres@localhost:5432/experimind_inventory",
   jwtSecret: effectiveJwtSecret,
-  jwtExpiresIn: process.env.JWT_EXPIRES_IN ?? "15m", // Reduced to 15m for security
-  jwtRefreshExpiresIn: process.env.JWT_REFRESH_EXPIRES_IN ?? "7d",
+  jwtExpiresIn: process.env.JWT_EXPIRES_IN ?? "24h", // 24h operational session duration
+  jwtRefreshExpiresIn: process.env.JWT_REFRESH_EXPIRES_IN ?? "30d",
   geminiApiKey: process.env.GEMINI_API_KEY ?? "",
-  appUrl: process.env.APP_URL ?? "http://localhost:3000",
+  appUrl: process.env.APP_URL ?? "https://inventory.experimindlabs.com",
   allowGuest: process.env.ALLOW_GUEST === "true",
   guestRole: "viewer", // Strictly restricted to viewer role
   enableRls: process.env.ENABLE_RLS === "true",

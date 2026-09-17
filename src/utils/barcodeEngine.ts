@@ -5,8 +5,33 @@ import {
 } from 'zxing-wasm';
 
 /**
- * Standard reader configuration with aggressive multi-pass decoding
- * Note: Leaving formats empty or omitted enables ALL supported 1D & 2D barcode formats
+ * Ultra-fast reader options for live camera stream and manual viewport snapshots (<25ms execution)
+ */
+const FAST_STREAM_DECODE_OPTIONS: ReaderOptions = {
+  tryHarder: false,
+  tryRotate: false,
+  tryInvert: false,
+  tryDownscale: false,
+  tryCode39ExtendedMode: true,
+  binarizer: 'LocalAverage',
+  maxNumberOfSymbols: 1,
+};
+
+/**
+ * Secondary retry options for difficult or inverted barcodes in live view
+ */
+const RETRY_STREAM_DECODE_OPTIONS: ReaderOptions = {
+  tryHarder: true,
+  tryRotate: false,
+  tryInvert: true,
+  tryDownscale: false,
+  tryCode39ExtendedMode: true,
+  binarizer: 'LocalAverage',
+  maxNumberOfSymbols: 1,
+};
+
+/**
+ * Standard reader configuration with aggressive multi-pass decoding for static files/photos
  */
 const DEFAULT_DECODE_OPTIONS: ReaderOptions = {
   tryHarder: true,
@@ -51,25 +76,51 @@ function getNativeBarcodeDetector() {
 }
 
 /**
- * Decodes a single canvas or image element using Tier-1 Hardware BarcodeDetector + Tier-2 WASM ZXing-C++
+ * Decodes a single canvas or image element using Tier-1 Hardware BarcodeDetector + Tier-2 Fast WASM ZXing-C++
  */
 export async function scanCanvasOrImage(
-  source: HTMLCanvasElement | HTMLImageElement | ImageBitmap
+  source: HTMLCanvasElement | HTMLImageElement | ImageBitmap,
+  isDeep: boolean = false
 ): Promise<string | null> {
-  // Tier 1: Hardware BarcodeDetector (0ms latency native GPU path)
+  const srcW = (source as any).width || (source as any).naturalWidth || 480;
+  const srcH = (source as any).height || (source as any).naturalHeight || 280;
+  const centerX = srcW / 2;
+  const centerY = srcH / 2;
+
+  // Tier 1: Hardware BarcodeDetector (0ms latency native GPU path with center proximity matching)
   const detector = getNativeBarcodeDetector();
   if (detector) {
     try {
       const barcodes = await detector.detect(source);
-      if (barcodes && barcodes.length > 0 && barcodes[0].rawValue) {
-        return barcodes[0].rawValue.trim();
+      if (barcodes && barcodes.length > 0) {
+        let bestBarcode = barcodes[0];
+        let minDistanceSq = Infinity;
+
+        for (const b of barcodes) {
+          if (!b.rawValue) continue;
+          if (b.boundingBox) {
+            const bx = b.boundingBox.x + b.boundingBox.width / 2;
+            const by = b.boundingBox.y + b.boundingBox.height / 2;
+            const distSq = (bx - centerX) ** 2 + (by - centerY) ** 2;
+            if (distSq < minDistanceSq) {
+              minDistanceSq = distSq;
+              bestBarcode = b;
+            }
+          } else {
+            bestBarcode = b;
+            break;
+          }
+        }
+        if (bestBarcode?.rawValue) {
+          return bestBarcode.rawValue.trim();
+        }
       }
     } catch (_) {
       // Fall through to WASM
     }
   }
 
-  // Tier 2: WASM ZXing-C++ Engine (Multi-rotation, inverted, sub-pixel edge detection)
+  // Tier 2: WASM ZXing-C++ Engine
   try {
     let imgData: ImageData | null = null;
 
@@ -90,9 +141,46 @@ export async function scanCanvasOrImage(
     }
 
     if (imgData) {
-      const results = await readBarcodesFromImageData(imgData, DEFAULT_DECODE_OPTIONS);
-      if (results && results.length > 0 && results[0].text) {
-        return results[0].text.trim();
+      const pickClosestResult = (results: any[]): string | null => {
+        if (!results || results.length === 0) return null;
+        let bestText = results[0].text;
+        let minDistanceSq = Infinity;
+
+        for (const r of results) {
+          if (!r.text) continue;
+          if (r.position) {
+            const px = (r.position.topLeft.x + r.position.topRight.x + r.position.bottomLeft.x + r.position.bottomRight.x) / 4;
+            const py = (r.position.topLeft.y + r.position.topRight.y + r.position.bottomLeft.y + r.position.bottomRight.y) / 4;
+            const distSq = (px - centerX) ** 2 + (py - centerY) ** 2;
+            if (distSq < minDistanceSq) {
+              minDistanceSq = distSq;
+              bestText = r.text;
+            }
+          } else {
+            return r.text.trim();
+          }
+        }
+        return bestText ? bestText.trim() : null;
+      };
+
+      // Step 1: Ultra-fast single symbol pass
+      const options = isDeep ? RETRY_STREAM_DECODE_OPTIONS : FAST_STREAM_DECODE_OPTIONS;
+      const results = await Promise.race([
+        readBarcodesFromImageData(imgData, options),
+        new Promise<null>((resolve) => setTimeout(() => resolve(null), 300))
+      ]);
+      
+      const chosen = pickClosestResult(results as any);
+      if (chosen) return chosen;
+
+      // Step 2: If deep/manual scan and fast pass failed, try retry options
+      if (isDeep) {
+        const retryResults = await Promise.race([
+          readBarcodesFromImageData(imgData, RETRY_STREAM_DECODE_OPTIONS),
+          new Promise<null>((resolve) => setTimeout(() => resolve(null), 400))
+        ]);
+        const retryChosen = pickClosestResult(retryResults as any);
+        if (retryChosen) return retryChosen;
       }
     }
   } catch (_) {

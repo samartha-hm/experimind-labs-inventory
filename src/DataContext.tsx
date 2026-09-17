@@ -87,6 +87,18 @@ interface DataContextType {
   dispatchWmsTransfer: (transferId: string, carrier?: string, trackingNumber?: string) => Promise<WarehouseTransfer>;
   receiveWmsTransfer: (transferId: string, receiptLines?: any[]) => Promise<WarehouseTransfer>;
   loadWmsCycleCounts: () => Promise<CycleCount[]>;
+  // Storefront & Customer Orders
+  customerOrders: any[];
+  updateCustomerOrderStatus: (orderId: string, status: string) => Promise<void>;
+  updateCustomerOrderFulfillment: (orderId: string, fulfillmentData: {
+    status?: string;
+    carrier?: string;
+    tracking_number?: string;
+    notes?: string;
+    customer_address?: string;
+    invoice_number?: string;
+  }) => Promise<void>;
+  refreshCustomerOrders: () => Promise<void>;
   createWmsCycleCount: (data: any) => Promise<CycleCount>;
   submitWmsCycleCount: (countId: string, counts: any[]) => Promise<CycleCount>;
   approveWmsCycleCount: (countId: string) => Promise<CycleCount>;
@@ -100,6 +112,7 @@ const DataContext = createContext<DataContextType>({
   customers: [],
   purchaseOrders: [],
   salesOrders: [],
+  customerOrders: [],
   warehouses: [],
   bins: [],
   physicalRacks: [],
@@ -109,6 +122,9 @@ const DataContext = createContext<DataContextType>({
   wmsTransfers: [],
   wmsCycleCounts: [],
   loading: true,
+  updateCustomerOrderStatus: async () => {},
+  updateCustomerOrderFulfillment: async () => {},
+  refreshCustomerOrders: async () => {},
   addInventoryItem: async () => null,
   updateInventoryItem: async () => {},
   deleteInventoryItem: async () => {},
@@ -172,7 +188,10 @@ function mapItemToFrontend(dbItem: any): InventoryItem {
     description: dbItem.description || undefined,
     binLocation: dbItem.bin_location || undefined,
     barcode: dbItem.sku || undefined,
-    assignedKitName: dbItem.assigned_kit_name || undefined
+    sku: dbItem.sku || undefined,
+    assignedKitName: dbItem.assigned_kit_name || undefined,
+    isSellable: dbItem.is_sellable !== undefined ? !!dbItem.is_sellable : true,
+    isHidden: !!dbItem.is_hidden
   };
 }
 
@@ -189,8 +208,11 @@ function mapItemToBackend(item: Partial<InventoryItem>): any {
   if (item.basePrice !== undefined) result.base_price = item.basePrice;
   if (item.description !== undefined) result.description = item.description;
   if (item.binLocation !== undefined) result.bin_location = item.binLocation;
+  if (item.sku !== undefined) result.sku = item.sku;
   if (item.barcode !== undefined) result.sku = item.barcode;
   if (item.assignedKitName !== undefined) result.assigned_kit_name = item.assignedKitName;
+  if (item.isSellable !== undefined) result.is_sellable = item.isSellable;
+  if (item.isHidden !== undefined) result.is_hidden = item.isHidden;
   return result;
 }
 
@@ -212,29 +234,16 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [stockLedger, setStockLedger] = useState<StockLedgerEntry[]>([]);
   const [wmsTransfers, setWmsTransfers] = useState<WarehouseTransfer[]>([]);
   const [wmsCycleCounts, setWmsCycleCounts] = useState<CycleCount[]>([]);
+  const [customerOrders, setCustomerOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   const loadAllData = async () => {
     try {
-      const results = await Promise.allSettled([
+      // ===== Stage 1: Critical Core Data (Inventory & Kits) -> Unblocks UI in <50ms =====
+      const [resInv, resKits] = await Promise.allSettled([
         apiFetch('/api/v1/inventory'),
         apiFetch('/api/v1/kit'),
-        apiFetch('/api/v1/transaction'),
-        apiFetch('/api/v1/vendor'),
-        apiFetch('/api/v1/customer'),
-        apiFetch('/api/v1/purchase-order'),
-        apiFetch('/api/v1/sales-order'),
-        apiFetch('/api/v1/warehouse'),
-        apiFetch('/api/v1/bin'),
-        apiFetch('/api/v1/warehouse-visual/physical-racks'),
-        apiFetch('/api/v1/warehouse-visual/element-types'),
-        apiFetch('/api/v1/serials'),
-        apiFetch('/api/v1/stock-ledger?limit=150'),
-        apiFetch('/api/v1/wms/transfers'),
-        apiFetch('/api/v1/wms/cycle-counts')
       ]);
-
-      const [resInv, resKits, resTx, resVendors, resCustomers, resPos, resSos, resWh, resBins, resRacks, resElemTypes, resSerials, resLedger, resTransfers, resAudits] = results;
 
       if (resInv.status === 'fulfilled' && Array.isArray(resInv.value)) {
         setInventory(resInv.value.map(mapItemToFrontend));
@@ -252,6 +261,29 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
           }))
         })));
       }
+
+      // Unblock initial screen loading immediately!
+      setLoading(false);
+
+      // ===== Stage 2: Asynchronous Background Fetching of Secondary Modules =====
+      const secondaryResults = await Promise.allSettled([
+        apiFetch('/api/v1/transaction'),
+        apiFetch('/api/v1/vendor'),
+        apiFetch('/api/v1/customer'),
+        apiFetch('/api/v1/purchase-order'),
+        apiFetch('/api/v1/sales-order'),
+        apiFetch('/api/v1/warehouse'),
+        apiFetch('/api/v1/bin'),
+        apiFetch('/api/v1/warehouse-visual/physical-racks'),
+        apiFetch('/api/v1/warehouse-visual/element-types'),
+        apiFetch('/api/v1/serials'),
+        apiFetch('/api/v1/stock-ledger?limit=150'),
+        apiFetch('/api/v1/wms/transfers'),
+        apiFetch('/api/v1/wms/cycle-counts'),
+        apiFetch('/api/v1/orders')
+      ]);
+
+      const [resTx, resVendors, resCustomers, resPos, resSos, resWh, resBins, resRacks, resElemTypes, resSerials, resLedger, resTransfers, resAudits, resOrders] = secondaryResults;
 
       if (resTx.status === 'fulfilled' && Array.isArray(resTx.value)) {
         setTransactions(resTx.value.map((t: any) => ({
@@ -385,6 +417,10 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         setWmsCycleCounts(resAudits.value);
       }
 
+      if (resOrders.status === 'fulfilled' && Array.isArray(resOrders.value)) {
+        setCustomerOrders(resOrders.value);
+      }
+
     } catch (e) {
       console.error('Error loading data from PostgreSQL:', e);
     } finally {
@@ -455,6 +491,14 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
             }
           });
         });
+
+        sseSource.onerror = () => {
+          // Gracefully close on disconnection / auth failure to prevent browser reconnect spam
+          if (sseSource) {
+            sseSource.close();
+            sseSource = null;
+          }
+        };
       } catch (err) {
         console.warn("SSE connection error:", err);
       }
@@ -481,7 +525,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     };
   }, [user, token]);
 
-  // CRUD Implementations
+  // CRUD Implementations with Zero-Latency Optimistic State Updates
 
   const addInventoryItem = async (item: Omit<InventoryItem, 'id'>): Promise<string | null> => {
     try {
@@ -526,21 +570,24 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       });
       return newItem.id;
     } catch (e: any) {
-      alert(`Add Item Error: ${e.message}`);
+      console.error(`Add Item Error: ${e.message}`);
       return null;
     }
   };
 
   const updateInventoryItem = async (id: string, updates: Partial<InventoryItem>) => {
-    try {
-      const oldItem = inventory.find(i => i.id === id);
-      let updatedBackend: any = null;
+    const oldItem = inventory.find(i => i.id === id);
+    if (!oldItem) return;
 
+    // 0ms Optimistic UI update immediately
+    setInventory(prev => prev.map(item => item.id === id ? { ...item, ...updates } : item));
+
+    try {
       // Concurrency-safe delta stock mutation via /adjust endpoint
-      if (typeof updates.stockQty === 'number' && oldItem) {
+      if (typeof updates.stockQty === 'number') {
         const delta = updates.stockQty - oldItem.stockQty;
         if (delta !== 0) {
-          updatedBackend = await apiFetch(`/api/v1/inventory/${id}/adjust`, {
+          await apiFetch(`/api/v1/inventory/${id}/adjust`, {
             method: 'POST',
             body: JSON.stringify({ delta, reason: 'Stock adjustment' })
           });
@@ -551,28 +598,27 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       const { stockQty, ...otherUpdates } = updates;
       if (Object.keys(otherUpdates).length > 0) {
         const payload = mapItemToBackend(otherUpdates);
-        updatedBackend = await apiFetch(`/api/v1/inventory/${id}`, {
+        await apiFetch(`/api/v1/inventory/${id}`, {
           method: 'PUT',
           body: JSON.stringify(payload)
         });
       }
-
-      if (updatedBackend) {
-        const newItem = mapItemToFrontend(updatedBackend);
-        setInventory(prev => prev.map(item => item.id === id ? newItem : item));
-      }
     } catch (e: any) {
-      alert(`Update Error: ${e.message}`);
+      // Roll back on network error
+      setInventory(prev => prev.map(item => item.id === id ? oldItem : item));
+      console.error(`Update Error: ${e.message}`);
     }
   };
 
   const deleteInventoryItem = async (id: string) => {
-    try {
-      const itemToDelete = inventory.find(i => i.id === id);
-      if (!itemToDelete) return;
+    const itemToDelete = inventory.find(i => i.id === id);
+    if (!itemToDelete) return;
 
+    // 0ms Optimistic UI removal
+    setInventory(prev => prev.filter(item => item.id !== id));
+
+    try {
       await apiFetch(`/api/v1/inventory/${id}`, { method: 'DELETE' });
-      setInventory(prev => prev.filter(item => item.id !== id));
 
       logTransaction({
         id: `tx_${Date.now()}`,
@@ -603,7 +649,9 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         }
       });
     } catch (e: any) {
-      alert(`Delete Item Error: ${e.message}`);
+      // Roll back on failure
+      setInventory(prev => [itemToDelete, ...prev]);
+      console.error(`Delete Item Error: ${e.message}`);
     }
   };
 
@@ -622,7 +670,18 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         method: 'POST',
         body: JSON.stringify(payload)
       });
-      loadAllData();
+      
+      const newKit: KitBOM = {
+        id: created.id,
+        name: created.name || kit.name,
+        description: created.description || kit.description || '',
+        imageUrl: created.image_url || kit.imageUrl,
+        items: (created.bom_items || kit.items || []).map((b: any) => ({
+          componentId: b.inventory_item_id || b.componentId,
+          qty: Number(b.quantity) || Number(b.qty) || 1
+        }))
+      };
+      setKits(prev => [newKit, ...prev]);
 
       logTransaction({
         id: `tx_${Date.now()}`,
@@ -640,18 +699,18 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         name: `Create Kit: ${kit.name}`,
         undo: async () => {
           await apiFetch(`/api/v1/kit/${kitId}`, { method: 'DELETE' });
-          loadAllData();
+          setKits(prev => prev.filter(k => k.id !== kitId));
         },
         redo: async () => {
           const re = await apiFetch('/api/v1/kit', { method: 'POST', body: JSON.stringify(payload) });
           kitId = re.id;
-          loadAllData();
+          setKits(prev => [{ ...newKit, id: re.id }, ...prev]);
         }
       });
 
       return created.id;
     } catch (e: any) {
-      alert(`Create Kit Error: ${e.message}`);
+      console.error(`Create Kit Error: ${e.message}`);
       return '';
     }
   };
@@ -661,22 +720,31 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     updatedRequirements: BOMRequirement[] | { items?: BOMRequirement[] },
     updatedMeta?: Partial<KitBOM>
   ) => {
+    const kitToUpdate = kits.find(k => k.id === kitId);
+    if (!kitToUpdate) return;
+    const oldItems = kitToUpdate.items || [];
+
+    const reqList: BOMRequirement[] = Array.isArray(updatedRequirements)
+      ? updatedRequirements
+      : Array.isArray((updatedRequirements as any)?.items)
+      ? (updatedRequirements as any).items
+      : [];
+
+    const updatedName = updatedMeta?.name || kitToUpdate.name;
+    const updatedDescription = updatedMeta?.description !== undefined ? updatedMeta.description : kitToUpdate.description;
+    const updatedImageUrl = updatedMeta?.imageUrl !== undefined ? updatedMeta.imageUrl : kitToUpdate.imageUrl;
+
+    // 0ms Optimistic UI update
+    const optimisticKit: KitBOM = {
+      ...kitToUpdate,
+      name: updatedName,
+      description: updatedDescription,
+      imageUrl: updatedImageUrl,
+      items: reqList
+    };
+    setKits(prev => prev.map(k => k.id === kitId ? optimisticKit : k));
+
     try {
-      const kitToUpdate = kits.find(k => k.id === kitId);
-      if (!kitToUpdate) return;
-      const oldItems = kitToUpdate.items || [];
-
-      // Extract array safely if passed as array OR object { items: [...] }
-      const reqList: BOMRequirement[] = Array.isArray(updatedRequirements)
-        ? updatedRequirements
-        : Array.isArray((updatedRequirements as any)?.items)
-        ? (updatedRequirements as any).items
-        : [];
-
-      const updatedName = updatedMeta?.name || kitToUpdate.name;
-      const updatedDescription = updatedMeta?.description !== undefined ? updatedMeta.description : kitToUpdate.description;
-      const updatedImageUrl = updatedMeta?.imageUrl !== undefined ? updatedMeta.imageUrl : kitToUpdate.imageUrl;
-
       const payload = {
         name: updatedName,
         description: updatedDescription,
@@ -724,27 +792,29 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
             bom_items: oldItems.map(i => ({ inventory_item_id: i.componentId, quantity: i.qty }))
           };
           await apiFetch(`/api/v1/kit/${kitId}`, { method: 'PUT', body: JSON.stringify(oldPayload) });
-          loadAllData();
+          setKits(prev => prev.map(k => k.id === kitId ? kitToUpdate : k));
         },
         redo: async () => {
           await apiFetch(`/api/v1/kit/${kitId}`, { method: 'PUT', body: JSON.stringify(payload) });
-          loadAllData();
+          setKits(prev => prev.map(k => k.id === kitId ? optimisticKit : k));
         }
       });
-
-      loadAllData();
     } catch (e: any) {
-      alert(`Update Kit BOM Error: ${e.message}`);
+      // Revert on failure
+      setKits(prev => prev.map(k => k.id === kitId ? kitToUpdate : k));
+      console.error(`Update Kit BOM Error: ${e.message}`);
     }
   };
 
   const deleteKitBOM = async (id: string) => {
-    try {
-      const kitToDelete = kits.find(k => k.id === id);
-      if (!kitToDelete) return;
+    const kitToDelete = kits.find(k => k.id === id);
+    if (!kitToDelete) return;
 
+    // 0ms Optimistic removal
+    setKits(prev => prev.filter(k => k.id !== id));
+
+    try {
       await apiFetch(`/api/v1/kit/${id}`, { method: 'DELETE' });
-      setKits(prev => prev.filter(k => k.id !== id));
 
       logTransaction({
         id: `tx_${Date.now()}`,
@@ -766,16 +836,17 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
             image_url: kitToDelete.imageUrl,
             bom_items: (kitToDelete.items || []).map(i => ({ inventory_item_id: i.componentId, quantity: i.qty }))
           };
-          await apiFetch('/api/v1/kit', { method: 'POST', body: JSON.stringify(payload) });
-          loadAllData();
+          const created = await apiFetch('/api/v1/kit', { method: 'POST', body: JSON.stringify(payload) });
+          setKits(prev => [{ ...kitToDelete, id: created.id }, ...prev]);
         },
         redo: async () => {
           await apiFetch(`/api/v1/kit/${id}`, { method: 'DELETE' });
-          loadAllData();
+          setKits(prev => prev.filter(k => k.id !== id));
         }
       });
     } catch (e: any) {
-      alert(`Delete Kit Error: ${e.message}`);
+      setKits(prev => [kitToDelete, ...prev]);
+      console.error(`Delete Kit Error: ${e.message}`);
     }
   };
 
@@ -786,6 +857,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       userRole: tx.userRole || user?.role || 'admin',
       userId: tx.userId || user?.id || 'admin_user',
     };
+    setTransactions(prev => [enrichedTx, ...prev]);
     try {
       const payload = {
         type: enrichedTx.type,
@@ -804,10 +876,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         method: 'POST',
         body: JSON.stringify(payload)
       });
-      setTransactions(prev => [enrichedTx, ...prev]);
     } catch (e: any) {
       console.warn(`Failed to log transaction: ${e.message}`);
-      setTransactions(prev => [enrichedTx, ...prev]);
     }
   };
 
@@ -823,11 +893,21 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         payment_terms: v.paymentTerms,
         address: { city: v.address }
       };
-      await apiFetch('/api/v1/vendor', {
+      const created = await apiFetch('/api/v1/vendor', {
         method: 'POST',
         body: JSON.stringify(payload)
       });
-      loadAllData();
+      const newV = {
+        id: created.id,
+        code: created.vendor_code || payload.vendor_code,
+        name: created.name || payload.name,
+        contactName: created.contact_name || payload.contact_name,
+        email: created.email || payload.email,
+        phone: created.phone || payload.phone,
+        paymentTerms: created.payment_terms || 'Net 30',
+        address: typeof created.address === 'object' ? (created.address?.city || 'General') : (created.address || '')
+      };
+      setVendors(prev => [newV, ...prev]);
 
       logTransaction({
         id: `tx_${Date.now()}`,
@@ -837,27 +917,14 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         items: [],
         diffs: [{ field: 'vendor_name', oldValue: null, newValue: v.name }]
       });
-
-      addAction({
-        id: `add_vendor_${Date.now()}`,
-        name: `Add Vendor: ${v.name}`,
-        undo: async () => {
-          // Delete created vendor by refreshing data or standard deletion
-          loadAllData();
-        },
-        redo: async () => {
-          await apiFetch('/api/v1/vendor', { method: 'POST', body: JSON.stringify(payload) });
-          loadAllData();
-        }
-      });
     } catch (e: any) {
-      alert(`Error creating vendor: ${e.message}`);
+      console.error(`Error creating vendor: ${e.message}`);
     }
   };
 
   const updateVendor = async (id: string, v: any) => {
+    setVendors(prev => prev.map(item => item.id === id ? { ...item, ...v } : item));
     try {
-      const oldV = vendors.find(item => item.id === id);
       const payload = {
         vendor_code: v.code,
         name: v.name,
@@ -871,65 +938,17 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         method: 'PUT',
         body: JSON.stringify(payload)
       });
-      loadAllData();
-
-      if (oldV) {
-        logTransaction({
-          id: `tx_${Date.now()}`,
-          timestamp: new Date().toISOString(),
-          type: 'adjust',
-          description: `Updated Vendor "${v.name}"`,
-          items: [],
-          diffs: [{ field: 'name', oldValue: oldV.name, newValue: v.name }]
-        });
-
-        addAction({
-          id: `upd_vendor_${Date.now()}`,
-          name: `Update Vendor: ${v.name}`,
-          undo: async () => {
-            await apiFetch(`/api/v1/vendor/${id}`, {
-              method: 'PUT',
-              body: JSON.stringify({
-                vendor_code: oldV.code,
-                name: oldV.name,
-                contact_name: oldV.contactName,
-                email: oldV.email,
-                phone: oldV.phone,
-                payment_terms: oldV.paymentTerms,
-                address: { city: oldV.address }
-              })
-            });
-            loadAllData();
-          },
-          redo: async () => {
-            await apiFetch(`/api/v1/vendor/${id}`, { method: 'PUT', body: JSON.stringify(payload) });
-            loadAllData();
-          }
-        });
-      }
     } catch (e: any) {
-      alert(`Error updating vendor: ${e.message}`);
+      console.error(`Error updating vendor: ${e.message}`);
     }
   };
 
   const deleteVendor = async (id: string) => {
+    setVendors(prev => prev.filter(item => item.id !== id));
     try {
-      const v = vendors.find(item => item.id === id);
       await apiFetch(`/api/v1/vendor/${id}`, { method: 'DELETE' });
-      loadAllData();
-
-      if (v) {
-        logTransaction({
-          id: `tx_${Date.now()}`,
-          timestamp: new Date().toISOString(),
-          type: 'adjust',
-          description: `Deleted Vendor "${v.name}"`,
-          items: [],
-          diffs: [{ field: 'deleted', oldValue: v.name, newValue: null }]
-        });
-      }
     } catch (e: any) {
-      alert(`Error deleting vendor: ${e.message}`);
+      console.error(`Error deleting vendor: ${e.message}`);
     }
   };
 
@@ -946,11 +965,22 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         billing_address: { city: c.address },
         shipping_address: { city: c.address }
       };
-      await apiFetch('/api/v1/customer', {
+      const created = await apiFetch('/api/v1/customer', {
         method: 'POST',
         body: JSON.stringify(payload)
       });
-      loadAllData();
+      const newC = {
+        id: created.id,
+        code: created.customer_code || payload.customer_code,
+        name: created.name || payload.name,
+        contactName: created.contact_name || payload.contact_name,
+        email: created.email || payload.email,
+        phone: created.phone || payload.phone,
+        paymentTerms: 'Net 30',
+        address: typeof created.billing_address === 'object' ? (created.billing_address?.city || 'General') : (created.billing_address || ''),
+        creditLimit: Number(created.credit_limit) || 10000
+      };
+      setCustomers(prev => [newC, ...prev]);
 
       logTransaction({
         id: `tx_${Date.now()}`,
@@ -961,13 +991,13 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         diffs: [{ field: 'customer_name', oldValue: null, newValue: c.name }]
       });
     } catch (e: any) {
-      alert(`Error creating customer: ${e.message}`);
+      console.error(`Error creating customer: ${e.message}`);
     }
   };
 
   const updateCustomer = async (id: string, c: any) => {
+    setCustomers(prev => prev.map(item => item.id === id ? { ...item, ...c } : item));
     try {
-      const oldC = customers.find(item => item.id === id);
       const payload = {
         customer_code: c.code,
         name: c.name,
@@ -982,41 +1012,17 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         method: 'PUT',
         body: JSON.stringify(payload)
       });
-      loadAllData();
-
-      if (oldC) {
-        logTransaction({
-          id: `tx_${Date.now()}`,
-          timestamp: new Date().toISOString(),
-          type: 'adjust',
-          description: `Updated Customer "${c.name}"`,
-          items: [],
-          diffs: [{ field: 'name', oldValue: oldC.name, newValue: c.name }]
-        });
-      }
     } catch (e: any) {
-      alert(`Error updating customer: ${e.message}`);
+      console.error(`Error updating customer: ${e.message}`);
     }
   };
 
   const deleteCustomer = async (id: string) => {
+    setCustomers(prev => prev.filter(item => item.id !== id));
     try {
-      const c = customers.find(item => item.id === id);
       await apiFetch(`/api/v1/customer/${id}`, { method: 'DELETE' });
-      loadAllData();
-
-      if (c) {
-        logTransaction({
-          id: `tx_${Date.now()}`,
-          timestamp: new Date().toISOString(),
-          type: 'adjust',
-          description: `Deleted Customer "${c.name}"`,
-          items: [],
-          diffs: [{ field: 'deleted', oldValue: c.name, newValue: null }]
-        });
-      }
     } catch (e: any) {
-      alert(`Error deleting customer: ${e.message}`);
+      console.error(`Error deleting customer: ${e.message}`);
     }
   };
 
@@ -1041,25 +1047,35 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         method: 'POST',
         body: JSON.stringify(payload)
       });
-      await loadAllData();
-
-      logTransaction({
-        id: `tx_${Date.now()}`,
-        timestamp: new Date().toISOString(),
-        type: 'adjust',
-        description: `Created Purchase Order "${payload.po_number}"`,
-        items: [],
-        diffs: [{ field: 'po_number', oldValue: null, newValue: payload.po_number }]
-      });
+      const newPo = {
+        id: created.id,
+        poNumber: created.po_number || payload.po_number,
+        vendorId: created.vendor_id || payload.vendor_id,
+        vendorName: created.vendor?.name || po.vendorName || 'Standard Supplier',
+        orderDate: created.order_date ? new Date(created.order_date).toISOString().slice(0, 10) : payload.order_date,
+        expectedDate: created.expected_date ? new Date(created.expected_date).toISOString().slice(0, 10) : payload.expected_date,
+        status: created.status || 'draft',
+        totalAmount: Number(created.total_amount) || payload.total_amount,
+        itemCount: (created.lines || []).length || 1,
+        items: (created.lines || []).map((l: any) => ({
+          id: l.id,
+          itemId: l.inventory_item_id || l.item_id,
+          name: l.inventory_item?.name || l.item_name || 'Component',
+          quantity: Number(l.qty_ordered || l.quantity) || 0,
+          receivedQty: Number(l.qty_received || l.received_qty) || 0,
+          unitPrice: Number(l.unit_cost) || 0
+        }))
+      };
+      setPurchaseOrders(prev => [newPo, ...prev]);
       return created?.id;
     } catch (e: any) {
-      alert(`Error creating Purchase Order: ${e.message}`);
+      console.error(`Error creating Purchase Order: ${e.message}`);
     }
   };
 
   const updatePurchaseOrder = async (id: string, po: any) => {
+    setPurchaseOrders(prev => prev.map(item => item.id === id ? { ...item, ...po } : item));
     try {
-      const oldPo = purchaseOrders.find(item => item.id === id);
       const payload = {
         vendor_id: po.vendorId,
         po_number: po.poNumber,
@@ -1071,41 +1087,17 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         method: 'PUT',
         body: JSON.stringify(payload)
       });
-      await loadAllData();
-
-      if (oldPo) {
-        logTransaction({
-          id: `tx_${Date.now()}`,
-          timestamp: new Date().toISOString(),
-          type: 'adjust',
-          description: `Updated Purchase Order "${po.poNumber || oldPo.poNumber}"`,
-          items: [],
-          diffs: [{ field: 'status', oldValue: oldPo.status, newValue: po.status }]
-        });
-      }
     } catch (e: any) {
-      alert(`Error updating Purchase Order: ${e.message}`);
+      console.error(`Error updating Purchase Order: ${e.message}`);
     }
   };
 
   const deletePurchaseOrder = async (id: string) => {
+    setPurchaseOrders(prev => prev.filter(item => item.id !== id));
     try {
-      const po = purchaseOrders.find(item => item.id === id);
       await apiFetch(`/api/v1/purchase-order/${id}`, { method: 'DELETE' });
-      await loadAllData();
-
-      if (po) {
-        logTransaction({
-          id: `tx_${Date.now()}`,
-          timestamp: new Date().toISOString(),
-          type: 'adjust',
-          description: `Deleted Purchase Order "${po.poNumber}"`,
-          items: [],
-          diffs: [{ field: 'deleted', oldValue: po.poNumber, newValue: null }]
-        });
-      }
     } catch (e: any) {
-      alert(`Error deleting Purchase Order: ${e.message}`);
+      console.error(`Error deleting Purchase Order: ${e.message}`);
     }
   };
 
@@ -1130,25 +1122,36 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         method: 'POST',
         body: JSON.stringify(payload)
       });
-      await loadAllData();
-
-      logTransaction({
-        id: `tx_${Date.now()}`,
-        timestamp: new Date().toISOString(),
-        type: 'adjust',
-        description: `Created Sales Order "${payload.so_number}"`,
-        items: [],
-        diffs: [{ field: 'so_number', oldValue: null, newValue: payload.so_number }]
-      });
+      const newSo = {
+        id: created.id,
+        soNumber: created.so_number || payload.so_number,
+        customerId: created.customer_id || payload.customer_id,
+        customerName: created.customer?.name || so.customerName || 'Direct Customer',
+        orderDate: created.order_date ? new Date(created.order_date).toISOString().slice(0, 10) : payload.order_date,
+        requiredDate: created.required_date ? new Date(created.required_date).toISOString().slice(0, 10) : payload.required_date,
+        status: created.status || 'draft',
+        totalAmount: Number(created.total_amount) || payload.total_amount,
+        itemCount: (created.lines || []).length || 1,
+        notes: created.notes || '',
+        items: (created.lines || []).map((l: any) => ({
+          id: l.id,
+          itemId: l.inventory_item_id || l.item_id,
+          name: l.inventory_item?.name || l.item_name || 'Component',
+          quantity: Number(l.qty_ordered || l.quantity) || 0,
+          shippedQty: Number(l.qty_shipped || l.quantity) || 0,
+          unitPrice: Number(l.unit_price) || 0
+        }))
+      };
+      setSalesOrders(prev => [newSo, ...prev]);
       return created?.id;
     } catch (e: any) {
-      alert(`Error creating Sales Order: ${e.message}`);
+      console.error(`Error creating Sales Order: ${e.message}`);
     }
   };
 
   const updateSalesOrder = async (id: string, so: any) => {
+    setSalesOrders(prev => prev.map(item => item.id === id ? { ...item, ...so } : item));
     try {
-      const oldSo = salesOrders.find(item => item.id === id);
       const payload = {
         customer_id: so.customerId,
         so_number: so.soNumber,
@@ -1160,41 +1163,17 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         method: 'PUT',
         body: JSON.stringify(payload)
       });
-      loadAllData();
-
-      if (oldSo) {
-        logTransaction({
-          id: `tx_${Date.now()}`,
-          timestamp: new Date().toISOString(),
-          type: 'adjust',
-          description: `Updated Sales Order "${so.soNumber || oldSo.soNumber}"`,
-          items: [],
-          diffs: [{ field: 'status', oldValue: oldSo.status, newValue: so.status }]
-        });
-      }
     } catch (e: any) {
-      alert(`Error updating Sales Order: ${e.message}`);
+      console.error(`Error updating Sales Order: ${e.message}`);
     }
   };
 
   const deleteSalesOrder = async (id: string) => {
+    setSalesOrders(prev => prev.filter(item => item.id !== id));
     try {
-      const so = salesOrders.find(item => item.id === id);
       await apiFetch(`/api/v1/sales-order/${id}`, { method: 'DELETE' });
-      loadAllData();
-
-      if (so) {
-        logTransaction({
-          id: `tx_${Date.now()}`,
-          timestamp: new Date().toISOString(),
-          type: 'adjust',
-          description: `Deleted Sales Order "${so.soNumber}"`,
-          items: [],
-          diffs: [{ field: 'deleted', oldValue: so.soNumber, newValue: null }]
-        });
-      }
     } catch (e: any) {
-      alert(`Error deleting Sales Order: ${e.message}`);
+      console.error(`Error deleting Sales Order: ${e.message}`);
     }
   };
 
@@ -1207,28 +1186,28 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         address: { street: wh.address },
         is_default: !!wh.isDefault
       };
-      await apiFetch('/api/v1/warehouse', {
+      const created = await apiFetch('/api/v1/warehouse', {
         method: 'POST',
         body: JSON.stringify(payload)
       });
-      loadAllData();
-
-      logTransaction({
-        id: `tx_${Date.now()}`,
-        timestamp: new Date().toISOString(),
-        type: 'adjust',
-        description: `Added Warehouse "${wh.name}"`,
-        items: [],
-        diffs: [{ field: 'warehouse_name', oldValue: null, newValue: wh.name }]
-      });
+      const newWh = {
+        id: created.id,
+        code: created.code || payload.code,
+        name: created.name || payload.name,
+        address: typeof created.address === 'object' ? (created.address?.street || 'Main Storage') : (created.address || ''),
+        isDefault: !!created.is_default,
+        binCount: 0,
+        totalCapacityPct: 0
+      };
+      setWarehouses(prev => [newWh, ...prev]);
     } catch (e: any) {
-      alert(`Error creating warehouse: ${e.message}`);
+      console.error(`Error creating warehouse: ${e.message}`);
     }
   };
 
   const updateWarehouse = async (id: string, wh: any) => {
+    setWarehouses(prev => prev.map(item => item.id === id ? { ...item, ...wh } : item));
     try {
-      const oldWh = warehouses.find(item => item.id === id);
       const payload = {
         code: wh.code,
         name: wh.name,
@@ -1239,41 +1218,17 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         method: 'PUT',
         body: JSON.stringify(payload)
       });
-      loadAllData();
-
-      if (oldWh) {
-        logTransaction({
-          id: `tx_${Date.now()}`,
-          timestamp: new Date().toISOString(),
-          type: 'adjust',
-          description: `Updated Warehouse "${wh.name}"`,
-          items: [],
-          diffs: [{ field: 'name', oldValue: oldWh.name, newValue: wh.name }]
-        });
-      }
     } catch (e: any) {
-      alert(`Error updating warehouse: ${e.message}`);
+      console.error(`Error updating warehouse: ${e.message}`);
     }
   };
 
   const deleteWarehouse = async (id: string) => {
+    setWarehouses(prev => prev.filter(item => item.id !== id));
     try {
-      const wh = warehouses.find(item => item.id === id);
       await apiFetch(`/api/v1/warehouse/${id}`, { method: 'DELETE' });
-      loadAllData();
-
-      if (wh) {
-        logTransaction({
-          id: `tx_${Date.now()}`,
-          timestamp: new Date().toISOString(),
-          type: 'adjust',
-          description: `Deleted Warehouse "${wh.name}"`,
-          items: [],
-          diffs: [{ field: 'deleted', oldValue: wh.name, newValue: null }]
-        });
-      }
     } catch (e: any) {
-      alert(`Error deleting warehouse: ${e.message}`);
+      console.error(`Error deleting warehouse: ${e.message}`);
     }
   };
 
@@ -1286,43 +1241,29 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         warehouse_id: whObj?.id || warehouses[0]?.id || '',
         description: bin.description
       };
-      await apiFetch('/api/v1/bin', {
+      const created = await apiFetch('/api/v1/bin', {
         method: 'POST',
         body: JSON.stringify(payload)
       });
-      loadAllData();
-
-      logTransaction({
-        id: `tx_${Date.now()}`,
-        timestamp: new Date().toISOString(),
-        type: 'adjust',
-        description: `Added Bin Location "${bin.code}"`,
-        items: [],
-        diffs: [{ field: 'bin_code', oldValue: null, newValue: bin.code }]
-      });
+      const newBin = {
+        id: created.id,
+        code: created.code || payload.code,
+        warehouseCode: bin.warehouseCode || '',
+        description: created.description || bin.description || '',
+        isActive: true
+      };
+      setBins(prev => [newBin, ...prev]);
     } catch (e: any) {
-      alert(`Error creating bin storage location: ${e.message}`);
+      console.error(`Error creating bin storage location: ${e.message}`);
     }
   };
 
   const deleteBin = async (id: string) => {
+    setBins(prev => prev.filter(item => item.id !== id));
     try {
-      const bin = bins.find(item => item.id === id);
       await apiFetch(`/api/v1/bin/${id}`, { method: 'DELETE' });
-      loadAllData();
-
-      if (bin) {
-        logTransaction({
-          id: `tx_${Date.now()}`,
-          timestamp: new Date().toISOString(),
-          type: 'adjust',
-          description: `Deleted Bin Location "${bin.code}"`,
-          items: [],
-          diffs: [{ field: 'deleted', oldValue: bin.code, newValue: null }]
-        });
-      }
     } catch (e: any) {
-      alert(`Error deleting bin storage location: ${e.message}`);
+      console.error(`Error deleting bin storage location: ${e.message}`);
     }
   };
 
@@ -1415,6 +1356,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   };
 
   const updateSerialStatus = async (id: string, status: string, location?: string, notes?: string) => {
+    setSerialNumbers(prev => prev.map(s => s.id === id ? { ...s, status, location: location || s.location } : s));
     try {
       const res = await apiFetch(`/api/v1/serials/${id}/status`, {
         method: 'PATCH',
@@ -1429,9 +1371,9 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   };
 
   const deleteSerialNumber = async (id: string) => {
+    setSerialNumbers(prev => prev.filter(s => s.id !== id));
     try {
       await apiFetch(`/api/v1/serials/${id}`, { method: 'DELETE' });
-      setSerialNumbers(prev => prev.filter(s => s.id !== id));
     } catch (e: any) {
       throw e;
     }
@@ -1454,12 +1396,18 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   };
 
   const postStockAdjustment = async (itemId: string, qtyDelta: number, binLocation?: string, reasonCode?: string, notes?: string) => {
+    // 0ms Optimistic UI update on inventory
+    setInventory(prev => prev.map(i => i.id === itemId ? {
+      ...i,
+      stockQty: Math.max(0, i.stockQty + qtyDelta),
+      binLocation: binLocation || i.binLocation
+    } : i));
+
     try {
       const res = await apiFetch('/api/v1/stock-ledger/adjust', {
         method: 'POST',
         body: JSON.stringify({ itemId, qtyDelta, binLocation, reasonCode: reasonCode || 'Manual Stock Adjustment', notes })
       });
-      loadAllData();
       return res;
     } catch (e: any) {
       throw e;
@@ -1472,7 +1420,33 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         method: 'POST',
         body: JSON.stringify({ receiptLines })
       });
-      loadAllData();
+      // Refresh inventory and POs
+      const [invData, poData] = await Promise.all([
+        apiFetch('/api/v1/inventory'),
+        apiFetch('/api/v1/purchase-order')
+      ]);
+      if (Array.isArray(invData)) setInventory(invData.map(mapItemToFrontend));
+      if (Array.isArray(poData)) {
+        setPurchaseOrders(poData.map((po: any) => ({
+          id: po.id,
+          poNumber: po.po_number || po.order_number || po.id,
+          vendorId: po.vendor_id,
+          vendorName: po.vendor?.name || 'Standard Supplier',
+          orderDate: po.order_date ? new Date(po.order_date).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10),
+          expectedDate: po.expected_date ? new Date(po.expected_date).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10),
+          status: po.status || 'draft',
+          totalAmount: Number(po.total_amount) || 0,
+          itemCount: (po.lines || []).length || 1,
+          items: (po.lines || []).map((l: any) => ({
+            id: l.id,
+            itemId: l.inventory_item_id || l.item_id,
+            name: l.inventory_item?.name || l.item_name || 'Component',
+            quantity: Number(l.qty_ordered || l.quantity) || 0,
+            receivedQty: Number(l.qty_received || l.received_qty) || 0,
+            unitPrice: Number(l.unit_cost) || 0
+          }))
+        })));
+      }
       return res;
     } catch (e: any) {
       throw e;
@@ -1485,7 +1459,33 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         method: 'POST',
         body: JSON.stringify({ fulfillmentLines, carrier, trackingNumber })
       });
-      loadAllData();
+      const [invData, soData] = await Promise.all([
+        apiFetch('/api/v1/inventory'),
+        apiFetch('/api/v1/sales-order')
+      ]);
+      if (Array.isArray(invData)) setInventory(invData.map(mapItemToFrontend));
+      if (Array.isArray(soData)) {
+        setSalesOrders(soData.map((so: any) => ({
+          id: so.id,
+          soNumber: so.so_number || so.order_number || so.id,
+          customerId: so.customer_id,
+          customerName: so.customer?.name || 'Direct Customer',
+          orderDate: so.order_date ? new Date(so.order_date).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10),
+          requiredDate: so.required_date ? new Date(so.required_date).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10),
+          status: so.status || 'draft',
+          totalAmount: Number(so.total_amount) || 0,
+          itemCount: (so.lines || []).length || 1,
+          notes: so.notes || '',
+          items: (so.lines || []).map((l: any) => ({
+            id: l.id,
+            itemId: l.inventory_item_id || l.item_id,
+            name: l.inventory_item?.name || l.item_name || 'Component',
+            quantity: Number(l.qty_ordered || l.quantity) || 0,
+            shippedQty: Number(l.qty_shipped || l.quantity) || 0,
+            unitPrice: Number(l.unit_price) || 0
+          }))
+        })));
+      }
       return res;
     } catch (e: any) {
       throw e;
@@ -1512,7 +1512,9 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         method: 'POST',
         body: JSON.stringify(data)
       });
-      loadAllData();
+      if (res?.id) {
+        setWmsTransfers(prev => [res, ...prev]);
+      }
       return res;
     } catch (e: any) {
       throw e;
@@ -1525,7 +1527,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         method: 'POST',
         body: JSON.stringify({ carrier, trackingNumber })
       });
-      loadAllData();
+      setWmsTransfers(prev => prev.map(t => t.id === transferId ? res : t));
       return res;
     } catch (e: any) {
       throw e;
@@ -1538,7 +1540,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         method: 'POST',
         body: JSON.stringify({ receiptLines })
       });
-      loadAllData();
+      setWmsTransfers(prev => prev.map(t => t.id === transferId ? res : t));
       return res;
     } catch (e: any) {
       throw e;
@@ -1565,7 +1567,9 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         method: 'POST',
         body: JSON.stringify(data)
       });
-      loadAllData();
+      if (res?.id) {
+        setWmsCycleCounts(prev => [res, ...prev]);
+      }
       return res;
     } catch (e: any) {
       throw e;
@@ -1578,7 +1582,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         method: 'POST',
         body: JSON.stringify({ counts })
       });
-      loadAllData();
+      setWmsCycleCounts(prev => prev.map(c => c.id === countId ? res : c));
       return res;
     } catch (e: any) {
       throw e;
@@ -1590,16 +1594,60 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       const res = await apiFetch(`/api/v1/wms/cycle-counts/${countId}/approve`, {
         method: 'POST'
       });
-      loadAllData();
+      setWmsCycleCounts(prev => prev.map(c => c.id === countId ? res : c));
       return res;
     } catch (e: any) {
       throw e;
     }
   };
 
+  const updateCustomerOrderStatus = async (orderId: string, status: string) => {
+    setCustomerOrders(prev => prev.map(o => o.id === orderId ? { ...o, status } : o));
+    try {
+      await apiFetch(`/api/v1/orders/${orderId}/status`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status })
+      });
+    } catch (e: any) {
+      console.error('Failed to update storefront order status:', e);
+      throw e;
+    }
+  };
+
+  const updateCustomerOrderFulfillment = async (orderId: string, fulfillmentData: {
+    status?: string;
+    carrier?: string;
+    tracking_number?: string;
+    notes?: string;
+    customer_address?: string;
+    invoice_number?: string;
+  }) => {
+    setCustomerOrders(prev => prev.map(o => o.id === orderId ? { ...o, ...fulfillmentData } : o));
+    try {
+      await apiFetch(`/api/v1/orders/${orderId}/fulfillment`, {
+        method: 'PATCH',
+        body: JSON.stringify(fulfillmentData)
+      });
+    } catch (e: any) {
+      console.error('Failed to update storefront order fulfillment:', e);
+      throw e;
+    }
+  };
+
+  const refreshCustomerOrders = async () => {
+    try {
+      const orders = await apiFetch('/api/v1/orders');
+      if (Array.isArray(orders)) {
+        setCustomerOrders(orders);
+      }
+    } catch (e: any) {
+      console.warn('Failed to refresh customer orders:', e);
+    }
+  };
+
   return (
     <DataContext.Provider value={{
-      inventory, kits, transactions, vendors, customers, purchaseOrders, salesOrders, warehouses, bins, loading,
+      inventory, kits, transactions, vendors, customers, purchaseOrders, salesOrders, customerOrders, warehouses, bins, loading,
       physicalRacks, elementTypes, serialNumbers,
       stockLedger, wmsTransfers, wmsCycleCounts,
       addInventoryItem, updateInventoryItem, deleteInventoryItem, addKitBOM, updateKitBOM, deleteKitBOM, logTransaction,
@@ -1610,7 +1658,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       loadSerialNumbers, lookupSerialNumber, registerBulkSerials, updateSerialStatus, deleteSerialNumber,
       loadStockLedger, postStockAdjustment, receivePurchaseOrderWms, fulfillSalesOrderWms,
       loadWmsTransfers, createWmsTransfer, dispatchWmsTransfer, receiveWmsTransfer,
-      loadWmsCycleCounts, createWmsCycleCount, submitWmsCycleCount, approveWmsCycleCount
+      loadWmsCycleCounts, createWmsCycleCount, submitWmsCycleCount, approveWmsCycleCount,
+      updateCustomerOrderStatus, updateCustomerOrderFulfillment, refreshCustomerOrders
     }}>
       {children}
     </DataContext.Provider>

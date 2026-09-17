@@ -49,6 +49,8 @@ import { Capa } from "./entity/Capa.ts";
 import { ChangeRequest } from "./entity/ChangeRequest.ts";
 import { Rma } from "./entity/Rma.ts";
 import { RmaLine } from "./entity/RmaLine.ts";
+import { BomNode } from "./entity/BomNode.ts";
+import { ComponentAlternate } from "./entity/ComponentAlternate.ts";
 
 import { Init1689500000000 } from "./migration/1689500000000-Init.ts";
 import { AddOrgAuditOrdersInvoices1689500000001 } from "./migration/1689500000001-AddOrgAuditOrdersInvoices.ts";
@@ -62,6 +64,8 @@ import { AddStockLedgerAndWmsOps1689500000008 } from "./migration/1689500000008-
 import { AddRbacAndSessions1689500000009 } from "./migration/1689500000009-AddRbacAndSessions.ts";
 import { EnterpriseMultiLocationAndAuditCore1689500000010 } from "./migration/1689500000010-EnterpriseMultiLocationAndAuditCore.ts";
 import { AddQmsAndESignatures1689500000011 } from "./migration/1689500000011-AddQmsAndESignatures.ts";
+import { AddOrderFulfillmentFields1689500000012 } from "./migration/1689500000012-AddOrderFulfillmentFields.ts";
+import { AddHardwareElectronicsBOM1689500000013 } from "./migration/1689500000013-AddHardwareElectronicsBOM.ts";
 
 const isLocalhostDb = env.databaseUrl.includes("localhost") || env.databaseUrl.includes("127.0.0.1");
 
@@ -124,6 +128,8 @@ export const AppDataSource = new DataSource({
     ChangeRequest,
     Rma,
     RmaLine,
+    BomNode,
+    ComponentAlternate,
   ],
   migrations: [
     Init1689500000000,
@@ -138,6 +144,8 @@ export const AppDataSource = new DataSource({
     AddRbacAndSessions1689500000009,
     EnterpriseMultiLocationAndAuditCore1689500000010,
     AddQmsAndESignatures1689500000011,
+    AddOrderFulfillmentFields1689500000012,
+    AddHardwareElectronicsBOM1689500000013,
   ],
   subscribers: [],
 });

@@ -6,14 +6,58 @@ import { Role } from "../entity/Role.ts";
  * Express middleware to restrict route access to users with specified role(s).
  * Strictly checks against allowed roles list without unverified bypasses.
  */
+const ROLE_HIERARCHY: Record<string, number> = {
+  super_admin: 4,
+  admin: 4,
+  manager: 3,
+  editor: 3,
+  staff: 3,
+  employee: 2,
+  member: 2,
+  viewer: 1,
+  observer: 1,
+  guest: 1,
+};
+
+const ROLE_ALIASES: Record<string, string[]> = {
+  admin: ["admin", "super_admin"],
+  super_admin: ["admin", "super_admin"],
+  manager: ["manager", "editor", "staff", "admin", "super_admin"],
+  editor: ["manager", "editor", "staff", "admin", "super_admin"],
+  staff: ["manager", "editor", "staff", "admin", "super_admin"],
+  employee: ["employee", "member", "staff", "editor", "manager", "admin", "super_admin"],
+  member: ["employee", "member", "staff", "editor", "manager", "admin", "super_admin"],
+  viewer: ["viewer", "observer", "guest", "employee", "member", "staff", "editor", "manager", "admin", "super_admin"],
+  observer: ["viewer", "observer", "guest", "employee", "member", "staff", "editor", "manager", "admin", "super_admin"],
+};
+
+/**
+ * Express middleware to restrict route access to users with specified role(s).
+ * Supports role hierarchy and role aliases (e.g. editor/manager/staff, employee/member, viewer).
+ */
 export const requireRole = (...allowedRoles: string[]) => {
   return (req: Request, res: Response, next: NextFunction) => {
     if (!req.user) {
       return res.status(401).json({ error: "Unauthorized: Missing authentication context" });
     }
 
-    const userRole = req.user.role.toLowerCase();
-    const hasRole = allowedRoles.some((role) => role.toLowerCase() === userRole);
+    const userRole = (req.user.role || "viewer").toLowerCase().trim();
+    const userLevel = ROLE_HIERARCHY[userRole] ?? 1;
+
+    // Check if user satisfies any of the allowed roles via level or alias
+    const hasRole = allowedRoles.some((role) => {
+      const targetRole = role.toLowerCase().trim();
+      const targetLevel = ROLE_HIERARCHY[targetRole] ?? 1;
+      
+      // Direct match
+      if (userRole === targetRole) return true;
+      // Alias match
+      if (ROLE_ALIASES[targetRole]?.includes(userRole)) return true;
+      // Hierarchy level match (e.g. admin >= staff >= employee >= viewer)
+      if (userLevel >= targetLevel) return true;
+      
+      return false;
+    });
 
     if (!hasRole) {
       return res.status(403).json({

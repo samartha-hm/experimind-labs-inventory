@@ -25,7 +25,7 @@ Write-Host "`n[2/5] Creating deployment archive..." -ForegroundColor Yellow
 $tarFile = "deploy_bundle.tar.gz"
 if (Test-Path $tarFile) { Remove-Item $tarFile -Force }
 
-tar --exclude="node_modules" --exclude="apps/storefront/node_modules" -czf $tarFile dist apps package.json package-lock.json ecosystem.config.cjs scripts src tsconfig.json
+tar --exclude="node_modules" --exclude="apps/storefront/node_modules" --exclude="apps/storefront/.next" -czf $tarFile dist apps package.json package-lock.json ecosystem.config.cjs scripts src tsconfig.json
 
 # 3. Transfer files to remote server
 Write-Host "`n[3/5] Uploading deployment package and setup scripts to AWS server..." -ForegroundColor Yellow
@@ -48,10 +48,10 @@ echo "Installing production dependencies..."
 npm install --omit=dev --no-audit
 chmod -R +x node_modules/.bin 2>/dev/null || true
 
-echo "Installing Next.js storefront dependencies..."
+echo "Installing Next.js storefront dependencies and building natively..."
 cd apps/storefront
-npm install --omit=dev --no-audit
-chmod -R +x node_modules/.bin 2>/dev/null || true
+npm install --no-audit
+npm run build
 cd $APP_DIR
 
 echo "Running TypeORM database migrations..."

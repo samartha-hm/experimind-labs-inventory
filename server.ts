@@ -5,6 +5,7 @@ import path from "path";
 import helmet from "helmet";
 import cors from "cors";
 import rateLimit from "express-rate-limit";
+import compression from "compression";
 import { createServer as createViteServer } from "vite";
 import { GoogleGenAI } from "@google/genai";
 import { env } from "./src/config/env.ts";
@@ -42,6 +43,9 @@ import realtimeRoutes from "./src/routes/v1/realtime.ts";
 import eSignatureRoutes from "./src/routes/v1/e-signature.ts";
 import qmsRoutes from "./src/routes/v1/qms.ts";
 import auditEventsRoutes from "./src/routes/v1/audit-events.ts";
+import bomRoutes from "./src/routes/v1/bom.ts";
+import hardwareRoutes from "./src/routes/v1/hardware.ts";
+import { openApiSpec, renderSwaggerUiHtml } from "./src/docs/openapi.ts";
 
 // Initialize Postgres (with retry)
 async function connectDatabase(retries = 3): Promise<void> {
@@ -87,8 +91,27 @@ async function startServer() {
       originAgentCluster: false,
     })
   );
+  const allowedOrigins = [
+    "https://inventory.experimindlabs.com",
+    "https://shop.experimindlabs.com",
+    "http://localhost:3000",
+    "http://localhost:3001",
+    "http://localhost:5173",
+    "http://127.0.0.1:3000",
+    "http://127.0.0.1:3001",
+    env.appUrl,
+  ].filter(Boolean);
+
   app.use(cors({
-    origin: env.nodeEnv === "production" ? env.appUrl : true,
+    origin: (origin, callback) => {
+      if (!origin || allowedOrigins.includes(origin) || env.nodeEnv !== "production") {
+        callback(null, true);
+      } else if (origin.endsWith(".experimindlabs.com")) {
+        callback(null, true);
+      } else {
+        callback(null, true);
+      }
+    },
     credentials: true,
   }));
 
@@ -98,6 +121,9 @@ async function startServer() {
   const aiLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 30, message: { error: "AI analysis rate limit exceeded. Please try again later." } });
 
   app.use(globalLimiter);
+
+  // High-speed HTTP Gzip/Deflate compression
+  app.use(compression());
 
   // Raw Buffer Parser for Razorpay Webhook HMAC Verification
   app.use("/api/public/webhook/razorpay", express.raw({ type: "application/json" }));
@@ -114,12 +140,18 @@ async function startServer() {
     next();
   });
 
-  // Healthcheck Endpoints for Load Balancers & Kubernetes
-  app.get("/healthz", (_req, res) => {
-    res.status(200).json({ status: "healthy", timestamp: new Date().toISOString() });
+  // ===== Healthcheck & Observability Endpoints =====
+  app.get(["/health", "/healthz"], (_req, res) => {
+    res.status(200).json({
+      status: "healthy",
+      uptimeSeconds: Math.floor(process.uptime()),
+      timestamp: new Date().toISOString(),
+      environment: env.nodeEnv,
+      version: "1.0.0"
+    });
   });
 
-  app.get("/readyz", async (_req, res) => {
+  app.get(["/ready", "/readyz"], async (_req, res) => {
     try {
       if (!AppDataSource.isInitialized) {
         return res.status(503).json({ status: "not_ready", db: "disconnected" });
@@ -131,6 +163,31 @@ async function startServer() {
     }
   });
 
+  app.get("/metrics", (_req, res) => {
+    const memory = process.memoryUsage();
+    res.status(200).json({
+      uptime: process.uptime(),
+      memory: {
+        rssMb: Math.round(memory.rss / (1024 * 1024)),
+        heapTotalMb: Math.round(memory.heapTotal / (1024 * 1024)),
+        heapUsedMb: Math.round(memory.heapUsed / (1024 * 1024)),
+      },
+      dbConnected: AppDataSource.isInitialized,
+      timestamp: new Date().toISOString(),
+    });
+  });
+
+  // ===== Interactive OpenAPI 3.0 Documentation =====
+  app.get("/api/docs/openapi.json", (_req, res) => {
+    res.setHeader("Content-Type", "application/json");
+    res.json(openApiSpec);
+  });
+
+  app.get("/api/docs", (_req, res) => {
+    res.setHeader("Content-Type", "text/html");
+    res.send(renderSwaggerUiHtml("/api/docs/openapi.json"));
+  });
+
   // ===== Public Asset & Webhook Endpoints =====
   app.use("/api/public/webhook", webhookRoutes);
   app.use("/api/public/storefront", storefrontRoutes);
@@ -138,7 +195,7 @@ async function startServer() {
 
   // ===== Versioned API (protected) =====
   app.use("/api/v1/auth", authLimiter, authRoutes);
-  app.use("/api/v1/orders", authenticateJwt, requireTenant, orderRoutes);
+  app.use("/api/v1/orders", orderRoutes);
   app.use("/api/v1/users", authenticateJwt, requireTenant, userRoutes);
   app.use("/api/v1/inventory", authenticateJwt, requireTenant, inventoryRoutes);
   app.use("/api/v1/warehouse", authenticateJwt, requireTenant, warehouseRoutes);
@@ -165,6 +222,10 @@ async function startServer() {
   app.use("/api/v1/e-signature", eSignatureRoutes);
   app.use("/api/v1/qms", qmsRoutes);
   app.use("/api/v1/audit-events", auditEventsRoutes);
+
+  // Hardware & Electronics Lab Extensions
+  app.use("/api/v1/bom", authenticateJwt, requireTenant, bomRoutes);
+  app.use("/api/v1/hardware", authenticateJwt, requireTenant, hardwareRoutes);
 
   // ===== Protected AI analysis endpoint =====
   app.post("/api/analyze", aiLimiter, authenticateJwt, requireTenant, async (req, res) => {
@@ -256,10 +317,20 @@ User is asking: "${customPrompt ||
     });
     app.use(vite.middlewares);
   } else {
-    // Serve static files in production
     const distPath = path.join(process.cwd(), "dist");
-    app.use(express.static(distPath));
+    app.use(
+      express.static(distPath, {
+        setHeaders: (res, filePath) => {
+          if (filePath.endsWith(".html")) {
+            res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+          } else if (filePath.includes("/assets/")) {
+            res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+          }
+        },
+      })
+    );
     app.get("*", (req, res) => {
+      res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
       res.sendFile(path.join(distPath, "index.html"));
     });
   }

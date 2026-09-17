@@ -10,11 +10,15 @@ export class InventoryService {
   async list(filters: {
     sku?: string;
     name?: string;
+    category?: string;
+    q?: string;
     lowStock?: boolean;
     outOfStock?: boolean;
     warehouseId?: string;
     organizationId?: string;
-  }): Promise<InventoryItem[]> {
+    page?: number;
+    limit?: number;
+  }): Promise<InventoryItem[] | { data: InventoryItem[]; pagination: { total: number; page: number; limit: number; totalPages: number } }> {
     const qb = this.repo.createQueryBuilder("item");
     if (filters.organizationId) {
       qb.andWhere("item.organization_id = :orgId", { orgId: filters.organizationId });
@@ -22,12 +26,41 @@ export class InventoryService {
     if (filters.sku) qb.andWhere("item.sku = :sku", { sku: filters.sku });
     if (filters.name)
       qb.andWhere("item.name ILIKE :name", { name: `%${filters.name}%` });
+    if (filters.category)
+      qb.andWhere("item.category ILIKE :category", { category: filters.category });
+    if (filters.q) {
+      qb.andWhere(
+        "(item.name ILIKE :q OR item.sku ILIKE :q OR item.barcode ILIKE :q OR item.category ILIKE :q)",
+        { q: `%${filters.q}%` }
+      );
+    }
     if (filters.lowStock)
       qb.andWhere("item.quantity < item.threshold AND item.is_common = false");
     if (filters.outOfStock)
       qb.andWhere("item.quantity = 0 AND item.is_common = false");
     if (filters.warehouseId)
       qb.andWhere("item.warehouse_id = :wid", { wid: filters.warehouseId });
+
+    qb.orderBy("item.created_at", "DESC");
+
+    if (filters.page && filters.limit) {
+      const page = Math.max(1, Number(filters.page) || 1);
+      const limit = Math.max(1, Math.min(500, Number(filters.limit) || 50));
+      const skip = (page - 1) * limit;
+
+      qb.skip(skip).take(limit);
+      const [data, total] = await qb.getManyAndCount();
+      return {
+        data,
+        pagination: {
+          total,
+          page,
+          limit,
+          totalPages: Math.ceil(total / limit)
+        }
+      };
+    }
+
     return qb.getMany();
   }
 

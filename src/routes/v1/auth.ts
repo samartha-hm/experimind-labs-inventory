@@ -13,8 +13,8 @@ function getCookieOptions(req: any) {
     httpOnly: true,
     secure: isHttps,
     sameSite: "lax" as const,
-    path: "/api/v1/auth",
-    maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+    path: "/",
+    maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
   };
 }
 
@@ -44,6 +44,7 @@ router.post("/register", async (req, res) => {
         mfaEnabled: false,
       },
       token,
+      refreshToken,
     });
   } catch (e: any) {
     res.status(400).json({ error: e.message });
@@ -82,6 +83,7 @@ router.post("/login", async (req, res) => {
         mfaEnabled: result.user.mfa_enabled,
       },
       token: result.token,
+      refreshToken: result.refreshToken,
     });
   } catch (e: any) {
     res.status(400).json({ error: e.message });
@@ -108,6 +110,7 @@ router.post("/mfa/login", async (req, res) => {
         mfaEnabled: user.mfa_enabled,
       },
       token,
+      refreshToken,
     });
   } catch (e: any) {
     res.status(401).json({ error: e.message });
@@ -233,19 +236,24 @@ router.post("/reset-password", async (req, res) => {
  * POST /api/v1/auth/refresh-token
  */
 router.post("/refresh-token", async (req, res) => {
-  const refreshToken = req.cookies?.refreshToken || req.body?.refreshToken;
+  const refreshToken =
+    req.cookies?.refreshToken ||
+    req.body?.refreshToken ||
+    (req.headers["x-refresh-token"] as string);
+
   if (!refreshToken) {
-    return res.status(200).json({ user: null, token: null });
+    return res.status(401).json({ user: null, token: null, error: "No refresh token provided" });
   }
   try {
     const result = await authService.refreshAccessToken(refreshToken);
     res.cookie("refreshToken", result.refreshToken, getCookieOptions(req));
     res.json({
       token: result.token,
+      refreshToken: result.refreshToken,
       user: result.user,
     });
   } catch (e: any) {
-    res.status(200).json({ user: null, token: null, error: e.message });
+    res.status(401).json({ user: null, token: null, error: e.message });
   }
 });
 

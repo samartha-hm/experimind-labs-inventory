@@ -60,7 +60,7 @@ router.get("/lookup/:serialNumber", async (req: Request, res: Response): Promise
     });
 
     if (!serial) {
-      res.status(404).json({ success: false, message: "Serial number not found" });
+      res.json({ success: true, data: null });
       return;
     }
 

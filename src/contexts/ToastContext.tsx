@@ -26,12 +26,13 @@ export const ToastProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     const id = `toast_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
     const newToast: ToastMessage = { id, type, title, message };
     
-    setToasts((prev) => [...prev, newToast]);
+    // Keep max 3 newest toasts
+    setToasts((prev) => [...prev.slice(-2), newToast]);
 
-    // Auto-dismiss after 4 seconds
+    // Fast auto-dismiss after 3.2 seconds
     setTimeout(() => {
       removeToast(id);
-    }, 4000);
+    }, 3200);
   }, [removeToast]);
 
   return (

@@ -67,6 +67,28 @@ async function seedRealInventory() {
   }
 
   console.log(`📦 Reading real inventory data from ${csvPath}...`);
+
+  // 1. Ensure clean default warehouse facility exists
+  await pool.query(`
+    INSERT INTO "warehouses" ("id", "code", "name", "address", "is_default", "organization_id")
+    VALUES (
+      '00000000-0000-0000-0000-000000000001',
+      'WH-MAIN-01',
+      'Experimind Main Technical Facility',
+      '{"street": "Plot 12, Phase 1 Electronic City", "city": "Bengaluru", "state": "Karnataka", "postalCode": "560100", "country": "India"}'::jsonb,
+      true,
+      '00000000-0000-0000-0000-000000000000'
+    )
+    ON CONFLICT ("code") DO UPDATE SET
+      "name" = EXCLUDED.name,
+      "address" = EXCLUDED.address,
+      "is_default" = EXCLUDED.is_default;
+  `);
+
+  // 2. Clean out any demo / mock racks and demo layouts
+  await pool.query(`DELETE FROM "physical_racks";`);
+  await pool.query(`DELETE FROM "floor_plan_layouts";`);
+
   const content = fs.readFileSync(csvPath, 'utf8');
   const rows = parseCSVLine(content);
 
@@ -163,7 +185,7 @@ async function seedRealInventory() {
       category: "STEM Kits",
       price: 1499,
       quantity: 45,
-      imageUrl: "https://images.unsplash.com/photo-1581092335397-9583fe92d232?w=800&auto=format&fit=crop&q=80",
+      imageUrl: "https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=800&auto=format&fit=crop&q=80",
       binLocation: "Main Lab - Shelf A - Box 1"
     },
     {

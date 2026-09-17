@@ -4,6 +4,7 @@ import { validate, IsString, IsOptional, IsUrl, MaxLength, IsArray } from "class
 import { plainToInstance } from "class-transformer";
 import { requireRole } from "../../middleware/requireRole.ts";
 import { requireTenant } from "../../middleware/tenant.ts";
+import { MemoryCache } from "../../utils/cache.ts";
 
 const router = Router();
 const service = new KitService();
@@ -61,7 +62,14 @@ async function validateDto<T extends object>(dto: T, cls: new () => T): Promise<
 router.get("/", requireTenant, requireRole("viewer", "staff", "manager", "admin"), async (req, res) => {
   try {
     const orgId = (req as any).orgId;
+    const cacheKey = `org:${orgId}:kits:all`;
+    const cached = MemoryCache.get(cacheKey);
+    if (cached) {
+      return res.json(cached);
+    }
+
     const list = await service.list(orgId);
+    MemoryCache.set(cacheKey, list, 30, [`org:${orgId}:kits`]);
     res.json(list);
   } catch (e: any) {
     res.status(400).json({ error: e.message });
@@ -88,6 +96,7 @@ router.post("/", requireTenant, requireRole("staff", "manager", "admin"), async 
     const orgId = (req as any).orgId;
     const validData = await validateDto(req.body, CreateKitDto);
     const created = await service.create(validData, orgId);
+    MemoryCache.invalidateTag(`org:${orgId}:kits`);
     res.status(201).json(created);
   } catch (e: any) {
     res.status(400).json({ error: e.message });
@@ -100,6 +109,7 @@ router.put("/:id", requireTenant, requireRole("staff", "manager", "admin"), asyn
     const orgId = (req as any).orgId;
     const validData = await validateDto(req.body, UpdateKitDto);
     const updated = await service.update(req.params.id, validData, orgId);
+    MemoryCache.invalidateTag(`org:${orgId}:kits`);
     res.json(updated);
   } catch (e: any) {
     res.status(400).json({ error: e.message });
@@ -111,6 +121,7 @@ router.delete("/:id", requireTenant, requireRole("admin"), async (req, res) => {
   try {
     const orgId = (req as any).orgId;
     await service.delete(req.params.id, orgId);
+    MemoryCache.invalidateTag(`org:${orgId}:kits`);
     res.json({ message: "Deleted" });
   } catch (e: any) {
     res.status(400).json({ error: e.message });
@@ -130,11 +141,13 @@ router.get("/:id/bom", requireTenant, requireRole("viewer", "staff", "manager", 
 // POST /api/v1/kit/:id/bom (Staff+)
 router.post("/:id/bom", requireTenant, requireRole("staff", "manager", "admin"), async (req, res) => {
   try {
+    const orgId = (req as any).orgId;
     const bomItem = await service.addToBom(
       req.params.id,
       req.body.inventory_item_id,
       req.body.qty_per_kit
     );
+    MemoryCache.invalidateTag(`org:${orgId}:kits`);
     res.status(201).json(bomItem);
   } catch (e: any) {
     res.status(400).json({ error: e.message });
@@ -144,7 +157,9 @@ router.post("/:id/bom", requireTenant, requireRole("staff", "manager", "admin"),
 // DELETE /api/v1/kit/bom/:bomId (Admin only)
 router.delete("/bom/:bomId", requireTenant, requireRole("admin"), async (req, res) => {
   try {
+    const orgId = (req as any).orgId;
     await service.removeFromBom(req.params.bomId);
+    MemoryCache.invalidateTag(`org:${orgId}:kits`);
     res.json({ message: "BOM item removed" });
   } catch (e: any) {
     res.status(400).json({ error: e.message });

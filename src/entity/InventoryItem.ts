@@ -99,6 +99,33 @@ export class InventoryItem {
   @Column({ type: "date", nullable: true })
   expiry_date?: Date;
 
+  // ===== Hardware & Electronics Lab Extensions =====
+  @Column({ type: "varchar", length: 150, nullable: true })
+  @Index()
+  mpn?: string; // Manufacturer Part Number (e.g. ESP32-WROOM-32E, STM32F401RET6)
+
+  @Column({ type: "varchar", length: 150, nullable: true })
+  manufacturer?: string; // e.g. Espressif, STMicroelectronics, Texas Instruments
+
+  @Column({ type: "varchar", length: 100, nullable: true })
+  @Index()
+  package_footprint?: string; // e.g. 0402, 0603, 0805, QFN-32, SOIC-8, DIP-8, SOT-23
+
+  @Column({ type: "varchar", length: 50, default: "SMD" })
+  mounting_type?: string; // SMD, THT, CHASSIS, PANEL, OTHER
+
+  @Column({ type: "varchar", length: 20, default: "MSL 1" })
+  msl_rating?: string; // MSL 1, MSL 2, MSL 2a, MSL 3, MSL 4, MSL 5, MSL 5a, MSL 6
+
+  @Column({ type: "jsonb", default: () => "'{}'" })
+  parametric_specs?: Record<string, any>; // { resistance: "10k", tolerance: "1%", voltage: "50V", ... }
+
+  @Column({ type: "text", nullable: true })
+  datasheet_url?: string;
+
+  @Column({ type: "text", nullable: true })
+  pinout_diagram_url?: string;
+
   @OneToMany("KitBom", "inventory_item")
   kitBoms: KitBom[];
 

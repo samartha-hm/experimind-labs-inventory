@@ -46,6 +46,8 @@ export interface InventoryItem {
   barcode?: string;
   sku?: string;
   assignedKitName?: string;
+  isSellable?: boolean;
+  isHidden?: boolean;
   gstConfig?: GSTConfig;
   hsnCode?: string;
   abcClass?: 'A' | 'B' | 'C';
