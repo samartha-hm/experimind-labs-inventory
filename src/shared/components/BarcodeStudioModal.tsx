@@ -22,6 +22,8 @@ import {
 import { InventoryItem } from '@/src/types';
 import { useToast } from '@/src/contexts/ToastContext';
 import BarcodeSvg from './BarcodeSvg';
+import SmartCombobox, { ComboboxOption } from './SmartCombobox';
+import SmartSelect from '@/src/shared/components/SmartSelect';
 import { generatePdfLabelSheet, LabelSheetFormat } from '@/src/utils/pdfLabelGenerator';
 
 interface BarcodeStudioModalProps {
@@ -45,6 +47,20 @@ export default function BarcodeStudioModal({ isOpen, onClose, inventory }: Barco
 
   const categories = useMemo(() => {
     return Array.from(new Set(inventory.map((i) => i.category || 'General Components')));
+  }, [inventory]);
+
+  const itemComboboxOptions: ComboboxOption[] = useMemo(() => {
+    return inventory.map((item) => ({
+      value: item.id,
+      label: item.name,
+      subtitle: `LOC: ${item.binLocation || 'Rack - Shelf 1'}`,
+      sku: item.barcode || item.sku || `EL-${item.id}`,
+      binLocation: item.binLocation || 'Rack - Shelf 1',
+      category: item.category || 'General',
+      stockQty: item.stockQty,
+      badge: `${item.stockQty} ${item.unit || 'units'}`,
+      badgeColor: (item.stockQty || 0) <= (item.threshold || 5) ? 'amber' : 'emerald',
+    }));
   }, [inventory]);
 
   const selectedItem = useMemo(() => {
@@ -170,16 +186,18 @@ export default function BarcodeStudioModal({ isOpen, onClose, inventory }: Barco
               <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">
                 Label Format
               </label>
-              <select
+              <SmartSelect
                 value={sheetFormat}
-                onChange={(e) => setSheetFormat(e.target.value as LabelSheetFormat)}
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white font-bold focus:outline-none focus:border-indigo-500 cursor-pointer"
-              >
-                <option value="a4_24">A4 Sheet (24-up / Avery 5160 - 70x37mm)</option>
-                <option value="a4_40">A4 Compact Sheet (40-up / 48x25mm)</option>
-                <option value="thermal_50x25">Thermal Roll (50mm x 25mm)</option>
-                <option value="thermal_70x35">Large Thermal Sticker (70mm x 35mm)</option>
-              </select>
+                onChange={(val) => setSheetFormat(val as LabelSheetFormat)}
+                options={[
+                  { value: 'a4_24', label: 'A4 Sheet (24-up / Avery 5160 - 70x37mm)' },
+                  { value: 'a4_40', label: 'A4 Compact Sheet (40-up / 48x25mm)' },
+                  { value: 'thermal_50x25', label: 'Thermal Roll (50mm x 25mm)' },
+                  { value: 'thermal_70x35', label: 'Large Thermal Sticker (70mm x 35mm)' },
+                ]}
+                placeholder="Select label format..."
+                aria-label="Label Format"
+              />
             </div>
 
             {/* Copies Per Item */}
@@ -221,20 +239,23 @@ export default function BarcodeStudioModal({ isOpen, onClose, inventory }: Barco
         {/* ========================================================================= */}
         {printMode === 'single' && selectedItem && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 overflow-y-auto flex-1 pr-1 custom-scrollbar">
-            {/* Item Selector */}
+            {/* Item Selector with Type-to-Search Smart Combobox */}
             <div className="space-y-3">
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">Select Item to Print</label>
-              <select
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                Select Item to Print
+              </label>
+              <SmartCombobox
+                options={itemComboboxOptions}
                 value={selectedItemId}
-                onChange={(e) => setSelectedItemId(e.target.value)}
-                className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-3 text-xs font-bold text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 cursor-pointer"
-              >
-                {inventory.map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {item.name} ({item.barcode || item.sku || `EL-${item.id}`}) — Loc: {item.binLocation || 'Rack - Shelf 1'}
-                  </option>
-                ))}
-              </select>
+                onChange={(val) => {
+                  if (val) setSelectedItemId(val);
+                }}
+                placeholder="Type or click to select item..."
+                searchPlaceholder="Type item name, SKU, barcode, or bin..."
+                emptyMessage="No inventory items found matching your search."
+                size="md"
+                className="w-full"
+              />
 
               <div className="bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 text-xs space-y-2.5">
                 <div className="flex items-center justify-between text-slate-600 dark:text-slate-300">
@@ -326,18 +347,22 @@ export default function BarcodeStudioModal({ isOpen, onClose, inventory }: Barco
               <div className="flex items-center gap-2">
                 <Filter className="w-4 h-4 text-indigo-500" />
                 <span className="text-xs font-bold text-slate-700 dark:text-slate-300">Category:</span>
-                <select
-                  value={batchCategory}
-                  onChange={(e) => setBatchCategory(e.target.value)}
-                  className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-1.5 text-xs font-bold text-slate-800 dark:text-slate-100 cursor-pointer"
-                >
-                  <option value="ALL">All Categories ({inventory.length})</option>
-                  {categories.map((cat) => (
-                    <option key={cat} value={cat}>
-                      {cat} ({inventory.filter((i) => (i.category || 'General Components') === cat).length})
-                    </option>
-                  ))}
-                </select>
+                <div className="w-56">
+                  <SmartSelect
+                    value={batchCategory}
+                    onChange={setBatchCategory}
+                    options={[
+                      { value: 'ALL', label: `All Categories (${inventory.length})` },
+                      ...categories.map((cat) => ({
+                        value: cat,
+                        label: `${cat} (${inventory.filter((i) => (i.category || 'General Components') === cat).length})`,
+                      })),
+                    ]}
+                    size="sm"
+                    placeholder="Filter category..."
+                    aria-label="Filter category"
+                  />
+                </div>
               </div>
 
               <div className="flex items-center gap-2">

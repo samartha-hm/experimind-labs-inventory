@@ -107,7 +107,7 @@ export default function UserProfileModal({ isOpen, onClose }: UserProfileModalPr
 
   const modalContent = (
     <div className="fixed inset-0 z-[9999] bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto">
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl max-w-lg w-full shadow-2xl overflow-hidden animate-fadeIn my-auto text-slate-900 dark:text-white">
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl max-w-lg w-full shadow-2xl overflow-y-auto max-h-[90vh] animate-fadeIn my-auto text-slate-900 dark:text-white">
         
         {/* Modal Header Banner */}
         <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white p-6 relative">

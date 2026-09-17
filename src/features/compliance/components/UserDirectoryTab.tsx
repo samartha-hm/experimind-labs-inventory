@@ -22,6 +22,8 @@ import {
 } from 'lucide-react';
 import { apiFetch } from '../../../utils/api';
 import { useAuth } from '../../../AuthContext';
+import { useToast } from '@/src/contexts/ToastContext';
+import SmartSelect from '@/src/shared/components/SmartSelect';
 import { ActiveSessionsModal } from './ActiveSessionsModal';
 
 interface UserRecord {
@@ -68,6 +70,7 @@ export const STANDARD_ROLES = [
 
 export const UserDirectoryTab: React.FC = () => {
   const { user: currentUser } = useAuth();
+  const { showToast } = useToast();
   const [users, setUsers] = useState<UserRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -94,7 +97,6 @@ export const UserDirectoryTab: React.FC = () => {
   });
 
   const [saving, setSaving] = useState(false);
-  const [toastMsg, setToastMsg] = useState<string | null>(null);
 
   const fetchUsers = async () => {
     try {
@@ -125,10 +127,9 @@ export const UserDirectoryTab: React.FC = () => {
       setShowInviteModal(false);
       setNewUser({ name: '', email: '', password: '', role: 'employee' });
       await fetchUsers();
-      setToastMsg(`User ${newUser.email} created and role assigned successfully.`);
-      setTimeout(() => setToastMsg(null), 3000);
+      showToast('success', 'User Provisioned', `User ${newUser.email} created and role assigned successfully.`);
     } catch (e: any) {
-      alert(`Error provisioning user: ${e.message}`);
+      showToast('error', 'Provisioning Failed', e.message);
     } finally {
       setSaving(false);
     }
@@ -141,10 +142,9 @@ export const UserDirectoryTab: React.FC = () => {
         body: JSON.stringify({ role: newRoleCode })
       });
       setUsers(prev => prev.map(u => u.id === userId ? { ...u, role: newRoleCode } : u));
-      setToastMsg('User role updated successfully.');
-      setTimeout(() => setToastMsg(null), 2500);
+      showToast('success', 'Role Assigned', 'User access role updated successfully.');
     } catch (e: any) {
-      alert(`Role assignment error: ${e.message}`);
+      showToast('error', 'Assignment Failed', e.message);
     }
   };
 
@@ -180,10 +180,9 @@ export const UserDirectoryTab: React.FC = () => {
 
       setEditingUser(null);
       await fetchUsers();
-      setToastMsg(`User ${editingUser.email} updated successfully.`);
-      setTimeout(() => setToastMsg(null), 3000);
+      showToast('success', 'Profile Updated', `User ${editingUser.email} updated successfully.`);
     } catch (e: any) {
-      alert(`Error updating user: ${e.message}`);
+      showToast('error', 'Update Failed', e.message);
     } finally {
       setSaving(false);
     }
@@ -208,10 +207,9 @@ export const UserDirectoryTab: React.FC = () => {
       const deletedEmail = deletingUser.email;
       setDeletingUser(null);
       await fetchUsers();
-      setToastMsg(`User ${deletedEmail} removed from organization.`);
-      setTimeout(() => setToastMsg(null), 3000);
+      showToast('info', 'User Removed', `User ${deletedEmail} removed from organization.`);
     } catch (e: any) {
-      alert(`Error deleting user: ${e.message}`);
+      showToast('error', 'Removal Failed', e.message);
     } finally {
       setSaving(false);
     }
@@ -236,14 +234,6 @@ export const UserDirectoryTab: React.FC = () => {
 
   return (
     <div className="space-y-6 animate-fadeIn">
-      {/* Toast Notification */}
-      {toastMsg && (
-        <div className="fixed bottom-6 right-6 z-50 flex items-center gap-2 px-4 py-3 bg-emerald-600 text-white rounded-xl shadow-2xl animate-fadeIn font-medium text-xs">
-          <CheckCircle2 className="w-4 h-4 text-white" />
-          <span>{toastMsg}</span>
-        </div>
-      )}
-
       {/* Header Banner */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 rounded-3xl shadow-xs">
         <div>
@@ -382,18 +372,21 @@ export const UserDirectoryTab: React.FC = () => {
                         </span>
                       </td>
 
-                      <td className="py-4 px-4">
-                        <select
+                      <td className="py-4 px-4 min-w-[200px]">
+                        <SmartSelect
                           value={user.role === 'staff' ? 'employee' : user.role === 'manager' ? 'editor' : user.role}
-                          onChange={(e) => handleRoleChange(user.id, e.target.value)}
+                          onChange={(val) => handleRoleChange(user.id, val)}
                           disabled={isCurrent}
-                          className="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200 rounded-xl px-3 py-1.5 text-xs font-semibold focus:outline-none focus:border-indigo-500 cursor-pointer disabled:opacity-50"
-                        >
-                          <option value="admin">Administrator (Full Control)</option>
-                          <option value="editor">Inventory Manager</option>
-                          <option value="employee">Lab Staff / Educator</option>
-                          <option value="viewer">Auditor (Read-Only)</option>
-                        </select>
+                          size="sm"
+                          options={[
+                            { value: 'admin', label: 'Administrator (Full Control)' },
+                            { value: 'editor', label: 'Inventory Manager' },
+                            { value: 'employee', label: 'Lab Staff / Educator' },
+                            { value: 'viewer', label: 'Auditor (Read-Only)' },
+                          ]}
+                          placeholder="Select role..."
+                          aria-label={`Role for ${user.name || user.email}`}
+                        />
                       </td>
 
                       <td className="py-4 px-4 text-xs text-slate-500 font-mono">
@@ -477,17 +470,19 @@ export const UserDirectoryTab: React.FC = () => {
 
               <div>
                 <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">Role & Access Level</label>
-                <select
+                <SmartSelect
                   value={editForm.role}
-                  onChange={(e) => setEditForm(prev => ({ ...prev, role: e.target.value }))}
+                  onChange={(val) => setEditForm(prev => ({ ...prev, role: val }))}
                   disabled={currentUser?.id === editingUser.id}
-                  className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-100 font-semibold disabled:opacity-50"
-                >
-                  <option value="admin">Administrator — Full control, settings & compliance</option>
-                  <option value="editor">Inventory Manager — Stock in/out, kits & POs</option>
-                  <option value="employee">Lab Staff / Educator — Barcode scan & kit usage</option>
-                  <option value="viewer">Auditor / Observer — Read-only reports & valuation</option>
-                </select>
+                  options={[
+                    { value: 'admin', label: 'Administrator — Full control, settings & compliance' },
+                    { value: 'editor', label: 'Inventory Manager — Stock in/out, kits & POs' },
+                    { value: 'employee', label: 'Lab Staff / Educator — Barcode scan & kit usage' },
+                    { value: 'viewer', label: 'Auditor / Observer — Read-only reports & valuation' },
+                  ]}
+                  placeholder="Select role..."
+                  aria-label="Role & Access Level"
+                />
               </div>
 
               <div>
@@ -641,16 +636,18 @@ export const UserDirectoryTab: React.FC = () => {
 
               <div>
                 <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">Assigned Role</label>
-                <select
+                <SmartSelect
                   value={newUser.role}
-                  onChange={(e) => setNewUser(prev => ({ ...prev, role: e.target.value }))}
-                  className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-100 font-semibold"
-                >
-                  <option value="admin">Administrator — Full control, settings & compliance</option>
-                  <option value="editor">Inventory Manager — Stock in/out, kits & POs</option>
-                  <option value="employee">Lab Staff / Educator — Barcode scan & kit usage</option>
-                  <option value="viewer">Auditor / Observer — Read-only reports & valuation</option>
-                </select>
+                  onChange={(val) => setNewUser(prev => ({ ...prev, role: val }))}
+                  options={[
+                    { value: 'admin', label: 'Administrator — Full control, settings & compliance' },
+                    { value: 'editor', label: 'Inventory Manager — Stock in/out, kits & POs' },
+                    { value: 'employee', label: 'Lab Staff / Educator — Barcode scan & kit usage' },
+                    { value: 'viewer', label: 'Auditor / Observer — Read-only reports & valuation' },
+                  ]}
+                  placeholder="Select role..."
+                  aria-label="Assigned Role"
+                />
               </div>
 
               <div className="flex justify-end gap-3 pt-4 border-t border-slate-100 dark:border-slate-800">

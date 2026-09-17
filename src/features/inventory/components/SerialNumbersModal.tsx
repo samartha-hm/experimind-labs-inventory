@@ -29,6 +29,8 @@ import { useData } from '@/src/DataContext';
 import { useToast } from '@/src/contexts/ToastContext';
 import BarcodeSvg from '@/src/shared/components/BarcodeSvg';
 import { SerialStatus } from '@/src/entity/SerialNumber';
+import SmartCombobox, { ComboboxOption } from '@/src/shared/components/SmartCombobox';
+import SmartSelect from '@/src/shared/components/SmartSelect';
 
 interface SerialNumbersModalProps {
   isOpen: boolean;
@@ -97,6 +99,20 @@ export default function SerialNumbersModal({
       setIntakeItemId(preselectedItemId);
     }
   }, [preselectedItemId]);
+
+  const itemComboboxOptions: ComboboxOption[] = useMemo(() => {
+    return inventory.map((item) => ({
+      value: item.id,
+      label: item.name,
+      subtitle: `LOC: ${item.binLocation || 'Rack - Shelf 1'}`,
+      sku: item.barcode || item.sku || `EL-${item.id}`,
+      binLocation: item.binLocation || 'Rack - Shelf 1',
+      category: item.category || 'General',
+      stockQty: item.stockQty,
+      badge: `${item.stockQty} ${item.unit || 'units'}`,
+      badgeColor: (item.stockQty || 0) <= (item.threshold || 5) ? 'amber' : 'emerald',
+    }));
+  }, [inventory]);
 
   // Filtered List
   const filteredSerials = useMemo(() => {
@@ -328,45 +344,58 @@ export default function SerialNumbersModal({
             />
           </div>
 
-          <select
-            value={selectedItemId}
-            onChange={e => setSelectedItemId(e.target.value)}
-            className="px-3 py-2 bg-slate-800/80 border border-slate-700 rounded-xl text-sm text-white focus:outline-none focus:border-indigo-500"
-          >
-            <option value="ALL">All Components</option>
-            {inventory.map(item => (
-              <option key={item.id} value={item.id}>
-                {item.name}
-              </option>
-            ))}
-          </select>
+          <div className="w-52">
+            <SmartSelect
+              value={selectedItemId}
+              onChange={setSelectedItemId}
+              options={[
+                { value: 'ALL', label: 'All Components' },
+                ...inventory.map(item => ({
+                  value: item.id,
+                  label: item.name,
+                })),
+              ]}
+              size="sm"
+              placeholder="All Components"
+              aria-label="Filter by component"
+            />
+          </div>
 
-          <select
-            value={selectedStatus}
-            onChange={e => setSelectedStatus(e.target.value)}
-            className="px-3 py-2 bg-slate-800/80 border border-slate-700 rounded-xl text-sm text-white focus:outline-none focus:border-indigo-500"
-          >
-            <option value="ALL">All Statuses</option>
-            <option value="IN_STOCK">In Stock</option>
-            <option value="ALLOCATED">Allocated</option>
-            <option value="INSTALLED">Installed</option>
-            <option value="IN_TRANSIT">In Transit</option>
-            <option value="RMA_RETURNED">RMA Returned</option>
-            <option value="SCRAPPED">Scrapped</option>
-          </select>
+          <div className="w-44">
+            <SmartSelect
+              value={selectedStatus}
+              onChange={setSelectedStatus}
+              options={[
+                { value: 'ALL', label: 'All Statuses' },
+                { value: 'IN_STOCK', label: 'In Stock' },
+                { value: 'ALLOCATED', label: 'Allocated' },
+                { value: 'INSTALLED', label: 'Installed' },
+                { value: 'IN_TRANSIT', label: 'In Transit' },
+                { value: 'RMA_RETURNED', label: 'RMA Returned' },
+                { value: 'SCRAPPED', label: 'Scrapped' },
+              ]}
+              size="sm"
+              placeholder="All Statuses"
+              aria-label="Filter by status"
+            />
+          </div>
 
-          <select
-            value={selectedWarehouse}
-            onChange={e => setSelectedWarehouse(e.target.value)}
-            className="px-3 py-2 bg-slate-800/80 border border-slate-700 rounded-xl text-sm text-white focus:outline-none focus:border-indigo-500"
-          >
-            <option value="ALL">All Warehouses</option>
-            {warehouses.map(wh => (
-              <option key={wh.id} value={wh.code}>
-                {wh.name} ({wh.code})
-              </option>
-            ))}
-          </select>
+          <div className="w-48">
+            <SmartSelect
+              value={selectedWarehouse}
+              onChange={setSelectedWarehouse}
+              options={[
+                { value: 'ALL', label: 'All Warehouses' },
+                ...warehouses.map(wh => ({
+                  value: wh.code,
+                  label: `${wh.name} (${wh.code})`,
+                })),
+              ]}
+              size="sm"
+              placeholder="All Warehouses"
+              aria-label="Filter by warehouse"
+            />
+          </div>
 
           <button
             onClick={() => loadSerialNumbers()}
@@ -617,36 +646,34 @@ export default function SerialNumbersModal({
               </div>
 
               <form onSubmit={handleBulkRegisterSubmit} className="space-y-4 text-xs">
-                <div>
-                  <label className="block text-slate-300 font-semibold mb-1">Target Component</label>
-                  <select
+                <div className="space-y-1">
+                  <label className="block text-slate-300 font-semibold">Target Component</label>
+                  <SmartCombobox
+                    options={itemComboboxOptions}
                     value={intakeItemId}
-                    onChange={e => setIntakeItemId(e.target.value)}
-                    required
-                    className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-white focus:outline-none focus:border-indigo-500"
-                  >
-                    {inventory.map(i => (
-                      <option key={i.id} value={i.id}>
-                        {i.name} (In stock: {i.stockQty} {i.unit})
-                      </option>
-                    ))}
-                  </select>
+                    onChange={(val) => {
+                      if (val) setIntakeItemId(val);
+                    }}
+                    placeholder="Search component to intake..."
+                    searchPlaceholder="Search component name, SKU, bin..."
+                    size="md"
+                    className="w-full"
+                  />
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="block text-slate-300 font-semibold mb-1">Warehouse</label>
-                    <select
+                    <SmartSelect
                       value={intakeWarehouse}
-                      onChange={e => setIntakeWarehouse(e.target.value)}
-                      className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-white focus:outline-none focus:border-indigo-500"
-                    >
-                      {warehouses.map(w => (
-                        <option key={w.id} value={w.code}>
-                          {w.code}
-                        </option>
-                      ))}
-                    </select>
+                      onChange={setIntakeWarehouse}
+                      options={warehouses.map(w => ({
+                        value: w.code,
+                        label: `${w.name} (${w.code})`,
+                      }))}
+                      placeholder="Select warehouse..."
+                      aria-label="Intake Warehouse"
+                    />
                   </div>
                   <div>
                     <label className="block text-slate-300 font-semibold mb-1">Default Bin</label>
@@ -816,18 +843,20 @@ export default function SerialNumbersModal({
 
                 <div>
                   <label className="block text-slate-300 font-semibold mb-1">New Lifecycle Status</label>
-                  <select
+                  <SmartSelect
                     value={targetStatus}
-                    onChange={e => setTargetStatus(e.target.value as SerialStatus)}
-                    className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-white focus:outline-none focus:border-indigo-500"
-                  >
-                    <option value="IN_STOCK">IN_STOCK (Available in Warehouse)</option>
-                    <option value="ALLOCATED">ALLOCATED (Assigned to Kit Assembly / Sales Order)</option>
-                    <option value="INSTALLED">INSTALLED (Deployed to Client Site)</option>
-                    <option value="IN_TRANSIT">IN_TRANSIT (In Courier / Logistics)</option>
-                    <option value="RMA_RETURNED">RMA_RETURNED (Returned for Testing / Repair)</option>
-                    <option value="SCRAPPED">SCRAPPED (Decommissioned)</option>
-                  </select>
+                    onChange={(val) => setTargetStatus(val as SerialStatus)}
+                    options={[
+                      { value: 'IN_STOCK', label: 'IN_STOCK (Available in Warehouse)' },
+                      { value: 'ALLOCATED', label: 'ALLOCATED (Assigned to Kit Assembly / Sales Order)' },
+                      { value: 'INSTALLED', label: 'INSTALLED (Deployed to Client Site)' },
+                      { value: 'IN_TRANSIT', label: 'IN_TRANSIT (In Courier / Logistics)' },
+                      { value: 'RMA_RETURNED', label: 'RMA_RETURNED (Returned for Testing / Repair)' },
+                      { value: 'SCRAPPED', label: 'SCRAPPED (Decommissioned)' },
+                    ]}
+                    placeholder="Select status..."
+                    aria-label="New Lifecycle Status"
+                  />
                 </div>
 
                 <div>

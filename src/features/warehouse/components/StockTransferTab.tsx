@@ -18,6 +18,8 @@ import {
 } from 'lucide-react';
 import { useData } from '@/src/DataContext';
 import { useToast } from '@/src/contexts/ToastContext';
+import SmartCombobox, { ComboboxOption } from '@/src/shared/components/SmartCombobox';
+import SmartSelect from '@/src/shared/components/SmartSelect';
 
 export default function StockTransferTab() {
   const { wmsTransfers, createWmsTransfer, dispatchWmsTransfer, receiveWmsTransfer, inventory, warehouses } = useData();
@@ -45,6 +47,7 @@ export default function StockTransferTab() {
   const filteredTransfers = useMemo(() => {
     return wmsTransfers.filter((t) => {
       const matchSearch =
+        !search ||
         t.transfer_number.toLowerCase().includes(search.toLowerCase()) ||
         t.source_warehouse_code.toLowerCase().includes(search.toLowerCase()) ||
         t.destination_warehouse_code.toLowerCase().includes(search.toLowerCase()) ||
@@ -55,6 +58,20 @@ export default function StockTransferTab() {
       return matchSearch && matchStatus;
     });
   }, [wmsTransfers, search, statusFilter]);
+
+  const itemComboboxOptions: ComboboxOption[] = useMemo(() => {
+    return inventory.map((item) => ({
+      value: item.id,
+      label: item.name,
+      subtitle: `LOC: ${item.binLocation || 'Bay 1'}`,
+      sku: item.barcode || item.sku || `EL-${item.id}`,
+      binLocation: item.binLocation || 'Bay 1',
+      category: item.category || 'General',
+      stockQty: item.stockQty,
+      badge: `${item.stockQty} ${item.unit || 'units'}`,
+      badgeColor: (item.stockQty || 0) <= 5 ? 'amber' : 'emerald',
+    }));
+  }, [inventory]);
 
   const handleCreateTransferSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -161,17 +178,20 @@ export default function StockTransferTab() {
           />
         </div>
 
-        <div className="flex items-center gap-2">
-          <select
+        <div className="w-full sm:w-56">
+          <SmartSelect
             value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-200 focus:outline-none"
-          >
-            <option value="ALL">All Statuses ({wmsTransfers.length})</option>
-            <option value="draft">Draft Manifests</option>
-            <option value="in_transit">In-Transit Shipments</option>
-            <option value="received">Fully Received</option>
-          </select>
+            onChange={setStatusFilter}
+            size="sm"
+            options={[
+              { value: 'ALL', label: `All Statuses (${wmsTransfers.length})` },
+              { value: 'draft', label: 'Draft Manifests' },
+              { value: 'in_transit', label: 'In-Transit Shipments' },
+              { value: 'received', label: 'Fully Received' },
+            ]}
+            placeholder="All Statuses"
+            aria-label="Filter transfer statuses"
+          />
         </div>
       </div>
 
@@ -282,20 +302,22 @@ export default function StockTransferTab() {
             </div>
 
             <form onSubmit={handleCreateTransferSubmit} className="space-y-3 text-xs">
-              <div>
-                <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Select Component</label>
-                <select
+              <div className="space-y-1.5">
+                <label className="block font-bold text-slate-700 dark:text-slate-300">Select Component to Transfer</label>
+                <SmartCombobox
+                  options={itemComboboxOptions}
                   value={selectedItemId}
-                  onChange={(e) => setSelectedItemId(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border rounded-xl font-medium"
-                  required
-                >
-                  {inventory.map((item) => (
-                    <option key={item.id} value={item.id}>
-                      {item.name} (On Hand: {item.stockQty} {item.unit} in {item.binLocation || 'Bay 1'})
-                    </option>
-                  ))}
-                </select>
+                  onChange={(val) => {
+                    if (val) {
+                      setSelectedItemId(val);
+                      const itm = inventory.find(i => i.id === val);
+                      if (itm?.binLocation) setSourceBin(itm.binLocation);
+                    }
+                  }}
+                  placeholder="Type part name, SKU, or storage bin..."
+                  searchPlaceholder="Search component name, SKU, bin..."
+                  size="md"
+                />
               </div>
 
               <div className="grid grid-cols-2 gap-3">

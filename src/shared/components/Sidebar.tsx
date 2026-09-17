@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   LayoutDashboard,
   Box,
   Package,
+  ShoppingBag,
   ShoppingCart,
   PackageCheck,
   Users,
@@ -24,6 +25,9 @@ import {
   ArrowRightLeft,
   Tag,
   Globe,
+  Cpu,
+  Layers,
+  X,
 } from 'lucide-react';
 
 import { useApproval } from '@/src/contexts/ApprovalContext';
@@ -56,6 +60,21 @@ export default function Sidebar({
   const { user } = useAuth();
   const { pendingCount } = useApproval();
   const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const touchStartX = useRef<number | null>(null);
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX;
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (touchStartX.current === null) return;
+    const touchEndX = e.changedTouches[0].clientX;
+    const deltaX = touchStartX.current - touchEndX;
+    if (deltaX > 45 && onCloseMobile) {
+      onCloseMobile(); // Swiped left to dismiss
+    }
+    touchStartX.current = null;
+  };
 
   const sections = [
     {
@@ -63,7 +82,14 @@ export default function Sidebar({
       items: [
         { id: 'overview', label: 'Executive Cockpit', icon: <LayoutDashboard className="w-4 h-4" /> },
         { id: 'sales_orders', label: 'Sales & Dispatches', icon: <PackageCheck className="w-4 h-4" />, badge: openSoCount > 0 ? `${openSoCount}` : undefined, badgeColor: 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30' },
-        { id: 'shop', label: 'Storefront Portal', icon: <ShoppingCart className="w-4 h-4" />, badge: 'Live', badgeColor: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' },
+        { id: 'shop', label: 'Storefront Channel Hub', icon: <ShoppingBag className="w-4 h-4" />, badge: 'Live', badgeColor: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' },
+      ],
+    },
+    {
+      title: 'HARDWARE & ELECTRONICS LAB',
+      items: [
+        { id: 'hardware_workbench', label: 'Component Workbench (SMD/THT)', icon: <Cpu className="w-4 h-4" />, badge: 'Lab', badgeColor: 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30' },
+        { id: 'pcba_bom', label: 'Recursive PCBA BOM & CAD', icon: <Layers className="w-4 h-4" />, badge: 'EDA', badgeColor: 'bg-purple-500/20 text-purple-300 border-purple-500/30' },
       ],
     },
     {
@@ -117,17 +143,20 @@ export default function Sidebar({
       {isOpenMobile && (
         <div
           onClick={onCloseMobile}
-          className="fixed inset-0 bg-slate-950/80 backdrop-blur-xs z-40 md:hidden animate-fadeIn"
+          className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-40 md:hidden animate-fadeIn transition-opacity duration-300"
+          aria-hidden="true"
         />
       )}
 
       <aside
-        className={`w-64 bg-white dark:bg-slate-950 text-slate-700 dark:text-slate-300 flex flex-col h-screen fixed md:sticky top-0 shrink-0 border-r border-slate-200 dark:border-slate-800/80 shadow-xl z-50 transition-colors duration-200 ${
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+        className={`w-64 bg-white dark:bg-slate-950 text-slate-700 dark:text-slate-300 flex flex-col h-screen fixed md:sticky top-0 shrink-0 border-r border-slate-200 dark:border-slate-800/80 shadow-xl z-50 transition-transform duration-300 ease-out overscroll-contain ${
           isOpenMobile ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
         }`}
       >
         {/* Brand Header */}
-        <div className="p-5 border-b border-slate-100 dark:border-slate-800/60 flex items-center justify-between">
+        <div className="p-4 md:p-5 border-b border-slate-100 dark:border-slate-800/60 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-indigo-600 via-indigo-500 to-sky-400 flex items-center justify-center shadow-lg shadow-indigo-500/25 border border-indigo-400/30">
               <Sparkles className="w-5 h-5 text-white animate-pulse" />
@@ -140,10 +169,20 @@ export default function Sidebar({
               <p className="text-[10px] text-slate-400 dark:text-slate-500 font-medium">Inventory & STEM Systems</p>
             </div>
           </div>
+          {onCloseMobile && (
+            <button
+              type="button"
+              onClick={onCloseMobile}
+              className="md:hidden p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer touch-target flex items-center justify-center"
+              aria-label="Close menu"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          )}
         </div>
 
         {/* Navigation Sections */}
-        <div className="flex-1 overflow-y-auto px-3 py-4 space-y-6 [scrollbar-width:none]">
+        <div className="flex-1 overflow-y-auto px-3 py-4 space-y-6 overscroll-contain [scrollbar-width:none]">
           {sections.map((sec, idx) => (
             <div key={idx} className="space-y-1">
               <h4 className="px-3 text-[10px] font-extrabold tracking-wider text-slate-400 dark:text-slate-500 uppercase">
@@ -159,7 +198,7 @@ export default function Sidebar({
                         setActiveTab(item.id);
                         if (onCloseMobile) onCloseMobile();
                       }}
-                      className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition-all duration-150 cursor-pointer ${
+                      className={`w-full flex items-center justify-between px-3 py-2.5 min-h-[44px] rounded-xl text-xs font-semibold transition-all duration-150 cursor-pointer ${
                         isActive
                           ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/25 font-bold'
                           : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-900/80 hover:text-slate-900 dark:hover:text-slate-200'

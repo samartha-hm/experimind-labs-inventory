@@ -198,8 +198,8 @@ export const BulkImportModal: React.FC<BulkImportModalProps> = ({ isOpen, onClos
               </button>
             </div>
 
-            <div className="max-h-60 overflow-y-auto border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden bg-slate-50 dark:bg-slate-950">
-              <table className="w-full text-left text-xs text-slate-700 dark:text-slate-300">
+            <div className="max-h-60 overflow-y-auto overflow-x-auto border border-slate-200 dark:border-slate-800 rounded-xl bg-slate-50 dark:bg-slate-950 table-responsive">
+              <table className="w-full text-left text-xs text-slate-700 dark:text-slate-300 min-w-[480px] sm:min-w-0">
                 <thead className="bg-slate-100 dark:bg-slate-900 text-[11px] font-semibold uppercase text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800 sticky top-0">
                   <tr>
                     <th className="py-2.5 px-3">SKU</th>

@@ -41,6 +41,7 @@ import {
 } from 'lucide-react';
 import { useData } from '@/src/DataContext';
 import { useToast } from '@/src/contexts/ToastContext';
+import SmartSelect from '@/src/shared/components/SmartSelect';
 
 export interface FloorPlanElement {
   id: string;
@@ -220,117 +221,7 @@ const DEFAULT_PALETTE_TEMPLATES: PaletteTemplate[] = [
   }
 ];
 
-const DEFAULT_FLOOR_PLANS: Record<string, FloorPlanElement[]> = {
-  'WH-MAIN-01': [
-    {
-      id: 'fp_01',
-      type: 'dock_inbound',
-      label: '🚚 Inbound Receiving Dock',
-      sublabel: 'Intake Inspection Bay',
-      x: 40,
-      y: 40,
-      width: 210,
-      height: 100,
-      rotation: 0,
-      color: '#6366f1',
-      zone: 'Inbound'
-    },
-    {
-      id: 'fp_02',
-      type: 'rack',
-      label: 'Rack 1 — Main Steel Shelf',
-      sublabel: 'Science & Lab Storage',
-      linkedRackCode: 'RACK-01',
-      x: 290,
-      y: 40,
-      width: 220,
-      height: 100,
-      rotation: 0,
-      color: '#3b82f6',
-      zone: 'Zone A (High Velocity)'
-    },
-    {
-      id: 'fp_03',
-      type: 'plywood_grid',
-      label: 'Plywood Unit 1 — 🪵 Pigeonhole',
-      sublabel: 'Hardware & Screws Grid',
-      linkedRackCode: 'PLY-01',
-      x: 550,
-      y: 40,
-      width: 230,
-      height: 100,
-      rotation: 0,
-      color: '#d97706',
-      zone: 'Zone B (Hardware)'
-    },
-    {
-      id: 'fp_04',
-      type: 'cabinet',
-      label: 'Cabinet A — Chemical Safety',
-      sublabel: 'Flammables & Batteries',
-      linkedRackCode: 'CAB-01',
-      x: 820,
-      y: 40,
-      width: 200,
-      height: 100,
-      rotation: 0,
-      color: '#ef4444',
-      zone: 'Zone C (Hazmat)'
-    },
-    {
-      id: 'fp_05',
-      type: 'workbench',
-      label: '📦 ESD Assembly Table 1',
-      sublabel: 'Kit Packing Station',
-      x: 290,
-      y: 190,
-      width: 220,
-      height: 90,
-      rotation: 0,
-      color: '#10b981',
-      zone: 'Assembly Line'
-    },
-    {
-      id: 'fp_06',
-      type: 'workbench',
-      label: '📦 ESD Assembly Table 2',
-      sublabel: 'Quality Control & Testing',
-      x: 550,
-      y: 190,
-      width: 230,
-      height: 90,
-      rotation: 0,
-      color: '#10b981',
-      zone: 'Assembly Line'
-    },
-    {
-      id: 'fp_07',
-      type: 'dock_outbound',
-      label: '📤 Outbound Dispatch Dock',
-      sublabel: 'Courier & Freight Staging',
-      x: 820,
-      y: 190,
-      width: 200,
-      height: 90,
-      rotation: 0,
-      color: '#ec4899',
-      zone: 'Dispatch Bay'
-    },
-    {
-      id: 'fp_08',
-      type: 'door',
-      label: '🚪 Main Security Entrance',
-      sublabel: 'RFID Badge Turnstile',
-      x: 40,
-      y: 240,
-      width: 180,
-      height: 45,
-      rotation: 0,
-      color: '#64748b',
-      zone: 'Perimeter'
-    }
-  ]
-};
+const DEFAULT_FLOOR_PLANS: Record<string, FloorPlanElement[]> = {};
 
 const COLOR_PRESETS = [
   { label: 'Blue (Rack)', value: '#3b82f6' },
@@ -365,12 +256,7 @@ export default function FloorPlanDesignerTab() {
         if (Array.isArray(parsed) && parsed.length > 0) return parsed;
       }
     } catch (_) {}
-    return [
-      { id: 'rack-01', code: 'RACK-01', name: 'Rack 1 — Main Assembly & Science Lab Shelf', zone: 'Zone A (High Velocity)', type: 'steel_shelf' },
-      { id: 'ply-01', code: 'PLY-01', name: 'Plywood Unit 1 — 🪵 Plywood Pigeonhole Matrix', zone: 'Zone B (Hardware)', type: 'plywood_grid' },
-      { id: 'rack-02', code: 'RACK-02', name: 'Rack 2 — Electronics & Sensor Cleanroom', zone: 'Zone B (ESD Safe)', type: 'steel_shelf' },
-      { id: 'cab-01', code: 'CAB-01', name: 'Cabinet A — Chemical & Safety Storage Cabinet', zone: 'Zone C (Hazmat Light)', type: 'cabinet' },
-    ];
+    return [];
   }, []);
 
   // Gather all unique facility zones from warehouses, bins, and racks
@@ -810,15 +696,19 @@ export default function FloorPlanDesignerTab() {
         {/* Top Controls Toolbar */}
         <div className="flex flex-wrap items-center gap-2">
           {/* Facility Selector */}
-          <select
-            value={selectedWhCode}
-            onChange={(e) => setSelectedWhCode(e.target.value)}
-            className="px-3.5 py-2 min-w-[200px] bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs font-bold text-slate-800 dark:text-slate-200 focus:outline-none cursor-pointer"
-          >
-            {warehouses.map(w => (
-              <option key={w.id} value={w.code}>{w.name} ({w.code})</option>
-            ))}
-          </select>
+          <div className="w-56 shrink-0">
+            <SmartSelect
+              value={selectedWhCode}
+              onChange={setSelectedWhCode}
+              size="sm"
+              options={warehouses.map(w => ({
+                value: w.code,
+                label: `${w.name} (${w.code})`,
+              }))}
+              placeholder="Select facility..."
+              aria-label="Select warehouse facility"
+            />
+          </div>
 
           {/* Heatmap Overlay Toggle */}
           <button
@@ -1232,18 +1122,19 @@ export default function FloorPlanDesignerTab() {
                   <Link className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
                   Link to Physical System Storage Unit (Auto-Configures Name & Zone)
                 </label>
-                <select
+                <SmartSelect
                   value={templateLinkedRack}
-                  onChange={(e) => handleSelectLinkedRack(e.target.value)}
-                  className="w-full bg-white dark:bg-slate-800 border border-indigo-200 dark:border-indigo-700 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 dark:text-white focus:outline-none"
-                >
-                  <option value="">-- Standalone Infrastructure / Equipment (No physical rack link) --</option>
-                  {systemPhysicalRacks.map((rack: any) => (
-                    <option key={rack.id || rack.code} value={rack.code}>
-                      {rack.name} ({rack.code}) • {rack.zone || 'Zone A'}
-                    </option>
-                  ))}
-                </select>
+                  onChange={handleSelectLinkedRack}
+                  options={[
+                    { value: '', label: '-- Standalone Infrastructure / Equipment (No physical rack link) --' },
+                    ...systemPhysicalRacks.map((rack: any) => ({
+                      value: rack.code,
+                      label: `${rack.name} (${rack.code}) • ${rack.zone || 'Zone A'}`,
+                    })),
+                  ]}
+                  placeholder="Select physical rack link..."
+                  aria-label="Link to physical system storage unit"
+                />
                 <p className="text-[10px] text-indigo-600 dark:text-indigo-400">
                   ⚡ Choosing a physical rack links this visual layout element to live stock occupancy and bins!
                 </p>
@@ -1278,15 +1169,18 @@ export default function FloorPlanDesignerTab() {
                 <div>
                   <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">Element Category *</label>
                   <div className="flex items-center gap-1.5">
-                    <select
-                      value={templateType}
-                      onChange={(e) => setTemplateType(e.target.value)}
-                      className="flex-1 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 dark:text-white focus:outline-none"
-                    >
-                      {elementTypes.map(t => (
-                        <option key={t.key} value={t.key}>{t.iconEmoji} {t.label}</option>
-                      ))}
-                    </select>
+                    <div className="flex-1">
+                      <SmartSelect
+                        value={templateType}
+                        onChange={setTemplateType}
+                        options={elementTypes.map(t => ({
+                          value: t.key,
+                          label: `${t.iconEmoji} ${t.label}`,
+                        }))}
+                        placeholder="Select category..."
+                        aria-label="Element category"
+                      />
+                    </div>
                     <button
                       type="button"
                       onClick={() => setIsNewTypeModalOpen(true)}
@@ -1346,16 +1240,18 @@ export default function FloorPlanDesignerTab() {
 
                 <div>
                   <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">Rotation</label>
-                  <select
-                    value={templateRotation}
-                    onChange={(e) => setTemplateRotation(Number(e.target.value) as any)}
-                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 dark:text-white focus:outline-none"
-                  >
-                    <option value={0}>0° (Horizontal)</option>
-                    <option value={90}>90° (Vertical)</option>
-                    <option value={180}>180°</option>
-                    <option value={270}>270°</option>
-                  </select>
+                  <SmartSelect
+                    value={String(templateRotation)}
+                    onChange={(val) => setTemplateRotation(Number(val) as any)}
+                    options={[
+                      { value: '0', label: '0° (Horizontal)' },
+                      { value: '90', label: '90° (Vertical)' },
+                      { value: '180', label: '180°' },
+                      { value: '270', label: '270°' },
+                    ]}
+                    placeholder="Rotation"
+                    aria-label="Rotation degrees"
+                  />
                 </div>
               </div>
 

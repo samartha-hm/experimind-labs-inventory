@@ -271,46 +271,50 @@ export default function PartnersTab({ role }: PartnersTabProps) {
           ))}
         </div>
       ) : (
-        <div className="bg-white rounded-3xl border border-slate-200/80 shadow-xs overflow-hidden">
-          <table className="w-full text-left text-xs">
-            <thead className="bg-slate-50 border-b border-slate-200/80 text-slate-500 uppercase font-bold text-[10px]">
-              <tr>
-                <th className="p-4">Code</th>
-                <th className="p-4">Partner Name</th>
-                <th className="p-4">Contact</th>
-                <th className="p-4">Email</th>
-                <th className="p-4">Terms/Limit</th>
-                <th className="p-4 text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {(activeSubTab === 'vendors' ? filteredVendors : filteredCustomers).map((item: any) => (
-                <tr key={item.id} className="hover:bg-slate-50/50">
-                  <td className="p-4 font-mono font-bold text-indigo-600">{item.code}</td>
-                  <td className="p-4 font-bold text-slate-900">{item.name}</td>
-                  <td className="p-4 text-slate-600">{item.contactName}</td>
-                  <td className="p-4 text-slate-600">{item.email}</td>
-                  <td className="p-4 font-mono font-bold text-slate-900">
-                    {activeSubTab === 'vendors' ? item.paymentTerms : `$${item.creditLimit?.toLocaleString()}`}
-                  </td>
-                  <td className="p-4 text-right space-x-2">
-                    <button
-                      onClick={() => setEditingPartner(item)}
-                      className="p-1 text-slate-400 hover:text-indigo-600 cursor-pointer"
-                    >
-                      <Edit2 className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={() => handleDeletePartner(item.id)}
-                      className="p-1 text-slate-400 hover:text-rose-600 cursor-pointer"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </td>
+        <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-xs overflow-hidden">
+          <div className="overflow-x-auto table-responsive">
+            <table className="w-full text-left text-xs min-w-[640px] sm:min-w-0">
+              <thead className="bg-slate-50 dark:bg-slate-800/80 border-b border-slate-200/80 dark:border-slate-800 text-slate-500 dark:text-slate-400 uppercase font-bold text-[10px]">
+                <tr>
+                  <th className="p-4">Code</th>
+                  <th className="p-4">Partner Name</th>
+                  <th className="p-4">Contact</th>
+                  <th className="p-4">Email</th>
+                  <th className="p-4">Terms/Limit</th>
+                  <th className="p-4 text-right">Actions</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                {(activeSubTab === 'vendors' ? filteredVendors : filteredCustomers).map((item: any) => (
+                  <tr key={item.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/40 transition-colors">
+                    <td className="p-4 font-mono font-bold text-indigo-600 dark:text-indigo-400">{item.code}</td>
+                    <td className="p-4 font-bold text-slate-900 dark:text-white">{item.name}</td>
+                    <td className="p-4 text-slate-600 dark:text-slate-300">{item.contactName}</td>
+                    <td className="p-4 text-slate-600 dark:text-slate-300">{item.email}</td>
+                    <td className="p-4 font-mono font-bold text-slate-900 dark:text-white">
+                      {activeSubTab === 'vendors' ? item.paymentTerms : `$${item.creditLimit?.toLocaleString()}`}
+                    </td>
+                    <td className="p-4 text-right space-x-2">
+                      <button
+                        onClick={() => setEditingPartner(item)}
+                        className="p-1 text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 cursor-pointer"
+                        title="Edit partner"
+                      >
+                        <Edit2 className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => handleDeletePartner(item.id)}
+                        className="p-1 text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 cursor-pointer"
+                        title="Delete partner"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 

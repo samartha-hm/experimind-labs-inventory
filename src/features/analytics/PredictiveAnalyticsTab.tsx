@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { TrendingUp, AlertTriangle, PieChart as PieIcon, BarChart3, Clock, Mail, ArrowUpRight, Zap, CheckCircle2, ShieldCheck, Search } from 'lucide-react';
 import { useData } from '@/src/DataContext';
 import { useToast } from '@/src/contexts/ToastContext';
+import SmartSelect from '@/src/shared/components/SmartSelect';
 
 export default function PredictiveAnalyticsTab() {
   const { inventory } = useData();
@@ -65,17 +66,19 @@ export default function PredictiveAnalyticsTab() {
         </div>
 
         <div className="flex items-center gap-3 shrink-0">
-          <select
-            value={selectedCategory}
-            onChange={(e) => setSelectedCategory(e.target.value)}
-            className="bg-slate-900/80 text-white border border-purple-500/40 rounded-xl px-3 py-2 text-xs font-bold focus:outline-none cursor-pointer"
-          >
-            {CATEGORIES.map((cat) => (
-              <option key={cat} value={cat} className="bg-slate-900 text-white">
-                Category: {cat}
-              </option>
-            ))}
-          </select>
+          <div className="w-48 sm:w-56">
+            <SmartSelect
+              value={selectedCategory}
+              onChange={setSelectedCategory}
+              options={CATEGORIES.map((cat) => ({
+                value: cat,
+                label: `Category: ${cat}`,
+              }))}
+              size="sm"
+              placeholder="Category: ALL"
+              aria-label="Filter predictive analytics by category"
+            />
+          </div>
 
           <button
             onClick={handleScheduleResendEmail}

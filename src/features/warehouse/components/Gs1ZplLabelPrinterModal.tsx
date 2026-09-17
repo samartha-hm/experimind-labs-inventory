@@ -58,7 +58,7 @@ export const Gs1ZplLabelPrinterModal: React.FC<Gs1ZplLabelPrinterModalProps> = (
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-in fade-in">
-      <div className="bg-slate-900 border border-slate-700 rounded-2xl max-w-xl w-full p-6 shadow-2xl relative text-white space-y-4">
+      <div className="bg-slate-900 border border-slate-700 rounded-2xl max-w-xl w-full p-6 shadow-2xl relative text-white space-y-4 max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between border-b border-slate-800 pb-3">
           <div className="flex items-center gap-3">
             <div className="p-2.5 bg-blue-500/10 rounded-xl border border-blue-500/20 text-blue-400">

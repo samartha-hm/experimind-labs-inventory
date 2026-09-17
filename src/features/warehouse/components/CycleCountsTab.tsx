@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { useData } from '@/src/DataContext';
 import { useToast } from '@/src/contexts/ToastContext';
+import SmartSelect from '@/src/shared/components/SmartSelect';
 
 interface CycleCountsTabProps {
   role?: string | null;
@@ -252,14 +253,16 @@ export default function CycleCountsTab({ role }: CycleCountsTabProps) {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Warehouse Facility</label>
-                <select
+                <SmartSelect
                   value={newWarehouse}
-                  onChange={(e) => setNewWarehouse(e.target.value)}
-                  className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-medium text-slate-900 dark:text-white"
-                >
-                  <option value="WH-MAIN-01">WH-MAIN-01 (Main Lab & Science Assembly)</option>
-                  <option value="WH-CLEAN-02">WH-CLEAN-02 (Electronics & Sensor Cleanroom)</option>
-                </select>
+                  onChange={setNewWarehouse}
+                  options={[
+                    { value: 'WH-MAIN-01', label: 'WH-MAIN-01 (Main Lab & Science Assembly)' },
+                    { value: 'WH-CLEAN-02', label: 'WH-CLEAN-02 (Electronics & Sensor Cleanroom)' },
+                  ]}
+                  placeholder="Select facility..."
+                  aria-label="Warehouse Facility"
+                />
               </div>
 
               <div>

@@ -25,14 +25,19 @@ import {
   List,
   Grid,
   Sparkles,
-  Sliders
+  Sliders,
+  AlertCircle,
+  ArrowUpDown,
+  Filter
 } from 'lucide-react';
 import { useData } from '@/src/DataContext';
 import { useToast } from '@/src/contexts/ToastContext';
 import { InventoryItem } from '@/src/types';
 import BarcodeSvg from '@/src/shared/components/BarcodeSvg';
+import ItemImage from '@/src/shared/components/ItemImage';
 import VisualStockRoom from './VisualStockRoom';
 import FloorPlanDesignerTab from './FloorPlanDesignerTab';
+import SmartSelect from '@/src/shared/components/SmartSelect';
 
 interface WarehousesTabProps {
   role: string | null;
@@ -53,11 +58,17 @@ export default function WarehousesTab({ role }: WarehousesTabProps) {
   } = useData();
   const { showToast } = useToast();
 
-  const [activeViewMode, setActiveViewMode] = useState<'visual_shelf' | 'floor_plan' | 'topology'>('visual_shelf');
+  // Primary Tab Modes: 'topology' (Facilities & Bins) | 'slotting' (Item Allocation Hub) | 'visual_shelf' (Custom Racks) | 'floor_plan' (2D Blueprint)
+  const [activeViewMode, setActiveViewMode] = useState<'topology' | 'slotting' | 'visual_shelf' | 'floor_plan'>('topology');
 
-  // Search & Filter
+  // Search & Filter for Facilities / Bins
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedWarehouseFilter, setSelectedWarehouseFilter] = useState<string>('ALL');
+
+  // Search & Filter for Item Slotting Hub
+  const [itemSearchQuery, setItemSearchQuery] = useState('');
+  const [slottingFilter, setSlottingFilter] = useState<'all' | 'unassigned' | 'slotted'>('all');
+  const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<string>('ALL');
 
   // Modal States
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -70,9 +81,13 @@ export default function WarehousesTab({ role }: WarehousesTabProps) {
   const [newBinWhCode, setNewBinWhCode] = useState('');
   const [isAddBinOpen, setIsAddBinOpen] = useState(false);
 
-  // Quick Assign Items to Bin Modal
+  // Quick Assign Items to Bin Modal (From Bin side)
   const [assigningBin, setAssigningBin] = useState<any | null>(null);
   const [assignItemSearch, setAssignItemSearch] = useState('');
+
+  // Quick Slot Single Item Modal (From Item side)
+  const [slottingItem, setSlottingItem] = useState<InventoryItem | null>(null);
+  const [targetBinInput, setTargetBinInput] = useState('');
 
   // Print Shelf Sticker Modal
   const [printingBin, setPrintingBin] = useState<any | null>(null);
@@ -98,10 +113,10 @@ export default function WarehousesTab({ role }: WarehousesTabProps) {
     if (!newWh.name) return;
 
     const created = {
-      code: newWh.code || `WH-DC-0${warehouses.length + 1}`,
-      name: newWh.name,
-      address: newWh.address || 'Tech Logistics Park',
-      isDefault: false,
+      code: newWh.code.trim() || `WH-DC-0${warehouses.length + 1}`,
+      name: newWh.name.trim(),
+      address: newWh.address ? { city: newWh.address } : { city: 'Bengaluru, Karnataka' },
+      isDefault: warehouses.length === 0,
     };
     await addWarehouse(created);
     setIsAddModalOpen(false);
@@ -134,7 +149,7 @@ export default function WarehousesTab({ role }: WarehousesTabProps) {
 
   const handleAddBinSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newBinCode) return;
+    if (!newBinCode.trim()) return;
     const whCode = newBinWhCode || warehouses[0]?.code || 'WH-MAIN-01';
     await addBin({
       code: newBinCode.trim(),
@@ -144,7 +159,7 @@ export default function WarehousesTab({ role }: WarehousesTabProps) {
     setNewBinCode('');
     setNewBinDesc('');
     setIsAddBinOpen(false);
-    showToast('success', 'Bin Created', `Storage bin "${newBinCode}" created under facility ${whCode}`);
+    showToast('success', 'Bin Created', `Storage bin "${newBinCode.trim()}" created under facility ${whCode}`);
   };
 
   // Assign component to bin
@@ -164,6 +179,24 @@ export default function WarehousesTab({ role }: WarehousesTabProps) {
     showToast('success', 'Item Assigned to Bin', `Assigned "${item.name}" to ${binCode}`);
   };
 
+  // Quick slot item from Item Slotting Hub
+  const handleDirectSlotItem = async (item: InventoryItem, targetBin: string | null) => {
+    const oldBin = item.binLocation;
+    await updateInventoryItem(item.id, { binLocation: targetBin || undefined });
+
+    await logTransaction({
+      id: `tx_${Date.now()}`,
+      timestamp: new Date().toISOString(),
+      type: 'adjust',
+      description: targetBin ? `Slotted "${item.name}" to Bin [${targetBin}]` : `Cleared placement for "${item.name}"`,
+      items: [{ componentId: item.id, componentName: item.name, qtyDiff: 0 }],
+      diffs: [{ field: 'binLocation', oldValue: oldBin || null, newValue: targetBin || null }]
+    });
+
+    showToast('success', targetBin ? 'Item Slotted' : 'Placement Cleared', targetBin ? `"${item.name}" slotted to ${targetBin}` : `"${item.name}" marked unassigned`);
+    setSlottingItem(null);
+  };
+
   // Filtered Bins list
   const filteredBins = useMemo(() => {
     return bins.filter(bin => {
@@ -175,87 +208,131 @@ export default function WarehousesTab({ role }: WarehousesTabProps) {
     });
   }, [bins, searchQuery, selectedWarehouseFilter]);
 
+  // Unique categories for filtering
+  const categories = useMemo(() => {
+    const cats = new Set<string>();
+    inventory.forEach(i => { if (i.category) cats.add(i.category); });
+    return Array.from(cats);
+  }, [inventory]);
+
+  // Filtered Items for Item Slotting Hub
+  const filteredSlottingItems = useMemo(() => {
+    return inventory.filter(item => {
+      const isSlotted = !!item.binLocation && item.binLocation.trim().length > 0;
+      if (slottingFilter === 'unassigned' && isSlotted) return false;
+      if (slottingFilter === 'slotted' && !isSlotted) return false;
+
+      if (selectedCategoryFilter !== 'ALL' && item.category !== selectedCategoryFilter) return false;
+
+      if (itemSearchQuery.trim()) {
+        const q = itemSearchQuery.toLowerCase();
+        const matchesName = item.name.toLowerCase().includes(q);
+        const matchesSku = (item.barcode || item.sku || '').toLowerCase().includes(q);
+        const matchesBin = (item.binLocation || '').toLowerCase().includes(q);
+        const matchesCat = (item.category || '').toLowerCase().includes(q);
+        if (!matchesName && !matchesSku && !matchesBin && !matchesCat) return false;
+      }
+
+      return true;
+    });
+  }, [inventory, slottingFilter, selectedCategoryFilter, itemSearchQuery]);
+
   // Overall Warehouse Stats
   const totalBinsCount = bins.length;
   const occupiedBinsCount = bins.filter(b => getItemsInBin(b.code).length > 0).length;
-  const totalAllocatedItems = inventory.filter(i => !!i.binLocation).length;
+  const slottedItemsCount = inventory.filter(i => !!i.binLocation && i.binLocation.trim().length > 0).length;
+  const unassignedItemsCount = inventory.length - slottedItemsCount;
 
   return (
-    <div className="space-y-6 w-full animate-fadeIn">
-      {/* Top View Mode Navigation Switcher */}
+    <div className="space-y-6 w-full animate-fadeIn pb-12">
+      
+      {/* Top Navigation Mode Switcher */}
       <div className="bg-white dark:bg-slate-900 p-2 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-2">
         <div className="flex flex-wrap items-center gap-1.5 w-full sm:w-auto">
+          
+          <button
+            onClick={() => setActiveViewMode('topology')}
+            className={`flex-1 sm:flex-none px-4 py-2.5 rounded-xl font-black text-xs transition-all flex items-center justify-center gap-2 cursor-pointer ${
+              activeViewMode === 'topology'
+                ? 'bg-indigo-600 text-white shadow-md'
+                : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
+            }`}
+          >
+            <Warehouse className="w-4 h-4 text-indigo-300" />
+            <span>Facilities & Storage Bins</span>
+          </button>
+
+          <button
+            onClick={() => setActiveViewMode('slotting')}
+            className={`flex-1 sm:flex-none px-4 py-2.5 rounded-xl font-black text-xs transition-all flex items-center justify-center gap-2 cursor-pointer ${
+              activeViewMode === 'slotting'
+                ? 'bg-indigo-600 text-white shadow-md'
+                : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
+            }`}
+          >
+            <Package className="w-4 h-4 text-emerald-400" />
+            <span>Item Location & Slotting Hub</span>
+            {unassignedItemsCount > 0 && (
+              <span className="px-1.5 py-0.5 bg-amber-500/20 text-amber-300 rounded-md text-[10px] font-mono font-bold">
+                {unassignedItemsCount} unslotted
+              </span>
+            )}
+          </button>
+
           <button
             onClick={() => setActiveViewMode('visual_shelf')}
-            className={`flex-1 sm:flex-none px-3.5 py-2.5 rounded-xl font-black text-xs transition-all flex items-center justify-center gap-2 cursor-pointer ${
+            className={`flex-1 sm:flex-none px-4 py-2.5 rounded-xl font-black text-xs transition-all flex items-center justify-center gap-2 cursor-pointer ${
               activeViewMode === 'visual_shelf'
                 ? 'bg-indigo-600 text-white shadow-md'
                 : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
             }`}
           >
             <Building2 className="w-4 h-4 text-amber-400" />
-            <span>Visual Shelving Matrix</span>
+            <span>Custom Shelf & Rack Units</span>
           </button>
 
           <button
             onClick={() => setActiveViewMode('floor_plan')}
-            className={`flex-1 sm:flex-none px-3.5 py-2.5 rounded-xl font-black text-xs transition-all flex items-center justify-center gap-2 cursor-pointer ${
+            className={`flex-1 sm:flex-none px-4 py-2.5 rounded-xl font-black text-xs transition-all flex items-center justify-center gap-2 cursor-pointer ${
               activeViewMode === 'floor_plan'
                 ? 'bg-indigo-600 text-white shadow-md'
                 : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
             }`}
           >
-            <MapPin className="w-4 h-4 text-emerald-400" />
+            <MapPin className="w-4 h-4 text-rose-400" />
             <span>2D Floor Plan Blueprint</span>
           </button>
 
-          <button
-            onClick={() => setActiveViewMode('topology')}
-            className={`flex-1 sm:flex-none px-3.5 py-2.5 rounded-xl font-black text-xs transition-all flex items-center justify-center gap-2 cursor-pointer ${
-              activeViewMode === 'topology'
-                ? 'bg-indigo-600 text-white shadow-md'
-                : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
-            }`}
-          >
-            <Layers className="w-4 h-4 text-indigo-400" />
-            <span>Facilities Topology & Bins</span>
-          </button>
         </div>
 
-        <span className="text-xs text-slate-500 font-medium px-3 hidden xl:inline">
-          {activeViewMode === 'visual_shelf' ? 'Physical Storage Units & Compartments' : activeViewMode === 'floor_plan' ? 'Top-Down Spatial Blueprint' : 'Facility & Bin Management'}
+        <span className="text-xs text-slate-500 font-medium px-3 hidden xl:inline font-mono">
+          {activeViewMode === 'topology' ? 'Real Facilities & Bin Database' : activeViewMode === 'slotting' ? 'Fast SKU Bin Allocation' : activeViewMode === 'visual_shelf' ? 'Physical Storage Units' : 'Top-Down Spatial Blueprint'}
         </span>
       </div>
 
-      {/* RENDER VIEW 1: VISUAL PHYSICAL STORAGE MATRIX */}
-      {activeViewMode === 'visual_shelf' && (
-        <VisualStockRoom />
-      )}
-
-      {/* RENDER VIEW 2: 2D FLOOR PLAN DESIGNER */}
-      {activeViewMode === 'floor_plan' && (
-        <FloorPlanDesignerTab />
-      )}
-
-      {/* RENDER VIEW 2: TOPOLOGY & BINS DATABASE */}
+      {/* ========================================================================= */}
+      {/* VIEW 1: FACILITIES & STORAGE BINS (PRIMARY OPERATIONAL HUB) */}
+      {/* ========================================================================= */}
       {activeViewMode === 'topology' && (
         <div className="space-y-6 animate-fadeIn">
+          
           {/* Header Banner */}
-          <div className="bg-white/90 dark:bg-slate-900/90 backdrop-blur-md p-6 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="bg-white/90 dark:bg-slate-900/90 backdrop-blur-md p-6 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
               <h2 className="text-xl font-black text-slate-900 dark:text-white flex items-center gap-2.5 tracking-tight">
                 <div className="p-2.5 bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 rounded-2xl border border-indigo-100/80 dark:border-indigo-800">
                   <Warehouse className="w-5 h-5" />
                 </div>
-                Warehouse Facilities & Storage Topology
+                Warehouse Facilities & Storage Bins
               </h2>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 font-medium">
-                Configure physical warehouse buildings, zone partitions, shelf codes, and database bin records.
+                Manage physical buildings, storage bins, shelf locations, and accurate component allocations.
               </p>
             </div>
 
             <div className="flex items-center gap-2.5 self-start sm:self-auto shrink-0">
               <button
+                type="button"
                 onClick={() => setIsAddBinOpen(true)}
                 className="bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold px-4 py-2.5 rounded-2xl text-xs transition-all flex items-center gap-2 cursor-pointer"
               >
@@ -264,20 +341,21 @@ export default function WarehousesTab({ role }: WarehousesTabProps) {
               </button>
 
               <button
+                type="button"
                 onClick={() => setIsAddModalOpen(true)}
                 className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-4 py-2.5 rounded-2xl text-xs shadow-md shadow-indigo-600/20 transition-all flex items-center gap-2 cursor-pointer shrink-0"
               >
                 <Warehouse className="w-4 h-4" />
-                <span>Add Warehouse Facility</span>
+                <span>Add Facility</span>
               </button>
             </div>
           </div>
 
-          {/* Quick Metrics Statistics Strip */}
+          {/* Key Metrics Strip */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
             <div className="p-4 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs">
-              <span className="text-[10px] font-bold uppercase text-slate-400 block">Active Facilities</span>
-              <strong className="text-xl font-black text-slate-900 dark:text-white mt-1 block">{warehouses.length} Hubs</strong>
+              <span className="text-[10px] font-bold uppercase text-slate-400 block">Facilities</span>
+              <strong className="text-xl font-black text-slate-900 dark:text-white mt-1 block">{warehouses.length} Active Hubs</strong>
             </div>
 
             <div className="p-4 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs">
@@ -286,25 +364,35 @@ export default function WarehousesTab({ role }: WarehousesTabProps) {
             </div>
 
             <div className="p-4 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs">
-              <span className="text-[10px] font-bold uppercase text-slate-400 block">Occupied Bins</span>
-              <strong className="text-xl font-black text-emerald-600 dark:text-emerald-400 mt-1 block">{occupiedBinsCount} Filled</strong>
+              <span className="text-[10px] font-bold uppercase text-slate-400 block">Slotted in Bins</span>
+              <strong className="text-xl font-black text-emerald-600 dark:text-emerald-400 mt-1 block">{slottedItemsCount} SKUs</strong>
             </div>
 
             <div className="p-4 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs">
-              <span className="text-[10px] font-bold uppercase text-slate-400 block">Items Slotted</span>
-              <strong className="text-xl font-black text-amber-500 mt-1 block">{totalAllocatedItems} / {inventory.length} Parts</strong>
+              <span className="text-[10px] font-bold uppercase text-slate-400 block">Pending Slotting</span>
+              <button
+                type="button"
+                onClick={() => {
+                  setSlottingFilter('unassigned');
+                  setActiveViewMode('slotting');
+                }}
+                className="text-xl font-black text-amber-500 hover:text-amber-600 mt-1 block text-left cursor-pointer transition-colors"
+              >
+                {unassignedItemsCount} Unassigned →
+              </button>
             </div>
           </div>
 
-          {/* Warehouse Facilities Overview Cards */}
+          {/* Warehouse Facilities Cards */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
             {warehouses.map((wh) => {
               const whBins = bins.filter(b => b.warehouseCode === wh.code);
-              const whItemCount = inventory.filter(i => whBins.some(b => (i.binLocation || '').toLowerCase().includes(b.code.toLowerCase()))).length;
+              const whItemCount = inventory.filter(i => (i.binLocation && whBins.some(b => (i.binLocation || '').toLowerCase().includes(b.code.toLowerCase())))).length;
+              const formattedAddress = typeof wh.address === 'object' ? (wh.address?.street ? `${wh.address.street}, ${wh.address.city}` : wh.address?.city || 'Technical Facility') : (wh.address || 'Technical Facility');
 
               return (
                 <div
-                  key={wh.id}
+                  key={wh.id || wh.code}
                   className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800 p-5 shadow-xs hover:shadow-lg transition-all space-y-3 relative group"
                 >
                   <div className="flex items-start justify-between">
@@ -313,7 +401,7 @@ export default function WarehousesTab({ role }: WarehousesTabProps) {
                         <span className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 font-mono tracking-wider">{wh.code}</span>
                         {wh.isDefault && (
                           <span className="px-2 py-0.5 bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 text-[10px] font-bold rounded-full border border-emerald-200/60 dark:border-emerald-800">
-                            Default Facility
+                            Primary Facility
                           </span>
                         )}
                       </div>
@@ -322,6 +410,7 @@ export default function WarehousesTab({ role }: WarehousesTabProps) {
 
                     <div className="flex items-center gap-1">
                       <button
+                        type="button"
                         onClick={() => setEditingWh(wh)}
                         className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-slate-800 rounded-xl transition-colors cursor-pointer"
                         title="Edit Facility"
@@ -329,6 +418,7 @@ export default function WarehousesTab({ role }: WarehousesTabProps) {
                         <Edit2 className="w-4 h-4" />
                       </button>
                       <button
+                        type="button"
                         onClick={() => handleDeleteWh(wh.id)}
                         className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-slate-800 rounded-xl transition-colors cursor-pointer"
                         title="Delete Facility"
@@ -338,9 +428,9 @@ export default function WarehousesTab({ role }: WarehousesTabProps) {
                     </div>
                   </div>
 
-                  <p className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400 font-medium">
+                  <p className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400 font-medium truncate">
                     <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                    {wh.address || 'Tech Logistics Center'}
+                    <span className="truncate">{formattedAddress}</span>
                   </p>
 
                   <div className="pt-2 border-t border-slate-100 dark:border-slate-800 grid grid-cols-2 gap-2 text-xs">
@@ -349,32 +439,24 @@ export default function WarehousesTab({ role }: WarehousesTabProps) {
                       <strong className="text-slate-900 dark:text-white font-mono text-sm">{whBins.length} Bins</strong>
                     </div>
                     <div className="p-2.5 bg-slate-50 dark:bg-slate-800/60 rounded-xl">
-                      <span className="text-[10px] font-bold text-slate-400 uppercase block">SKUs Stored</span>
+                      <span className="text-[10px] font-bold text-slate-400 uppercase block">SKUs Slotted</span>
                       <strong className="text-indigo-600 dark:text-indigo-400 font-mono text-sm">{whItemCount} Parts</strong>
                     </div>
                   </div>
-
-                  {/* 1-Click Launch Visual Storage Unit */}
-                  <button
-                    onClick={() => setActiveViewMode('visual_shelf')}
-                    className="w-full py-2 bg-indigo-50 dark:bg-indigo-950/60 hover:bg-indigo-100 text-indigo-700 dark:text-indigo-300 font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
-                  >
-                    <Building2 className="w-3.5 h-3.5" /> View Storage Units & Shelves
-                  </button>
                 </div>
               );
             })}
           </div>
 
-          {/* Storage Bins Management Hub */}
+          {/* Storage Bins Directory & Management */}
           <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-xs p-6 space-y-5">
             
-            {/* Search, Filter & Quick Actions Bar */}
+            {/* Search, Filter & Quick Actions */}
             <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
               <div className="flex items-center gap-2">
                 <Layers className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
                 <h3 className="text-base font-black text-slate-900 dark:text-white">
-                  Storage Bins & Shelf Allocation Database ({filteredBins.length})
+                  Storage Bins & Shelf Locations ({filteredBins.length})
                 </h3>
               </div>
 
@@ -390,16 +472,19 @@ export default function WarehousesTab({ role }: WarehousesTabProps) {
                   />
                 </div>
 
-                <select
-                  value={selectedWarehouseFilter}
-                  onChange={(e) => setSelectedWarehouseFilter(e.target.value)}
-                  className="px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-800 dark:text-slate-200 focus:outline-none cursor-pointer"
-                >
-                  <option value="ALL">All Facilities ({warehouses.length})</option>
-                  {warehouses.map(w => (
-                    <option key={w.id} value={w.code}>{w.name} ({w.code})</option>
-                  ))}
-                </select>
+                <div className="w-full sm:w-56 shrink-0">
+                  <SmartSelect
+                    value={selectedWarehouseFilter}
+                    onChange={setSelectedWarehouseFilter}
+                    size="sm"
+                    options={[
+                      { value: 'ALL', label: `All Facilities (${warehouses.length})` },
+                      ...warehouses.map(w => ({ value: w.code, label: `${w.name} (${w.code})` })),
+                    ]}
+                    placeholder="All Facilities"
+                    aria-label="Filter by facility"
+                  />
+                </div>
               </div>
             </div>
 
@@ -431,7 +516,7 @@ export default function WarehousesTab({ role }: WarehousesTabProps) {
 
                         <div>
                           <div className="flex items-center gap-2">
-                            <h4 className="font-bold text-slate-900 dark:text-white text-xs">{bin.description || 'General Storage Shelf'}</h4>
+                            <h4 className="font-bold text-slate-900 dark:text-white text-xs">{bin.description || 'Storage Location'}</h4>
                             <span className="px-2 py-0.5 rounded-md bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 font-mono text-[10px] font-bold">
                               {bin.warehouseCode}
                             </span>
@@ -483,7 +568,7 @@ export default function WarehousesTab({ role }: WarehousesTabProps) {
 
                         {itemsInBin.length === 0 ? (
                           <div className="py-4 text-center text-xs text-slate-400">
-                            No components assigned to this bin yet. Click <strong>"Assign Parts"</strong> to store items here.
+                            No components assigned to this bin yet. Click <strong>"Assign Parts"</strong> to slot items here.
                           </div>
                         ) : (
                           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5 pt-2">
@@ -494,10 +579,10 @@ export default function WarehousesTab({ role }: WarehousesTabProps) {
                               >
                                 <div className="truncate">
                                   <span className="font-bold text-slate-900 dark:text-white text-xs block truncate">{item.name}</span>
-                                  <span className="text-[10px] font-mono text-slate-400">{item.barcode || `EL-${item.id}`}</span>
+                                  <span className="text-[10px] font-mono text-slate-400">{item.barcode || item.sku || `SKU-${item.id}`}</span>
                                 </div>
                                 <span className="px-2 py-0.5 bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 rounded-lg text-xs font-mono font-bold shrink-0 border border-emerald-200 dark:border-emerald-800">
-                                {item.stockQty} {item.unit}
+                                  {item.stockQty} {item.unit}
                                 </span>
                               </div>
                             ))}
@@ -511,7 +596,7 @@ export default function WarehousesTab({ role }: WarehousesTabProps) {
 
               {filteredBins.length === 0 && (
                 <div className="p-8 text-center border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-3xl text-slate-400 text-xs">
-                  No storage bins found matching your search. Click "Add Storage Bin" above to configure your racks and shelves.
+                  No storage bins configured yet. Click <strong>"Add Storage Bin"</strong> above to create your first shelf or compartment.
                 </div>
               )}
             </div>
@@ -519,7 +604,543 @@ export default function WarehousesTab({ role }: WarehousesTabProps) {
         </div>
       )}
 
-      {/* QUICK ASSIGN PARTS TO BIN MODAL */}
+      {/* ========================================================================= */}
+      {/* VIEW 2: ITEM LOCATION & SLOTTING HUB (DEDICATED ALLOCATION MANAGER) */}
+      {/* ========================================================================= */}
+      {activeViewMode === 'slotting' && (
+        <div className="space-y-6 animate-fadeIn">
+          
+          {/* Header Banner */}
+          <div className="bg-white/90 dark:bg-slate-900/90 backdrop-blur-md p-6 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+              <h2 className="text-xl font-black text-slate-900 dark:text-white flex items-center gap-2.5 tracking-tight">
+                <div className="p-2.5 bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 rounded-2xl border border-emerald-100/80 dark:border-emerald-800">
+                  <Package className="w-5 h-5" />
+                </div>
+                Item Location & Bin Allocation Hub
+              </h2>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 font-medium">
+                Review and assign physical warehouse bin locations across all {inventory.length} catalog items with 1-click slotting.
+              </p>
+            </div>
+
+            {/* Quick Status Filter Tabs */}
+            <div className="flex flex-wrap items-center gap-2 bg-slate-100 dark:bg-slate-800 p-1.5 rounded-2xl">
+              <button
+                type="button"
+                onClick={() => setSlottingFilter('all')}
+                className={`px-3 py-1.5 rounded-xl font-bold text-xs transition-all cursor-pointer ${
+                  slottingFilter === 'all'
+                    ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs'
+                    : 'text-slate-500 dark:text-slate-400 hover:text-slate-900'
+                }`}
+              >
+                All Items ({inventory.length})
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setSlottingFilter('unassigned')}
+                className={`px-3 py-1.5 rounded-xl font-bold text-xs transition-all cursor-pointer flex items-center gap-1.5 ${
+                  slottingFilter === 'unassigned'
+                    ? 'bg-amber-500 text-white shadow-xs'
+                    : 'text-amber-600 dark:text-amber-400 hover:text-amber-500'
+                }`}
+              >
+                <AlertCircle className="w-3.5 h-3.5" />
+                <span>Pending Slotting ({unassignedItemsCount})</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setSlottingFilter('slotted')}
+                className={`px-3 py-1.5 rounded-xl font-bold text-xs transition-all cursor-pointer flex items-center gap-1.5 ${
+                  slottingFilter === 'slotted'
+                    ? 'bg-emerald-600 text-white shadow-xs'
+                    : 'text-emerald-600 dark:text-emerald-400 hover:text-emerald-500'
+                }`}
+              >
+                <Check className="w-3.5 h-3.5" />
+                <span>Slotted in Bins ({slottedItemsCount})</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Search and Category Filter Bar */}
+          <div className="bg-white dark:bg-slate-900 p-4 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-3">
+            <div className="relative flex-1 w-full">
+              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                type="text"
+                placeholder="Filter by item name, SKU, current bin location, or barcode..."
+                value={itemSearchQuery}
+                onChange={(e) => setItemSearchQuery(e.target.value)}
+                className="w-full pl-9 pr-4 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-medium text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+              />
+            </div>
+
+            <div className="w-full sm:w-56 shrink-0">
+              <SmartSelect
+                value={selectedCategoryFilter}
+                onChange={setSelectedCategoryFilter}
+                size="sm"
+                options={[
+                  { value: 'ALL', label: `All Categories (${categories.length})` },
+                  ...categories.map(c => ({ value: c, label: c })),
+                ]}
+                placeholder="All Categories"
+                aria-label="Filter items by category"
+              />
+            </div>
+          </div>
+
+          {/* Inventory Items Placement Table */}
+          <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-xs overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse text-xs">
+                <thead>
+                  <tr className="bg-slate-50 dark:bg-slate-800/80 border-b border-slate-200/80 dark:border-slate-800 text-slate-400 font-mono text-[10px] uppercase tracking-wider">
+                    <th className="py-3 px-4">Item Details</th>
+                    <th className="py-3 px-4">Category</th>
+                    <th className="py-3 px-4">Stock Qty</th>
+                    <th className="py-3 px-4">Assigned Warehouse Bin</th>
+                    <th className="py-3 px-4 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                  {filteredSlottingItems.map((item) => {
+                    const isSlotted = !!item.binLocation && item.binLocation.trim().length > 0;
+
+                    return (
+                      <tr
+                        key={item.id}
+                        className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors"
+                      >
+                        {/* Item Details */}
+                        <td className="py-3 px-4">
+                          <div className="flex items-center gap-3">
+                            <div className="w-9 h-9 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 overflow-hidden shrink-0 flex items-center justify-center">
+                              {item.imageUrl ? (
+                                <ItemImage src={item.imageUrl} alt={item.name} className="w-full h-full object-cover" />
+                              ) : (
+                                <Box className="w-4 h-4 text-slate-400" />
+                              )}
+                            </div>
+                            <div className="max-w-[280px] truncate">
+                              <span className="font-bold text-slate-900 dark:text-white block truncate">{item.name}</span>
+                              <span className="text-[10px] font-mono text-slate-400">{item.barcode || item.sku || `EL-${item.id}`}</span>
+                            </div>
+                          </div>
+                        </td>
+
+                        {/* Category */}
+                        <td className="py-3 px-4 font-medium text-slate-500 dark:text-slate-400">
+                          {item.category || 'General'}
+                        </td>
+
+                        {/* Stock */}
+                        <td className="py-3 px-4 font-mono font-bold text-slate-900 dark:text-white">
+                          {item.stockQty} {item.unit}
+                        </td>
+
+                        {/* Bin Location Status */}
+                        <td className="py-3 px-4">
+                          {isSlotted ? (
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 font-mono font-bold text-xs rounded-xl border border-emerald-200/80 dark:border-emerald-800">
+                              <Check className="w-3.5 h-3.5" />
+                              <span>{item.binLocation}</span>
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 font-medium text-xs rounded-xl border border-amber-200/80 dark:border-amber-800">
+                              <AlertCircle className="w-3.5 h-3.5" />
+                              <span>Unassigned</span>
+                            </span>
+                          )}
+                        </td>
+
+                        {/* Actions */}
+                        <td className="py-3 px-4 text-right">
+                          <div className="flex items-center justify-end gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSlottingItem(item);
+                                setTargetBinInput(item.binLocation || '');
+                              }}
+                              className="px-3 py-1.5 bg-indigo-50 dark:bg-indigo-950/60 hover:bg-indigo-100 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 rounded-xl font-bold text-xs transition-all cursor-pointer flex items-center gap-1"
+                            >
+                              <MapPin className="w-3.5 h-3.5" />
+                              <span>{isSlotted ? 'Change Bin' : 'Slot to Bin'}</span>
+                            </button>
+
+                            {isSlotted && (
+                              <button
+                                type="button"
+                                onClick={() => handleDirectSlotItem(item, null)}
+                                className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-slate-800 rounded-xl transition-colors cursor-pointer"
+                                title="Clear placement location"
+                              >
+                                <X className="w-4 h-4" />
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+
+              {filteredSlottingItems.length === 0 && (
+                <div className="p-12 text-center text-slate-400 text-xs">
+                  No components found matching your search and filter criteria.
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* VIEW 3: CUSTOM SHELF & RACK UNITS */}
+      {/* ========================================================================= */}
+      {activeViewMode === 'visual_shelf' && (
+        <VisualStockRoom />
+      )}
+
+      {/* ========================================================================= */}
+      {/* VIEW 4: 2D FLOOR PLAN BLUEPRINT */}
+      {/* ========================================================================= */}
+      {activeViewMode === 'floor_plan' && (
+        <FloorPlanDesignerTab />
+      )}
+
+      {/* ========================================================================= */}
+      {/* MODAL 1: ADD FACILITY */}
+      {/* ========================================================================= */}
+      {isAddModalOpen && createPortal(
+        <div className="fixed inset-0 w-screen h-screen z-[99999] bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto animate-fadeIn">
+          <div className="relative my-auto bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl w-full max-w-md p-6 space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+              <h3 className="text-base font-black text-slate-900 dark:text-white flex items-center gap-2">
+                <Warehouse className="w-5 h-5 text-indigo-600" />
+                Add Warehouse Facility
+              </h3>
+              <button
+                type="button"
+                onClick={() => setIsAddModalOpen(false)}
+                className="p-1.5 text-slate-400 hover:text-white rounded-xl hover:bg-slate-800 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleAddWarehouse} className="space-y-4 text-xs">
+              <div>
+                <label className="block text-slate-700 dark:text-slate-300 font-bold mb-1">Facility Name</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Central Assembly Facility"
+                  value={newWh.name}
+                  onChange={(e) => setNewWh({ ...newWh, name: e.target.value })}
+                  className="w-full px-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                />
+              </div>
+
+              <div>
+                <label className="block text-slate-700 dark:text-slate-300 font-bold mb-1">Facility Code</label>
+                <input
+                  type="text"
+                  placeholder="e.g. WH-BLR-02"
+                  value={newWh.code}
+                  onChange={(e) => setNewWh({ ...newWh, code: e.target.value })}
+                  className="w-full px-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500/20 font-mono"
+                />
+              </div>
+
+              <div>
+                <label className="block text-slate-700 dark:text-slate-300 font-bold mb-1">Physical Address / City</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Bengaluru, Karnataka"
+                  value={newWh.address}
+                  onChange={(e) => setNewWh({ ...newWh, address: e.target.value })}
+                  className="w-full px-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setIsAddModalOpen(false)}
+                  className="px-4 py-2 text-slate-500 hover:text-slate-700 font-bold text-xs cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl text-xs shadow-md cursor-pointer"
+                >
+                  Create Facility
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* ========================================================================= */}
+      {/* MODAL 2: EDIT FACILITY */}
+      {/* ========================================================================= */}
+      {editingWh && createPortal(
+        <div className="fixed inset-0 w-screen h-screen z-[99999] bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto animate-fadeIn">
+          <div className="relative my-auto bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl w-full max-w-md p-6 space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+              <h3 className="text-base font-black text-slate-900 dark:text-white flex items-center gap-2">
+                <Edit2 className="w-5 h-5 text-indigo-600" />
+                Edit Facility: {editingWh.name}
+              </h3>
+              <button
+                type="button"
+                onClick={() => setEditingWh(null)}
+                className="p-1.5 text-slate-400 hover:text-white rounded-xl hover:bg-slate-800 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleEditSaveWh} className="space-y-4 text-xs">
+              <div>
+                <label className="block text-slate-700 dark:text-slate-300 font-bold mb-1">Facility Name</label>
+                <input
+                  type="text"
+                  required
+                  value={editingWh.name}
+                  onChange={(e) => setEditingWh({ ...editingWh, name: e.target.value })}
+                  className="w-full px-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                />
+              </div>
+
+              <div>
+                <label className="block text-slate-700 dark:text-slate-300 font-bold mb-1">Facility Code</label>
+                <input
+                  type="text"
+                  required
+                  value={editingWh.code}
+                  onChange={(e) => setEditingWh({ ...editingWh, code: e.target.value })}
+                  className="w-full px-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500/20 font-mono"
+                />
+              </div>
+
+              <div>
+                <label className="block text-slate-700 dark:text-slate-300 font-bold mb-1">Address / Location</label>
+                <input
+                  type="text"
+                  value={typeof editingWh.address === 'object' ? editingWh.address?.city || '' : editingWh.address || ''}
+                  onChange={(e) => setEditingWh({ ...editingWh, address: { city: e.target.value } })}
+                  className="w-full px-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setEditingWh(null)}
+                  className="px-4 py-2 text-slate-500 hover:text-slate-700 font-bold text-xs cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl text-xs shadow-md cursor-pointer"
+                >
+                  Save Changes
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* ========================================================================= */}
+      {/* MODAL 3: ADD STORAGE BIN */}
+      {/* ========================================================================= */}
+      {isAddBinOpen && createPortal(
+        <div className="fixed inset-0 w-screen h-screen z-[99999] bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto animate-fadeIn">
+          <div className="relative my-auto bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl w-full max-w-md p-6 space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+              <h3 className="text-base font-black text-slate-900 dark:text-white flex items-center gap-2">
+                <Plus className="w-5 h-5 text-indigo-600" />
+                Add New Storage Bin Location
+              </h3>
+              <button
+                type="button"
+                onClick={() => setIsAddBinOpen(false)}
+                className="p-1.5 text-slate-400 hover:text-white rounded-xl hover:bg-slate-800 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleAddBinSubmit} className="space-y-4 text-xs">
+              <div>
+                <label className="block text-slate-700 dark:text-slate-300 font-bold mb-1">Target Facility</label>
+                <SmartSelect
+                  value={newBinWhCode || warehouses[0]?.code || 'WH-MAIN-01'}
+                  onChange={setNewBinWhCode}
+                  options={warehouses.map(w => ({
+                    value: w.code,
+                    label: `${w.name} (${w.code})`,
+                  }))}
+                  placeholder="Select facility..."
+                  aria-label="Target Facility"
+                />
+              </div>
+
+              <div>
+                <label className="block text-slate-700 dark:text-slate-300 font-bold mb-1">Bin Location Code</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Shelf 1, Rack A - Box 4, or BIN-01"
+                  value={newBinCode}
+                  onChange={(e) => setNewBinCode(e.target.value)}
+                  className="w-full px-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500/20 font-mono"
+                />
+              </div>
+
+              <div>
+                <label className="block text-slate-700 dark:text-slate-300 font-bold mb-1">Description / Zone Note</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Zone A High Velocity Sensors"
+                  value={newBinDesc}
+                  onChange={(e) => setNewBinDesc(e.target.value)}
+                  className="w-full px-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setIsAddBinOpen(false)}
+                  className="px-4 py-2 text-slate-500 hover:text-slate-700 font-bold text-xs cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl text-xs shadow-md cursor-pointer"
+                >
+                  Create Bin
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* ========================================================================= */}
+      {/* MODAL 4: SLOTTING MODAL (1-Click Slot Single Item) */}
+      {/* ========================================================================= */}
+      {slottingItem && createPortal(
+        <div className="fixed inset-0 w-screen h-screen z-[99999] bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto animate-fadeIn">
+          <div className="relative my-auto bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl w-full max-w-md p-6 space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+              <div>
+                <h3 className="text-base font-black text-slate-900 dark:text-white flex items-center gap-2">
+                  <MapPin className="w-5 h-5 text-indigo-600" />
+                  Slot Item into Warehouse Bin
+                </h3>
+                <p className="text-xs text-slate-400 mt-0.5 truncate max-w-xs">{slottingItem.name}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSlottingItem(null)}
+                className="p-1.5 text-slate-400 hover:text-white rounded-xl hover:bg-slate-800 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-3 text-xs">
+              <div className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-200 dark:border-slate-700 flex items-center justify-between">
+                <div>
+                  <span className="text-[10px] text-slate-400 uppercase font-mono block">Current Location</span>
+                  <strong className="text-slate-900 dark:text-white font-mono text-xs">{slottingItem.binLocation || '⚠️ Unassigned'}</strong>
+                </div>
+                <div className="text-right">
+                  <span className="text-[10px] text-slate-400 uppercase font-mono block">Available Stock</span>
+                  <strong className="text-indigo-600 dark:text-indigo-400 font-mono text-xs">{slottingItem.stockQty} {slottingItem.unit}</strong>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-slate-700 dark:text-slate-300 font-bold mb-1">Target Bin / Shelf Location</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Enter or select a bin (e.g. Shelf 1, Rack A - Box 2)"
+                  value={targetBinInput}
+                  onChange={(e) => setTargetBinInput(e.target.value)}
+                  className="w-full px-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500/20 font-mono"
+                />
+              </div>
+
+              {/* Quick Select from Existing Bins */}
+              {bins.length > 0 && (
+                <div className="space-y-1.5">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Quick Pick Configured Bins:</span>
+                  <div className="flex flex-wrap gap-1.5 max-h-28 overflow-y-auto pr-1 custom-scrollbar">
+                    {bins.map(b => (
+                      <button
+                        key={b.id}
+                        type="button"
+                        onClick={() => setTargetBinInput(b.code)}
+                        className={`px-2.5 py-1 rounded-lg text-xs font-mono font-bold border transition-all cursor-pointer ${
+                          targetBinInput === b.code
+                            ? 'bg-indigo-600 text-white border-indigo-600'
+                            : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-indigo-500'
+                        }`}
+                      >
+                        {b.code}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setSlottingItem(null)}
+                  className="px-4 py-2 text-slate-500 hover:text-slate-700 font-bold text-xs cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleDirectSlotItem(slottingItem, targetBinInput.trim())}
+                  disabled={!targetBinInput.trim()}
+                  className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 text-white font-bold rounded-xl text-xs shadow-md cursor-pointer flex items-center gap-1.5"
+                >
+                  <Check className="w-4 h-4" />
+                  <span>Assign to {targetBinInput.trim() || 'Bin'}</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* ========================================================================= */}
+      {/* MODAL 5: ASSIGN PARTS TO BIN MODAL (From Bin side) */}
+      {/* ========================================================================= */}
       {assigningBin && createPortal(
         <div className="fixed inset-0 w-screen h-screen z-[99999] bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto animate-fadeIn">
           <div className="relative my-auto bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl w-full max-w-xl p-6 space-y-4 max-h-[85vh] flex flex-col">
@@ -527,7 +1148,7 @@ export default function WarehousesTab({ role }: WarehousesTabProps) {
               <div>
                 <h3 className="text-base font-black text-slate-900 dark:text-white flex items-center gap-2">
                   <Package className="w-5 h-5 text-indigo-600" />
-                  Assign Parts to Storage Bin [{assigningBin.code}]
+                  Assign Components to Storage Bin [{assigningBin.code}]
                 </h3>
                 <p className="text-xs text-slate-400">{assigningBin.description} • Facility: {assigningBin.warehouseCode}</p>
               </div>
@@ -554,7 +1175,7 @@ export default function WarehousesTab({ role }: WarehousesTabProps) {
             {/* Scrollable Component Catalog List */}
             <div className="overflow-y-auto space-y-2 pr-1 flex-1 custom-scrollbar">
               {inventory
-                .filter(item => item.name.toLowerCase().includes(assignItemSearch.toLowerCase()) || (item.barcode || '').toLowerCase().includes(assignItemSearch.toLowerCase()))
+                .filter(item => item.name.toLowerCase().includes(assignItemSearch.toLowerCase()) || (item.barcode || item.sku || '').toLowerCase().includes(assignItemSearch.toLowerCase()))
                 .map(item => {
                   const isCurrentlyInThisBin = (item.binLocation || '').toLowerCase() === assigningBin.code.toLowerCase();
 
@@ -592,7 +1213,9 @@ export default function WarehousesTab({ role }: WarehousesTabProps) {
         document.body
       )}
 
-      {/* PRINT PHYSICAL SHELF BARCODE STICKER MODAL */}
+      {/* ========================================================================= */}
+      {/* MODAL 6: PRINT SHELF BARCODE STICKER */}
+      {/* ========================================================================= */}
       {printingBin && createPortal(
         <div className="fixed inset-0 w-screen h-screen z-[99999] bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto animate-fadeIn">
           <div className="relative my-auto bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl w-full max-w-md p-6 space-y-5">
@@ -657,11 +1280,11 @@ export default function WarehousesTab({ role }: WarehousesTabProps) {
                 type="button"
                 onClick={() => {
                   window.print();
-                  showToast('success', 'Print Job Sent', `Printing shelf sticker for ${printingBin.code}`);
+                  showToast('success', 'Print Sent', `Sticker print dispatched for ${printingBin.code}`);
                 }}
-                className="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl text-xs shadow-md transition-colors cursor-pointer flex items-center justify-center gap-1.5"
+                className="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl text-xs transition-all shadow-md cursor-pointer flex items-center justify-center gap-2"
               >
-                <Printer className="w-4 h-4" /> Print Sticker
+                <Printer className="w-4 h-4" /> Print Label
               </button>
             </div>
           </div>
@@ -669,196 +1292,6 @@ export default function WarehousesTab({ role }: WarehousesTabProps) {
         document.body
       )}
 
-      {/* Add Warehouse Modal */}
-      {isAddModalOpen && createPortal(
-        <div className="fixed inset-0 w-screen h-screen z-[99999] bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto animate-fadeIn">
-          <div className="relative my-auto bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl w-full max-w-lg p-6 space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
-              <h3 className="text-base font-bold text-slate-900 dark:text-white">Add Warehouse Facility</h3>
-              <button onClick={() => setIsAddModalOpen(false)} className="p-1 text-slate-400 hover:text-slate-700 dark:hover:text-white cursor-pointer">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <form onSubmit={handleAddWarehouse} className="space-y-3 text-xs">
-              <div>
-                <label className="block font-bold text-slate-500 uppercase text-[10px] mb-1">Facility Name *</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. Central Assembly Hub"
-                  value={newWh.name}
-                  onChange={(e) => setNewWh({ ...newWh, name: e.target.value })}
-                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white focus:outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="block font-bold text-slate-500 uppercase text-[10px] mb-1">Facility Code</label>
-                <input
-                  type="text"
-                  placeholder="WH-SOUTH-03"
-                  value={newWh.code}
-                  onChange={(e) => setNewWh({ ...newWh, code: e.target.value })}
-                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white focus:outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="block font-bold text-slate-500 uppercase text-[10px] mb-1">Address / Location</label>
-                <input
-                  type="text"
-                  placeholder="88 Logistics Blvd, Atlanta, GA"
-                  value={newWh.address}
-                  onChange={(e) => setNewWh({ ...newWh, address: e.target.value })}
-                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white focus:outline-none"
-                />
-              </div>
-
-              <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => setIsAddModalOpen(false)}
-                  className="px-4 py-2 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold rounded-xl cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-md cursor-pointer"
-                >
-                  Save Warehouse
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>,
-        document.body
-      )}
-
-      {/* Edit Warehouse Modal */}
-      {editingWh && createPortal(
-        <div className="fixed inset-0 w-screen h-screen z-[99999] bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto animate-fadeIn">
-          <div className="relative my-auto bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl w-full max-w-lg p-6 space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
-              <h3 className="text-base font-bold text-slate-900 dark:text-white">Edit Facility {editingWh.code}</h3>
-              <button onClick={() => setEditingWh(null)} className="p-1 text-slate-400 hover:text-slate-700 dark:hover:text-white cursor-pointer">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <form onSubmit={handleEditSaveWh} className="space-y-3 text-xs">
-              <div>
-                <label className="block font-bold text-slate-500 uppercase text-[10px] mb-1">Facility Name *</label>
-                <input
-                  type="text"
-                  required
-                  value={editingWh.name}
-                  onChange={(e) => setNewWh({ ...newWh, name: e.target.value })}
-                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white focus:outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="block font-bold text-slate-500 uppercase text-[10px] mb-1">Address</label>
-                <input
-                  type="text"
-                  value={editingWh.address}
-                  onChange={(e) => setEditingWh({ ...editingWh, address: e.target.value })}
-                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white focus:outline-none"
-                />
-              </div>
-
-              <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => setEditingWh(null)}
-                  className="px-4 py-2 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold rounded-xl cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-md cursor-pointer"
-                >
-                  Update Warehouse
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>,
-        document.body
-      )}
-
-      {/* Add Storage Bin Modal */}
-      {isAddBinOpen && createPortal(
-        <div className="fixed inset-0 w-screen h-screen z-[99999] bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto animate-fadeIn">
-          <div className="relative my-auto bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl w-full max-w-lg p-6 space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
-              <h3 className="text-base font-bold text-slate-900 dark:text-white">Add Storage Bin Location</h3>
-              <button onClick={() => setIsAddBinOpen(false)} className="p-1 text-slate-400 hover:text-slate-700 dark:hover:text-white cursor-pointer">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <form onSubmit={handleAddBinSubmit} className="space-y-3 text-xs">
-              <div>
-                <label className="block font-bold text-slate-500 uppercase text-[10px] mb-1">Bin Location Code *</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. Rack - Shelf 1, BIN-A1-03, Rack B2..."
-                  value={newBinCode}
-                  onChange={(e) => setNewBinCode(e.target.value)}
-                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white font-bold focus:outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="block font-bold text-slate-500 uppercase text-[10px] mb-1">Warehouse Facility *</label>
-                <select
-                  value={newBinWhCode}
-                  onChange={(e) => setNewBinWhCode(e.target.value)}
-                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white font-bold focus:outline-none"
-                >
-                  <option value="">Select Warehouse...</option>
-                  {warehouses.map(w => (
-                    <option key={w.id} value={w.code}>{w.name} ({w.code})</option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block font-bold text-slate-500 uppercase text-[10px] mb-1">Shelf / Zone Description</label>
-                <input
-                  type="text"
-                  placeholder="e.g. Shelf A1 - Top Rack, Chemical Safety Box..."
-                  value={newBinDesc}
-                  onChange={(e) => setNewBinDesc(e.target.value)}
-                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white focus:outline-none"
-                />
-              </div>
-
-              <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => setIsAddBinOpen(false)}
-                  className="px-4 py-2 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold rounded-xl cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-md cursor-pointer"
-                >
-                  Save Bin Location
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>,
-        document.body
-      )}
     </div>
   );
 }

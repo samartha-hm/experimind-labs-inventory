@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { ShieldCheck, Lock, CheckCircle2, AlertTriangle, KeyRound } from "lucide-react";
 import { SignatureMeaning } from "../../entity/ElectronicSignature.ts";
+import SmartSelect from "@/src/shared/components/SmartSelect";
 
 interface ElectronicSignatureModalProps {
   isOpen: boolean;
@@ -80,7 +81,7 @@ export const ElectronicSignatureModal: React.FC<ElectronicSignatureModalProps> =
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-in fade-in">
-      <div className="bg-slate-900 border border-emerald-500/40 rounded-2xl max-w-lg w-full p-6 shadow-2xl relative text-white">
+      <div className="bg-slate-900 border border-emerald-500/40 rounded-2xl max-w-lg w-full p-6 shadow-2xl relative text-white max-h-[90vh] overflow-y-auto">
         <div className="flex items-center gap-3 border-b border-slate-800 pb-4 mb-4">
           <div className="p-3 bg-emerald-500/10 rounded-xl border border-emerald-500/20 text-emerald-400">
             <ShieldCheck className="w-6 h-6" />
@@ -107,19 +108,21 @@ export const ElectronicSignatureModal: React.FC<ElectronicSignatureModalProps> =
 
           <div>
             <label className="block text-xs font-semibold text-slate-300 mb-1">Signature Intent / Meaning</label>
-            <select
+            <SmartSelect
               value={meaning}
-              onChange={(e) => setMeaning(e.target.value as SignatureMeaning)}
-              className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500"
-            >
-              <option value="APPROVED">APPROVED (Formal Release / Authorization)</option>
-              <option value="REVIEWED">REVIEWED (Verified Compliance & Quality)</option>
-              <option value="AUTHORED">AUTHORED (Original Entry Creator)</option>
-              <option value="QUALITY_RELEASED">QUALITY_RELEASED (GMP Disposition Clearance)</option>
-              <option value="DISPOSITION_APPROVED">DISPOSITION_APPROVED (NCR / Variance Action)</option>
-              <option value="CAPA_CLOSED">CAPA_CLOSED (Corrective Action Complete)</option>
-              <option value="COUNT_VARIANCE_APPROVED">COUNT_VARIANCE_APPROVED (Inventory Reconciliation)</option>
-            </select>
+              onChange={(val) => setMeaning(val as SignatureMeaning)}
+              options={[
+                { value: 'APPROVED', label: 'APPROVED (Formal Release / Authorization)' },
+                { value: 'REVIEWED', label: 'REVIEWED (Verified Compliance & Quality)' },
+                { value: 'AUTHORED', label: 'AUTHORED (Original Entry Creator)' },
+                { value: 'QUALITY_RELEASED', label: 'QUALITY_RELEASED (GMP Disposition Clearance)' },
+                { value: 'DISPOSITION_APPROVED', label: 'DISPOSITION_APPROVED (NCR / Variance Action)' },
+                { value: 'CAPA_CLOSED', label: 'CAPA_CLOSED (Corrective Action Complete)' },
+                { value: 'COUNT_VARIANCE_APPROVED', label: 'COUNT_VARIANCE_APPROVED (Inventory Reconciliation)' },
+              ]}
+              placeholder="Select signature intent..."
+              aria-label="Signature Intent / Meaning"
+            />
           </div>
 
           <div>

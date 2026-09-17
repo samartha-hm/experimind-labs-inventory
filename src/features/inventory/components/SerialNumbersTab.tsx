@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { useData } from '@/src/DataContext';
 import { useToast } from '@/src/contexts/ToastContext';
+import SmartSelect from '@/src/shared/components/SmartSelect';
 
 interface SerialNumbersTabProps {
   role?: string | null;
@@ -140,17 +141,20 @@ export default function SerialNumbersTab({ role }: SerialNumbersTabProps) {
             />
           </div>
 
-          <div className="flex items-center gap-2">
-            <select
+          <div className="w-full sm:w-52">
+            <SmartSelect
               value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value as any)}
-              className="px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-200"
-            >
-              <option value="ALL">All Statuses ({serializedItems.length})</option>
-              <option value="IN_STOCK">In Stock</option>
-              <option value="DEPLOYED">Deployed in Lab</option>
-              <option value="MAINTENANCE">Maintenance</option>
-            </select>
+              onChange={(val) => setStatusFilter(val as any)}
+              size="sm"
+              options={[
+                { value: 'ALL', label: `All Statuses (${serializedItems.length})` },
+                { value: 'IN_STOCK', label: 'In Stock' },
+                { value: 'DEPLOYED', label: 'Deployed in Lab' },
+                { value: 'MAINTENANCE', label: 'Maintenance' },
+              ]}
+              placeholder="All Statuses"
+              aria-label="Filter serialized items by status"
+            />
           </div>
         </div>
 

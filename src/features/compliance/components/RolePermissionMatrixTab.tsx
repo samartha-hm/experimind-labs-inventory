@@ -1,10 +1,14 @@
 import React, { useState, useEffect } from 'react';
+import { apiFetch } from '@/src/utils/api';
+import { useToast } from '@/src/contexts/ToastContext';
+import { useAuth } from '@/src/AuthContext';
 import { 
   Shield, 
   Plus, 
   Check, 
   X, 
   Lock, 
+  Unlock, 
   Users, 
   Key, 
   FileText, 
@@ -16,10 +20,11 @@ import {
   Sliders,
   UserCheck,
   CheckSquare,
-  Square
+  Square,
+  Info,
+  Sparkles,
+  Layers
 } from 'lucide-react';
-import { apiFetch } from '../../../utils/api';
-import { useAuth } from '../../../AuthContext';
 
 interface RoleData {
   id: string;
@@ -95,6 +100,7 @@ export const RolePermissionMatrixTab: React.FC = () => {
   const { user } = useAuth();
   const [roles, setRoles] = useState<RoleData[]>([]);
   const [selectedRole, setSelectedRole] = useState<RoleData | null>(null);
+  const { showToast } = useToast();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -104,7 +110,6 @@ export const RolePermissionMatrixTab: React.FC = () => {
     description: '',
     color: 'indigo'
   });
-  const [toastMsg, setToastMsg] = useState<string | null>(null);
 
   const fetchRoles = async () => {
     try {
@@ -148,10 +153,9 @@ export const RolePermissionMatrixTab: React.FC = () => {
         body: JSON.stringify({ permissions: newPerms })
       });
       setRoles(prev => prev.map(r => r.id === selectedRole.id ? updatedRole : r));
-      setToastMsg(`Permissions updated for ${selectedRole.name}`);
-      setTimeout(() => setToastMsg(null), 2500);
+      showToast('success', 'Permissions Updated', `Saved privileges for role "${selectedRole.name}"`);
     } catch (e: any) {
-      alert(`Failed to save permission: ${e.message}`);
+      showToast('error', 'Update Failed', `Could not save permission: ${e.message}`);
     } finally {
       setSaving(false);
     }
@@ -177,10 +181,9 @@ export const RolePermissionMatrixTab: React.FC = () => {
       setNewRole({ name: '', code: '', description: '', color: 'indigo' });
       await fetchRoles();
       setSelectedRole(created);
-      setToastMsg(`Custom role "${created.name}" created successfully.`);
-      setTimeout(() => setToastMsg(null), 2500);
+      showToast('success', 'Custom Role Created', `Role "${created.name}" is now active in enterprise matrix.`);
     } catch (e: any) {
-      alert(`Error creating role: ${e.message}`);
+      showToast('error', 'Role Creation Failed', e.message);
     } finally {
       setSaving(false);
     }
@@ -194,10 +197,9 @@ export const RolePermissionMatrixTab: React.FC = () => {
       if (selectedRole?.id === roleId) {
         setSelectedRole(roles.find(r => r.id !== roleId) || null);
       }
-      setToastMsg(`Role "${roleName}" deleted.`);
-      setTimeout(() => setToastMsg(null), 2500);
+      showToast('info', 'Role Deleted', `Custom role "${roleName}" was removed.`);
     } catch (e: any) {
-      alert(`Delete Error: ${e.message}`);
+      showToast('error', 'Delete Failed', e.message);
     }
   };
 
@@ -214,13 +216,6 @@ export const RolePermissionMatrixTab: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      {/* Toast Notification */}
-      {toastMsg && (
-        <div className="fixed bottom-6 right-6 z-50 flex items-center gap-2 px-4 py-3 bg-emerald-600 text-white rounded-xl shadow-2xl animate-fade-in font-medium">
-          <CheckCircle2 className="w-5 h-5 text-white" />
-          <span>{toastMsg}</span>
-        </div>
-      )}
 
       {/* Header Banner */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white/90 dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800 p-6 rounded-2xl backdrop-blur-xl shadow-xs">

@@ -228,28 +228,30 @@ export default function GSTEngineTab() {
                 </div>
 
                 {/* Line Items Table */}
-                <table className="w-full text-left text-xs border-collapse">
-                  <thead>
-                    <tr className="border-b border-slate-200 dark:border-slate-700 text-slate-400 font-bold uppercase text-[10px]">
-                      <th className="py-2">Item Description</th>
-                      <th className="py-2">HSN</th>
-                      <th className="py-2 text-right">Qty</th>
-                      <th className="py-2 text-right">Rate (₹)</th>
-                      <th className="py-2 text-right">Taxable Amount (₹)</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-200 dark:divide-slate-700 font-mono">
-                    {selectedInvoice.items.map((item, idx) => (
-                      <tr key={idx}>
-                        <td className="py-2.5 font-sans font-medium text-slate-900 dark:text-white">{item.description}</td>
-                        <td className="py-2.5 text-slate-500">{item.hsn}</td>
-                        <td className="py-2.5 text-right font-bold">{item.qty}</td>
-                        <td className="py-2.5 text-right">₹{item.rate.toLocaleString('en-IN')}</td>
-                        <td className="py-2.5 text-right font-bold">₹{(item.qty * item.rate).toLocaleString('en-IN')}</td>
+                <div className="overflow-x-auto table-responsive -mx-2 px-2 sm:mx-0 sm:px-0">
+                  <table className="w-full text-left text-xs border-collapse min-w-[500px] sm:min-w-0">
+                    <thead>
+                      <tr className="border-b border-slate-200 dark:border-slate-700 text-slate-400 font-bold uppercase text-[10px]">
+                        <th className="py-2">Item Description</th>
+                        <th className="py-2">HSN</th>
+                        <th className="py-2 text-right">Qty</th>
+                        <th className="py-2 text-right">Rate (₹)</th>
+                        <th className="py-2 text-right">Taxable Amount (₹)</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody className="divide-y divide-slate-200 dark:divide-slate-700 font-mono">
+                      {selectedInvoice.items.map((item, idx) => (
+                        <tr key={idx}>
+                          <td className="py-2.5 font-sans font-medium text-slate-900 dark:text-white">{item.description}</td>
+                          <td className="py-2.5 text-slate-500">{item.hsn}</td>
+                          <td className="py-2.5 text-right font-bold">{item.qty}</td>
+                          <td className="py-2.5 text-right">₹{item.rate.toLocaleString('en-IN')}</td>
+                          <td className="py-2.5 text-right font-bold">₹{(item.qty * item.rate).toLocaleString('en-IN')}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
 
                 {/* Tax Breakdown & Totals */}
                 <div className="pt-4 border-t border-slate-200 dark:border-slate-700 flex justify-end">

@@ -128,36 +128,38 @@ export default function DocumentPreviewModal({
           </div>
 
           {/* Line Items Table */}
-          <div className="border border-slate-200 rounded-2xl overflow-hidden shadow-xs">
-            <table className="w-full text-left border-collapse text-xs">
-              <thead>
-                <tr className="bg-slate-100 text-slate-500 uppercase tracking-wider font-bold text-[10px]">
-                  <th className="py-3 px-4">Item Description</th>
-                  <th className="py-3 px-4 text-center">Qty</th>
-                  <th className="py-3 px-4 text-right">Unit Price</th>
-                  <th className="py-3 px-4 text-right">Amount ($)</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
-                {data.items.length > 0 ? (
-                  data.items.map((item, idx) => (
-                    <tr key={idx}>
-                      <td className="py-3 px-4 font-bold text-slate-900">{item.name}</td>
-                      <td className="py-3 px-4 text-center font-bold text-slate-800">{item.qty} pcs</td>
-                      <td className="py-3 px-4 text-right font-mono">${item.unitPrice.toFixed(2)}</td>
-                      <td className="py-3 px-4 text-right font-black text-slate-900">${item.total.toFixed(2)}</td>
-                    </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td className="py-3 px-4 font-bold text-slate-900">Standard Components & Subassemblies Bundle</td>
-                    <td className="py-3 px-4 text-center font-bold">1 Lot</td>
-                    <td className="py-3 px-4 text-right font-mono">${subtotal.toFixed(2)}</td>
-                    <td className="py-3 px-4 text-right font-black text-slate-900">${subtotal.toFixed(2)}</td>
+          <div className="border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-xs">
+            <div className="overflow-x-auto table-responsive">
+              <table className="w-full text-left border-collapse text-xs min-w-[480px] sm:min-w-0">
+                <thead>
+                  <tr className="bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 uppercase tracking-wider font-bold text-[10px]">
+                    <th className="py-3 px-4">Item Description</th>
+                    <th className="py-3 px-4 text-center">Qty</th>
+                    <th className="py-3 px-4 text-right">Unit Price</th>
+                    <th className="py-3 px-4 text-right">Amount ($)</th>
                   </tr>
-                )}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800 font-medium text-slate-700 dark:text-slate-300">
+                  {data.items.length > 0 ? (
+                    data.items.map((item, idx) => (
+                      <tr key={idx}>
+                        <td className="py-3 px-4 font-bold text-slate-900 dark:text-white">{item.name}</td>
+                        <td className="py-3 px-4 text-center font-bold text-slate-800 dark:text-slate-200">{item.qty} pcs</td>
+                        <td className="py-3 px-4 text-right font-mono">${item.unitPrice.toFixed(2)}</td>
+                        <td className="py-3 px-4 text-right font-black text-slate-900 dark:text-white">${item.total.toFixed(2)}</td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td className="py-3 px-4 font-bold text-slate-900 dark:text-white">Standard Components & Subassemblies Bundle</td>
+                      <td className="py-3 px-4 text-center font-bold">1 Lot</td>
+                      <td className="py-3 px-4 text-right font-mono">${subtotal.toFixed(2)}</td>
+                      <td className="py-3 px-4 text-right font-black text-slate-900 dark:text-white">${subtotal.toFixed(2)}</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
 
           {/* Summary Totals */}

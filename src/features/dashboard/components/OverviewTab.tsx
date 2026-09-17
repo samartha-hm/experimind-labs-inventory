@@ -42,6 +42,7 @@ import { analyzeKitting } from '@/src/utils/kitting';
 import { useData } from '@/src/DataContext';
 import { useApproval } from '@/src/contexts/ApprovalContext';
 import { useToast } from '@/src/contexts/ToastContext';
+import EmptyState from '@/src/shared/components/EmptyState';
 import {
   BarChart,
   Bar,
@@ -515,39 +516,52 @@ export default function OverviewTab({
         {/* Tab 3: Storage Units Occupancy Meters */}
         {activeChartTab === 'capacity' && (
           <div className="space-y-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {[
-                { name: 'FabLab Station', code: 'FABLAB_1', type: 'Steel Workbench', zone: 'Zone A', occ: 78, color: 'bg-indigo-600' },
-                { name: 'Storage Bay 1', code: 'RACK_1', type: 'Multi-Tier Steel Rack', zone: 'Zone B', occ: 62, color: 'bg-emerald-600' },
-                { name: 'Storage Bay 2', code: 'RACK_2', type: 'Multi-Tier Steel Rack', zone: 'Zone B', occ: 45, color: 'bg-blue-600' },
-                { name: 'Chemical Containment', code: 'CABINET_1', type: 'Safety Cabinet', zone: 'Zone D', occ: 33, color: 'bg-rose-600' },
-                { name: 'Plywood Pigeonhole Matrix', code: 'PLYWOOD_GRID_1', type: 'Plywood Wooden Boxes', zone: 'Zone E', occ: 85, color: 'bg-amber-600' },
-              ].map((unit) => (
-                <div key={unit.code} className="p-4 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-200 dark:border-slate-700/80 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h4 className="text-xs font-black text-slate-900 dark:text-white">{unit.name}</h4>
-                      <span className="text-[10px] font-mono text-slate-400">{unit.type} • {unit.zone}</span>
+            {warehouses.length === 0 ? (
+              <div className="p-8 text-center bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-slate-200 dark:border-slate-800 text-xs text-slate-400">
+                No warehouse facilities configured yet.
+                <button
+                  onClick={() => onNavigateToTab('warehouses')}
+                  className="block mx-auto mt-2 text-indigo-600 dark:text-indigo-400 font-bold hover:underline"
+                >
+                  Configure Facilities in Warehouses & Bins →
+                </button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {warehouses.map((wh, idx) => {
+                  const whBins = bins.filter(b => b.warehouseCode === wh.code);
+                  const slottedItems = inventory.filter(i => (i.binLocation && whBins.some(b => (i.binLocation || '').toLowerCase().includes(b.code.toLowerCase()))));
+                  const occ = whBins.length > 0 ? Math.min(100, Math.round((slottedItems.length / Math.max(1, whBins.length * 10)) * 100)) : 0;
+                  const color = idx % 3 === 0 ? 'bg-indigo-600' : idx % 3 === 1 ? 'bg-emerald-600' : 'bg-blue-600';
+
+                  return (
+                    <div key={wh.id || wh.code} className="p-4 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-200 dark:border-slate-700/80 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <h4 className="text-xs font-black text-slate-900 dark:text-white">{wh.name}</h4>
+                          <span className="text-[10px] font-mono text-slate-400">{wh.code} • {whBins.length} Bins</span>
+                        </div>
+                        <span className="text-xs font-black font-mono text-slate-900 dark:text-white">{slottedItems.length} SKUs</span>
+                      </div>
+
+                      <div className="w-full h-2 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                        <div className={`h-full ${color} rounded-full transition-all`} style={{ width: `${Math.max(5, occ)}%` }} />
+                      </div>
+
+                      <div className="flex items-center justify-between text-[10px] text-slate-500">
+                        <span>{typeof wh.address === 'object' ? wh.address?.city || 'Central Hub' : wh.address || 'Active Facility'}</span>
+                        <button
+                          onClick={() => onNavigateToTab('warehouses')}
+                          className="text-indigo-600 dark:text-indigo-400 font-bold hover:underline"
+                        >
+                          Open in Matrix →
+                        </button>
+                      </div>
                     </div>
-                    <span className="text-xs font-black font-mono text-slate-900 dark:text-white">{unit.occ}%</span>
-                  </div>
-
-                  <div className="w-full h-2 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
-                    <div className={`h-full ${unit.color} rounded-full transition-all`} style={{ width: `${unit.occ}%` }} />
-                  </div>
-
-                  <div className="flex items-center justify-between text-[10px] text-slate-500">
-                    <span>Code: {unit.code}</span>
-                    <button
-                      onClick={() => onNavigateToTab('warehouses')}
-                      className="text-indigo-600 dark:text-indigo-400 font-bold hover:underline"
-                    >
-                      Open in Matrix →
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         )}
 
@@ -581,10 +595,12 @@ export default function OverviewTab({
           </div>
 
           {criticalWatchlist.length === 0 ? (
-            <div className="py-8 text-center text-xs text-slate-400 border border-dashed border-slate-200 dark:border-slate-800 rounded-2xl">
-              <CheckCircle2 className="w-6 h-6 text-emerald-500 mx-auto mb-1" />
-              All components are above safety stock threshold.
-            </div>
+            <EmptyState
+              preset="items"
+              title="All Stock Levels Healthy"
+              description="Every catalog component is currently well above safety replenishment thresholds."
+              className="my-2 p-6"
+            />
           ) : (
             <div className="space-y-2.5">
               {criticalWatchlist.map((item) => (

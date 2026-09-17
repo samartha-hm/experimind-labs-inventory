@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { Building2, XCircle, CheckCircle2, ShieldCheck, Sparkles, Globe } from 'lucide-react';
 import { useTenant } from '@/src/contexts/TenantContext';
 import { useToast } from '@/src/contexts/ToastContext';
+import SmartSelect from '@/src/shared/components/SmartSelect';
 
 interface TenantOnboardingModalProps {
   isOpen: boolean;
@@ -46,7 +47,7 @@ export default function TenantOnboardingModal({ isOpen, onClose }: TenantOnboard
 
   return createPortal(
     <div className="fixed inset-0 w-screen h-screen z-[99999] bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto animate-fadeIn">
-      <div className="relative my-auto bg-white rounded-3xl shadow-2xl max-w-lg w-full p-6 border border-slate-100 space-y-5 animate-scaleUp">
+      <div className="relative my-auto bg-white rounded-3xl shadow-2xl max-w-lg w-full p-6 border border-slate-100 space-y-5 animate-scaleUp max-h-[90vh] overflow-y-auto">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-slate-100 pb-3">
           <div className="flex items-center gap-2">
@@ -106,45 +107,51 @@ export default function TenantOnboardingModal({ isOpen, onClose }: TenantOnboard
 
             <div>
               <label className="block font-bold text-slate-700 mb-1">State Code (Place of Supply)</label>
-              <select
+              <SmartSelect
                 value={formData.stateCode}
-                onChange={(e) => setFormData({ ...formData, stateCode: e.target.value })}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
-              >
-                <option value="27">27 - Maharashtra</option>
-                <option value="29">29 - Karnataka</option>
-                <option value="07">07 - Delhi</option>
-                <option value="33">33 - Tamil Nadu</option>
-                <option value="24">24 - Gujarat</option>
-              </select>
+                onChange={(val) => setFormData({ ...formData, stateCode: val })}
+                options={[
+                  { value: '27', label: '27 - Maharashtra' },
+                  { value: '29', label: '29 - Karnataka' },
+                  { value: '07', label: '07 - Delhi' },
+                  { value: '33', label: '33 - Tamil Nadu' },
+                  { value: '24', label: '24 - Gujarat' },
+                ]}
+                placeholder="Select state code..."
+                aria-label="State Code"
+              />
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block font-bold text-slate-700 mb-1">Default Base Currency</label>
-              <select
+              <SmartSelect
                 value={formData.currency}
-                onChange={(e) => setFormData({ ...formData, currency: e.target.value as any })}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
-              >
-                <option value="INR">₹ INR (Indian Rupee)</option>
-                <option value="USD">$ USD (US Dollar)</option>
-                <option value="EUR">€ EUR (Euro)</option>
-              </select>
+                onChange={(val) => setFormData({ ...formData, currency: val as any })}
+                options={[
+                  { value: 'INR', label: '₹ INR (Indian Rupee)' },
+                  { value: 'USD', label: '$ USD (US Dollar)' },
+                  { value: 'EUR', label: '€ EUR (Euro)' },
+                ]}
+                placeholder="Currency"
+                aria-label="Default Base Currency"
+              />
             </div>
 
             <div>
               <label className="block font-bold text-slate-700 mb-1">SaaS Subscription Tier</label>
-              <select
+              <SmartSelect
                 value={formData.plan}
-                onChange={(e) => setFormData({ ...formData, plan: e.target.value as any })}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
-              >
-                <option value="Starter">Starter ($49/mo)</option>
-                <option value="Growth">Growth ($199/mo)</option>
-                <option value="Enterprise">Enterprise (Custom)</option>
-              </select>
+                onChange={(val) => setFormData({ ...formData, plan: val as any })}
+                options={[
+                  { value: 'Starter', label: 'Starter ($49/mo)' },
+                  { value: 'Growth', label: 'Growth ($199/mo)' },
+                  { value: 'Enterprise', label: 'Enterprise (Custom)' },
+                ]}
+                placeholder="Plan"
+                aria-label="SaaS Subscription Tier"
+              />
             </div>
           </div>
 

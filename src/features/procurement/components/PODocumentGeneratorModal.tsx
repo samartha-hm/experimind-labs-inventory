@@ -111,31 +111,33 @@ export default function PODocumentGeneratorModal({ po, isOpen, onClose }: PODocu
           <div className="space-y-2">
             <h4 className="font-extrabold text-slate-900 uppercase text-[11px] tracking-wider">Purchased Line Items</h4>
             <div className="border border-slate-200 rounded-xl overflow-hidden">
-              <table className="w-full text-left border-collapse">
-                <thead>
-                  <tr className="bg-slate-100 text-slate-700 font-bold uppercase text-[10px] tracking-wider border-b border-slate-200">
-                    <th className="p-3">#</th>
-                    <th className="p-3">SKU / Item Description</th>
-                    <th className="p-3 text-right">Quantity</th>
-                    <th className="p-3 text-right">Unit Price (₹)</th>
-                    <th className="p-3 text-right">Total Amount (₹)</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-200 font-mono text-slate-800">
-                  {po.items.map((item, idx) => (
-                    <tr key={idx} className="hover:bg-slate-50">
-                      <td className="p-3 text-slate-400">{idx + 1}</td>
-                      <td className="p-3 font-sans font-bold text-slate-900">
-                        {item.name}
-                        <div className="text-[10px] text-slate-400 font-mono font-normal">SKU Code: {item.itemId}</div>
-                      </td>
-                      <td className="p-3 text-right font-bold">{item.quantity}</td>
-                      <td className="p-3 text-right">₹{item.unitPrice.toFixed(2)}</td>
-                      <td className="p-3 text-right font-bold text-slate-900">₹{(item.quantity * item.unitPrice).toFixed(2)}</td>
+              <div className="overflow-x-auto table-responsive">
+                <table className="w-full text-left border-collapse min-w-[500px] sm:min-w-0">
+                  <thead>
+                    <tr className="bg-slate-100 text-slate-700 font-bold uppercase text-[10px] tracking-wider border-b border-slate-200">
+                      <th className="p-3">#</th>
+                      <th className="p-3">SKU / Item Description</th>
+                      <th className="p-3 text-right">Quantity</th>
+                      <th className="p-3 text-right">Unit Price (₹)</th>
+                      <th className="p-3 text-right">Total Amount (₹)</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody className="divide-y divide-slate-200 font-mono text-slate-800">
+                    {po.items.map((item, idx) => (
+                      <tr key={idx} className="hover:bg-slate-50">
+                        <td className="p-3 text-slate-400">{idx + 1}</td>
+                        <td className="p-3 font-sans font-bold text-slate-900">
+                          {item.name}
+                          <div className="text-[10px] text-slate-400 font-mono font-normal">SKU Code: {item.itemId}</div>
+                        </td>
+                        <td className="p-3 text-right font-bold">{item.quantity}</td>
+                        <td className="p-3 text-right">₹{item.unitPrice.toFixed(2)}</td>
+                        <td className="p-3 text-right font-bold text-slate-900">₹{(item.quantity * item.unitPrice).toFixed(2)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
 

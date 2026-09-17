@@ -60,6 +60,7 @@ import { useToast } from '@/src/contexts/ToastContext';
 import { InventoryItem, KitBOM } from '@/src/types';
 import { playScanBeep, useBarcodeGunListener } from '@/src/utils/barcode';
 import { scanCanvasOrImage, decodeBarcodeFromImageFile } from '@/src/utils/barcodeEngine';
+import SmartCombobox, { ComboboxOption } from './SmartCombobox';
 
 export type ScanOperationMode = 'inspect' | 'inbound' | 'outbound' | 'batch' | 'relocate' | 'kit_picking';
 
@@ -170,6 +171,8 @@ export default function BarcodeScannerModal({
 
   // Scanner Hardware & Stream State
   const videoRef = useRef<HTMLVideoElement>(null);
+  const videoContainerRef = useRef<HTMLDivElement>(null);
+  const reticleRef = useRef<HTMLDivElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const frameCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const scanIntervalRef = useRef<any>(null);
@@ -178,6 +181,28 @@ export default function BarcodeScannerModal({
   const [isCameraActive, setIsCameraActive] = useState(false);
   const [isCameraPaused, setIsCameraPaused] = useState(false);
   const [isStartingCamera, setIsStartingCamera] = useState(false);
+  const [isAutoScan, setIsAutoScan] = useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem('experimind_scanner_auto_scan_v1');
+      return saved !== null ? JSON.parse(saved) : true;
+    } catch (_) {
+      return true;
+    }
+  });
+  const [isManualScanning, setIsManualScanning] = useState(false);
+  const [lastScannedInfo, setLastScannedInfo] = useState<{ code: string; time: number } | null>(null);
+
+  const lastScannedCodeRef = useRef<string>('');
+  const lastScannedTimeRef = useRef<number>(0);
+  const isAutoScanRef = useRef<boolean>(isAutoScan);
+
+  useEffect(() => {
+    isAutoScanRef.current = isAutoScan;
+    try {
+      localStorage.setItem('experimind_scanner_auto_scan_v1', JSON.stringify(isAutoScan));
+    } catch (_) {}
+  }, [isAutoScan]);
+
   const [availableCameras, setAvailableCameras] = useState<MediaDeviceInfo[]>([]);
   const [selectedCameraId, setSelectedCameraId] = useState<string>('');
   const [facingMode, setFacingMode] = useState<'environment' | 'user'>('environment');
@@ -209,6 +234,27 @@ export default function BarcodeScannerModal({
   const activeKit = useMemo(() => {
     return kits.find(k => k.id === selectedKitId) || kits[0] || null;
   }, [kits, selectedKitId]);
+
+  const kitComboboxOptions: ComboboxOption[] = useMemo(() => {
+    return kits.map(k => ({
+      value: k.id,
+      label: k.name,
+      subtitle: `${k.items?.length || 0} Components in BOM`,
+      badge: `${k.items?.length || 0} Parts`,
+      badgeColor: 'indigo'
+    }));
+  }, [kits]);
+
+  const binComboboxOptions: ComboboxOption[] = useMemo(() => {
+    return bins.map(b => ({
+      value: b.code,
+      label: b.code,
+      subtitle: b.description ? `${b.description} (${b.warehouseCode || 'Main'})` : `Warehouse: ${b.warehouseCode || 'Main'}`,
+      binLocation: b.code,
+      badge: b.warehouseCode || 'WH',
+      badgeColor: 'purple'
+    }));
+  }, [bins]);
 
   // Hardware USB/HID Gun Scanner Listener
   useBarcodeGunListener(
@@ -371,8 +417,7 @@ export default function BarcodeScannerModal({
         setMatchedSerial(null);
       }
     } else {
-      foundSerial = await lookupSerialNumber(cleanCode);
-      setMatchedSerial(foundSerial || null);
+      setMatchedSerial(null);
     }
 
     if (matchedItem) {
@@ -421,6 +466,131 @@ export default function BarcodeScannerModal({
   useEffect(() => {
     handleCodeScannedRef.current = handleCodeScanned;
   }, [handleCodeScanned]);
+
+// Precise coordinate mapping from on-screen DOM reticle to raw video feed buffer
+function getVideoROICoordinates(
+  video: HTMLVideoElement,
+  container: HTMLElement | null,
+  reticle: HTMLElement | null
+) {
+  const vW = video.videoWidth || 640;
+  const vH = video.videoHeight || 480;
+
+  if (!container || !reticle) {
+    const cropW = Math.round(vW * 0.70);
+    const cropH = Math.round(vH * 0.35);
+    const cropX = Math.round((vW - cropW) / 2);
+    const cropY = Math.round((vH - cropH) / 2);
+    return { cropX, cropY, cropW, cropH };
+  }
+
+  const containerRect = container.getBoundingClientRect();
+  const reticleRect = reticle.getBoundingClientRect();
+
+  const cW = containerRect.width;
+  const cH = containerRect.height;
+
+  if (cW <= 0 || cH <= 0 || vW <= 0 || vH <= 0) {
+    const cropW = Math.round(vW * 0.70);
+    const cropH = Math.round(vH * 0.35);
+    return { cropX: Math.round((vW - cropW) / 2), cropY: Math.round((vH - cropH) / 2), cropW, cropH };
+  }
+
+  // Calculate object-cover scale and offsets
+  const scale = Math.max(cW / vW, cH / vH);
+  const renderedW = vW * scale;
+  const renderedH = vH * scale;
+  const offsetX = (renderedW - cW) / 2;
+  const offsetY = (renderedH - cH) / 2;
+
+  // Relative reticle coordinates inside the container
+  const relX = reticleRect.left - containerRect.left;
+  const relY = reticleRect.top - containerRect.top;
+  const relW = reticleRect.width;
+  const relH = reticleRect.height;
+
+  // Map to video stream coordinates
+  let cropX = Math.round((relX + offsetX) / scale);
+  let cropY = Math.round((relY + offsetY) / scale);
+  let cropW = Math.round(relW / scale);
+  let cropH = Math.round(relH / scale);
+
+  // Clamp within video bounds
+  cropX = Math.max(0, Math.min(vW - 10, cropX));
+  cropY = Math.max(0, Math.min(vH - 10, cropY));
+  cropW = Math.max(10, Math.min(vW - cropX, cropW));
+  cropH = Math.max(10, Math.min(vH - cropY, cropH));
+
+  return { cropX, cropY, cropW, cropH };
+}
+
+  // Manual Single-Shot Frame Capture & Scan (Constrained strictly to Central Viewfinder Reticle)
+  const handleManualScanNow = useCallback(async () => {
+    if (!videoRef.current || videoRef.current.readyState < 2 || isProcessingFrameRef.current) {
+      showToast('info', 'Camera Viewfinder Ready', 'Align barcode inside the targeting brackets and tap Scan.');
+      return;
+    }
+
+    setIsManualScanning(true);
+    isProcessingFrameRef.current = true;
+    try {
+      const video = videoRef.current;
+      if (!frameCanvasRef.current) {
+        frameCanvasRef.current = document.createElement('canvas');
+      }
+      const canvas = frameCanvasRef.current;
+      
+      const { cropX, cropY, cropW, cropH } = getVideoROICoordinates(
+        video,
+        videoContainerRef.current,
+        reticleRef.current
+      );
+
+      const targetWidth = 480;
+      const targetHeight = Math.max(100, Math.round(480 * (cropH / cropW)));
+      canvas.width = targetWidth;
+      canvas.height = targetHeight;
+
+      const ctx = canvas.getContext('2d', { willReadFrequently: true });
+      if (ctx) {
+        ctx.drawImage(video, cropX, cropY, cropW, cropH, 0, 0, targetWidth, targetHeight);
+        const decodedResult = await scanCanvasOrImage(canvas, true);
+        if (decodedResult && decodedResult.trim()) {
+          const clean = decodedResult.trim();
+          lastScannedCodeRef.current = clean;
+          lastScannedTimeRef.current = Date.now();
+          setLastScannedInfo({ code: clean, time: Date.now() });
+
+          if (typeof navigator !== 'undefined' && navigator.vibrate) {
+            try { navigator.vibrate(80); } catch (_) {}
+          }
+          await handleCodeScannedRef.current(clean);
+        } else {
+          if (soundEnabled) playScanBeep('warning');
+          showToast('info', 'No Barcode Detected', 'Keep barcode steady & centered inside the targeting brackets, then tap Scan again.');
+        }
+      }
+    } catch (err: any) {
+      console.warn('Manual scan error:', err);
+    } finally {
+      isProcessingFrameRef.current = false;
+      setIsManualScanning(false);
+    }
+  }, [soundEnabled, showToast]);
+
+  // Spacebar Keyboard Shortcut for Instant Manual Scan
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement;
+      if (e.code === 'Space' && target?.tagName !== 'INPUT' && target?.tagName !== 'TEXTAREA' && target?.tagName !== 'SELECT') {
+        e.preventDefault();
+        handleManualScanNow();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, handleManualScanNow]);
 
   // Start Camera Stream directly with native getUserMedia and custom frame grabber
   const startCameraStream = useCallback(async (deviceIdToUse?: string) => {
@@ -512,47 +682,78 @@ export default function BarcodeScannerModal({
         frameCanvasRef.current = document.createElement('canvas');
       }
 
-      // Continuous Scanning Frame Loop (Runs every 150ms)
+      // Continuous Scanning Frame Loop (with Auto-Scan check & duplicate cooldown)
       if (scanIntervalRef.current) clearInterval(scanIntervalRef.current);
       
       let lastFrameDecodeTime = 0;
       scanIntervalRef.current = setInterval(async () => {
-        if (!videoRef.current || videoRef.current.readyState < 2 || isProcessingFrameRef.current || isCameraPaused) {
+        if (
+          !isAutoScanRef.current ||
+          !videoRef.current ||
+          videoRef.current.readyState < 2 ||
+          isProcessingFrameRef.current ||
+          isCameraPaused
+        ) {
           return;
         }
 
         const now = Date.now();
-        if (now - lastFrameDecodeTime < 200) return;
+        if (now - lastFrameDecodeTime < 300) return;
 
         isProcessingFrameRef.current = true;
         try {
           const video = videoRef.current;
           const canvas = frameCanvasRef.current!;
           
-          const targetWidth = Math.min(640, video.videoWidth || 640);
-          const targetHeight = Math.min(480, video.videoHeight || 480);
+          const { cropX, cropY, cropW, cropH } = getVideoROICoordinates(
+            video,
+            videoContainerRef.current,
+            reticleRef.current
+          );
+
+          const targetWidth = 480;
+          const targetHeight = Math.max(100, Math.round(480 * (cropH / cropW)));
           canvas.width = targetWidth;
           canvas.height = targetHeight;
 
           const ctx = canvas.getContext('2d', { willReadFrequently: true });
           if (ctx) {
-            ctx.drawImage(video, 0, 0, targetWidth, targetHeight);
-            const decodedResult = await scanCanvasOrImage(canvas);
+            ctx.drawImage(video, cropX, cropY, cropW, cropH, 0, 0, targetWidth, targetHeight);
+            const decodedResult = await scanCanvasOrImage(canvas, false);
             
             if (decodedResult && decodedResult.trim()) {
+              const clean = decodedResult.trim();
               lastFrameDecodeTime = now;
+
+              // Duplicate Throttle & Cooldown:
+              // 1. Same barcode: 3000ms cooldown
+              // 2. Different barcode: 1000ms cooldown
+              const timeSinceLast = now - lastScannedTimeRef.current;
+              const isSameCode = clean.toLowerCase() === lastScannedCodeRef.current.toLowerCase();
+
+              if (isSameCode && timeSinceLast < 3000) {
+                return;
+              }
+              if (!isSameCode && timeSinceLast < 1000) {
+                return;
+              }
+
+              lastScannedCodeRef.current = clean;
+              lastScannedTimeRef.current = now;
+              setLastScannedInfo({ code: clean, time: now });
+
               // Trigger haptic vibration on mobile
               if (typeof navigator !== 'undefined' && navigator.vibrate) {
                 try { navigator.vibrate(60); } catch (_) {}
               }
-              handleCodeScannedRef.current(decodedResult);
+              handleCodeScannedRef.current(clean);
             }
           }
         } catch (_) {
         } finally {
           isProcessingFrameRef.current = false;
         }
-      }, 150);
+      }, 180);
 
     } catch (err: any) {
       if (err.name !== 'AbortError') {
@@ -1116,20 +1317,23 @@ export default function BarcodeScannerModal({
 
             {/* Kit Selector for Kit BOM Picking Mode */}
             {activeMode === 'kit_picking' && (
-              <div className="flex items-center gap-1.5">
-                <span className="text-[9px] sm:text-[10px] uppercase font-bold text-slate-400">Target Kit:</span>
-                <select
-                  value={selectedKitId}
-                  onChange={(e) => {
-                    setSelectedKitId(e.target.value);
-                    setScannedKitItems({});
-                  }}
-                  className="px-2 py-0.5 sm:px-2.5 sm:py-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg sm:rounded-xl text-[11px] sm:text-xs font-bold text-slate-900 dark:text-white cursor-pointer"
-                >
-                  {kits.map(k => (
-                    <option key={k.id} value={k.id}>{k.name} ({k.items?.length || 0} Parts)</option>
-                  ))}
-                </select>
+              <div className="flex items-center gap-1.5 min-w-[220px]">
+                <span className="text-[9px] sm:text-[10px] uppercase font-bold text-slate-400 shrink-0">Target Kit:</span>
+                <div className="flex-1">
+                  <SmartCombobox
+                    options={kitComboboxOptions}
+                    value={selectedKitId}
+                    onChange={(val) => {
+                      if (val) {
+                        setSelectedKitId(val);
+                        setScannedKitItems({});
+                      }
+                    }}
+                    placeholder="Select Target Kit..."
+                    searchPlaceholder="Search kit name..."
+                    size="sm"
+                  />
+                </div>
               </div>
             )}
           </div>
@@ -1167,7 +1371,22 @@ export default function BarcodeScannerModal({
               </div>
 
               {/* Hardware Quick Action Controls */}
-              <div className="flex items-center gap-1">
+              <div className="flex flex-wrap items-center gap-1">
+                {/* Auto Scan ON / OFF Toggle */}
+                <button
+                  type="button"
+                  onClick={() => setIsAutoScan(!isAutoScan)}
+                  className={`px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-lg sm:rounded-xl text-[10px] sm:text-[11px] font-bold transition-all flex items-center gap-1 cursor-pointer shadow-xs ${
+                    isAutoScan
+                      ? 'bg-amber-500 hover:bg-amber-400 text-slate-950 font-black ring-2 ring-amber-400/50'
+                      : 'bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300'
+                  }`}
+                  title={isAutoScan ? "Continuous auto-scan is active with duplicate protection" : "Auto-scan paused. Click 'Scan Code Now' to capture on demand."}
+                >
+                  <Zap className={`w-3 h-3 sm:w-3.5 sm:h-3.5 ${isAutoScan ? 'text-slate-950 fill-current' : 'text-slate-400'}`} />
+                  <span>{isAutoScan ? 'Auto Scan ON' : 'Auto Scan OFF'}</span>
+                </button>
+
                 <button
                   type="button"
                   onClick={handleFlipCamera}
@@ -1206,9 +1425,12 @@ export default function BarcodeScannerModal({
             </div>
 
             {/* Video Viewfinder Container with Realistic Scanner HUD */}
-            <div className={`relative rounded-2xl sm:rounded-3xl overflow-hidden bg-slate-950 border-2 transition-all shadow-xl h-[190px] sm:h-[230px] md:h-[260px] flex items-center justify-center ${
-              scanPulse ? 'border-emerald-400 ring-4 ring-emerald-500/40' : 'border-slate-800'
-            }`}>
+            <div
+              ref={videoContainerRef}
+              className={`relative rounded-2xl sm:rounded-3xl overflow-hidden bg-slate-950 border-2 transition-all shadow-xl h-[190px] sm:h-[230px] md:h-[260px] flex items-center justify-center ${
+                scanPulse ? 'border-emerald-400 ring-4 ring-emerald-500/40' : 'border-slate-800'
+              }`}
+            >
               
               <video
                 ref={videoRef}
@@ -1218,9 +1440,12 @@ export default function BarcodeScannerModal({
                 className="w-full h-full object-cover"
               />
 
-              {/* Realistic Industrial Scanner Targeting Reticle */}
-              <div className="absolute inset-0 pointer-events-none flex items-center justify-center p-4">
-                <div className="w-[72%] max-w-[360px] h-[65%] max-h-[170px] border-2 border-dashed border-indigo-400/50 rounded-2xl relative flex items-center justify-center backdrop-contrast-125">
+              {/* Realistic Industrial Scanner Targeting Reticle with Isolation Mask */}
+              <div className="absolute inset-0 pointer-events-none flex items-center justify-center p-3">
+                <div
+                  ref={reticleRef}
+                  className="w-[84%] max-w-[340px] h-[46%] max-h-[115px] border-2 border-dashed border-indigo-400/90 rounded-2xl relative flex items-center justify-center shadow-[0_0_0_9999px_rgba(2,6,23,0.55)] backdrop-contrast-115"
+                >
                   {/* Glowing Corner Brackets */}
                   <div className="absolute -top-1.5 -left-1.5 w-5 h-5 border-t-3 border-l-3 border-cyan-400 rounded-tl-md shadow-[0_0_8px_#22d3ee]" />
                   <div className="absolute -top-1.5 -right-1.5 w-5 h-5 border-t-3 border-r-3 border-cyan-400 rounded-tr-md shadow-[0_0_8px_#22d3ee]" />
@@ -1236,11 +1461,16 @@ export default function BarcodeScannerModal({
                   {/* Animated High-Intensity Red Laser Sweep Line */}
                   <div className="absolute inset-x-2 h-0.5 bg-gradient-to-r from-transparent via-rose-500 to-transparent shadow-[0_0_15px_#f43f5e] animate-pulse" />
 
-                  {/* Target Guide Badge */}
-                  <div className="absolute -bottom-3 px-2.5 py-0.5 rounded-full bg-slate-950/90 border border-slate-700 text-[9px] font-mono font-bold text-cyan-300 shadow-lg tracking-wider">
-                    {activeMode === 'relocate' && relocateStep === 'scan_bin'
-                      ? '🎯 AIM AT DESTINATION BIN'
-                      : '🎯 AIM BARCODE / QR HERE'}
+                  {/* Target Guide Badge with Mode Indicator */}
+                  <div className="absolute -bottom-3 px-3 py-0.5 rounded-full bg-slate-950/95 border border-slate-700 text-[9px] font-mono font-bold shadow-lg tracking-wider flex items-center gap-1.5">
+                    <span className={`w-1.5 h-1.5 rounded-full ${isAutoScan ? 'bg-emerald-400 animate-pulse' : 'bg-cyan-400'}`} />
+                    <span className="text-cyan-300">
+                      {activeMode === 'relocate' && relocateStep === 'scan_bin'
+                        ? '🎯 AIM AT DESTINATION BIN'
+                        : isAutoScan
+                        ? '⚡ AUTO-SCANNING (CENTER ONLY)'
+                        : '🎯 AIM & TAP "SCAN CODE NOW"'}
+                    </span>
                   </div>
                 </div>
               </div>
@@ -1299,6 +1529,36 @@ export default function BarcodeScannerModal({
                   </div>
                 </div>
               )}
+            </div>
+
+            {/* Prominent Single-Shot Manual Scan Action Button */}
+            <div className="pt-0.5">
+              <button
+                type="button"
+                onClick={handleManualScanNow}
+                disabled={!isCameraActive || isManualScanning}
+                className={`w-full py-2.5 sm:py-3 px-4 rounded-xl sm:rounded-2xl font-black text-xs sm:text-sm transition-all flex items-center justify-center gap-2 cursor-pointer shadow-md active:scale-[0.98] ${
+                  isCameraActive
+                    ? 'bg-gradient-to-r from-emerald-600 via-teal-600 to-indigo-600 hover:from-emerald-500 hover:to-indigo-500 text-white shadow-emerald-600/20 ring-2 ring-emerald-400/30'
+                    : 'bg-slate-200 dark:bg-slate-800 text-slate-400 cursor-not-allowed'
+                }`}
+                title="Capture and decode the barcode currently in the camera reticle"
+              >
+                {isManualScanning ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 animate-spin text-white" />
+                    <span>Reading Frame...</span>
+                  </>
+                ) : (
+                  <>
+                    <Camera className="w-4 h-4 sm:w-5 sm:h-5 text-cyan-300" />
+                    <span>📸 Scan Code Now</span>
+                    <span className="hidden sm:inline-block text-[10px] bg-black/30 px-2 py-0.5 rounded-md font-mono font-medium text-white/90">
+                      Spacebar
+                    </span>
+                  </>
+                )}
+              </button>
             </div>
           </div>
 
@@ -1585,16 +1845,17 @@ export default function BarcodeScannerModal({
                   </div>
 
                   <div className="flex items-center gap-2">
-                    <select
-                      value={relocateBinTarget}
-                      onChange={(e) => setRelocateBinTarget(e.target.value)}
-                      className="flex-1 px-3 py-2 bg-white dark:bg-slate-900 border border-cyan-300 dark:border-cyan-700 rounded-xl text-xs font-bold text-slate-900 dark:text-white"
-                    >
-                      <option value="">-- Choose Target Facility Bin --</option>
-                      {bins.map(b => (
-                        <option key={b.id} value={b.code}>{b.code} ({b.description || b.warehouseCode})</option>
-                      ))}
-                    </select>
+                    <div className="flex-1">
+                      <SmartCombobox
+                        options={binComboboxOptions}
+                        value={relocateBinTarget}
+                        onChange={(val) => setRelocateBinTarget(val)}
+                        placeholder="Choose Target Facility Bin..."
+                        searchPlaceholder="Type bin code, location..."
+                        size="md"
+                        isClearable
+                      />
+                    </div>
 
                     <button
                       type="button"
@@ -1602,7 +1863,7 @@ export default function BarcodeScannerModal({
                         if (relocateBinTarget) handleExecuteBinRelocation(scannedItem.id, relocateBinTarget);
                       }}
                       disabled={!relocateBinTarget}
-                      className="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 disabled:opacity-50 text-white font-bold text-xs rounded-xl shadow-md cursor-pointer"
+                      className="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 disabled:opacity-50 text-white font-bold text-xs rounded-xl shadow-md cursor-pointer h-[38px] shrink-0"
                     >
                       Move to Bin
                     </button>

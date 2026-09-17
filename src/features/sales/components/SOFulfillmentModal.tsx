@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { useData } from '@/src/DataContext';
 import { useToast } from '@/src/contexts/ToastContext';
+import SmartSelect from '@/src/shared/components/SmartSelect';
 
 interface SOFulfillmentModalProps {
   isOpen: boolean;
@@ -99,16 +100,18 @@ export default function SOFulfillmentModal({ isOpen, onClose, salesOrder }: SOFu
               <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
                 Logistics Carrier
               </label>
-              <select
+              <SmartSelect
                 value={carrier}
-                onChange={(e) => setCarrier(e.target.value)}
-                className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-medium text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500"
-              >
-                <option value="BlueDart Express">BlueDart Express (Air Cargo)</option>
-                <option value="Delhivery Logistics">Delhivery Logistics (Surface / Express)</option>
-                <option value="DTDC Courier">DTDC Priority Logistics</option>
-                <option value="Direct Lab Delivery">Direct Lab Delivery (Internal Van)</option>
-              </select>
+                onChange={setCarrier}
+                options={[
+                  { value: 'BlueDart Express', label: 'BlueDart Express (Air Cargo)' },
+                  { value: 'Delhivery Logistics', label: 'Delhivery Logistics (Surface / Express)' },
+                  { value: 'DTDC Courier', label: 'DTDC Priority Logistics' },
+                  { value: 'Direct Lab Delivery', label: 'Direct Lab Delivery (Internal Van)' },
+                ]}
+                placeholder="Select carrier..."
+                aria-label="Logistics Carrier"
+              />
             </div>
             <div>
               <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">

@@ -22,6 +22,7 @@ import {
 
 import DocumentPreviewModal from '@/src/shared/components/DocumentPreviewModal';
 import SOFulfillmentModal from '@/src/features/sales/components/SOFulfillmentModal';
+import SmartSelect from '@/src/shared/components/SmartSelect';
 import { useData } from '@/src/DataContext';
 
 interface SalesOrdersTabProps {
@@ -402,16 +403,19 @@ export default function SalesOrdersTab({ role }: SalesOrdersTabProps) {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block font-bold text-slate-500 uppercase text-[10px] mb-1">Status</label>
-                  <select
+                  <SmartSelect
                     value={editingSo.status}
-                    onChange={(e) => setEditingSo({ ...editingSo, status: e.target.value })}
-                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs focus:outline-none text-slate-900 dark:text-white"
-                  >
-                    <option value="draft">Draft</option>
-                    <option value="picking">Picking</option>
-                    <option value="shipped">Shipped</option>
-                    <option value="delivered">Delivered</option>
-                  </select>
+                    onChange={(val) => setEditingSo({ ...editingSo, status: val })}
+                    options={[
+                      { value: 'draft', label: 'Draft', badge: 'Draft' },
+                      { value: 'picking', label: 'Picking', badge: 'Picking' },
+                      { value: 'shipped', label: 'Shipped', badge: 'Shipped' },
+                      { value: 'delivered', label: 'Delivered', badge: 'Delivered' },
+                    ]}
+                    size="sm"
+                    placeholder="Status"
+                    aria-label="Sales Order Status"
+                  />
                 </div>
 
                 <div>

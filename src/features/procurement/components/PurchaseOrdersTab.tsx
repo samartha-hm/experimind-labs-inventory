@@ -23,6 +23,7 @@ import {
 
 import DocumentPreviewModal from '@/src/shared/components/DocumentPreviewModal';
 import PODocumentGeneratorModal from '@/src/features/procurement/components/PODocumentGeneratorModal';
+import SmartSelect from '@/src/shared/components/SmartSelect';
 import POReceivingModal from '@/src/features/procurement/components/POReceivingModal';
 import { useData } from '@/src/DataContext';
 import { useApproval } from '@/src/contexts/ApprovalContext';
@@ -378,15 +379,18 @@ export default function PurchaseOrdersTab({ role }: PurchaseOrdersTabProps) {
               <div className="grid grid-cols-3 gap-3">
                 <div>
                   <label className="block font-bold text-slate-500 uppercase text-[10px] mb-1">Status</label>
-                  <select
+                  <SmartSelect
                     value={editingPo.status}
-                    onChange={(e) => setEditingPo({ ...editingPo, status: e.target.value })}
-                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs focus:outline-none text-slate-900 dark:text-white"
-                  >
-                    <option value="draft">Draft</option>
-                    <option value="approved">Approved</option>
-                    <option value="received">Received</option>
-                  </select>
+                    onChange={(val) => setEditingPo({ ...editingPo, status: val })}
+                    options={[
+                      { value: 'draft', label: 'Draft', badge: 'Draft' },
+                      { value: 'approved', label: 'Approved', badge: 'Approved' },
+                      { value: 'received', label: 'Received', badge: 'Received' },
+                    ]}
+                    size="sm"
+                    placeholder="Status"
+                    aria-label="PO Status"
+                  />
                 </div>
 
                 <div>

@@ -40,6 +40,8 @@ import ItemImage from '@/src/shared/components/ItemImage';
 import { uploadImage } from '@/src/utils/storage';
 import { useData } from '@/src/DataContext';
 import { useToast } from '@/src/contexts/ToastContext';
+import SmartSelect from '@/src/shared/components/SmartSelect';
+import EmptyState from '@/src/shared/components/EmptyState';
 
 interface InventoryTabProps {
   inventory: InventoryItem[];
@@ -390,42 +392,42 @@ export default function InventoryTab({
 
           <div className="flex flex-wrap items-center gap-2 w-full md:w-auto shrink-0">
             {/* Storage Bin Location Filter */}
-            <div className="flex items-center gap-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700 px-3 py-2 rounded-2xl text-xs">
-              <MapPin className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-              <span className="font-bold text-slate-600 dark:text-slate-400 shrink-0 hidden sm:inline">Bin:</span>
-              <select
+            <div className="w-40 sm:w-44">
+              <SmartSelect
                 value={selectedLocation}
-                onChange={(e) => setSelectedLocation(e.target.value)}
-                className="bg-transparent font-bold text-slate-800 dark:text-slate-200 focus:outline-none cursor-pointer text-xs"
-              >
-                <option value="All">All Locations</option>
-                <option value="Unassigned">Unassigned Only</option>
-                {allBinLocations.map((loc) => (
-                  <option key={loc} value={loc}>{loc}</option>
-                ))}
-              </select>
+                onChange={setSelectedLocation}
+                size="sm"
+                options={[
+                  { value: 'All', label: 'All Locations' },
+                  { value: 'Unassigned', label: 'Unassigned Only' },
+                  ...allBinLocations.map((loc) => ({ value: loc, label: loc })),
+                ]}
+                placeholder="All Locations"
+                aria-label="Filter by bin location"
+              />
             </div>
 
             {/* Sort Dropdown */}
-            <div className="flex items-center gap-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700 px-3 py-2 rounded-2xl text-xs">
-              <SlidersHorizontal className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
-              <span className="font-bold text-slate-600 dark:text-slate-400 shrink-0 hidden sm:inline">Sort:</span>
-              <select
+            <div className="w-44 sm:w-52">
+              <SmartSelect
                 value={sortKey}
-                onChange={(e) => setSortKey(e.target.value)}
-                className="bg-transparent font-bold text-slate-800 dark:text-slate-200 focus:outline-none cursor-pointer text-xs"
-              >
-                <option value="name-asc">Name (A → Z)</option>
-                <option value="name-desc">Name (Z → A)</option>
-                <option value="stock-asc">Stock Qty (Low → High)</option>
-                <option value="stock-desc">Stock Qty (High → Low)</option>
-                <option value="price-asc">Price (Low → High)</option>
-                <option value="price-desc">Price (High → Low)</option>
-                <option value="bin-asc">Storage Bin Location</option>
-                <option value="category-asc">Category</option>
-                <option value="sku-asc">SKU / Barcode</option>
-                <option value="low-stock">Low Stock Warning</option>
-              </select>
+                onChange={setSortKey}
+                size="sm"
+                options={[
+                  { value: 'name-asc', label: 'Name (A → Z)' },
+                  { value: 'name-desc', label: 'Name (Z → A)' },
+                  { value: 'stock-asc', label: 'Stock (Low → High)' },
+                  { value: 'stock-desc', label: 'Stock (High → Low)' },
+                  { value: 'price-asc', label: 'Price (Low → High)' },
+                  { value: 'price-desc', label: 'Price (High → Low)' },
+                  { value: 'bin-asc', label: 'Storage Bin' },
+                  { value: 'category-asc', label: 'Category' },
+                  { value: 'sku-asc', label: 'SKU / Barcode' },
+                  { value: 'low-stock', label: 'Low Stock Warning' },
+                ]}
+                placeholder="Sort by..."
+                aria-label="Sort inventory items"
+              />
             </div>
           </div>
         </div>
@@ -605,8 +607,31 @@ export default function InventoryTab({
         </form>
       )}
 
+      {/* Empty State when no items match search / filter */}
+      {filteredAndSortedInventory.length === 0 && (
+        <EmptyState
+          preset={searchTerm ? 'search' : 'items'}
+          title={searchTerm ? `No matches for "${searchTerm}"` : 'No Inventory Items Found'}
+          description={
+            searchTerm
+              ? 'Try checking for spelling errors, clearing category filters, or scanning a barcode.'
+              : selectedCategory !== 'All'
+              ? `No inventory items found in category "${selectedCategory}".`
+              : 'Your inventory catalog is currently empty.'
+          }
+          actionLabel={searchTerm ? 'Clear Search' : selectedCategory !== 'All' ? 'Show All Items' : 'Add First Item'}
+          onAction={
+            searchTerm
+              ? () => setSearchTerm('')
+              : selectedCategory !== 'All'
+              ? () => setSelectedCategory('All')
+              : () => setIsAdding(true)
+          }
+        />
+      )}
+
       {/* Grid Mode View (Modern Large Visual Showcase) */}
-      {viewMode === 'grid' && (
+      {filteredAndSortedInventory.length > 0 && viewMode === 'grid' && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
           {filteredAndSortedInventory.map((item) => {
             const isZero = item.stockQty === 0 && !item.isCommon;
@@ -775,7 +800,7 @@ export default function InventoryTab({
       )}
 
       {/* Table Mode View */}
-      {viewMode === 'table' && (
+      {filteredAndSortedInventory.length > 0 && viewMode === 'table' && (
         <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-xs overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">

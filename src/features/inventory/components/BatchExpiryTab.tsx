@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { useData } from '@/src/DataContext';
 import { useToast } from '@/src/contexts/ToastContext';
+import SmartSelect from '@/src/shared/components/SmartSelect';
 
 interface BatchRecord {
   id: string;
@@ -226,17 +227,17 @@ export default function BatchExpiryTab() {
             <form onSubmit={handleCreateBatch} className="p-6 space-y-4 text-xs text-slate-700 dark:text-slate-300">
               <div>
                 <label className="block font-bold uppercase text-[10px] text-slate-400 mb-1">Select Catalog Item *</label>
-                <select
+                <SmartSelect
                   value={selectedItemId}
-                  onChange={(e) => setSelectedItemId(e.target.value)}
-                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-2.5 font-bold"
-                >
-                  {inventory.map((item) => (
-                    <option key={item.id} value={item.id}>
-                      {item.name} ({item.category})
-                    </option>
-                  ))}
-                </select>
+                  onChange={setSelectedItemId}
+                  options={inventory.map((item) => ({
+                    value: item.id,
+                    label: item.name,
+                    badge: item.category,
+                  }))}
+                  placeholder="Select inventory item..."
+                  aria-label="Select catalog item"
+                />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
@@ -277,16 +278,18 @@ export default function BatchExpiryTab() {
 
               <div>
                 <label className="block font-bold uppercase text-[10px] text-slate-400 mb-1">Storage Condition</label>
-                <select
+                <SmartSelect
                   value={storageCondition}
-                  onChange={(e) => setStorageCondition(e.target.value)}
-                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-2 text-xs"
-                >
-                  <option value="Dry Room Temp (15-25°C)">Dry Room Temp (15-25°C)</option>
-                  <option value="Cold Storage (2-8°C)">Cold Storage (2-8°C)</option>
-                  <option value="Deep Freeze (-20°C)">Deep Freeze (-20°C)</option>
-                  <option value="ESD Safe Storage">ESD Safe Shielded Storage</option>
-                </select>
+                  onChange={setStorageCondition}
+                  options={[
+                    'Dry Room Temp (15-25°C)',
+                    'Cold Storage (2-8°C)',
+                    'Deep Freeze (-20°C)',
+                    'ESD Safe Storage',
+                  ]}
+                  placeholder="Select storage condition..."
+                  aria-label="Select storage condition"
+                />
               </div>
 
               <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex justify-end gap-2">

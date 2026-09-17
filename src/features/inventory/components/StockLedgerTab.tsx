@@ -19,6 +19,7 @@ import {
 import { useData } from '@/src/DataContext';
 import { useToast } from '@/src/contexts/ToastContext';
 import { StockTransactionType } from '@/src/types';
+import SmartSelect from '@/src/shared/components/SmartSelect';
 
 export default function StockLedgerTab() {
   const { stockLedger, postStockAdjustment, inventory, loadStockLedger } = useData();
@@ -167,24 +168,26 @@ export default function StockLedgerTab() {
           />
         </div>
 
-        <div className="flex items-center gap-2 w-full sm:w-auto">
-          <Filter className="w-4 h-4 text-slate-400" />
-          <select
+        <div className="w-full sm:w-64">
+          <SmartSelect
             value={typeFilter}
-            onChange={(e) => setTypeFilter(e.target.value)}
-            className="px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-200 focus:outline-none"
-          >
-            <option value="ALL">All Movement Types ({stockLedger.length})</option>
-            <option value="PO_RECEIPT">PO Receipts (Inbound)</option>
-            <option value="SO_SHIPMENT">SO Shipments (Outbound)</option>
-            <option value="TRANSFER_IN">Transfer In</option>
-            <option value="TRANSFER_OUT">Transfer Out</option>
-            <option value="MANUAL_ADJUSTMENT">Manual Adjustments</option>
-            <option value="KIT_CONSUMPTION">BOM Kit Consumption</option>
-            <option value="KIT_PRODUCTION">BOM Kit Packed</option>
-            <option value="CYCLE_COUNT_VARIANCE">Cycle Audit Variances</option>
-            <option value="INITIAL_BALANCE">Initial Opening Balance</option>
-          </select>
+            onChange={setTypeFilter}
+            size="sm"
+            options={[
+              { value: 'ALL', label: `All Movements (${stockLedger.length})` },
+              { value: 'PO_RECEIPT', label: 'PO Receipts (Inbound)' },
+              { value: 'SO_SHIPMENT', label: 'SO Shipments (Outbound)' },
+              { value: 'TRANSFER_IN', label: 'Transfer In' },
+              { value: 'TRANSFER_OUT', label: 'Transfer Out' },
+              { value: 'MANUAL_ADJUSTMENT', label: 'Manual Adjustments' },
+              { value: 'KIT_CONSUMPTION', label: 'BOM Kit Consumption' },
+              { value: 'KIT_PRODUCTION', label: 'BOM Kit Packed' },
+              { value: 'CYCLE_COUNT_VARIANCE', label: 'Cycle Audit Variances' },
+              { value: 'INITIAL_BALANCE', label: 'Initial Opening Balance' },
+            ]}
+            placeholder="All Movement Types"
+            aria-label="Filter movement types"
+          />
         </div>
       </div>
 
@@ -290,24 +293,22 @@ export default function StockLedgerTab() {
 
             <form onSubmit={handlePostAdjustment} className="space-y-3">
               <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Select Component</label>
-                <select
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Select Component *</label>
+                <SmartSelect
                   value={selectedItemId}
-                  onChange={(e) => {
-                    setSelectedItemId(e.target.value);
-                    const item = inventory.find(i => i.id === e.target.value);
+                  onChange={(val) => {
+                    setSelectedItemId(val);
+                    const item = inventory.find(i => i.id === val);
                     if (item?.binLocation) setAdjustBin(item.binLocation);
                   }}
-                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border rounded-xl text-xs font-medium text-slate-900 dark:text-white"
-                  required
-                >
-                  <option value="">-- Choose Item --</option>
-                  {inventory.map(item => (
-                    <option key={item.id} value={item.id}>
-                      {item.name} (On hand: {item.stockQty} {item.unit})
-                    </option>
-                  ))}
-                </select>
+                  options={inventory.map(item => ({
+                    value: item.id,
+                    label: item.name,
+                    badge: `${item.stockQty} ${item.unit}`
+                  }))}
+                  placeholder="-- Choose Item --"
+                  aria-label="Select component for adjustment"
+                />
               </div>
 
               <div>
@@ -337,17 +338,19 @@ export default function StockLedgerTab() {
 
               <div>
                 <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Mandatory Reason Code</label>
-                <select
+                <SmartSelect
                   value={adjustReason}
-                  onChange={(e) => setAdjustReason(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border rounded-xl text-xs font-medium"
-                >
-                  <option value="Physical Count Reconciliation">Physical Count Reconciliation</option>
-                  <option value="Damaged / Expired Goods">Damaged / Expired Goods</option>
-                  <option value="Lab Testing Sample Taken">Lab Testing Sample Taken</option>
-                  <option value="Supplier Sample Addition">Supplier Sample Addition</option>
-                  <option value="Scrap / Defective Quarantine">Scrap / Defective Quarantine</option>
-                </select>
+                  onChange={setAdjustReason}
+                  options={[
+                    'Physical Count Reconciliation',
+                    'Damaged / Expired Goods',
+                    'Lab Testing Sample Taken',
+                    'Supplier Sample Addition',
+                    'Scrap / Defective Quarantine',
+                  ]}
+                  placeholder="Select reason..."
+                  aria-label="Adjustment reason code"
+                />
               </div>
 
               <div>

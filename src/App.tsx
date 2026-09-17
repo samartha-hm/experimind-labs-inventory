@@ -20,7 +20,7 @@ import PartnersTab from '@/src/features/partners/components/PartnersTab';
 import WarehousesTab from '@/src/features/warehouse/components/WarehousesTab';
 import BOMCustomizerModal from '@/src/features/kitting/components/BOMCustomizerModal';
 import CreateKitModal from '@/src/features/kitting/components/CreateKitModal';
-import ShopTab from '@/src/features/storefront/components/ShopTab';
+import StorefrontManagerTab from '@/src/features/storefront/components/StorefrontManagerTab';
 import RevisionHistoryTab from '@/src/features/history/RevisionHistoryTab';
 import AutomationTab from '@/src/features/automation/AutomationTab';
 import ValuationAnalyticsTab from '@/src/features/dashboard/components/ValuationAnalyticsTab';
@@ -52,10 +52,13 @@ import OfflineStatusBar from '@/src/shared/components/OfflineStatusBar';
 import { TenantProvider } from '@/src/contexts/TenantContext';
 import { ToastProvider } from '@/src/contexts/ToastContext';
 import { ApprovalProvider } from '@/src/contexts/ApprovalContext';
+import HardwareWorkbenchTab from '@/src/features/hardware/HardwareWorkbenchTab';
+import BomTreeManagerTab from '@/src/features/hardware/BomTreeManagerTab';
 import ToastContainer from '@/src/components/ToastContainer';
+import MobileBottomNav from '@/src/shared/components/MobileBottomNav';
 
 function MainApp() {
-  const { inventory, kits, transactions, loading, addInventoryItem, updateInventoryItem, deleteInventoryItem, updateKitBOM, addKitBOM, deleteKitBOM, logTransaction } = useData();
+  const { inventory, kits, transactions, loading, addInventoryItem, updateInventoryItem, deleteInventoryItem, updateKitBOM, addKitBOM, deleteKitBOM, logTransaction, salesOrders = [] } = useData();
   const { user, role, signOut } = useAuth();
   const { addAction, isProcessing } = useUndoRedo();
   const [isResearchDrawerOpen, setIsResearchDrawerOpen] = useState(false);
@@ -202,12 +205,14 @@ function MainApp() {
     const kit = kits.find(k => k.id === kitId);
     if (!kit) return;
 
-    for (const req of kit.items) {
+    // Concurrent optimistic item updates
+    const updates = kit.items.map(async (req) => {
       const item = inventory.find(i => i.id === req.componentId);
       if (item && !item.isCommon) {
         await updateInventoryItem(item.id, { stockQty: Math.max(0, item.stockQty - (req.qty * count)) });
       }
-    }
+    });
+    await Promise.all(updates);
 
     await logTransaction({
       id: `tx_${Date.now()}`,
@@ -232,12 +237,14 @@ function MainApp() {
     const kit = kits.find(k => k.id === kitId);
     if (!kit) return;
 
-    for (const req of kit.items) {
+    // Concurrent optimistic item updates
+    const updates = kit.items.map(async (req) => {
       const item = inventory.find(i => i.id === req.componentId);
       if (item && !item.isCommon) {
         await updateInventoryItem(item.id, { stockQty: item.stockQty + (req.qty * count) });
       }
-    }
+    });
+    await Promise.all(updates);
 
     await logTransaction({
       id: `tx_${Date.now()}`,
@@ -282,34 +289,39 @@ function MainApp() {
     </div>;
   }
 
+  const handleNavigateTab = (tab: string) => {
+    setActiveTab(tab);
+    setIsMobileMenuOpen(false);
+  };
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-100 via-slate-50 to-indigo-50/30 dark:from-slate-950 dark:via-slate-900 dark:to-indigo-950/40 flex font-sans antialiased text-slate-800 dark:text-slate-100 transition-colors">
+    <div className="h-screen w-full overflow-hidden bg-gradient-to-br from-slate-100 via-slate-50 to-indigo-50/30 dark:from-slate-950 dark:via-slate-900 dark:to-indigo-950/40 flex font-sans antialiased text-slate-800 dark:text-slate-100 transition-colors pb-[env(safe-area-inset-bottom,0px)]">
       <UndoRedoWidget />
       <Sidebar 
         activeTab={activeTab} 
-        setActiveTab={setActiveTab} 
+        setActiveTab={handleNavigateTab} 
         role={role} 
         onSignOut={signOut}
         isOpenMobile={isMobileMenuOpen}
         onCloseMobile={() => setIsMobileMenuOpen(false)}
       />
 
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden">
         <Header
           inventory={inventory}
           maxKitsPossible={kittingAnalysis.maxKitsPossible}
           kits={kits}
           selectedKitId={selectedKitId}
           setSelectedKitId={setSelectedKitId}
-          onNavigateTab={setActiveTab}
+          onNavigateTab={handleNavigateTab}
           onOpenCreateKitModal={() => setIsCreateKitModalOpen(true)}
           onOpenCommandPalette={() => setIsCommandPaletteOpen(true)}
           onOpenBarcodeScanner={() => setIsBarcodeScannerOpen(true)}
           onToggleMobileMenu={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
         />
 
-        <div className="flex-1 overflow-auto">
-          <div className="w-full px-4 md:px-6 lg:px-10 py-6">
+        <div className="flex-1 overflow-y-auto overflow-x-hidden overscroll-contain">
+          <div className="w-full px-3 sm:px-4 md:px-6 lg:px-10 py-4 sm:py-6 pb-24 md:pb-6">
             <main>
               {activeTab === 'overview' && (
                 <OverviewTab
@@ -325,45 +337,7 @@ function MainApp() {
               )}
 
               {activeTab === 'shop' && (
-                <ShopTab
-                  inventory={inventory}
-                  onPlaceOrder={async (orderData) => {
-                    try {
-                      await apiFetch('/api/v1/orders', {
-                        method: 'POST',
-                        body: JSON.stringify({
-                          customerName: orderData.customerName,
-                          customerEmail: orderData.customerEmail,
-                          customerPhone: orderData.phone,
-                          items: orderData.items.map((i: any) => ({
-                            itemId: i.assetId,
-                            quantity: i.quantity,
-                          })),
-                        }),
-                      });
-                      for (const it of orderData.items) {
-                        const existing = inventory.find((x) => x.id === it.assetId);
-                        if (existing) {
-                          const newQty = Math.max(0, existing.stockQty - it.quantity);
-                          await updateInventoryItem(existing.id, { stockQty: newQty });
-                        }
-                      }
-                      await logTransaction({
-                        id: `tx_${Date.now()}`,
-                        timestamp: new Date().toISOString(),
-                        type: 'adjust',
-                        description: `Storefront dispatch for ${orderData.customerName || 'Customer'} (#${orderData.orderId})`,
-                        items: orderData.items.map((i: any) => ({
-                          componentId: i.assetId,
-                          componentName: i.name,
-                          qtyDiff: -i.quantity,
-                        })),
-                      });
-                    } catch (err) {
-                      console.error('Storefront order placement error:', err);
-                    }
-                  }}
-                />
+                <StorefrontManagerTab role={role} />
               )}
 
               {activeTab === 'inventory' && (
@@ -395,6 +369,14 @@ function MainApp() {
                   onDeleteKit={(kitId) => deleteKitBOM(kitId)}
                   onUpdateKitBOM={(kitId, reqs, meta) => updateKitBOM(kitId, reqs, meta)}
                 />
+              )}
+
+              {activeTab === 'hardware_workbench' && (
+                <HardwareWorkbenchTab />
+              )}
+
+              {activeTab === 'pcba_bom' && (
+                <BomTreeManagerTab />
               )}
 
               {activeTab === 'gst' && (
@@ -550,6 +532,15 @@ function MainApp() {
       <BarcodeScannerModal
         isOpen={isBarcodeScannerOpen}
         onClose={() => setIsBarcodeScannerOpen(false)}
+      />
+
+      {/* Mobile Contextual Bottom Navigation */}
+      <MobileBottomNav
+        activeTab={activeTab}
+        onNavigateTab={handleNavigateTab}
+        onOpenScanner={() => setIsBarcodeScannerOpen(true)}
+        onToggleMobileMenu={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+        openSoCount={salesOrders.filter((so: any) => so.status === 'PENDING' || so.status === 'PROCESSING').length}
       />
     </div>
   );

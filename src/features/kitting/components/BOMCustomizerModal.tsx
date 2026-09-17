@@ -5,6 +5,7 @@ import { InventoryItem, KitBOM, BOMRequirement } from '@/src/types';
 import { uploadImage } from '@/src/utils/storage';
 import { useData } from '@/src/DataContext';
 import DiffViewer from '@/src/components/DiffViewer';
+import SmartSelect from '@/src/shared/components/SmartSelect';
 
 interface BOMCustomizerModalProps {
   isOpen: boolean;
@@ -257,16 +258,17 @@ export default function BOMCustomizerModal({
                 </h4>
                 <div className="grid grid-cols-1 sm:grid-cols-12 gap-2 items-center">
                   <div className="sm:col-span-4">
-                    <select
+                    <SmartSelect
                       value={selectedCategory}
-                      onChange={(e) => setSelectedCategory(e.target.value)}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs focus:outline-none"
-                    >
-                      <option value="all">All Categories</option>
-                      {categories.map((c) => (
-                        <option key={c} value={c}>{c}</option>
-                      ))}
-                    </select>
+                      onChange={setSelectedCategory}
+                      options={[
+                        { value: 'all', label: 'All Categories' },
+                        ...categories.map((c) => ({ value: c, label: c })),
+                      ]}
+                      size="sm"
+                      placeholder="All Categories"
+                      aria-label="Filter parts by category"
+                    />
                   </div>
                   <div className="sm:col-span-5 relative">
                     <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" />

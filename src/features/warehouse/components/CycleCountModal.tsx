@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { useData } from '@/src/DataContext';
 import { useToast } from '@/src/contexts/ToastContext';
+import SmartSelect from '@/src/shared/components/SmartSelect';
 
 interface CycleCountModalProps {
   isOpen: boolean;
@@ -233,17 +234,19 @@ export default function CycleCountModal({ isOpen, onClose, role }: CycleCountMod
 
               <div>
                 <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Target Category or Storage Zone</label>
-                <select
+                <SmartSelect
                   value={newZone}
-                  onChange={(e) => setNewZone(e.target.value)}
-                  className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-medium text-slate-900 dark:text-white"
-                >
-                  <option value="ALL">All Items (Full Facility Audit)</option>
-                  <option value="Electronics">Electronics & ICs</option>
-                  <option value="Sensors">Sensors & Modules</option>
-                  <option value="Chemicals">Chemicals & Reagents</option>
-                  <option value="Hardware">Hardware & Fasteners</option>
-                </select>
+                  onChange={setNewZone}
+                  options={[
+                    { value: 'ALL', label: 'All Items (Full Facility Audit)' },
+                    { value: 'Electronics', label: 'Electronics & ICs' },
+                    { value: 'Sensors', label: 'Sensors & Modules' },
+                    { value: 'Chemicals', label: 'Chemicals & Reagents' },
+                    { value: 'Hardware', label: 'Hardware & Fasteners' },
+                  ]}
+                  placeholder="Select category or zone..."
+                  aria-label="Target Category or Storage Zone"
+                />
               </div>
 
               <div className="flex items-center gap-2 p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
@@ -285,7 +288,8 @@ export default function CycleCountModal({ isOpen, onClose, role }: CycleCountMod
               </div>
 
               <div className="border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden">
-                <table className="w-full text-left text-xs text-slate-600 dark:text-slate-300">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs text-slate-600 dark:text-slate-300">
                   <thead className="bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-bold uppercase text-[10px]">
                     <tr>
                       <th className="p-3">Component</th>
@@ -330,6 +334,7 @@ export default function CycleCountModal({ isOpen, onClose, role }: CycleCountMod
                     ))}
                   </tbody>
                 </table>
+                </div>
               </div>
 
               <div className="flex justify-end gap-3">
@@ -367,7 +372,8 @@ export default function CycleCountModal({ isOpen, onClose, role }: CycleCountMod
               </div>
 
               <div className="border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden">
-                <table className="w-full text-left text-xs text-slate-600 dark:text-slate-300">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs text-slate-600 dark:text-slate-300">
                   <thead className="bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-bold uppercase text-[10px]">
                     <tr>
                       <th className="p-3">Part</th>
@@ -396,6 +402,7 @@ export default function CycleCountModal({ isOpen, onClose, role }: CycleCountMod
                     })}
                   </tbody>
                 </table>
+                </div>
               </div>
 
               <div className="flex justify-end gap-3">

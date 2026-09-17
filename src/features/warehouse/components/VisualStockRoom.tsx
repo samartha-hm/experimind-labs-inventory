@@ -37,6 +37,7 @@ import { useToast } from '@/src/contexts/ToastContext';
 import { InventoryItem } from '@/src/types';
 import BarcodeSvg from '@/src/shared/components/BarcodeSvg';
 import ItemImage from '@/src/shared/components/ItemImage';
+import SmartSelect from '@/src/shared/components/SmartSelect';
 
 export type StorageUnitType = 'steel_shelf' | 'plywood_grid' | 'cabinet';
 
@@ -68,98 +69,6 @@ export default function VisualStockRoom() {
   const [selectedRackId, setSelectedRackId] = useState<string>('RACK_1');
   const [searchFilter, setSearchFilter] = useState('');
 
-  // Initial Default Storage Units (Steel Racks, FabLab Bins, Safety Cabinet, Plywood Grid)
-  const initialRacks: PhysicalRack[] = useMemo(() => [
-    {
-      id: 'FABLAB_1',
-      code: 'FabLab Station',
-      name: 'FabLab Station — Maker & Prototyping Bins',
-      zone: 'Zone A (Active Prototyping)',
-      type: 'steel_shelf',
-      warehouseCode: warehouses[0]?.code || 'WH-MAIN-01',
-      shelves: [
-        { id: 'FL-S0', name: 'Main FabLab Bench & Common Trays', levelNumber: 1, bins: ['Fablab', 'Fablab - Bench', 'Fablab - Common'] },
-        { id: 'FL-S1', name: 'Tier 1 — Microcontrollers & Dev Boards', levelNumber: 2, bins: ['Fablab - Shelf 1', 'Fablab - Shelf 2'] },
-        { id: 'FL-S2', name: 'Tier 2 — Sensors & Actuators', levelNumber: 3, bins: ['Fablab - Shelf 3', 'Fablab - Shelf 4'] },
-        { id: 'FL-S3', name: 'Tier 3 — Power Supplies & Robotics', levelNumber: 4, bins: ['Fablab - Shelf 5', 'Fablab - Shelf 6'] },
-        { id: 'FL-S4', name: 'Tier 4 — Mechanical Tools & Hardware', levelNumber: 5, bins: ['Fablab - Shelf 7', 'Fablab - Shelf 8', 'Fablab - Shelf 9'] },
-      ]
-    },
-    {
-      id: 'RACK_1',
-      code: 'Rack Bay 1',
-      name: 'Storage Bay 1 (Shelves 1 to 10)',
-      zone: 'Zone B (Primary Component Racks)',
-      type: 'steel_shelf',
-      warehouseCode: warehouses[0]?.code || 'WH-MAIN-01',
-      shelves: [
-        { id: 'R1-L1', name: 'Level 1 (Shelves 1 - 2)', levelNumber: 1, bins: ['Rack - Shelf 1', 'Rack - Shelf 2'] },
-        { id: 'R1-L2', name: 'Level 2 (Shelves 3 - 4)', levelNumber: 2, bins: ['Rack - Shelf 3', 'Rack - Shelf 4'] },
-        { id: 'R1-L3', name: 'Level 3 (Shelves 5 - 6)', levelNumber: 3, bins: ['Rack - Shelf 5', 'Rack - Shelf 6', 'Rack - Shelf 6 - gram'] },
-        { id: 'R1-L4', name: 'Level 4 (Shelves 7 - 8)', levelNumber: 4, bins: ['Rack - Shelf 7', 'Rack - Shelf 8'] },
-        { id: 'R1-L5', name: 'Level 5 (Shelves 9 - 10)', levelNumber: 5, bins: ['Rack - Shelf 9', 'Rack - Shelf 10', 'Rack'] },
-      ]
-    },
-    {
-      id: 'RACK_2',
-      code: 'Rack Bay 2',
-      name: 'Storage Bay 2 (Shelves 11 to 20)',
-      zone: 'Zone B (Primary Component Racks)',
-      type: 'steel_shelf',
-      warehouseCode: warehouses[0]?.code || 'WH-MAIN-01',
-      shelves: [
-        { id: 'R2-L1', name: 'Level 1 (Shelves 11 - 12)', levelNumber: 1, bins: ['Rack - Shelf 11', 'Rack - Shelf 12'] },
-        { id: 'R2-L2', name: 'Level 2 (Shelves 13 - 14)', levelNumber: 2, bins: ['Rack - Shelf 13', 'Rack - Shelf 14'] },
-        { id: 'R2-L3', name: 'Level 3 (Shelves 15 - 16)', levelNumber: 3, bins: ['Rack - Shelf 15', 'Rack - Shelf 16'] },
-        { id: 'R2-L4', name: 'Level 4 (Shelves 17 - 18)', levelNumber: 4, bins: ['Rack - Shelf 17', 'Rack - Shelf 18'] },
-        { id: 'R2-L5', name: 'Level 5 (Shelves 19 - 20)', levelNumber: 5, bins: ['Rack - Shelf 19', 'Rack - Shelf 20'] },
-      ]
-    },
-    {
-      id: 'RACK_3',
-      code: 'Rack Bay 3',
-      name: 'Storage Bay 3 (Shelves 21 to 28 & Stock)',
-      zone: 'Zone C (High-Density Storage & Bulk Stock)',
-      type: 'steel_shelf',
-      warehouseCode: warehouses[0]?.code || 'WH-MAIN-01',
-      shelves: [
-        { id: 'R3-L1', name: 'Level 1 (Shelves 21 - 22)', levelNumber: 1, bins: ['Rack - Shelf 21', 'Rack - Shelf 22'] },
-        { id: 'R3-L2', name: 'Level 2 (Shelves 23 - 24)', levelNumber: 2, bins: ['Rack - Shelf 23', 'Rack - Shelf 24'] },
-        { id: 'R3-L3', name: 'Level 3 (Shelves 25 - 26)', levelNumber: 3, bins: ['Rack - Shelf 25', 'Rack - Shelf 26'] },
-        { id: 'R3-L4', name: 'Level 4 (Shelves 27 - 28)', levelNumber: 4, bins: ['Rack - Shelf 27', 'Rack - Shelf 28'] },
-        { id: 'R3-L5', name: 'Level 5 (Receiving & General Stock)', levelNumber: 5, bins: ['Stock', 'Stock Bay'] },
-      ]
-    },
-    {
-      id: 'CABINET_1',
-      code: 'Chemical & Glass Cabinet',
-      name: 'Chemical & Glassware Containment Cabinet',
-      zone: 'Zone D (Hazmat & Reagents)',
-      type: 'cabinet',
-      warehouseCode: warehouses[0]?.code || 'WH-MAIN-01',
-      shelves: [
-        { id: 'CAB-T1', name: 'Tier 1 — Reagents, Salts & Acids', levelNumber: 1, bins: ['Chemical Cabinet', 'Chemical Cabinet - 1', 'Chemical Cabinet - 2'] },
-        { id: 'CAB-T2', name: 'Tier 2 — Solvents & Solutions', levelNumber: 2, bins: ['Chemical Cabinet - 3', 'Chemical Cabinet - 4'] },
-        { id: 'CAB-T3', name: 'Tier 3 — Precision Lab Glassware', levelNumber: 3, bins: ['Glassware Shelf', 'Glassware Shelf 1', 'Glassware Shelf 2'] },
-      ]
-    },
-    {
-      id: 'PLYWOOD_GRID_1',
-      code: 'Plywood Organizer',
-      name: '🪵 Wooden Pigeonhole Grid Matrix',
-      zone: 'Zone E (Small Hardware & Screws)',
-      type: 'plywood_grid',
-      warehouseCode: warehouses[0]?.code || 'WH-MAIN-01',
-      gridConfig: { rows: 4, cols: 6 },
-      shelves: [
-        { id: 'PW-R1', name: 'Row A (Top Compartments)', levelNumber: 1, bins: ['PLY-A1', 'PLY-A2', 'PLY-A3', 'PLY-A4', 'PLY-A5', 'PLY-A6'] },
-        { id: 'PW-R2', name: 'Row B (Upper Mid Compartments)', levelNumber: 2, bins: ['PLY-B1', 'PLY-B2', 'PLY-B3', 'PLY-B4', 'PLY-B5', 'PLY-B6'] },
-        { id: 'PW-R3', name: 'Row C (Lower Mid Compartments)', levelNumber: 3, bins: ['PLY-C1', 'PLY-C2', 'PLY-C3', 'PLY-C4', 'PLY-C5', 'PLY-C6'] },
-        { id: 'PW-R4', name: 'Row D (Deep Base Trays)', levelNumber: 4, bins: ['PLY-D1', 'PLY-D2', 'PLY-D3', 'PLY-D4', 'PLY-D5', 'PLY-D6'] },
-      ]
-    },
-  ], [warehouses]);
-
   // Load / Persist Custom Storage Units (PostgreSQL Backend with LocalStorage Cache Fallback)
   const [racks, setRacks] = useState<PhysicalRack[]>(() => {
     if (physicalRacks && physicalRacks.length > 0) return physicalRacks;
@@ -170,7 +79,7 @@ export default function VisualStockRoom() {
         if (Array.isArray(parsed) && parsed.length > 0) return parsed;
       }
     } catch (_) {}
-    return initialRacks;
+    return [];
   });
 
   useEffect(() => {
@@ -190,7 +99,7 @@ export default function VisualStockRoom() {
   }, [racks]);
 
   // Active Storage Unit
-  const activeRack = racks.find(r => r.id === selectedRackId) || racks[0] || initialRacks[0];
+  const activeRack = racks.find(r => r.id === selectedRackId) || racks[0] || null;
 
   // 1. Create New Storage Unit Modal State
   const [isCreateRackOpen, setIsCreateRackOpen] = useState(false);
@@ -578,11 +487,82 @@ export default function VisualStockRoom() {
   };
 
   // Rack Occupancy Calculation
-  const totalSlotsInRack = activeRack.shelves.reduce((sum, s) => sum + s.bins.length, 0);
-  const occupiedSlotsInRack = activeRack.shelves.reduce((sum, s) => {
+  const totalSlotsInRack = activeRack ? activeRack.shelves.reduce((sum, s) => sum + s.bins.length, 0) : 0;
+  const occupiedSlotsInRack = activeRack ? activeRack.shelves.reduce((sum, s) => {
     return sum + s.bins.filter(b => getItemsForBin(b).length > 0).length;
-  }, 0);
-  const occupancyPct = Math.round((occupiedSlotsInRack / (totalSlotsInRack || 1)) * 100);
+  }, 0) : 0;
+  const occupancyPct = totalSlotsInRack > 0 ? Math.round((occupiedSlotsInRack / totalSlotsInRack) * 100) : 0;
+
+  if (!activeRack || racks.length === 0) {
+    return (
+      <div className="space-y-6 w-full animate-fadeIn pb-12">
+        <div className="bg-slate-900 text-white p-6 rounded-3xl border border-slate-800 shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <span className="bg-amber-500/20 text-amber-300 font-mono text-[10px] font-bold px-2.5 py-0.5 rounded-full border border-amber-500/40 uppercase flex items-center gap-1">
+                <Building2 className="w-3 h-3 text-amber-400" /> CUSTOMIZABLE PHYSICAL STORAGE MATRIX
+              </span>
+            </div>
+            <h2 className="text-2xl font-black tracking-tight text-white flex items-center gap-2">
+              Visual Storage Units & Physical Allotment
+            </h2>
+            <p className="text-xs text-slate-300">
+              Configure accurate physical storage units matching your warehouse layout.
+            </p>
+          </div>
+
+          <button
+            onClick={() => {
+              setNewRackForm({
+                name: '',
+                code: `RACK-1`,
+                type: 'steel_shelf',
+                zone: 'Zone A (Main Storage)',
+                warehouseCode: warehouses[0]?.code || 'WH-MAIN-01',
+                tierCount: 4,
+                compartmentsPerTier: 4
+              });
+              setIsCreateRackOpen(true);
+            }}
+            className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-2xl text-xs transition-all cursor-pointer flex items-center gap-2 shadow-md shadow-indigo-600/30 shrink-0"
+          >
+            <PlusCircle className="w-4 h-4 text-white" />
+            <span>Create Storage Unit</span>
+          </button>
+        </div>
+
+        <div className="bg-white dark:bg-slate-900 rounded-3xl border border-dashed border-slate-300 dark:border-slate-800 p-12 text-center space-y-4">
+          <div className="w-16 h-16 bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 rounded-2xl mx-auto flex items-center justify-center border border-indigo-100 dark:border-indigo-800">
+            <Building2 className="w-8 h-8" />
+          </div>
+          <div className="max-w-md mx-auto space-y-1">
+            <h3 className="text-base font-black text-slate-900 dark:text-white">No Custom Storage Racks Configured Yet</h3>
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              Build an accurate visual model of your storage bays, shelving tiers, or modular compartments matching your real warehouse floor.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              setNewRackForm({
+                name: '',
+                code: `RACK-1`,
+                type: 'steel_shelf',
+                zone: 'Zone A (Main Storage)',
+                warehouseCode: warehouses[0]?.code || 'WH-MAIN-01',
+                tierCount: 4,
+                compartmentsPerTier: 4
+              });
+              setIsCreateRackOpen(true);
+            }}
+            className="inline-flex items-center gap-2 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-2xl text-xs shadow-md transition-all cursor-pointer"
+          >
+            <Plus className="w-4 h-4" /> Create First Storage Unit
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 w-full animate-fadeIn pb-12">
@@ -1205,30 +1185,33 @@ export default function VisualStockRoom() {
 
                 <div>
                   <label className="block font-bold text-slate-500 uppercase text-[10px] mb-1">Storage Style / Type</label>
-                  <select
+                  <SmartSelect
                     value={newRackForm.type}
-                    onChange={(e) => setNewRackForm({ ...newRackForm, type: e.target.value as StorageUnitType })}
-                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white font-bold focus:outline-none cursor-pointer"
-                  >
-                    <option value="steel_shelf">🏗️ Steel Multi-Tier Shelving Unit</option>
-                    <option value="plywood_grid">🪵 Plywood Pigeonhole Matrix (Wooden Boxes)</option>
-                    <option value="cabinet">🗄️ Heavy Duty Storage Cabinet</option>
-                  </select>
+                    onChange={(val) => setNewRackForm({ ...newRackForm, type: val as StorageUnitType })}
+                    options={[
+                      { value: 'steel_shelf', label: '🏗️ Steel Multi-Tier Shelving Unit' },
+                      { value: 'plywood_grid', label: '🪵 Plywood Pigeonhole Matrix (Wooden Boxes)' },
+                      { value: 'cabinet', label: '🗄️ Heavy Duty Storage Cabinet' },
+                    ]}
+                    placeholder="Select storage style..."
+                    aria-label="Storage Style / Type"
+                  />
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block font-bold text-slate-500 uppercase text-[10px] mb-1">Warehouse Facility</label>
-                  <select
+                  <SmartSelect
                     value={newRackForm.warehouseCode}
-                    onChange={(e) => setNewRackForm({ ...newRackForm, warehouseCode: e.target.value })}
-                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white font-bold focus:outline-none cursor-pointer"
-                  >
-                    {warehouses.map(w => (
-                      <option key={w.id} value={w.code}>{w.name} ({w.code})</option>
-                    ))}
-                  </select>
+                    onChange={(val) => setNewRackForm({ ...newRackForm, warehouseCode: val })}
+                    options={warehouses.map(w => ({
+                      value: w.code,
+                      label: `${w.name} (${w.code})`,
+                    }))}
+                    placeholder="Select facility..."
+                    aria-label="Warehouse Facility"
+                  />
                 </div>
 
                 <div>
@@ -1339,30 +1322,33 @@ export default function VisualStockRoom() {
 
                 <div>
                   <label className="block font-bold text-slate-500 uppercase text-[10px] mb-1">Storage Style</label>
-                  <select
+                  <SmartSelect
                     value={editRackForm.type}
-                    onChange={(e) => setEditRackForm({ ...editRackForm, type: e.target.value as StorageUnitType })}
-                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white font-bold focus:outline-none cursor-pointer"
-                  >
-                    <option value="steel_shelf">🏗️ Steel Multi-Tier Shelving Unit</option>
-                    <option value="plywood_grid">🪵 Plywood Pigeonhole Matrix (Wooden Boxes)</option>
-                    <option value="cabinet">🗄️ Heavy Duty Storage Cabinet</option>
-                  </select>
+                    onChange={(val) => setEditRackForm({ ...editRackForm, type: val as StorageUnitType })}
+                    options={[
+                      { value: 'steel_shelf', label: '🏗️ Steel Multi-Tier Shelving Unit' },
+                      { value: 'plywood_grid', label: '🪵 Plywood Pigeonhole Matrix (Wooden Boxes)' },
+                      { value: 'cabinet', label: '🗄️ Heavy Duty Storage Cabinet' },
+                    ]}
+                    placeholder="Select storage style..."
+                    aria-label="Storage Style"
+                  />
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block font-bold text-slate-500 uppercase text-[10px] mb-1">Warehouse Facility</label>
-                  <select
+                  <SmartSelect
                     value={editRackForm.warehouseCode}
-                    onChange={(e) => setEditRackForm({ ...editRackForm, warehouseCode: e.target.value })}
-                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white font-bold focus:outline-none cursor-pointer"
-                  >
-                    {warehouses.map(w => (
-                      <option key={w.id} value={w.code}>{w.name} ({w.code})</option>
-                    ))}
-                  </select>
+                    onChange={(val) => setEditRackForm({ ...editRackForm, warehouseCode: val })}
+                    options={warehouses.map(w => ({
+                      value: w.code,
+                      label: `${w.name} (${w.code})`,
+                    }))}
+                    placeholder="Select facility..."
+                    aria-label="Warehouse Facility"
+                  />
                 </div>
 
                 <div>
