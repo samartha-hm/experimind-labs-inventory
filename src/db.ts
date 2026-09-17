@@ -66,6 +66,7 @@ import { EnterpriseMultiLocationAndAuditCore1689500000010 } from "./migration/16
 import { AddQmsAndESignatures1689500000011 } from "./migration/1689500000011-AddQmsAndESignatures.ts";
 import { AddOrderFulfillmentFields1689500000012 } from "./migration/1689500000012-AddOrderFulfillmentFields.ts";
 import { AddHardwareElectronicsBOM1689500000013 } from "./migration/1689500000013-AddHardwareElectronicsBOM.ts";
+import { AddStockIntegrityAndSpatialTree1689500000014 } from "./migration/1689500000014-AddStockIntegrityAndSpatialTree.ts";
 
 const isLocalhostDb = env.databaseUrl.includes("localhost") || env.databaseUrl.includes("127.0.0.1");
 
@@ -146,6 +147,7 @@ export const AppDataSource = new DataSource({
     AddQmsAndESignatures1689500000011,
     AddOrderFulfillmentFields1689500000012,
     AddHardwareElectronicsBOM1689500000013,
+    AddStockIntegrityAndSpatialTree1689500000014,
   ],
   subscribers: [],
 });

@@ -31,6 +31,9 @@ import {
   Barcode,
   Check,
   ShieldCheck,
+  Cpu,
+  ExternalLink,
+  FileText,
 } from 'lucide-react';
 import { InventoryItem, KitBOM } from '@/src/types';
 import EditPartModal from '@/src/features/inventory/components/EditPartModal';
@@ -77,6 +80,18 @@ export default function InventoryTab({
   const [sortKey, setSortKey] = useState<string>('name-asc');
   const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
   const [drawerItem, setDrawerItem] = useState<InventoryItem | null>(null);
+
+  // Component Inspector: Kits that depend on this component
+  const dependentKits = useMemo(() => {
+    if (!drawerItem || !kits) return [];
+    return kits.filter((k) =>
+      k.items?.some(
+        (c: any) =>
+          c.componentId === drawerItem.id ||
+          c.id === drawerItem.id
+      )
+    );
+  }, [drawerItem, kits]);
 
   // New Component Form State
   const [isAdding, setIsAdding] = useState(false);
@@ -1064,6 +1079,46 @@ export default function InventoryTab({
                   <span className="font-bold text-slate-400 uppercase tracking-wider text-[10px]">Base Price</span>
                   <span className="font-bold text-slate-900 dark:text-white">₹{Number(drawerItem.unitCost ?? drawerItem.basePrice ?? 0).toFixed(2)}</span>
                 </div>
+
+                {/* Hardware & Parametric Specs (Component Inspector) */}
+                {(drawerItem.mpn || drawerItem.packageFootprint || drawerItem.package_footprint) && (
+                  <div className="p-3 bg-indigo-50/40 dark:bg-indigo-950/30 rounded-2xl border border-indigo-100 dark:border-indigo-900/50 space-y-1.5">
+                    <div className="flex items-center gap-1.5 text-[11px] font-bold text-indigo-700 dark:text-indigo-300">
+                      <Cpu className="w-3.5 h-3.5 text-indigo-600" />
+                      <span>Hardware Engineering Specs</span>
+                    </div>
+                    {drawerItem.mpn && (
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-slate-500">MPN:</span>
+                        <span className="font-mono font-bold text-slate-900 dark:text-white">{drawerItem.mpn}</span>
+                      </div>
+                    )}
+                    {(drawerItem.packageFootprint || drawerItem.package_footprint) && (
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-slate-500">Footprint:</span>
+                        <span className="font-mono text-slate-800 dark:text-slate-200">{drawerItem.packageFootprint || drawerItem.package_footprint}</span>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Kit Dependencies (Component Inspector) */}
+                {dependentKits.length > 0 && (
+                  <div className="p-3 bg-purple-50/40 dark:bg-purple-950/30 rounded-2xl border border-purple-100 dark:border-purple-900/50 space-y-1.5">
+                    <div className="flex items-center justify-between text-[11px] font-bold text-purple-800 dark:text-purple-300">
+                      <span>Kit Dependencies ({dependentKits.length})</span>
+                      <span className="text-[10px] text-purple-600">Active BOMs</span>
+                    </div>
+                    <div className="space-y-1 max-h-32 overflow-y-auto">
+                      {dependentKits.map((k) => (
+                        <div key={k.id} className="text-xs text-slate-700 dark:text-slate-300 flex items-center gap-1.5 font-medium">
+                          <span className="w-1.5 h-1.5 rounded-full bg-purple-500" />
+                          <span>{k.name}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="pt-4 border-t border-slate-100 dark:border-slate-800 flex gap-2">

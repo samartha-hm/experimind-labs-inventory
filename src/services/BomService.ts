@@ -78,8 +78,15 @@ export class BomService {
   /**
    * Calculate effective demand factoring in scrap percentage for SMT feeder / assembly loss
    */
-  public static calculateEffectiveQuantity(quantity: number, scrapPercentage: number = 0): number {
-    const scrapMultiplier = 1 + Math.max(0, scrapPercentage) / 100;
+  public static calculateEffectiveQuantity(
+    quantity: number,
+    scrapPercentage: number = 0,
+    packageFootprint?: string
+  ): number {
+    // Standard +3% attrition allowance for SMD passives (0402, 0603, 0805, 1206) unless explicit scrap is set
+    const isPassiveSmt = Boolean(packageFootprint && /^(0201|0402|0603|0805|1206|C0|R0|SMD)/i.test(packageFootprint.trim()));
+    const effectiveScrap = scrapPercentage > 0 ? scrapPercentage : (isPassiveSmt ? 3 : 0);
+    const scrapMultiplier = 1 + Math.max(0, effectiveScrap) / 100;
     return Number((quantity * scrapMultiplier).toFixed(4));
   }
 
@@ -282,7 +289,8 @@ export class BomService {
 
         const effectiveQty = this.calculateEffectiveQuantity(
           Number(node.quantity),
-          Number(node.scrap_percentage)
+          Number(node.scrap_percentage),
+          childItem.package_footprint
         );
 
         const unitCost = Number(childItem.base_price || 0);

@@ -45,6 +45,7 @@ import qmsRoutes from "./src/routes/v1/qms.ts";
 import auditEventsRoutes from "./src/routes/v1/audit-events.ts";
 import bomRoutes from "./src/routes/v1/bom.ts";
 import hardwareRoutes from "./src/routes/v1/hardware.ts";
+import cartReservationRoutes from "./src/routes/v1/cart-reservation.ts";
 import { openApiSpec, renderSwaggerUiHtml } from "./src/docs/openapi.ts";
 
 // Initialize Postgres (with retry)
@@ -226,6 +227,7 @@ async function startServer() {
   // Hardware & Electronics Lab Extensions
   app.use(["/api/v1/bom", "/api/bom"], authenticateJwt, requireTenant, bomRoutes);
   app.use(["/api/v1/hardware", "/api/hardware"], authenticateJwt, requireTenant, hardwareRoutes);
+  app.use(["/api/v1/cart", "/api/public/cart"], cartReservationRoutes);
 
   // ===== Protected AI analysis endpoint =====
   app.post("/api/analyze", aiLimiter, authenticateJwt, requireTenant, async (req, res) => {
