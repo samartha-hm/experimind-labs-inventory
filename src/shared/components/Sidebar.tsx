@@ -86,14 +86,6 @@ export default function Sidebar({
       ],
     },
     {
-      title: 'MANUFACTURING & KITTING (BOM)',
-      items: [
-        { id: 'kitting', label: 'Composite Kits (STEM Packs)', icon: <Package className="w-4 h-4" />, badge: 'Kits', badgeColor: 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30' },
-        { id: 'pcba_bom', label: 'Recursive PCBA BOM & CAD', icon: <Layers className="w-4 h-4" />, badge: 'EDA', badgeColor: 'bg-purple-500/20 text-purple-300 border-purple-500/30' },
-        { id: 'hardware_workbench', label: 'Component Workbench (SMD/THT)', icon: <Cpu className="w-4 h-4" />, badge: 'SMT', badgeColor: 'bg-cyan-500/20 text-cyan-300 border-cyan-500/30' },
-      ],
-    },
-    {
       title: 'INVENTORY & TOPOLOGY',
       items: [
         {
@@ -108,6 +100,14 @@ export default function Sidebar({
         { id: 'cycle_counts', label: 'Physical Cycle Counts', icon: <FileCheck2 className="w-4 h-4" /> },
         { id: 'serial_numbers', label: 'Serial Number Registry', icon: <Tag className="w-4 h-4" /> },
         { id: 'batch_expiry', label: 'Batch & Expiry Manager', icon: <Clock className="w-4 h-4" /> },
+      ],
+    },
+    {
+      title: 'MANUFACTURING & KITTING (BOM)',
+      items: [
+        { id: 'kitting', label: 'Composite Kits (STEM Packs)', icon: <Package className="w-4 h-4" />, badge: 'Kits', badgeColor: 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30' },
+        { id: 'pcba_bom', label: 'Recursive PCBA BOM & CAD', icon: <Layers className="w-4 h-4" />, badge: 'EDA', badgeColor: 'bg-purple-500/20 text-purple-300 border-purple-500/30' },
+        { id: 'hardware_workbench', label: 'Component Workbench (SMD/THT)', icon: <Cpu className="w-4 h-4" />, badge: 'SMT', badgeColor: 'bg-cyan-500/20 text-cyan-300 border-cyan-500/30' },
       ],
     },
     {
