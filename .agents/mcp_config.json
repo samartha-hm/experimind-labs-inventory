@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "sqlite-inspector": {
+      "command": "uvx",
+      "args": ["mcp-server-sqlite", "--db-path", "app.db"]
+    },
+    "git-repo-tracker": {
+      "command": "uvx",
+      "args": ["mcp-server-git", "--repository", "."]
+    }
+  }
+}
