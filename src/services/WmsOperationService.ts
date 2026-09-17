@@ -8,8 +8,26 @@ import { WarehouseTransferLine } from "../entity/WarehouseTransferLine.ts";
 import { CycleCount } from "../entity/CycleCount.ts";
 import { CycleCountLine } from "../entity/CycleCountLine.ts";
 import { InventoryItem } from "../entity/InventoryItem.ts";
+import { StockLot } from "../entity/StockLot.ts";
 import { StockLedgerService } from "./StockLedgerService.ts";
 import crypto from "crypto";
+
+export interface LotAllocationResult {
+  allocations: Array<{
+    lotId: string;
+    lotNumber: string;
+    expiryDate?: Date;
+    allocatedQty: number;
+    unitCost: number;
+    remainingInLot: number;
+    feederSlot?: string;
+  }>;
+  totalAllocated: number;
+  requestedQty: number;
+  isFullyAllocated: boolean;
+  shortage: number;
+  strategy: "FEFO" | "FIFO";
+}
 
 export interface POReceiptLineInput {
   lineId: string;
@@ -456,6 +474,129 @@ export class WmsOperationService {
       relations: ["lines"],
       order: { created_at: "DESC" },
     });
+  }
+
+  // ==========================================
+  // 5. FEFO / FIFO LOT ALLOCATION ENGINE
+  // ==========================================
+
+  /**
+   * Pure calculation helper: Allocates requested quantity across lots using FEFO or FIFO,
+   * excluding expired, quarantined, or depleted batches.
+   */
+  public static computeLotAllocations(
+    lots: Array<{
+      id: string;
+      lot_number: string;
+      current_quantity: number;
+      unit_cost: number;
+      expiry_date?: Date | string | null;
+      received_date?: Date | string;
+      status: string;
+      feeder_slot?: string;
+    }>,
+    requestedQty: number,
+    strategy: "FEFO" | "FIFO" = "FEFO",
+    now: Date = new Date()
+  ): LotAllocationResult {
+    if (requestedQty <= 0) {
+      return {
+        allocations: [],
+        totalAllocated: 0,
+        requestedQty,
+        isFullyAllocated: true,
+        shortage: 0,
+        strategy,
+      };
+    }
+
+    // 1. Filter: RELEASED lots with positive stock and not expired
+    const candidateLots = lots.filter((l) => {
+      if (l.status !== "RELEASED") return false;
+      if (Number(l.current_quantity || 0) <= 0) return false;
+      if (l.expiry_date) {
+        const exp = new Date(l.expiry_date).getTime();
+        if (exp <= now.getTime()) return false; // Expired
+      }
+      return true;
+    });
+
+    // 2. Sort candidate lots by strategy
+    if (strategy === "FEFO") {
+      // FEFO: Lots with earliest expiry date first. Lots without expiry date come last.
+      candidateLots.sort((a, b) => {
+        if (a.expiry_date && b.expiry_date) {
+          return new Date(a.expiry_date).getTime() - new Date(b.expiry_date).getTime();
+        }
+        if (a.expiry_date && !b.expiry_date) return -1;
+        if (!a.expiry_date && b.expiry_date) return 1;
+        const recA = a.received_date ? new Date(a.received_date).getTime() : 0;
+        const recB = b.received_date ? new Date(b.received_date).getTime() : 0;
+        return recA - recB;
+      });
+    } else {
+      // FIFO: Earliest received date first
+      candidateLots.sort((a, b) => {
+        const recA = a.received_date ? new Date(a.received_date).getTime() : 0;
+        const recB = b.received_date ? new Date(b.received_date).getTime() : 0;
+        return recA - recB;
+      });
+    }
+
+    // 3. Allocate quantity
+    let remainingNeeded = requestedQty;
+    const allocations: LotAllocationResult["allocations"] = [];
+
+    for (const lot of candidateLots) {
+      const avail = Number(lot.current_quantity || 0);
+      if (avail <= 0) continue;
+
+      const take = Math.min(avail, remainingNeeded);
+      allocations.push({
+        lotId: lot.id,
+        lotNumber: lot.lot_number,
+        expiryDate: lot.expiry_date ? new Date(lot.expiry_date) : undefined,
+        allocatedQty: take,
+        unitCost: Number(lot.unit_cost || 0),
+        remainingInLot: avail - take,
+        feederSlot: lot.feeder_slot,
+      });
+
+      remainingNeeded -= take;
+      if (remainingNeeded <= 0) break;
+    }
+
+    const totalAllocated = requestedQty - remainingNeeded;
+
+    return {
+      allocations,
+      totalAllocated,
+      requestedQty,
+      isFullyAllocated: remainingNeeded <= 0,
+      shortage: Math.max(0, remainingNeeded),
+      strategy,
+    };
+  }
+
+  /**
+   * Database method: Finds active lots and allocates stock for picking in compliance with FEFO/FIFO.
+   */
+  public static async allocateLotsForPicking(
+    itemId: string,
+    requestedQty: number,
+    strategy: "FEFO" | "FIFO" = "FEFO",
+    orgId: string = "00000000-0000-0000-0000-000000000000"
+  ): Promise<LotAllocationResult> {
+    const lotRepo = AppDataSource.getRepository(StockLot);
+    const lots = await lotRepo.find({
+      where: {
+        item_id: itemId,
+        organization_id: orgId,
+        status: "RELEASED",
+      },
+    });
+
+    return this.computeLotAllocations(lots, requestedQty, strategy, new Date());
   }
 }
 

@@ -228,3 +228,32 @@ wmsOperationsRouter.post(
     }
   }
 );
+
+// =========================================================================
+// 5. FEFO / FIFO LOT ALLOCATION FOR PICKING
+// =========================================================================
+wmsOperationsRouter.post(
+  "/allocate-lots",
+  authenticateJwt,
+  async (req: Request, res: Response) => {
+    try {
+      const { itemId, requestedQty, strategy } = req.body;
+      if (!itemId || !requestedQty) {
+        return res.status(400).json({ error: "itemId and requestedQty are required" });
+      }
+
+      const orgId = req.user?.orgId || "00000000-0000-0000-0000-000000000000";
+      const result = await WmsOperationService.allocateLotsForPicking(
+        itemId,
+        Number(requestedQty),
+        strategy === "FIFO" ? "FIFO" : "FEFO",
+        orgId
+      );
+
+      res.json(result);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Failed to allocate lots for picking" });
+    }
+  }
+);
+

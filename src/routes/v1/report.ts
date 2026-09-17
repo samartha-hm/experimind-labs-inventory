@@ -136,4 +136,22 @@ router.get("/dashboard", requireTenant, requireRole("viewer", "staff", "manager"
   }
 });
 
+// GET /api/v1/report/reorder-recommendations (Viewer+)
+router.get("/reorder-recommendations", requireTenant, requireRole("viewer", "staff", "manager", "admin"), async (req, res) => {
+  try {
+    const orgId = (req as any).orgId;
+    const { leadTimeDays, serviceLevelZ } = req.query;
+    const { ForecastService } = await import("../../services/ForecastService.ts");
+
+    const recommendations = await ForecastService.getReorderRecommendations(orgId, {
+      leadTimeDays: leadTimeDays ? Number(leadTimeDays) : undefined,
+      serviceLevelZ: serviceLevelZ ? Number(serviceLevelZ) : undefined,
+    });
+
+    res.json(recommendations);
+  } catch (e: any) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
 export default router;

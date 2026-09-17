@@ -4,6 +4,7 @@ import { validate, IsString, IsOptional, IsInt, IsNumber, Min, IsUUID, IsBoolean
 import { plainToInstance } from "class-transformer";
 import { requireRole } from "../../middleware/requireRole.ts";
 import { requireTenant } from "../../middleware/tenant.ts";
+import { MemoryCache } from "../../utils/cache.ts";
 
 const router = Router();
 const service = new InventoryService();
@@ -177,12 +178,23 @@ router.get("/", requireTenant, requireRole("viewer", "staff", "admin"), async (r
     const filters = {
       sku: req.query.sku as string,
       name: req.query.name as string,
+      category: req.query.category as string,
+      q: (req.query.q || req.query.search) as string,
       lowStock: req.query.lowStock === "true",
       outOfStock: req.query.outOfStock === "true",
       warehouseId: req.query.warehouseId as string,
       organizationId: orgId,
+      page: req.query.page ? Number(req.query.page) : undefined,
+      limit: req.query.limit ? Number(req.query.limit) : undefined,
     };
+    const cacheKey = `org:${orgId}:inventory:${JSON.stringify(filters)}`;
+    const cached = MemoryCache.get(cacheKey);
+    if (cached) {
+      return res.json(cached);
+    }
+
     const list = await service.list(filters);
+    MemoryCache.set(cacheKey, list, 30, [`org:${orgId}:inventory`]);
     res.json(list);
   } catch (e: any) {
     res.status(400).json({ error: e.message });
@@ -209,6 +221,7 @@ router.post("/", requireTenant, requireRole("staff", "admin"), async (req, res) 
     const orgId = (req as any).orgId;
     await validateDto(req.body, CreateInventoryDto);
     const created = await service.create(req.body, orgId);
+    MemoryCache.invalidateTag(`org:${orgId}:inventory`);
     res.status(201).json(created);
   } catch (e: any) {
     res.status(400).json({ error: e.message });
@@ -231,6 +244,7 @@ router.post("/:id/adjust", requireTenant, requireRole("staff", "admin"), async (
       orgId,
       reason || "Manual stock adjustment"
     );
+    MemoryCache.invalidateTag(`org:${orgId}:inventory`);
     res.json(updated);
   } catch (e: any) {
     res.status(400).json({ error: e.message });
@@ -243,6 +257,7 @@ router.put("/:id", requireTenant, requireRole("staff", "admin"), async (req, res
     const orgId = (req as any).orgId;
     await validateDto(req.body, UpdateInventoryDto);
     const updated = await service.update(req.params.id, req.body, orgId);
+    MemoryCache.invalidateTag(`org:${orgId}:inventory`);
     res.json(updated);
   } catch (e: any) {
     res.status(400).json({ error: e.message });
@@ -281,11 +296,46 @@ router.get("/:id/zpl", requireTenant, async (req, res) => {
   }
 });
 
+// GET /api/v1/inventory/:id/valuation (FIFO & Moving Average Cost valuation)
+router.get("/:id/valuation", requireTenant, async (req, res) => {
+  try {
+    const orgId = (req as any).orgId;
+    const { ValuationService } = await import("../../services/ValuationService.ts");
+    const valuation = await ValuationService.getValuation(req.params.id, orgId);
+    res.json(valuation);
+  } catch (e: any) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
+// POST /api/v1/inventory/:id/cogs-preview (Preview COGS simulation under FIFO or Moving Average)
+router.post("/:id/cogs-preview", requireTenant, async (req, res) => {
+  try {
+    const orgId = (req as any).orgId;
+    const { quantity, strategy } = req.body;
+    if (!quantity || Number(quantity) <= 0) {
+      return res.status(400).json({ error: "Positive quantity is required" });
+    }
+
+    const { ValuationService } = await import("../../services/ValuationService.ts");
+    const result = await ValuationService.calculateCogs(
+      req.params.id,
+      Number(quantity),
+      strategy === "MOVING_AVERAGE" ? "MOVING_AVERAGE" : "FIFO",
+      orgId
+    );
+    res.json(result);
+  } catch (e: any) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
 // DELETE /api/v1/inventory/:id (Admins only)
 router.delete("/:id", requireTenant, requireRole("admin"), async (req, res) => {
   try {
     const orgId = (req as any).orgId;
     await service.delete(req.params.id, orgId);
+    MemoryCache.invalidateTag(`org:${orgId}:inventory`);
     res.json({ message: "Deleted" });
   } catch (e: any) {
     res.status(400).json({ error: e.message });
