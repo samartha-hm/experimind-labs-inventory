@@ -2,6 +2,7 @@ import { Router, Request, Response } from "express";
 import { AppDataSource } from "../../db.ts";
 import { SerialNumber, SerialStatus } from "../../entity/SerialNumber.ts";
 import { InventoryItem } from "../../entity/InventoryItem.ts";
+import { SerializationService, FLAGSHIP_PRODUCTS } from "../../services/SerializationService.ts";
 
 const router = Router();
 const serialRepo = AppDataSource.getRepository(SerialNumber);
@@ -212,6 +213,114 @@ router.delete("/:id", async (req: Request, res: Response): Promise<void> => {
 
     await serialRepo.remove(serial);
     res.json({ success: true, message: "Serial number removed" });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+/**
+ * POST /api/v1/serial-numbers/generate-standard
+ * Generate standardized serial numbers (EXP-[CODE]-26-XXXX) for flagship products
+ */
+router.post("/generate-standard", async (req: Request, res: Response): Promise<void> => {
+  try {
+    const orgId = (req as any).orgId || (req as any).organizationId || "00000000-0000-0000-0000-000000000000";
+    const { productCode = "ANB", count = 1, year = 26 } = req.body;
+
+    const startSeq = await SerializationService.getNextSequenceNumber(productCode, Number(year), orgId);
+    const numToGen = Math.max(1, Math.min(1000, Number(count) || 1));
+    const generated: string[] = [];
+
+    for (let i = 0; i < numToGen; i++) {
+      generated.push(SerializationService.generateSerial(productCode, startSeq + i, Number(year)));
+    }
+
+    res.json({
+      success: true,
+      productCode: productCode.toUpperCase(),
+      productInfo: FLAGSHIP_PRODUCTS[productCode.toUpperCase()] || null,
+      count: generated.length,
+      serialNumbers: generated,
+    });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+/**
+ * POST /api/v1/serial-numbers/pair-jig
+ * Pair programming jig telemetry (UID, MAC) with signed Serial QR & thermal label format
+ */
+router.post("/pair-jig", async (req: Request, res: Response): Promise<void> => {
+  try {
+    const orgId = (req as any).orgId || (req as any).organizationId || "00000000-0000-0000-0000-000000000000";
+    const {
+      serialNumber,
+      chipUid,
+      macAddress,
+      firmwareVersion,
+      qcPassed = true,
+      operatorId,
+      inventoryItemId,
+      warehouseId,
+      binId,
+    } = req.body;
+
+    if (!serialNumber) {
+      res.status(400).json({ success: false, message: "serialNumber is required" });
+      return;
+    }
+
+    const pairing = SerializationService.pairJigDevice({
+      serialNumber,
+      chipUid,
+      macAddress,
+      firmwareVersion,
+      qcPassed: Boolean(qcPassed),
+      operatorId,
+    });
+
+    // Look up or create serial number record
+    let serial = await serialRepo.findOne({
+      where: { serialNumber, organizationId: orgId },
+    });
+
+    const auditEntry = {
+      timestamp: new Date().toISOString(),
+      action: qcPassed ? "QC_PASSED_JIG_PAIRED" : "QC_FAILED_JIG_PAIRED",
+      status: qcPassed ? ("IN_STOCK" as SerialStatus) : ("SCRAPPED" as SerialStatus),
+      user: operatorId || (req as any).user?.name || "Jig Auto-Flash",
+      location: binId || "Testing & Programming Jig",
+      referenceId: chipUid || macAddress,
+      notes: `Flashed firmware: ${firmwareVersion || "v1.0.0"} | Chip UID: ${chipUid || "N/A"} | MAC: ${pairing.macAddress || "N/A"} | Signature: ${pairing.signature}`,
+    };
+
+    if (serial) {
+      serial.status = qcPassed ? "IN_STOCK" : "SCRAPPED";
+      serial.history = [...(serial.history || []), auditEntry];
+      serial.notes = `UID: ${chipUid || "N/A"} | MAC: ${pairing.macAddress || "N/A"}`;
+      await serialRepo.save(serial);
+    } else if (inventoryItemId) {
+      serial = serialRepo.create({
+        organizationId: orgId,
+        inventoryItemId,
+        serialNumber,
+        status: qcPassed ? "IN_STOCK" : "SCRAPPED",
+        warehouseId: warehouseId || undefined,
+        binId: binId || "QC-STAGING",
+        notes: `UID: ${chipUid || "N/A"} | MAC: ${pairing.macAddress || "N/A"}`,
+        history: [auditEntry],
+      });
+      await serialRepo.save(serial);
+    }
+
+    res.json({
+      success: true,
+      data: {
+        serial,
+        pairing,
+      },
+    });
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message });
   }

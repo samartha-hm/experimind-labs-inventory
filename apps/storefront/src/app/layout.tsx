@@ -143,6 +143,7 @@ export default function RootLayout({
                 <h4 className="text-white font-bold text-xs uppercase tracking-wider mb-4">Customer & Lab Services</h4>
                 <ul className="space-y-2 text-xs">
                   <li><Link href="/account" className="hover:text-white transition-colors">Your Customer Account</Link></li>
+                  <li><Link href="/institutional-quote" className="text-cyan-400 hover:text-cyan-300 font-bold transition-colors">B2B Quotation Hub (Schools & ATLs)</Link></li>
                   <li><Link href="/track" className="hover:text-white transition-colors">Track Real-Time Order Status</Link></li>
                   <li><Link href="/account" className="hover:text-white transition-colors">Download Official Invoices</Link></li>
                   <li><Link href="/account" className="hover:text-white transition-colors">Lab Support & Inquiries</Link></li>

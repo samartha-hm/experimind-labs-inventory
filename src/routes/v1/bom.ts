@@ -416,4 +416,45 @@ router.post("/commit-cad", async (req: Request, res: Response) => {
   }
 });
 
+/**
+ * POST /api/v1/bom/vendor-po-export
+ * Export component shortage list directly as vendor-ready PO CSV (LCSC, Robu.in, Mouser India)
+ */
+router.post("/vendor-po-export", async (req: Request, res: Response) => {
+  try {
+    const { shortages, vendor = "LCSC", itemId, quantity } = req.body;
+    const targetVendor = (String(vendor).toUpperCase() || "LCSC") as "LCSC" | "ROBU" | "MOUSER";
+
+    let shortageList = shortages;
+    if ((!shortageList || shortageList.length === 0) && itemId) {
+      const orgId = (req as any).orgId || (req as any).organizationId || "00000000-0000-0000-0000-000000000000";
+      const analysis = await BomService.analyzeProductionShortages(itemId, Number(quantity) || 1, orgId);
+      shortageList = analysis.shortages;
+    }
+
+    if (!shortageList || shortageList.length === 0) {
+      return res.status(200).json({
+        success: true,
+        csv: "",
+        filename: `PO_${targetVendor}_EMPTY.csv`,
+        count: 0,
+      });
+    }
+
+    const csv = BomService.generateVendorPoCsv(shortageList, targetVendor);
+    const dateStr = new Date().toISOString().slice(0, 10);
+    const filename = `PO_${targetVendor}_${dateStr}.csv`;
+
+    return res.status(200).json({
+      success: true,
+      csv,
+      filename,
+      count: shortageList.length,
+      vendor: targetVendor,
+    });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 export default router;

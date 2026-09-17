@@ -31,15 +31,25 @@ export default function CommandPaletteModal({ isOpen, onClose, inventory, kits, 
 
   if (!isOpen) return null;
 
-  const filteredInventory = inventory.filter(i => 
-    i.name.toLowerCase().includes(query.toLowerCase()) || 
-    i.id.toLowerCase().includes(query.toLowerCase()) ||
-    (i.category && i.category.toLowerCase().includes(query.toLowerCase()))
-  ).slice(0, 5);
+  const qLower = query.toLowerCase().trim();
+  const filteredInventory = inventory.filter(i => {
+    if (!qLower) return true;
+    return (
+      i.name.toLowerCase().includes(qLower) || 
+      i.id.toLowerCase().includes(qLower) ||
+      (i.sku && i.sku.toLowerCase().includes(qLower)) ||
+      (i.mpn && i.mpn.toLowerCase().includes(qLower)) ||
+      (i.binLocation && i.binLocation.toLowerCase().includes(qLower)) ||
+      (i.barcode && i.barcode.toLowerCase().includes(qLower)) ||
+      (i.packageFootprint && i.packageFootprint.toLowerCase().includes(qLower)) ||
+      (i.category && i.category.toLowerCase().includes(qLower))
+    );
+  }).slice(0, 6);
 
   const filteredKits = kits.filter(k => 
-    k.name.toLowerCase().includes(query.toLowerCase()) || 
-    k.description.toLowerCase().includes(query.toLowerCase())
+    !qLower ||
+    k.name.toLowerCase().includes(qLower) || 
+    (k.description && k.description.toLowerCase().includes(qLower))
   ).slice(0, 3);
 
   const QUICK_ACTIONS = [
@@ -115,7 +125,12 @@ export default function CommandPaletteModal({ isOpen, onClose, inventory, kits, 
                       </div>
                       <div>
                         <div className="font-bold text-slate-800">{item.name}</div>
-                        <div className="text-[10px] text-slate-400 font-mono">SKU: {item.id} • Category: {item.category}</div>
+                        <div className="text-[10px] text-slate-500 font-mono flex items-center gap-2 flex-wrap mt-0.5">
+                          <span>IPN: {item.sku || item.id}</span>
+                          {item.mpn && <span className="text-indigo-600 font-bold">MPN: {item.mpn}</span>}
+                          {item.binLocation && <span className="text-emerald-700 font-medium">📍 {item.binLocation}</span>}
+                          <span>Cat: {item.category}</span>
+                        </div>
                       </div>
                     </div>
 

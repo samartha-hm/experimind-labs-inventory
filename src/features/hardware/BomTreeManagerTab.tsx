@@ -19,6 +19,8 @@ import {
   RefreshCw,
   Calculator,
   ExternalLink,
+  Download,
+  ShoppingCart,
 } from "lucide-react";
 import { apiFetch } from "../../utils/api.ts";
 import { useToast } from "../../contexts/ToastContext.tsx";
@@ -218,6 +220,41 @@ export default function BomTreeManagerTab() {
       // Non-blocking
     } finally {
       setIsAnalyzingShortage(false);
+    }
+  };
+
+  const handleExportVendorPo = async (vendor: "LCSC" | "ROBU" | "MOUSER") => {
+    if (!shortageResult || !shortageResult.shortages || shortageResult.shortages.length === 0) {
+      showToast("error", "No component shortages to export.");
+      return;
+    }
+    try {
+      const res = await apiFetch("/api/v1/bom/vendor-po-export", {
+        method: "POST",
+        body: JSON.stringify({
+          shortages: shortageResult.shortages,
+          vendor,
+          itemId: selectedAssemblyId,
+          quantity: batchQuantity,
+        }),
+      });
+
+      if (res && res.success && res.csv) {
+        const blob = new Blob([res.csv], { type: "text/csv;charset=utf-8;" });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.setAttribute("download", res.filename || `PO_${vendor}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+        showToast("success", `Downloaded ${vendor} Purchase Order CSV (${res.count} items).`);
+      } else {
+        showToast("error", "Failed to generate vendor PO: " + (res?.error || "Empty result"));
+      }
+    } catch (err: any) {
+      showToast("error", "Export failed: " + err.message);
     }
   };
 
@@ -507,6 +544,45 @@ export default function BomTreeManagerTab() {
                       )}
                     </div>
                   ))}
+                </div>
+              )}
+
+              {/* 1-Click Sourcing PO Generator */}
+              {shortageResult.shortages.length > 0 && (
+                <div className="pt-3 border-t border-slate-800/80 space-y-2">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-semibold text-slate-300 flex items-center gap-1.5">
+                      <ShoppingCart className="w-3.5 h-3.5 text-indigo-400" />
+                      1-Click Sourcing PO Export
+                    </span>
+                    <span className="text-[10px] text-slate-400">Vendor CSVs</span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-1.5">
+                    <button
+                      onClick={() => handleExportVendorPo("LCSC")}
+                      className="px-2 py-1.5 bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 border border-blue-500/30 rounded-lg text-[11px] font-medium flex items-center justify-center gap-1 transition"
+                      title="Generate LCSC PO CSV with MPN, Package & Shortage Qty"
+                    >
+                      <Download className="w-3 h-3" />
+                      LCSC PO
+                    </button>
+                    <button
+                      onClick={() => handleExportVendorPo("ROBU")}
+                      className="px-2 py-1.5 bg-orange-600/20 hover:bg-orange-600/30 text-orange-300 border border-orange-500/30 rounded-lg text-[11px] font-medium flex items-center justify-center gap-1 transition"
+                      title="Generate Robu.in CSV with SKU, Product & Shortage Qty"
+                    >
+                      <Download className="w-3 h-3" />
+                      Robu.in PO
+                    </button>
+                    <button
+                      onClick={() => handleExportVendorPo("MOUSER")}
+                      className="px-2 py-1.5 bg-sky-600/20 hover:bg-sky-600/30 text-sky-300 border border-sky-500/30 rounded-lg text-[11px] font-medium flex items-center justify-center gap-1 transition"
+                      title="Generate Mouser India CSV with MPN & Shortage Qty"
+                    >
+                      <Download className="w-3 h-3" />
+                      Mouser PO
+                    </button>
+                  </div>
                 </div>
               )}
             </div>

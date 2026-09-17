@@ -6,11 +6,11 @@ import JsBarcode from 'jsbarcode';
  */
 export function playScanBeep(type: 'success' | 'match' | 'warning' | 'error' | 'click' = 'success') {
   try {
-    // Haptic feedback on supported devices
+    // Haptic feedback on supported devices (Experimind Floor Ergonomics Standard)
     if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
-      if (type === 'success') navigator.vibrate?.(40);
+      if (type === 'success') navigator.vibrate?.(45);
       else if (type === 'match') navigator.vibrate?.([40, 30, 60]);
-      else if (type === 'error' || type === 'warning') navigator.vibrate?.([80, 50, 80]);
+      else if (type === 'error' || type === 'warning') navigator.vibrate?.([100, 50, 100]); // 180Hz double buzz haptic
     }
 
     const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
@@ -24,9 +24,10 @@ export function playScanBeep(type: 'success' | 'match' | 'warning' | 'error' | '
     gain.connect(ctx.destination);
 
     if (type === 'success') {
+      // 1200 Hz high-precision success chime
       osc.type = 'sine';
-      osc.frequency.setValueAtTime(1046.5, ctx.currentTime); // C6 note
-      osc.frequency.exponentialRampToValueAtTime(2093, ctx.currentTime + 0.08); // C7 note
+      osc.frequency.setValueAtTime(1200, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(1600, ctx.currentTime + 0.08);
       gain.gain.setValueAtTime(0.25, ctx.currentTime);
       gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.12);
       osc.start(ctx.currentTime);
@@ -35,7 +36,7 @@ export function playScanBeep(type: 'success' | 'match' | 'warning' | 'error' | '
       // Harmonic pleasant chord
       osc.type = 'triangle';
       osc.frequency.setValueAtTime(880, ctx.currentTime); // A5
-      osc.frequency.setValueAtTime(1174.66, ctx.currentTime + 0.06); // D6
+      osc.frequency.setValueAtTime(1200, ctx.currentTime + 0.06); // 1200 Hz
       osc.frequency.setValueAtTime(1760, ctx.currentTime + 0.12); // A6
       gain.gain.setValueAtTime(0.2, ctx.currentTime);
       gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.22);
@@ -43,20 +44,21 @@ export function playScanBeep(type: 'success' | 'match' | 'warning' | 'error' | '
       osc.stop(ctx.currentTime + 0.22);
     } else if (type === 'warning') {
       osc.type = 'sawtooth';
-      osc.frequency.setValueAtTime(440, ctx.currentTime);
-      osc.frequency.setValueAtTime(330, ctx.currentTime + 0.08);
+      osc.frequency.setValueAtTime(360, ctx.currentTime);
+      osc.frequency.setValueAtTime(240, ctx.currentTime + 0.08);
       gain.gain.setValueAtTime(0.2, ctx.currentTime);
       gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.16);
       osc.start(ctx.currentTime);
       osc.stop(ctx.currentTime + 0.16);
     } else if (type === 'error') {
+      // 180 Hz mismatch buzz with double vibration
       osc.type = 'sawtooth';
-      osc.frequency.setValueAtTime(220, ctx.currentTime);
-      osc.frequency.exponentialRampToValueAtTime(110, ctx.currentTime + 0.2);
+      osc.frequency.setValueAtTime(180, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(140, ctx.currentTime + 0.25);
       gain.gain.setValueAtTime(0.3, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.2);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.25);
       osc.start(ctx.currentTime);
-      osc.stop(ctx.currentTime + 0.2);
+      osc.stop(ctx.currentTime + 0.25);
     } else {
       osc.type = 'sine';
       osc.frequency.setValueAtTime(1200, ctx.currentTime);

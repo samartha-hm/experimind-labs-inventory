@@ -513,6 +513,14 @@ export default function Header() {
             </Link>
 
             <Link
+              href="/institutional-quote"
+              className="hover:text-cyan-300 transition-colors text-cyan-400 flex items-center gap-1 font-bold"
+            >
+              <Building className="w-3.5 h-3.5 text-cyan-400" />
+              <span>B2B / School Quotation</span>
+            </Link>
+
+            <Link
               href="/catalog?badge=Deal"
               className="hover:text-amber-300 transition-colors text-amber-400 flex items-center gap-1 font-black"
             >
@@ -552,6 +560,10 @@ export default function Header() {
           <div className="flex flex-col space-y-2 text-xs font-bold uppercase tracking-wider text-slate-700">
             <Link href="/" onClick={() => setMobileMenuOpen(false)} className="p-2.5 hover:bg-slate-100 rounded-xl">Home</Link>
             <Link href="/catalog" onClick={() => setMobileMenuOpen(false)} className="p-2.5 hover:bg-slate-100 rounded-xl">All Kits & Labware</Link>
+            <Link href="/institutional-quote" onClick={() => setMobileMenuOpen(false)} className="p-2.5 hover:bg-cyan-50 text-cyan-700 rounded-xl font-black flex items-center gap-2">
+              <Building className="w-4 h-4 text-cyan-600" />
+              <span>B2B / School Quotation Hub</span>
+            </Link>
             <Link href="/catalog?category=STEM%20Kits" onClick={() => setMobileMenuOpen(false)} className="p-2.5 hover:bg-indigo-50 text-indigo-600 rounded-xl font-black">Flagship STEM Kits</Link>
             <Link href="/catalog?category=Maths%20kits" onClick={() => setMobileMenuOpen(false)} className="p-2.5 hover:bg-slate-100 rounded-xl">3D Geomagic Math</Link>
             <Link href="/catalog?category=Prastuti%20Science" onClick={() => setMobileMenuOpen(false)} className="p-2.5 hover:bg-slate-100 rounded-xl">Demonstration Science</Link>

@@ -542,4 +542,43 @@ export class BomService {
       return await manager.save(StockLot, lot);
     });
   }
+
+  /**
+   * Generates vendor-formatted Purchase Order CSV from shortage items
+   * Supports: LCSC, Robu.in, Mouser India
+   */
+  public static generateVendorPoCsv(
+    shortages: ShortageItem[],
+    vendor: "LCSC" | "ROBU" | "MOUSER"
+  ): string {
+    if (!shortages || shortages.length === 0) return "";
+
+    if (vendor === "LCSC") {
+      // LCSC BOM Import Format: LCSC Part Number,Manufacturer Part Number,Package,Quantity
+      const header = "LCSC Part Number,Manufacturer Part Number,Package,Quantity\n";
+      const rows = shortages.map((s: any) => {
+        const lcscMpn = s.mpn || s.sku || "";
+        const pkg = s.packageFootprint || "SMD";
+        const qty = s.shortageQuantity ?? s.missingQuantity ?? 0;
+        return `"${lcscMpn}","${s.mpn || ""}","${pkg}",${qty}`;
+      });
+      return header + rows.join("\n");
+    } else if (vendor === "ROBU") {
+      // Robu.in Format: SKU,Product Name,Quantity
+      const header = "SKU,Product Name,Quantity\n";
+      const rows = shortages.map((s: any) => {
+        const qty = s.shortageQuantity ?? s.missingQuantity ?? 0;
+        return `"${s.sku || s.mpn}","${(s.name || s.mpn).replace(/"/g, '""')}",${qty}`;
+      });
+      return header + rows.join("\n");
+    } else {
+      // Mouser India Format: Mouser Part Number,Manufacturer Part Number,Quantity
+      const header = "Mouser Part Number,Manufacturer Part Number,Quantity\n";
+      const rows = shortages.map((s: any) => {
+        const qty = s.shortageQuantity ?? s.missingQuantity ?? 0;
+        return `,"${s.mpn || s.sku}",${qty}`;
+      });
+      return header + rows.join("\n");
+    }
+  }
 }
