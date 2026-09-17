@@ -23,11 +23,15 @@ import {
   ArrowDownUp,
   RefreshCw,
   SlidersHorizontal,
+  Grid,
+  GitFork,
 } from "lucide-react";
 import { apiFetch } from "../../utils/api.ts";
 import { useToast } from "../../contexts/ToastContext.tsx";
 import { ZplPrintService } from "../../services/ZplPrintService.ts";
 import SmartSelect from "@/src/shared/components/SmartSelect";
+import CabinetDrawerMatrixModal from "../warehouse/components/CabinetDrawerMatrixModal.tsx";
+import TraceabilityModal from "../warehouse/components/TraceabilityModal.tsx";
 
 interface HardwareComponent {
   id: string;
@@ -86,6 +90,10 @@ export default function HardwareWorkbenchTab() {
   const [selectedLotForMsl, setSelectedLotForMsl] = useState<any>(null);
   const [bakeTemp, setBakeTemp] = useState<number>(125);
   const [bakeHours, setBakeHours] = useState<number>(24);
+
+  // Top 1% Innovation Modals
+  const [cabinetModalOpen, setCabinetModalOpen] = useState<boolean>(false);
+  const [traceabilityModalOpen, setTraceabilityModalOpen] = useState<boolean>(false);
 
   const footprints = ["ALL", "0402", "0603", "0805", "1206", "QFN-32", "SOIC-8", "SOT-23", "DIP-8", "MODULE"];
 
@@ -250,8 +258,23 @@ export default function HardwareWorkbenchTab() {
           </div>
         </div>
 
-        {/* Hotkey Chips */}
+        {/* Hotkey Chips & Innovation Action Triggers */}
         <div className="flex items-center gap-2 flex-wrap">
+          <button
+            onClick={() => setCabinetModalOpen(true)}
+            className="px-3 py-1.5 bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 border border-indigo-500/30 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition shadow"
+          >
+            <Grid className="w-3.5 h-3.5 text-indigo-400" />
+            2D Cabinet Matrix
+          </button>
+          <button
+            onClick={() => setTraceabilityModalOpen(true)}
+            className="px-3 py-1.5 bg-cyan-600/20 hover:bg-cyan-600/30 text-cyan-300 border border-cyan-500/30 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition shadow"
+          >
+            <GitFork className="w-3.5 h-3.5 text-cyan-400" />
+            Recall Traceability
+          </button>
+          <span className="text-xs text-slate-500 font-medium mx-1">|</span>
           <span className="text-xs text-slate-400 font-medium mr-1">Hotkeys:</span>
           <kbd className="px-2 py-1 text-xs font-mono bg-slate-800 border border-slate-700 rounded text-slate-300 shadow">
             J / K (Nav)
@@ -793,6 +816,21 @@ export default function HardwareWorkbenchTab() {
           </div>
         </div>
       )}
+
+      {/* 2D Cabinet & Drawer Matrix Visualizer Modal */}
+      <CabinetDrawerMatrixModal
+        isOpen={cabinetModalOpen}
+        onClose={() => setCabinetModalOpen(false)}
+        cabinetName="CAB-01 (SMT Lab Bench)"
+        initialSearchQuery={selectedComponent?.mpn || selectedComponent?.sku || ""}
+      />
+
+      {/* Bidirectional Component Traceability & Instant Recall Modal */}
+      <TraceabilityModal
+        isOpen={traceabilityModalOpen}
+        onClose={() => setTraceabilityModalOpen(false)}
+        initialQuery={selectedComponent?.mpn || "LOT-LCSC-2026-ESP32"}
+      />
     </div>
   );
 }

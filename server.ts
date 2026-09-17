@@ -46,6 +46,8 @@ import auditEventsRoutes from "./src/routes/v1/audit-events.ts";
 import bomRoutes from "./src/routes/v1/bom.ts";
 import hardwareRoutes from "./src/routes/v1/hardware.ts";
 import cartReservationRoutes from "./src/routes/v1/cart-reservation.ts";
+import { qcRouter } from "./src/routes/v1/qc.ts";
+import { traceabilityRouter } from "./src/routes/v1/traceability.ts";
 import { openApiSpec, renderSwaggerUiHtml } from "./src/docs/openapi.ts";
 
 // Initialize Postgres (with retry)
@@ -228,6 +230,8 @@ async function startServer() {
   app.use(["/api/v1/bom", "/api/bom"], authenticateJwt, requireTenant, bomRoutes);
   app.use(["/api/v1/hardware", "/api/hardware"], authenticateJwt, requireTenant, hardwareRoutes);
   app.use(["/api/v1/cart", "/api/public/cart"], cartReservationRoutes);
+  app.use(["/api/v1/qc", "/api/qc"], qcRouter);
+  app.use(["/api/v1/traceability", "/api/traceability"], traceabilityRouter);
 
   // ===== Protected AI analysis endpoint =====
   app.post("/api/analyze", aiLimiter, authenticateJwt, requireTenant, async (req, res) => {

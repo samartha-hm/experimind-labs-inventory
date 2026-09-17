@@ -223,7 +223,7 @@ export default function BomTreeManagerTab() {
     }
   };
 
-  const handleExportVendorPo = async (vendor: "LCSC" | "ROBU" | "MOUSER") => {
+  const handleExportVendorPo = async (vendor: "LCSC" | "ROBU" | "QUARTZ" | "MOUSER") => {
     if (!shortageResult || !shortageResult.shortages || shortageResult.shortages.length === 0) {
       showToast("error", "No component shortages to export.");
       return;
@@ -557,7 +557,7 @@ export default function BomTreeManagerTab() {
                     </span>
                     <span className="text-[10px] text-slate-400">Vendor CSVs</span>
                   </div>
-                  <div className="grid grid-cols-3 gap-1.5">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
                     <button
                       onClick={() => handleExportVendorPo("LCSC")}
                       className="px-2 py-1.5 bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 border border-blue-500/30 rounded-lg text-[11px] font-medium flex items-center justify-center gap-1 transition"
@@ -573,6 +573,14 @@ export default function BomTreeManagerTab() {
                     >
                       <Download className="w-3 h-3" />
                       Robu.in PO
+                    </button>
+                    <button
+                      onClick={() => handleExportVendorPo("QUARTZ")}
+                      className="px-2 py-1.5 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 rounded-lg text-[11px] font-medium flex items-center justify-center gap-1 transition"
+                      title="Generate QuartzComponents CSV with Part Number, Description & Shortage Qty"
+                    >
+                      <Download className="w-3 h-3" />
+                      Quartz PO
                     </button>
                     <button
                       onClick={() => handleExportVendorPo("MOUSER")}

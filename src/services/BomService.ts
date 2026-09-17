@@ -553,11 +553,11 @@ export class BomService {
 
   /**
    * Generates vendor-formatted Purchase Order CSV from shortage items
-   * Supports: LCSC, Robu.in, Mouser India
+   * Supports: LCSC, Robu.in, QuartzComponents, Mouser India
    */
   public static generateVendorPoCsv(
     shortages: ShortageItem[],
-    vendor: "LCSC" | "ROBU" | "MOUSER"
+    vendor: "LCSC" | "ROBU" | "QUARTZ" | "MOUSER"
   ): string {
     if (!shortages || shortages.length === 0) return "";
 
@@ -577,6 +577,14 @@ export class BomService {
       const rows = shortages.map((s: any) => {
         const qty = s.shortageQuantity ?? s.missingQuantity ?? 0;
         return `"${s.sku || s.mpn}","${(s.name || s.mpn).replace(/"/g, '""')}",${qty}`;
+      });
+      return header + rows.join("\n");
+    } else if (vendor === "QUARTZ") {
+      // QuartzComponents Format: Part Number,Description,Quantity
+      const header = "Part Number,Description,Quantity\n";
+      const rows = shortages.map((s: any) => {
+        const qty = s.shortageQuantity ?? s.missingQuantity ?? 0;
+        return `"${s.mpn || s.sku}","${(s.name || s.mpn).replace(/"/g, '""')}",${qty}`;
       });
       return header + rows.join("\n");
     } else {

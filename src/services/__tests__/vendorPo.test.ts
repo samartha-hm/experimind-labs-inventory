@@ -42,6 +42,13 @@ describe("Vendor Sourcing PO CSV Generator Tests", () => {
     expect(csv).toContain(',"ESP32-WROOM-32E",50');
   });
 
+  it("formats CSV correctly for QuartzComponents sourcing", () => {
+    const csv = BomService.generateVendorPoCsv(sampleShortages, "QUARTZ");
+    expect(csv).toContain("Part Number,Description,Quantity");
+    expect(csv).toContain('"RC0603FR-0710KL","Resistor 10k 1% 0603",500');
+    expect(csv).toContain('"ESP32-WROOM-32E","ESP32 Wi-Fi & BLE MCU Module",50');
+  });
+
   it("returns empty string if shortages array is empty", () => {
     const csv = BomService.generateVendorPoCsv([], "LCSC");
     expect(csv).toBe("");

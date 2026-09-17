@@ -423,7 +423,7 @@ router.post("/commit-cad", async (req: Request, res: Response) => {
 router.post("/vendor-po-export", async (req: Request, res: Response) => {
   try {
     const { shortages, vendor = "LCSC", itemId, quantity } = req.body;
-    const targetVendor = (String(vendor).toUpperCase() || "LCSC") as "LCSC" | "ROBU" | "MOUSER";
+    const targetVendor = (String(vendor).toUpperCase() || "LCSC") as "LCSC" | "ROBU" | "QUARTZ" | "MOUSER";
 
     let shortageList = shortages;
     if ((!shortageList || shortageList.length === 0) && itemId) {
