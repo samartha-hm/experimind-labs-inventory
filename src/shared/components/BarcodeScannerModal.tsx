@@ -53,7 +53,9 @@ import {
   Filter,
   Download,
   AlertCircle,
-  Shield
+  Shield,
+  Scan,
+  ZoomIn
 } from 'lucide-react';
 import { useData } from '@/src/DataContext';
 import { useToast } from '@/src/contexts/ToastContext';
@@ -210,6 +212,10 @@ export default function BarcodeScannerModal({
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [scanPulse, setScanPulse] = useState(false);
 
+  // Viewfinder Reticle Aspect Ratio & Digital Zoom
+  const [reticleShape, setReticleShape] = useState<'auto' | '1d' | '2d' | 'full'>('auto');
+  const [digitalZoom, setDigitalZoom] = useState<number>(1);
+
   // Uploaded Photo State & Visual Preview
   const [isProcessingFile, setIsProcessingFile] = useState(false);
   const [uploadedPhotoPreview, setUploadedPhotoPreview] = useState<string | null>(null);
@@ -220,6 +226,13 @@ export default function BarcodeScannerModal({
   const [scannedItem, setScannedItem] = useState<InventoryItem | null>(null);
   const [relocateBinTarget, setRelocateBinTarget] = useState<string>('');
   const [relocateStep, setRelocateStep] = useState<'scan_item' | 'scan_bin'>('scan_item');
+
+  const effectiveReticleShape = useMemo(() => {
+    if (reticleShape === 'auto') {
+      return (activeMode === 'relocate' && relocateStep === 'scan_bin') ? '2d' : '1d';
+    }
+    return reticleShape;
+  }, [reticleShape, activeMode, relocateStep]);
   
   // Kit BOM Picking Mode State
   const [selectedKitId, setSelectedKitId] = useState<string>(kits[0]?.id || '');
@@ -471,14 +484,15 @@ export default function BarcodeScannerModal({
 function getVideoROICoordinates(
   video: HTMLVideoElement,
   container: HTMLElement | null,
-  reticle: HTMLElement | null
+  reticle: HTMLElement | null,
+  zoom: number = 1
 ) {
   const vW = video.videoWidth || 640;
   const vH = video.videoHeight || 480;
 
   if (!container || !reticle) {
-    const cropW = Math.round(vW * 0.70);
-    const cropH = Math.round(vH * 0.35);
+    const cropW = Math.round((vW * 0.70) / zoom);
+    const cropH = Math.round((vH * 0.35) / zoom);
     const cropX = Math.round((vW - cropW) / 2);
     const cropY = Math.round((vH - cropH) / 2);
     return { cropX, cropY, cropW, cropH };
@@ -491,15 +505,16 @@ function getVideoROICoordinates(
   const cH = containerRect.height;
 
   if (cW <= 0 || cH <= 0 || vW <= 0 || vH <= 0) {
-    const cropW = Math.round(vW * 0.70);
-    const cropH = Math.round(vH * 0.35);
+    const cropW = Math.round((vW * 0.70) / zoom);
+    const cropH = Math.round((vH * 0.35) / zoom);
     return { cropX: Math.round((vW - cropW) / 2), cropY: Math.round((vH - cropH) / 2), cropW, cropH };
   }
 
-  // Calculate object-cover scale and offsets
-  const scale = Math.max(cW / vW, cH / vH);
-  const renderedW = vW * scale;
-  const renderedH = vH * scale;
+  // Calculate object-cover scale and offsets (factoring in zoom)
+  const baseScale = Math.max(cW / vW, cH / vH);
+  const effectiveScale = baseScale * zoom;
+  const renderedW = vW * effectiveScale;
+  const renderedH = vH * effectiveScale;
   const offsetX = (renderedW - cW) / 2;
   const offsetY = (renderedH - cH) / 2;
 
@@ -510,10 +525,10 @@ function getVideoROICoordinates(
   const relH = reticleRect.height;
 
   // Map to video stream coordinates
-  let cropX = Math.round((relX + offsetX) / scale);
-  let cropY = Math.round((relY + offsetY) / scale);
-  let cropW = Math.round(relW / scale);
-  let cropH = Math.round(relH / scale);
+  let cropX = Math.round((relX + offsetX) / effectiveScale);
+  let cropY = Math.round((relY + offsetY) / effectiveScale);
+  let cropW = Math.round(relW / effectiveScale);
+  let cropH = Math.round(relH / effectiveScale);
 
   // Clamp within video bounds
   cropX = Math.max(0, Math.min(vW - 10, cropX));
@@ -543,7 +558,8 @@ function getVideoROICoordinates(
       const { cropX, cropY, cropW, cropH } = getVideoROICoordinates(
         video,
         videoContainerRef.current,
-        reticleRef.current
+        reticleRef.current,
+        digitalZoom
       );
 
       const targetWidth = 480;
@@ -708,7 +724,8 @@ function getVideoROICoordinates(
           const { cropX, cropY, cropW, cropH } = getVideoROICoordinates(
             video,
             videoContainerRef.current,
-            reticleRef.current
+            reticleRef.current,
+            digitalZoom
           );
 
           const targetWidth = 480;
@@ -1372,6 +1389,36 @@ function getVideoROICoordinates(
 
               {/* Hardware Quick Action Controls */}
               <div className="flex flex-wrap items-center gap-1">
+                {/* Frame Aspect Ratio Switcher */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setReticleShape(prev => (prev === 'auto' ? '1d' : prev === '1d' ? '2d' : prev === '2d' ? 'full' : 'auto'));
+                  }}
+                  className="px-2 py-0.5 sm:px-2.5 sm:py-1 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-lg sm:rounded-xl text-[10px] sm:text-[11px] font-bold transition-all flex items-center gap-1 cursor-pointer"
+                  title="Toggle target frame: Auto / 1D Barcode (3:1) / 2D QR (1:1) / Full"
+                >
+                  <Scan className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-cyan-500" />
+                  <span>Frame: {reticleShape.toUpperCase()}</span>
+                </button>
+
+                {/* Digital Viewfinder Zoom Toggle */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDigitalZoom(prev => (prev === 1 ? 1.5 : prev === 1.5 ? 2 : 1));
+                  }}
+                  className={`px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-lg sm:rounded-xl text-[10px] sm:text-[11px] font-bold transition-all flex items-center gap-1 cursor-pointer ${
+                    digitalZoom > 1
+                      ? 'bg-indigo-600 text-white shadow-xs font-black'
+                      : 'bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300'
+                  }`}
+                  title="Toggle digital zoom: 1x / 1.5x / 2x"
+                >
+                  <ZoomIn className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                  <span>{digitalZoom}x</span>
+                </button>
+
                 {/* Auto Scan ON / OFF Toggle */}
                 <button
                   type="button"
@@ -1384,7 +1431,7 @@ function getVideoROICoordinates(
                   title={isAutoScan ? "Continuous auto-scan is active with duplicate protection" : "Auto-scan paused. Click 'Scan Code Now' to capture on demand."}
                 >
                   <Zap className={`w-3 h-3 sm:w-3.5 sm:h-3.5 ${isAutoScan ? 'text-slate-950 fill-current' : 'text-slate-400'}`} />
-                  <span>{isAutoScan ? 'Auto Scan ON' : 'Auto Scan OFF'}</span>
+                  <span>{isAutoScan ? 'Auto ON' : 'Auto OFF'}</span>
                 </button>
 
                 <button
@@ -1437,38 +1484,51 @@ function getVideoROICoordinates(
                 playsInline
                 autoPlay
                 muted
+                style={{
+                  transform: `scale(${digitalZoom})`,
+                  transformOrigin: 'center center',
+                  transition: 'transform 0.25s ease-out'
+                }}
                 className="w-full h-full object-cover"
               />
 
-              {/* Realistic Industrial Scanner Targeting Reticle with Isolation Mask */}
+              {/* Realistic Industrial Scanner Targeting Reticle with Unified Flushed Boundary */}
               <div className="absolute inset-0 pointer-events-none flex items-center justify-center p-3">
                 <div
                   ref={reticleRef}
-                  className="w-[84%] max-w-[340px] h-[46%] max-h-[115px] border-2 border-dashed border-indigo-400/90 rounded-2xl relative flex items-center justify-center shadow-[0_0_0_9999px_rgba(2,6,23,0.55)] backdrop-contrast-115"
+                  className={`relative flex items-center justify-center rounded-2xl border-2 border-dashed border-cyan-400/80 bg-cyan-950/10 shadow-[0_0_0_9999px_rgba(2,6,23,0.65)] backdrop-contrast-115 transition-all duration-300 ${
+                    effectiveReticleShape === '2d'
+                      ? 'w-[64%] max-w-[200px] h-[64%] max-h-[200px] aspect-square'
+                      : effectiveReticleShape === 'full'
+                      ? 'w-[94%] h-[84%]'
+                      : 'w-[88%] max-w-[360px] h-[40%] max-h-[105px]'
+                  }`}
                 >
-                  {/* Glowing Corner Brackets */}
-                  <div className="absolute -top-1.5 -left-1.5 w-5 h-5 border-t-3 border-l-3 border-cyan-400 rounded-tl-md shadow-[0_0_8px_#22d3ee]" />
-                  <div className="absolute -top-1.5 -right-1.5 w-5 h-5 border-t-3 border-r-3 border-cyan-400 rounded-tr-md shadow-[0_0_8px_#22d3ee]" />
-                  <div className="absolute -bottom-1.5 -left-1.5 w-5 h-5 border-b-3 border-l-3 border-cyan-400 rounded-bl-md shadow-[0_0_8px_#22d3ee]" />
-                  <div className="absolute -bottom-1.5 -right-1.5 w-5 h-5 border-b-3 border-r-3 border-cyan-400 rounded-br-md shadow-[0_0_8px_#22d3ee]" />
+                  {/* Flushed Glowing Corner Brackets - Snap Exactly to Outer Perimeter */}
+                  <div className="absolute top-0 left-0 w-6 h-6 border-t-[3.5px] border-l-[3.5px] border-cyan-400 rounded-tl-2xl shadow-[0_0_10px_#22d3ee]" />
+                  <div className="absolute top-0 right-0 w-6 h-6 border-t-[3.5px] border-r-[3.5px] border-cyan-400 rounded-tr-2xl shadow-[0_0_10px_#22d3ee]" />
+                  <div className="absolute bottom-0 left-0 w-6 h-6 border-b-[3.5px] border-l-[3.5px] border-cyan-400 rounded-bl-2xl shadow-[0_0_10px_#22d3ee]" />
+                  <div className="absolute bottom-0 right-0 w-6 h-6 border-b-[3.5px] border-r-[3.5px] border-cyan-400 rounded-br-2xl shadow-[0_0_10px_#22d3ee]" />
 
                   {/* Center Optical Crosshair */}
-                  <div className="w-6 h-6 flex items-center justify-center opacity-70">
+                  <div className="w-6 h-6 flex items-center justify-center opacity-70 pointer-events-none">
                     <div className="w-full h-0.5 bg-cyan-400/80" />
                     <div className="h-full w-0.5 bg-cyan-400/80 absolute" />
                   </div>
 
-                  {/* Animated High-Intensity Red Laser Sweep Line */}
-                  <div className="absolute inset-x-2 h-0.5 bg-gradient-to-r from-transparent via-rose-500 to-transparent shadow-[0_0_15px_#f43f5e] animate-pulse" />
+                  {/* Animated High-Intensity Red Laser Sweeping Scan Line */}
+                  <div className="absolute inset-x-2 h-0.5 bg-gradient-to-r from-transparent via-rose-500 to-transparent shadow-[0_0_15px_#f43f5e] animate-laserSweep pointer-events-none" />
 
-                  {/* Target Guide Badge with Mode Indicator */}
-                  <div className="absolute -bottom-3 px-3 py-0.5 rounded-full bg-slate-950/95 border border-slate-700 text-[9px] font-mono font-bold shadow-lg tracking-wider flex items-center gap-1.5">
+                  {/* Target Guide Badge with Mode & Format Indicator */}
+                  <div className="absolute -bottom-3 px-3 py-0.5 rounded-full bg-slate-950/95 border border-slate-700 text-[9px] font-mono font-bold shadow-lg tracking-wider flex items-center gap-1.5 whitespace-nowrap pointer-events-auto">
                     <span className={`w-1.5 h-1.5 rounded-full ${isAutoScan ? 'bg-emerald-400 animate-pulse' : 'bg-cyan-400'}`} />
                     <span className="text-cyan-300">
                       {activeMode === 'relocate' && relocateStep === 'scan_bin'
-                        ? '🎯 AIM AT DESTINATION BIN'
+                        ? '🎯 AIM AT DESTINATION BIN (2D QR)'
+                        : effectiveReticleShape === '2d'
+                        ? (isAutoScan ? '⚡ 2D QR AUTO-SCAN' : '🎯 AIM 2D QR & SCAN')
                         : isAutoScan
-                        ? '⚡ AUTO-SCANNING (CENTER ONLY)'
+                        ? '⚡ 1D BARCODE AUTO-SCAN'
                         : '🎯 AIM & TAP "SCAN CODE NOW"'}
                     </span>
                   </div>
