@@ -50,6 +50,7 @@ import { qcRouter } from "./src/routes/v1/qc.ts";
 import { traceabilityRouter } from "./src/routes/v1/traceability.ts";
 import { productionRouter } from "./src/routes/productionRoutes.ts";
 import { projectRouter } from "./src/routes/projectRoutes.ts";
+import stickerRouter from "./src/routes/stickerRoutes.ts";
 import { startReservationReaper } from "./src/workers/reservationReaper.ts";
 import { openApiSpec, renderSwaggerUiHtml } from "./src/docs/openapi.ts";
 
@@ -241,6 +242,7 @@ async function startServer() {
   app.use(["/api/v1/traceability", "/api/traceability"], traceabilityRouter);
   app.use(["/api/v1/production", "/api/production"], productionRouter);
   app.use(["/api/v1/projects", "/api/projects"], projectRouter);
+  app.use(["/api/v1/stickers", "/api/stickers"], stickerRouter);
 
   // ===== Protected AI analysis endpoint =====
   app.post("/api/analyze", aiLimiter, authenticateJwt, requireTenant, async (req, res) => {

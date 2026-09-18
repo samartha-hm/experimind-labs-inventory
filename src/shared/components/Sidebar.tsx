@@ -29,6 +29,7 @@ import {
   Layers,
   Factory,
   FolderKanban,
+  QrCode,
   X,
 } from 'lucide-react';
 
@@ -109,6 +110,7 @@ export default function Sidebar({
       title: 'MANUFACTURING & KITTING (BOM)',
       items: [
         { id: 'production_command', label: 'Production & Sourcing Matrix', icon: <Factory className="w-4 h-4" />, badge: 'Top 1%', badgeColor: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' },
+        { id: 'sticker_hub', label: 'Sticker & Labeling Hub', icon: <QrCode className="w-4 h-4" />, badge: '3-Tier', badgeColor: 'bg-purple-500/20 text-purple-300 border-purple-500/30' },
         { id: 'kitting', label: 'Composite Kits (STEM Packs)', icon: <Package className="w-4 h-4" />, badge: 'Kits', badgeColor: 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30' },
         { id: 'pcba_bom', label: 'Recursive PCBA BOM & CAD', icon: <Layers className="w-4 h-4" />, badge: 'EDA', badgeColor: 'bg-purple-500/20 text-purple-300 border-purple-500/30' },
         { id: 'hardware_workbench', label: 'Component Workbench (SMD/THT)', icon: <Cpu className="w-4 h-4" />, badge: 'SMT', badgeColor: 'bg-cyan-500/20 text-cyan-300 border-cyan-500/30' },

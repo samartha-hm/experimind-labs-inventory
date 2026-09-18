@@ -27,6 +27,8 @@ import {
   ExternalLink,
   Flame,
   Info,
+  Sliders,
+  Eye,
   X
 } from 'lucide-react';
 import {
@@ -43,6 +45,17 @@ import {
 import { ProductionWorkflowService, BatchCalculationResult } from '../../services/ProductionWorkflowService';
 import { ProjectManagementService } from '../../services/ProjectManagementService';
 import { Project } from '../../data/projectsDataset';
+import {
+  LaserNestingService,
+  LASER_MATERIAL_PROFILES,
+  LaserMaterialType,
+  NestingCalculationResult
+} from '../../services/LaserNestingService';
+import {
+  ChemicalSafetyService,
+  SolutionPrepOutput,
+  GhsSafetyProfile
+} from '../../services/ChemicalSafetyService';
 import { useToast } from '../../contexts/ToastContext';
 
 export default function ProductionCommandCenterTab() {
@@ -85,6 +98,59 @@ export default function ProductionCommandCenterTab() {
   const [newItemCrateLevel, setNewItemCrateLevel] = useState<CrateLevel>('ACTIVITY_POUCH');
   const [newItemCost, setNewItemCost] = useState<number>(25);
   const [newItemBin, setNewItemBin] = useState<string>('Rack 1, Shelf A');
+
+  // Laser Nesting State
+  const [selectedLaserMaterial, setSelectedLaserMaterial] = useState<LaserMaterialType>('CAST_ACRYLIC_3MM');
+  const [laserKerf, setLaserKerf] = useState<number>(0.15);
+  const [laserSheetWidth, setLaserSheetWidth] = useState<number>(600);
+  const [laserSheetHeight, setLaserSheetHeight] = useState<number>(400);
+
+  // Chemical Prep & Dilution State
+  const [dilutionChemName, setDilutionChemName] = useState<string>('Hydrochloric Acid');
+  const [dilutionTargetVol, setDilutionTargetVol] = useState<number>(500);
+  const [dilutionTargetM, setDilutionTargetM] = useState<number>(0.1);
+  const [dilutionSoluteType, setDilutionSoluteType] = useState<'SOLID' | 'LIQUID_STOCK'>('LIQUID_STOCK');
+  const [dilutionStockM, setDilutionStockM] = useState<number>(12.0);
+
+  // Precision Weight Packing State
+  const [activePackingGrade, setActivePackingGrade] = useState<string>('Grade 10');
+  const [scaleMeasuredWeight, setScaleMeasuredWeight] = useState<number>(148.5);
+
+  // Compute Laser Nesting
+  const nestingResult: NestingCalculationResult = useMemo(() => {
+    return LaserNestingService.calculateNesting({
+      sheetWidthMm: laserSheetWidth,
+      sheetHeightMm: laserSheetHeight,
+      material: selectedLaserMaterial,
+      kerfMm: laserKerf,
+      spacingMm: 3.0,
+      batchMultiplier
+    });
+  }, [laserSheetWidth, laserSheetHeight, selectedLaserMaterial, laserKerf, batchMultiplier]);
+
+  // Compute Chemical Dilution
+  const dilutionOutput: SolutionPrepOutput = useMemo(() => {
+    return ChemicalSafetyService.calculateSolutionPreparation({
+      chemicalName: dilutionChemName,
+      targetVolumeMl: dilutionTargetVol,
+      targetMolarity: dilutionTargetM,
+      soluteType: dilutionSoluteType,
+      stockMolarity: dilutionStockM
+    });
+  }, [dilutionChemName, dilutionTargetVol, dilutionTargetM, dilutionSoluteType, dilutionStockM]);
+
+  // Chemical Incompatibility Check
+  const compatibilityAlerts = useMemo(() => {
+    const chemicalNames = items
+      .filter(i => i.sourcingType === 'IN_HOUSE_PREP')
+      .map(i => i.materialName);
+    return ChemicalSafetyService.checkChemicalCompatibility(chemicalNames);
+  }, [items]);
+
+  // GHS Profile
+  const ghsProfile: GhsSafetyProfile = useMemo(() => {
+    return ChemicalSafetyService.getGhsSafetyData(dilutionChemName);
+  }, [dilutionChemName]);
 
   // Calculate Batch Metrics
   const batchStats: BatchCalculationResult = useMemo(() => {
@@ -792,21 +858,216 @@ export default function ProductionCommandCenterTab() {
       {/* ===== 4. Sub-View 2: Chemical Aliquoting & Formulation Workbench ===== */}
       {activeSubView === 'chemicals' && (
         <div className="space-y-6">
-          <div className="bg-gradient-to-r from-purple-950/40 to-slate-900 p-5 rounded-2xl border border-purple-500/20 flex items-center justify-between">
+          <div className="bg-gradient-to-r from-purple-950/40 to-slate-900 p-5 rounded-2xl border border-purple-500/20 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div className="space-y-1">
               <h2 className="text-base font-bold text-white flex items-center gap-2">
-                <FlaskConical className="w-5 h-5 text-purple-400" /> In-House Chemical Aliquoting & Bottle Filling Queue
+                <FlaskConical className="w-5 h-5 text-purple-400" /> Wet Lab Solution Dilution & Safety Studio
               </h2>
               <p className="text-xs text-slate-400">
-                Automated volume scaling for batch size of <strong className="text-purple-300">{batchMultiplier} sets</strong>. Standardized dropper bottles, 30ml jars, and secondary containment leak checks.
+                Automated $C_1 V_1 = C_2 V_2$ molar dilution calculator, molecular hydration mass compensation, and GHS chemical incompatibility radar.
               </p>
             </div>
-            <div className="text-right font-mono">
-              <div className="text-xl font-black text-purple-400">{batchStats.chemicalPrepQueue.length}</div>
-              <div className="text-[10px] text-slate-400 uppercase">Chemical Lines</div>
+            <div className="flex items-center gap-3">
+              <div className="text-right font-mono bg-slate-950 p-2.5 rounded-xl border border-slate-800">
+                <div className="text-lg font-black text-purple-400">{batchStats.chemicalPrepQueue.length} Lines</div>
+                <div className="text-[10px] text-slate-400 uppercase">Chemical Queue</div>
+              </div>
             </div>
           </div>
 
+          {/* Chemical Incompatibility Matrix Alert Banner */}
+          {!compatibilityAlerts.isSafe && (
+            <div className="bg-rose-950/60 border border-rose-500/40 rounded-2xl p-4 shadow-xl space-y-2">
+              <div className="flex items-center gap-2 text-rose-300 font-bold text-sm">
+                <AlertTriangle className="w-5 h-5 text-rose-400" />
+                <span>Chemical Incompatibility Warning Detected</span>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
+                {compatibilityAlerts.incompatibilities.map((inc, i) => (
+                  <div key={i} className="bg-slate-950/80 p-2.5 rounded-xl border border-rose-500/20 space-y-1">
+                    <div className="font-bold text-rose-300">{inc.chemicalA} ⚡ {inc.chemicalB}</div>
+                    <div className="text-slate-400 text-[11px]">{inc.description}</div>
+                    <div className="text-amber-400 text-[10px] font-mono">🛡️ {inc.mitigationAdvice}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Interactive Dilution Calculator & SOP Studio */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            {/* Calculator Controls */}
+            <div className="lg:col-span-5 bg-slate-900/80 p-5 rounded-2xl border border-slate-800 space-y-4">
+              <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+                <h3 className="font-bold text-white text-sm flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-purple-400" /> Solution Prep Wizard
+                </h3>
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-purple-500/20 text-purple-300 border border-purple-500/30">
+                  C1V1 = C2V2
+                </span>
+              </div>
+
+              <div className="space-y-3 text-xs">
+                <div>
+                  <label className="text-slate-400 font-bold block mb-1">Reagent / Chemical</label>
+                  <select
+                    value={dilutionChemName}
+                    onChange={(e) => setDilutionChemName(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-bold outline-none"
+                  >
+                    <option value="Hydrochloric Acid">Hydrochloric Acid (HCl)</option>
+                    <option value="Sodium Hydroxide">Sodium Hydroxide (NaOH)</option>
+                    <option value="Copper Sulfate">Copper Sulfate Pentahydrate (CuSO4.5H2O)</option>
+                    <option value="Ethanol">Ethanol 99.9% (C2H5OH)</option>
+                    <option value="Potassium Permanganate">Potassium Permanganate (KMnO4)</option>
+                  </select>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-slate-400 font-bold block mb-1">Physical State</label>
+                    <div className="flex bg-slate-950 p-1 rounded-xl border border-slate-800">
+                      <button
+                        onClick={() => setDilutionSoluteType('LIQUID_STOCK')}
+                        className={`flex-1 py-1 rounded-lg font-bold text-[11px] ${
+                          dilutionSoluteType === 'LIQUID_STOCK' ? 'bg-purple-600 text-white' : 'text-slate-400'
+                        }`}
+                      >
+                        Liquid Stock
+                      </button>
+                      <button
+                        onClick={() => setDilutionSoluteType('SOLID')}
+                        className={`flex-1 py-1 rounded-lg font-bold text-[11px] ${
+                          dilutionSoluteType === 'SOLID' ? 'bg-purple-600 text-white' : 'text-slate-400'
+                        }`}
+                      >
+                        Solid Powder
+                      </button>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-slate-400 font-bold block mb-1">Target Volume (mL)</label>
+                    <input
+                      type="number"
+                      value={dilutionTargetVol}
+                      onChange={(e) => setDilutionTargetVol(Number(e.target.value))}
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-1.5 text-white font-mono font-bold outline-none"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-slate-400 font-bold block mb-1">Target Molarity (M)</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={dilutionTargetM}
+                      onChange={(e) => setDilutionTargetM(Number(e.target.value))}
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-1.5 text-white font-mono font-bold outline-none"
+                    />
+                  </div>
+
+                  {dilutionSoluteType === 'LIQUID_STOCK' && (
+                    <div>
+                      <label className="text-slate-400 font-bold block mb-1">Stock Molarity (M)</label>
+                      <input
+                        type="number"
+                        step="0.1"
+                        value={dilutionStockM}
+                        onChange={(e) => setDilutionStockM(Number(e.target.value))}
+                        className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-1.5 text-white font-mono font-bold outline-none"
+                      />
+                    </div>
+                  )}
+                </div>
+
+                {/* Recipe Calculation Card */}
+                <div className="bg-purple-950/40 border border-purple-500/30 rounded-xl p-3.5 space-y-2">
+                  <div className="text-[11px] font-bold text-purple-300 uppercase tracking-wider">
+                    Calculated Aliquot Recipe:
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    {dilutionOutput.requiredStockVolumeMl !== undefined && (
+                      <div className="bg-slate-950 p-2 rounded-lg border border-purple-500/20">
+                        <span className="text-[10px] text-slate-400 block">Stock Reagent</span>
+                        <span className="font-bold text-white text-sm font-mono">{dilutionOutput.requiredStockVolumeMl} mL</span>
+                      </div>
+                    )}
+                    {dilutionOutput.requiredSoluteMassGrams !== undefined && (
+                      <div className="bg-slate-950 p-2 rounded-lg border border-purple-500/20">
+                        <span className="text-[10px] text-slate-400 block">Solute Mass</span>
+                        <span className="font-bold text-white text-sm font-mono">{dilutionOutput.requiredSoluteMassGrams} g</span>
+                      </div>
+                    )}
+                    <div className="bg-slate-950 p-2 rounded-lg border border-purple-500/20">
+                      <span className="text-[10px] text-slate-400 block">Solvent (DI Water)</span>
+                      <span className="font-bold text-cyan-300 text-sm font-mono">{dilutionOutput.requiredSolventVolumeMl} mL</span>
+                    </div>
+                  </div>
+                  <div className="text-[11px] text-slate-300">
+                    Recommended Vessel: <strong className="text-white">{dilutionOutput.containerRecommendation}</strong> (Tare: {dilutionOutput.tareVesselGrams}g)
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* SOP & GHS Safety Profile */}
+            <div className="lg:col-span-7 bg-slate-900/80 p-5 rounded-2xl border border-slate-800 space-y-4 flex flex-col justify-between">
+              <div>
+                <div className="flex items-center justify-between border-b border-slate-800 pb-2 mb-3">
+                  <h3 className="font-bold text-white text-sm flex items-center gap-2">
+                    <ShieldCheck className="w-4 h-4 text-emerald-400" /> Standard Operating Procedure & GHS PPE
+                  </h3>
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-slate-800 text-slate-300">
+                    ISO/GLP Compliant
+                  </span>
+                </div>
+
+                {/* GHS Profile Badges */}
+                <div className="bg-slate-950 p-3 rounded-xl border border-slate-800 space-y-2 mb-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-slate-300">{ghsProfile.chemicalName} Safety Card</span>
+                    <span className="text-[10px] font-black px-2 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-500/30">
+                      {ghsProfile.signalWord}
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {ghsProfile.pictograms.map((p, i) => (
+                      <span key={i} className="text-[10px] font-bold px-2 py-0.5 rounded bg-slate-800 text-amber-300 border border-slate-700">
+                        ⚠️ {p}
+                      </span>
+                    ))}
+                  </div>
+                  <div className="text-[11px] text-slate-400">
+                    <strong>Mandatory PPE:</strong> {ghsProfile.requiredPPE.join(', ')}
+                  </div>
+                </div>
+
+                {/* SOP Steps */}
+                <div className="space-y-2 text-xs">
+                  <span className="font-bold text-slate-300 block">Preparation Steps:</span>
+                  {dilutionOutput.stepByStepSOP.map((step, idx) => (
+                    <div key={idx} className="bg-slate-950/60 p-2 rounded-lg border border-slate-800/80 text-slate-300 leading-relaxed font-mono text-[11px]">
+                      {step}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex justify-end pt-3 border-t border-slate-800">
+                <button
+                  onClick={() => showToast(`Printed Aliquot Label for ${dilutionChemName} (${dilutionTargetM}M, ${dilutionTargetVol}mL)`, 'success')}
+                  className="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs flex items-center gap-2 shadow-lg shadow-purple-600/30 transition-all"
+                >
+                  <Printer className="w-4 h-4" /> Print Aliquot Vial Label
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Regular Chemical Queue Cards */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {batchStats.chemicalPrepQueue.map((chem, idx) => (
               <div
@@ -853,26 +1114,186 @@ export default function ProductionCommandCenterTab() {
         </div>
       )}
 
-      {/* ===== 5. Sub-View 3: FabLab & Laser Cutting Production Queue ===== */}
+      {/* ===== 5. Sub-View 3: FabLab 2D Laser Sheet Nesting & Cutting Queue ===== */}
       {activeSubView === 'laser' && (
         <div className="space-y-6">
-          <div className="bg-gradient-to-r from-cyan-950/40 to-slate-900 p-5 rounded-2xl border border-cyan-500/20 flex items-center justify-between">
+          <div className="bg-gradient-to-r from-cyan-950/40 to-slate-900 p-5 rounded-2xl border border-cyan-500/20 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div className="space-y-1">
               <h2 className="text-base font-bold text-white flex items-center gap-2">
-                <Scissors className="w-5 h-5 text-cyan-400" /> FabLab Laser Cutting & 3D Print Schedule
+                <Scissors className="w-5 h-5 text-cyan-400" /> 2D Laser Sheet Nesting & FabLab Material Optimizer
               </h2>
               <p className="text-xs text-slate-400">
-                Machine run-time estimation and MDF/Acrylic sheet nesting budget for <strong className="text-cyan-300">{batchMultiplier} sets</strong>.
+                Visual 2D bin-packing simulator: calculates true sheet yield %, kerf allowance, laser cut paths, and machine runtime for <strong className="text-cyan-300">{batchMultiplier} sets</strong>.
               </p>
             </div>
-            <div className="text-right font-mono">
-              <div className="text-xl font-black text-cyan-400">
-                {batchStats.laserCuttingQueue.reduce((a, b) => a + b.totalCutMinutes, 0).toFixed(0)} min
+            <div className="flex items-center gap-3">
+              <div className="text-right font-mono bg-slate-950 p-2.5 rounded-xl border border-slate-800">
+                <div className="text-lg font-black text-cyan-400">{nestingResult.sheetYieldPercentage}%</div>
+                <div className="text-[10px] text-slate-400 uppercase">Sheet Yield</div>
               </div>
-              <div className="text-[10px] text-slate-400 uppercase">Estimated Cut Time</div>
+              <div className="text-right font-mono bg-slate-950 p-2.5 rounded-xl border border-slate-800">
+                <div className="text-lg font-black text-purple-400">{nestingResult.sheetsRequired}</div>
+                <div className="text-[10px] text-slate-400 uppercase">Sheets Needed</div>
+              </div>
             </div>
           </div>
 
+          {/* Interactive 2D Nesting Parameters & Visual SVG Canvas */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            {/* Material & Nesting Controls */}
+            <div className="lg:col-span-4 bg-slate-900/80 p-5 rounded-2xl border border-slate-800 space-y-4">
+              <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+                <h3 className="font-bold text-white text-sm flex items-center gap-2">
+                  <Sliders className="w-4 h-4 text-cyan-400" /> Nesting Configuration
+                </h3>
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
+                  {nestingResult.totalParts} Parts
+                </span>
+              </div>
+
+              <div className="space-y-3 text-xs">
+                <div>
+                  <label className="text-slate-400 font-bold block mb-1">Raw Material Stock</label>
+                  <select
+                    value={selectedLaserMaterial}
+                    onChange={(e) => setSelectedLaserMaterial(e.target.value as LaserMaterialType)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-bold outline-none"
+                  >
+                    {Object.values(LASER_MATERIAL_PROFILES).map(mat => (
+                      <option key={mat.id} value={mat.id}>
+                        {mat.name} (₹{mat.costPerSheetINR}/sheet)
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-slate-400 font-bold block mb-1">Sheet Size (mm)</label>
+                    <select
+                      value={`${laserSheetWidth}x${laserSheetHeight}`}
+                      onChange={(e) => {
+                        const [w, h] = e.target.value.split('x').map(Number);
+                        setLaserSheetWidth(w);
+                        setLaserSheetHeight(h);
+                      }}
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-2 text-white font-mono font-bold outline-none"
+                    >
+                      <option value="600x400">600 × 400 mm (Bed A)</option>
+                      <option value="1200x600">1200 × 600 mm (Bed B)</option>
+                      <option value="900x600">900 × 600 mm (Bed C)</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="text-slate-400 font-bold block mb-1">Kerf Offset (mm)</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={laserKerf}
+                      onChange={(e) => setLaserKerf(Number(e.target.value))}
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-1.5 text-white font-mono font-bold outline-none"
+                    />
+                  </div>
+                </div>
+
+                {/* Nesting Output Breakdown Card */}
+                <div className="bg-cyan-950/40 border border-cyan-500/30 rounded-xl p-3.5 space-y-2.5">
+                  <div className="text-[11px] font-bold text-cyan-300 uppercase tracking-wider">
+                    Laser Job Financials & Machine Specs:
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <div className="bg-slate-950 p-2 rounded-lg border border-cyan-500/20">
+                      <span className="text-[10px] text-slate-400 block">Est. Run Time</span>
+                      <span className="font-bold text-cyan-300 text-sm font-mono">{nestingResult.estimatedLaserRunTimeMinutes} min</span>
+                    </div>
+                    <div className="bg-slate-950 p-2 rounded-lg border border-cyan-500/20">
+                      <span className="text-[10px] text-slate-400 block">Total Job Cost</span>
+                      <span className="font-bold text-emerald-400 text-sm font-mono">₹{nestingResult.totalCostINR}</span>
+                    </div>
+                  </div>
+                  <div className="text-[11px] text-slate-300 space-y-1 pt-1 border-t border-cyan-500/20">
+                    <div className="flex justify-between">
+                      <span>Material Sheets Cost:</span>
+                      <span className="font-mono text-white font-bold">₹{nestingResult.materialCostINR}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Laser Machine Time Cost:</span>
+                      <span className="font-mono text-white font-bold">₹{nestingResult.machineTimeCostINR}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Scrap Waste Percentage:</span>
+                      <span className="font-mono text-amber-400 font-bold">{nestingResult.scrapPercentage}%</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Visual SVG Sheet Nesting Canvas */}
+            <div className="lg:col-span-8 bg-slate-900/80 p-5 rounded-2xl border border-slate-800 space-y-4">
+              <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+                <h3 className="font-bold text-white text-sm flex items-center gap-2">
+                  <Eye className="w-4 h-4 text-cyan-400" /> 2D Sheet Bin-Packing Layout (Sheet 1 of {nestingResult.sheetsRequired})
+                </h3>
+                <span className="text-xs text-slate-400 font-mono">
+                  {nestingResult.sheetWidthMm} × {nestingResult.sheetHeightMm} mm
+                </span>
+              </div>
+
+              {/* Simulated Interactive SVG Canvas */}
+              <div className="p-4 bg-slate-950 rounded-xl border border-slate-800 overflow-hidden relative">
+                <svg
+                  viewBox={`0 0 ${nestingResult.sheetWidthMm} ${nestingResult.sheetHeightMm}`}
+                  className="w-full h-72 bg-slate-900/90 rounded-lg border border-cyan-500/30 shadow-inner"
+                >
+                  {/* Grid Lines */}
+                  <defs>
+                    <pattern id="grid" width="50" height="50" patternUnits="userSpaceOnUse">
+                      <path d="M 50 0 L 0 0 0 50" fill="none" stroke="rgba(255, 255, 255, 0.05)" strokeWidth="0.5"/>
+                    </pattern>
+                  </defs>
+                  <rect width="100%" height="100%" fill="url(#grid)" />
+
+                  {/* Placed Nested Parts */}
+                  {nestingResult.placedSheets[0]?.placedParts.map((part, pIdx) => (
+                    <g key={pIdx}>
+                      <rect
+                        x={part.x}
+                        y={part.y}
+                        width={part.width}
+                        height={part.height}
+                        rx={2}
+                        fill={part.colorHex}
+                        fillOpacity={0.7}
+                        stroke="#FFFFFF"
+                        strokeWidth={0.8}
+                      />
+                      <text
+                        x={part.x + 3}
+                        y={part.y + 12}
+                        fill="#FFFFFF"
+                        fontSize="9"
+                        fontWeight="bold"
+                        fontFamily="monospace"
+                      >
+                        {part.name.slice(0, 10)}
+                      </text>
+                    </g>
+                  ))}
+                </svg>
+
+                <div className="flex items-center justify-between mt-3 text-xs text-slate-400">
+                  <span>Part Colors represent distinct kit components</span>
+                  <span className="text-cyan-300 font-mono font-bold">
+                    {nestingResult.placedSheets[0]?.placedParts.length || 0} parts nested on this sheet
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Regular Laser Production Cards */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {batchStats.laserCuttingQueue.map((job, idx) => (
               <div

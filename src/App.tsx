@@ -56,6 +56,7 @@ import HardwareWorkbenchTab from '@/src/features/hardware/HardwareWorkbenchTab';
 import BomTreeManagerTab from '@/src/features/hardware/BomTreeManagerTab';
 import ProductionCommandCenterTab from '@/src/features/production/ProductionCommandCenterTab';
 import ProjectPortfolioManagerTab from '@/src/features/projects/ProjectPortfolioManagerTab';
+import StickerMonitoringHubTab from '@/src/features/stickers/StickerMonitoringHubTab';
 import ToastContainer from '@/src/components/ToastContainer';
 import MobileBottomNav from '@/src/shared/components/MobileBottomNav';
 
@@ -363,6 +364,10 @@ function MainApp() {
 
               {activeTab === 'production_command' && (
                 <ProductionCommandCenterTab />
+              )}
+
+              {activeTab === 'sticker_hub' && (
+                <StickerMonitoringHubTab />
               )}
 
               {activeTab === 'kitting' && (

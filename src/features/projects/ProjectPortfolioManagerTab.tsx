@@ -42,6 +42,12 @@ import {
   InventoryConflictItem,
   PortfolioSummary
 } from '../../services/ProjectManagementService';
+import {
+  ProjectGanttService,
+  ProjectGanttItem,
+  WorkstationCapacity,
+  BottleneckAlert
+} from '../../services/ProjectGanttService';
 import { useToast } from '../../contexts/ToastContext';
 import { useAuth } from '../../AuthContext';
 
@@ -64,6 +70,16 @@ export default function ProjectPortfolioManagerTab() {
   const [isExpenseModalOpen, setIsExpenseModalOpen] = useState<boolean>(false);
   const [isConflictModalOpen, setIsConflictModalOpen] = useState<boolean>(false);
   const [isSignOffModalOpen, setIsSignOffModalOpen] = useState<boolean>(false);
+  const [isInvoiceModalOpen, setIsInvoiceModalOpen] = useState<boolean>(false);
+
+  // Gantt and Capacity Data
+  const ganttTimelines: ProjectGanttItem[] = useMemo(() => {
+    return ProjectGanttService.getTimelineSchedule();
+  }, [projects]);
+
+  const workstationCapacity = useMemo(() => {
+    return ProjectGanttService.getWorkstationCapacity();
+  }, [projects]);
 
   // New Project Form State
   const [newCode, setNewCode] = useState<string>('');
@@ -564,12 +580,20 @@ export default function ProjectPortfolioManagerTab() {
               <div className="bg-slate-950 p-5 rounded-2xl border border-slate-800 space-y-3">
                 <div className="flex items-center justify-between">
                   <h3 className="text-sm font-bold text-white">Expense Ledger ({selectedProject.expenses.length})</h3>
-                  <button
-                    onClick={() => setIsExpenseModalOpen(true)}
-                    className="px-3 py-1 rounded-lg text-xs font-bold bg-purple-600 text-white"
-                  >
-                    + Add Entry
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setIsInvoiceModalOpen(true)}
+                      className="px-3 py-1 rounded-lg text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white flex items-center gap-1.5 shadow"
+                    >
+                      <FileText className="w-3.5 h-3.5" /> GST Tax Invoice
+                    </button>
+                    <button
+                      onClick={() => setIsExpenseModalOpen(true)}
+                      className="px-3 py-1 rounded-lg text-xs font-bold bg-purple-600 hover:bg-purple-500 text-white"
+                    >
+                      + Add Entry
+                    </button>
+                  </div>
                 </div>
 
                 <div className="divide-y divide-slate-800/80 max-h-60 overflow-y-auto">
@@ -650,47 +674,116 @@ export default function ProjectPortfolioManagerTab() {
             </div>
           )}
 
-          {/* Sub-Tab 4: Milestones & Timeline */}
+          {/* Sub-Tab 4: Milestones, Multi-Project Gantt & Workstation Capacity Radar */}
           {activeProjectTab === 'timeline' && (
-            <div className="space-y-4">
+            <div className="space-y-6">
+              {/* Capacity Bottleneck Radar Alert */}
+              {workstationCapacity.bottleneckAlerts.length > 0 && (
+                <div className="bg-amber-950/40 border border-amber-500/40 rounded-2xl p-4 shadow-xl space-y-2">
+                  <div className="flex items-center gap-2 text-amber-300 font-bold text-sm">
+                    <AlertTriangle className="w-5 h-5 text-amber-400" />
+                    <span>Workstation Capacity Bottleneck Detected ({workstationCapacity.bottleneckAlerts.length} overloaded days)</span>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
+                    {workstationCapacity.bottleneckAlerts.slice(0, 4).map((alert, idx) => (
+                      <div key={idx} className="bg-slate-950/80 p-2.5 rounded-xl border border-amber-500/20 space-y-1">
+                        <div className="flex justify-between font-bold text-amber-300">
+                          <span>{alert.workstationName} on {alert.date}</span>
+                          <span className="text-rose-400 font-mono">+{alert.overloadHours}h over capacity</span>
+                        </div>
+                        <div className="text-slate-400 text-[11px]">
+                          Projects: {alert.involvedProjects.join(', ')} ({alert.utilizationPercentage}% load)
+                        </div>
+                        <div className="text-cyan-400 text-[10px] font-mono">💡 {alert.recommendation}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Workstation Capacity Meters */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {workstationCapacity.workstations.map(st => {
+                  const avgUtil = Math.round(
+                    st.dailyLoads.reduce((a, b) => a + b.utilizationPercentage, 0) / st.dailyLoads.length
+                  );
+                  return (
+                    <div key={st.workstationId} className="bg-slate-950 p-4 rounded-2xl border border-slate-800 space-y-2">
+                      <div className="flex justify-between items-center text-xs">
+                        <span className="font-bold text-slate-300">{st.workstationName}</span>
+                        <span className="font-mono text-indigo-400 font-bold">{st.maxDailyCapacityHours}h/day cap</span>
+                      </div>
+                      <div className="flex justify-between items-baseline">
+                        <span className="text-2xl font-black text-white">{avgUtil}%</span>
+                        <span className="text-[10px] text-slate-400">30-day Avg Load</span>
+                      </div>
+                      <div className="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
+                        <div
+                          className={`h-full rounded-full ${
+                            avgUtil > 90 ? 'bg-rose-500' : avgUtil > 70 ? 'bg-amber-500' : 'bg-emerald-500'
+                          }`}
+                          style={{ width: `${Math.min(100, avgUtil)}%` }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Multi-Project Chronological Gantt Matrix */}
               <div className="bg-slate-950 p-5 rounded-2xl border border-slate-800 space-y-4">
                 <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-bold text-white">Project Milestones & Delivery Schedule</h3>
-                  <div className="text-xs font-mono text-amber-400">Target: {selectedProject.targetDeliveryDate}</div>
+                  <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                    <Calendar className="w-4 h-4 text-indigo-400" /> Multi-Project Timeline & Milestone Matrix
+                  </h3>
+                  <span className="text-xs font-mono text-slate-400">{ganttTimelines.length} Active Timelines</span>
                 </div>
 
-                <div className="space-y-3 text-xs">
-                  <div className="flex items-center justify-between p-3 bg-slate-900 rounded-xl border border-slate-800">
-                    <div className="flex items-center gap-2">
-                      <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                      <span className="font-bold text-white">Phase 1: BOM Requisition & Sourcing Allocation</span>
-                    </div>
-                    <span className="text-emerald-400 font-bold">Done</span>
-                  </div>
+                <div className="space-y-4">
+                  {ganttTimelines.map(gProj => (
+                    <div key={gProj.projectId} className="p-4 bg-slate-900/90 rounded-2xl border border-slate-800/90 space-y-3">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-mono font-bold text-indigo-300 text-xs">{gProj.projectCode}</span>
+                            <span className="text-xs font-bold text-white">{gProj.projectName}</span>
+                          </div>
+                          <div className="text-[11px] text-slate-400">{gProj.clientName}</div>
+                        </div>
+                        <div className="flex items-center gap-3 text-xs font-mono">
+                          <span className="text-slate-400">Delivery: <strong className="text-amber-300">{gProj.deliveryDate}</strong></span>
+                          <span className="font-bold text-emerald-400">{gProj.progressPercentage}% Complete</span>
+                        </div>
+                      </div>
 
-                  <div className="flex items-center justify-between p-3 bg-slate-900 rounded-xl border border-slate-800">
-                    <div className="flex items-center gap-2">
-                      <Clock className="w-4 h-4 text-purple-400" />
-                      <span className="font-bold text-white">Phase 2: Chemical Aliquots & FabLab Laser Cutting</span>
+                      {/* Phase Blocks */}
+                      <div className="grid grid-cols-1 sm:grid-cols-5 gap-2 pt-2 border-t border-slate-800/80 text-xs">
+                        {gProj.phases.map(ph => (
+                          <div
+                            key={ph.phaseId}
+                            className={`p-2.5 rounded-xl border flex flex-col justify-between ${
+                              ph.status === 'COMPLETED'
+                                ? 'bg-emerald-950/30 border-emerald-500/30 text-emerald-200'
+                                : ph.status === 'IN_PROGRESS'
+                                ? 'bg-indigo-950/50 border-indigo-500/50 text-indigo-200'
+                                : 'bg-slate-950/60 border-slate-800/60 text-slate-400'
+                            }`}
+                          >
+                            <div>
+                              <div className="flex items-center justify-between text-[10px] font-bold mb-1">
+                                <span>{ph.workstation}</span>
+                                <span>{ph.durationDays}d</span>
+                              </div>
+                              <div className="font-bold text-[11px] text-white line-clamp-1">{ph.phaseName}</div>
+                            </div>
+                            <div className="mt-2 text-[10px] font-mono text-slate-400">
+                              {ph.startDate} ➔ {ph.endDate}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
                     </div>
-                    <span className="text-purple-400 font-bold">In Progress</span>
-                  </div>
-
-                  <div className="flex items-center justify-between p-3 bg-slate-900 rounded-xl border border-slate-800">
-                    <div className="flex items-center gap-2">
-                      <Square className="w-4 h-4 text-slate-500" />
-                      <span className="font-bold text-slate-400">Phase 3: Color-Coded Pouch Bagging & Master Crate Packing</span>
-                    </div>
-                    <span className="text-slate-500 font-bold">Pending</span>
-                  </div>
-
-                  <div className="flex items-center justify-between p-3 bg-slate-900 rounded-xl border border-slate-800">
-                    <div className="flex items-center gap-2">
-                      <Square className="w-4 h-4 text-slate-500" />
-                      <span className="font-bold text-slate-400">Phase 4: 21 CFR Part 11 Electronic Signature QA Sign-Off</span>
-                    </div>
-                    <span className="text-slate-500 font-bold">Pending</span>
-                  </div>
+                  ))}
                 </div>
               </div>
             </div>
@@ -1026,6 +1119,120 @@ export default function ProjectPortfolioManagerTab() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ===== 8. Modal: GST B2B Tax Invoice & Delivery Challan Generator ===== */}
+      {isInvoiceModalOpen && selectedProject && (
+        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-indigo-500/40 rounded-3xl max-w-2xl w-full p-6 space-y-5 shadow-2xl animate-in fade-in max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div className="flex items-center gap-2">
+                <FileText className="w-5 h-5 text-indigo-400" />
+                <h3 className="text-base font-bold text-white">GST B2B Tax Invoice & E-Way Delivery Challan</h3>
+              </div>
+              <button onClick={() => setIsInvoiceModalOpen(false)} className="text-slate-400 hover:text-white">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Simulated Official Tax Invoice Sheet */}
+            <div className="bg-white text-slate-950 p-6 rounded-2xl shadow-xl font-sans text-xs space-y-4 border border-slate-300">
+              <div className="flex justify-between items-start border-b-2 border-slate-900 pb-3">
+                <div>
+                  <h4 className="text-lg font-black text-indigo-900">EXPERIMIND LABS PRIVATE LIMITED</h4>
+                  <div className="text-[10px] text-slate-600">Educational STEM Kits & Digital Fabrication Hub</div>
+                  <div className="text-[10px] text-slate-600">GSTIN: 29AAACE8273F1ZX • State Code: 29 (Karnataka)</div>
+                </div>
+                <div className="text-right">
+                  <span className="px-2.5 py-1 rounded bg-slate-900 text-white font-black text-xs uppercase">TAX INVOICE</span>
+                  <div className="text-[10px] font-mono mt-1 font-bold">INV-2026-{selectedProject.code}</div>
+                  <div className="text-[10px] text-slate-600">Date: {new Date().toLocaleDateString('en-IN')}</div>
+                </div>
+              </div>
+
+              {/* Billed To */}
+              <div className="grid grid-cols-2 gap-4 bg-slate-50 p-3 rounded-xl border border-slate-200">
+                <div>
+                  <div className="text-[9px] font-bold text-slate-500 uppercase">Billed To (Client / Institution):</div>
+                  <div className="font-bold text-slate-900 text-xs">{selectedProject.clientName}</div>
+                  <div className="text-[10px] text-slate-600">Project Code: {selectedProject.code}</div>
+                  <div className="text-[10px] text-slate-600">State: Karnataka (Code: 29)</div>
+                </div>
+                <div>
+                  <div className="text-[9px] font-bold text-slate-500 uppercase">Dispatch / Place of Supply:</div>
+                  <div className="font-bold text-slate-900 text-xs">Karwar / Sirsi STEM Distribution Center</div>
+                  <div className="text-[10px] text-slate-600">Transport: Surface Express Cargo</div>
+                  <div className="text-[10px] text-slate-600">Payment Terms: 30 Days Net</div>
+                </div>
+              </div>
+
+              {/* Line Items Table */}
+              <table className="w-full text-left text-[11px]">
+                <thead>
+                  <tr className="border-b-2 border-slate-300 font-bold text-slate-700">
+                    <th className="py-1.5">Description</th>
+                    <th className="py-1.5">HSN/SAC</th>
+                    <th className="py-1.5 text-right">Qty</th>
+                    <th className="py-1.5 text-right">Unit Rate (₹)</th>
+                    <th className="py-1.5 text-right">Taxable Value (₹)</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-200">
+                  <tr>
+                    <td className="py-2">
+                      <div className="font-bold text-slate-900">{selectedProject.name}</div>
+                      <div className="text-[9px] text-slate-500">STEM Science & Math Curriculum Kits (Grades 8, 9, 10)</div>
+                    </td>
+                    <td className="py-2 font-mono">90230000</td>
+                    <td className="py-2 text-right font-mono font-bold">10 Sets</td>
+                    <td className="py-2 text-right font-mono">₹{Math.round(selectedProject.budgetINR / 10).toLocaleString('en-IN')}</td>
+                    <td className="py-2 text-right font-mono font-bold">₹{selectedProject.budgetINR.toLocaleString('en-IN')}</td>
+                  </tr>
+                </tbody>
+              </table>
+
+              {/* Tax Summary Calculation */}
+              <div className="border-t-2 border-slate-900 pt-3 flex justify-end">
+                <div className="w-64 space-y-1.5 text-[11px]">
+                  <div className="flex justify-between text-slate-600">
+                    <span>Taxable Subtotal:</span>
+                    <span className="font-mono font-bold text-slate-900">₹{selectedProject.budgetINR.toLocaleString('en-IN')}</span>
+                  </div>
+                  <div className="flex justify-between text-slate-600">
+                    <span>CGST (9.0%):</span>
+                    <span className="font-mono font-bold text-slate-900">₹{Math.round(selectedProject.budgetINR * 0.09).toLocaleString('en-IN')}</span>
+                  </div>
+                  <div className="flex justify-between text-slate-600">
+                    <span>SGST (9.0%):</span>
+                    <span className="font-mono font-bold text-slate-900">₹{Math.round(selectedProject.budgetINR * 0.09).toLocaleString('en-IN')}</span>
+                  </div>
+                  <div className="flex justify-between text-base font-black text-slate-950 pt-2 border-t border-slate-300">
+                    <span>Total Invoice Value:</span>
+                    <span className="font-mono text-indigo-900">₹{Math.round(selectedProject.budgetINR * 1.18).toLocaleString('en-IN')}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3 pt-2 border-t border-slate-800">
+              <button
+                onClick={() => setIsInvoiceModalOpen(false)}
+                className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold"
+              >
+                Close
+              </button>
+              <button
+                onClick={() => {
+                  showToast('Generated GST Tax Invoice PDF & E-Way Delivery Challan', 'success');
+                  setIsInvoiceModalOpen(false);
+                }}
+                className="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold flex items-center gap-2 shadow-lg shadow-indigo-600/30"
+              >
+                <Download className="w-4 h-4" /> Download Official GST Invoice PDF
+              </button>
+            </div>
           </div>
         </div>
       )}
