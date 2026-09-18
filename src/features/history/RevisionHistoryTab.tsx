@@ -46,6 +46,7 @@ export default function RevisionHistoryTab() {
     if (selectedType === 'vendors') return matchesSearch && tx.description.toLowerCase().includes('vendor');
     if (selectedType === 'customers') return matchesSearch && tx.description.toLowerCase().includes('customer');
     if (selectedType === 'orders') return matchesSearch && (tx.description.toLowerCase().includes('order') || tx.description.includes('PO-') || tx.description.includes('SO-'));
+    if (selectedType === 'projects') return matchesSearch && (tx.description.toLowerCase().includes('project') || tx.description.toLowerCase().includes('class') || tx.description.toLowerCase().includes('deliverable') || tx.description.includes('PRJ-'));
     return matchesSearch;
   });
 
@@ -92,6 +93,7 @@ export default function RevisionHistoryTab() {
           <Filter className="w-4 h-4 text-slate-400 shrink-0" />
           {[
             { id: 'all', label: 'All Activity' },
+            { id: 'projects', label: 'Projects & Classes' },
             { id: 'items', label: 'Components' },
             { id: 'kits', label: 'Composite Kits' },
             { id: 'orders', label: 'Orders (PO/SO)' },

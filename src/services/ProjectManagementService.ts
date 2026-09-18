@@ -265,6 +265,7 @@ export class ProjectManagementService {
       sourcingChannel?: WorkItemSourcingChannel;
       status?: WorkItemStatus;
       unitCost?: number;
+      imageUrl?: string;
       leadAssignee?: string;
       sourceChapter?: string;
       notes?: string;
@@ -289,6 +290,7 @@ export class ProjectManagementService {
       sourcingChannel: itemData.sourcingChannel || 'IN_STOCK',
       status: itemData.status || 'PENDING',
       unitCost: Number(itemData.unitCost) || 0,
+      imageUrl: itemData.imageUrl,
       leadAssignee: itemData.leadAssignee || project.leadUserName,
       sourceChapter: itemData.sourceChapter,
       notes: itemData.notes

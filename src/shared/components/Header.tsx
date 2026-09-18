@@ -209,6 +209,47 @@ export default function Header({
             <span className="hidden lg:inline">Barcode Scan</span>
           </button>
 
+          {/* Undo / Redo Toolbar Buttons */}
+          <div className="flex items-center gap-1 bg-slate-100/80 dark:bg-slate-800/80 p-1 rounded-xl border border-slate-200/80 dark:border-slate-700">
+            <button
+              onClick={undo}
+              disabled={past.length === 0 || isProcessing}
+              className={`p-1.5 rounded-lg flex items-center gap-1 text-xs font-bold transition-all cursor-pointer ${
+                past.length > 0 && !isProcessing
+                  ? 'text-slate-700 dark:text-slate-200 hover:bg-white dark:hover:bg-slate-700 shadow-2xs'
+                  : 'text-slate-400 dark:text-slate-600 opacity-50 cursor-not-allowed'
+              }`}
+              title={nextUndo ? `Undo: ${nextUndo.name} (Ctrl+Z)` : 'Undo (Ctrl+Z)'}
+              aria-label="Undo last action"
+            >
+              {isProcessing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Undo2 className="w-3.5 h-3.5" />}
+              {past.length > 0 && (
+                <span className="text-[10px] font-mono font-bold bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 px-1.5 py-0.2 rounded-md hidden lg:inline">
+                  {past.length}
+                </span>
+              )}
+            </button>
+
+            <button
+              onClick={redo}
+              disabled={future.length === 0 || isProcessing}
+              className={`p-1.5 rounded-lg flex items-center gap-1 text-xs font-bold transition-all cursor-pointer ${
+                future.length > 0 && !isProcessing
+                  ? 'text-slate-700 dark:text-slate-200 hover:bg-white dark:hover:bg-slate-700 shadow-2xs'
+                  : 'text-slate-400 dark:text-slate-600 opacity-50 cursor-not-allowed'
+              }`}
+              title={nextRedo ? `Redo: ${nextRedo.name} (Ctrl+Y)` : 'Redo (Ctrl+Y)'}
+              aria-label="Redo action"
+            >
+              <Redo2 className="w-3.5 h-3.5" />
+              {future.length > 0 && (
+                <span className="text-[10px] font-mono font-bold bg-purple-500/10 text-purple-600 dark:text-purple-400 px-1.5 py-0.2 rounded-md hidden lg:inline">
+                  {future.length}
+                </span>
+              )}
+            </button>
+          </div>
+
           {/* Theme Toggle Button */}
           <button
             onClick={toggleTheme}

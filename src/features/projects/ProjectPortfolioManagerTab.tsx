@@ -26,7 +26,14 @@ import {
   Building2,
   Tag,
   RefreshCw,
-  Info
+  Info,
+  Image as ImageIcon,
+  Eye,
+  ZoomIn,
+  Check,
+  CheckCircle2,
+  SlidersHorizontal,
+  FolderKanban
 } from 'lucide-react';
 import {
   Project,
@@ -45,8 +52,12 @@ import {
   PortfolioSummary,
   InventoryConflictItem
 } from '../../services/ProjectManagementService';
+import { MASTER_PRODUCTION_ITEMS } from '../../data/productionDataset';
 import { useToast } from '../../contexts/ToastContext';
 import { useAuth } from '../../AuthContext';
+import { useData } from '../../DataContext';
+import { useUndoRedo } from '../../contexts/UndoRedoContext';
+import { getItemThumbnailUrl, STEM_PRESET_IMAGES, StemPresetImage } from '../../utils/itemThumbnailHelper';
 
 interface ProjectPortfolioManagerTabProps {
   onNavigateToTab?: (tabId: string, params?: any) => void;
@@ -55,6 +66,8 @@ interface ProjectPortfolioManagerTabProps {
 export default function ProjectPortfolioManagerTab({ onNavigateToTab }: ProjectPortfolioManagerTabProps = {}) {
   const { showToast } = useToast();
   const { user } = useAuth();
+  const { inventory, logTransaction } = useData();
+  const { addAction } = useUndoRedo();
   const workspaceRef = useRef<HTMLDivElement>(null);
 
   // Core State
@@ -79,6 +92,16 @@ export default function ProjectPortfolioManagerTab({ onNavigateToTab }: ProjectP
   const [isAddClassModalOpen, setIsAddClassModalOpen] = useState<boolean>(false);
   const [isAddEditItemModalOpen, setIsAddEditItemModalOpen] = useState<boolean>(false);
   const [editingItem, setEditingItem] = useState<ProjectWorkItem | null>(null);
+
+  // High-Res Image Preview Modal
+  const [previewImageItem, setPreviewImageItem] = useState<ProjectWorkItem | null>(null);
+
+  // Preset Image Picker Drawer / Modal
+  const [isPresetPickerOpen, setIsPresetPickerOpen] = useState<boolean>(false);
+
+  // Autocomplete Dropdown State
+  const [isAutocompleteOpen, setIsAutocompleteOpen] = useState<boolean>(false);
+  const autocompleteRef = useRef<HTMLDivElement>(null);
 
   // New Project Form State
   const [templateType, setTemplateType] = useState<'CURRICULUM' | 'STANDARD_LAB' | 'BLANK'>('CURRICULUM');
@@ -111,6 +134,7 @@ export default function ProjectPortfolioManagerTab({ onNavigateToTab }: ProjectP
   const [itemFormSourcing, setItemFormSourcing] = useState<WorkItemSourcingChannel>('BUY_LOCAL');
   const [itemFormStatus, setItemFormStatus] = useState<WorkItemStatus>('PENDING');
   const [itemFormCost, setItemFormCost] = useState<string>('');
+  const [itemFormImageUrl, setItemFormImageUrl] = useState<string>('');
   const [itemFormAssignee, setItemFormAssignee] = useState<string>('Ravi Kumar (Lead Tech)');
   const [itemFormChapter, setItemFormChapter] = useState<string>('');
   const [itemFormNotes, setItemFormNotes] = useState<string>('');
@@ -184,6 +208,109 @@ export default function ProjectPortfolioManagerTab({ onNavigateToTab }: ProjectP
     });
   }, [activeClass, selectedItemCategory, selectedItemSourcing, selectedItemStatus, itemSearchQuery]);
 
+  // Aggregated Autocomplete Suggestions (Inventory + Curriculum + Previous Project Items)
+  const catalogSuggestions = useMemo(() => {
+    const query = itemFormName.toLowerCase().trim();
+    const suggestions: Array<{
+      id: string;
+      name: string;
+      category: WorkItemCategory;
+      spec: string;
+      unit: string;
+      unitCost: number;
+      sourcing: WorkItemSourcingChannel;
+      chapter?: string;
+      source: 'INVENTORY' | 'CURRICULUM' | 'PROJECT';
+      imageUrl?: string;
+    }> = [];
+
+    // 1. Inventory Items
+    (inventory || []).forEach(inv => {
+      let cat: WorkItemCategory = 'HARDWARE_SUPPLIES';
+      let sourcing: WorkItemSourcingChannel = 'IN_STOCK';
+      const invCat = (inv.category || '').toLowerCase();
+      if (invCat.includes('chem') || invCat.includes('reagent')) {
+        cat = 'CHEMICAL_REAGENT';
+        sourcing = 'CHEMICAL_PREP';
+      } else if (invCat.includes('laser') || invCat.includes('mdf') || invCat.includes('wood')) {
+        cat = 'FABRICATION_LASER_3D';
+        sourcing = 'LASER_CUT';
+      } else if (invCat.includes('kit') || invCat.includes('activity')) {
+        cat = 'ACTIVITY_KIT';
+        sourcing = 'BUY_LOCAL';
+      }
+
+      suggestions.push({
+        id: `inv-${inv.id}`,
+        name: inv.name,
+        category: cat,
+        spec: `${inv.packageFootprint || inv.description || 'Standard inventory component'} (SKU: ${inv.sku || inv.barcode || 'N/A'}, Stock: ${inv.stockQty})`,
+        unit: 'pcs',
+        unitCost: inv.unitPrice || 0,
+        sourcing,
+        source: 'INVENTORY',
+        imageUrl: inv.imageUrl || getItemThumbnailUrl({ name: inv.name, category: cat, sourcingChannel: sourcing })
+      });
+    });
+
+    // 2. Curriculum Master Items (236 items)
+    (MASTER_PRODUCTION_ITEMS || []).forEach(cur => {
+      let cat: WorkItemCategory = 'ACTIVITY_KIT';
+      let sourcing: WorkItemSourcingChannel = 'IN_STOCK';
+
+      if (cur.sourcingType === 'LASER_CUT_FABLAB') {
+        cat = 'FABRICATION_LASER_3D';
+        sourcing = 'LASER_CUT';
+      } else if (cur.chemicalSpecs || cur.sourcingType === 'IN_HOUSE_PREP') {
+        cat = 'CHEMICAL_REAGENT';
+        sourcing = 'CHEMICAL_PREP';
+      } else if (cur.sourcingType === 'TO_ORDER') {
+        cat = 'HARDWARE_SUPPLIES';
+        sourcing = 'ORDER_ONLINE';
+      } else if (cur.crateLevel === 'COMMON_CRATE') {
+        cat = 'WORKING_MODEL';
+        sourcing = 'MODEL_ASSEMBLY';
+      } else if (cur.sourcingType === 'POUCH_BAGGING') {
+        cat = 'ACTIVITY_KIT';
+        sourcing = 'BUY_LOCAL';
+      }
+
+      const displayName = cur.materialName || cur.activityName;
+      suggestions.push({
+        id: `cur-${cur.id}`,
+        name: displayName,
+        category: cat,
+        spec: cur.prepSpecification || cur.activityName || 'Curriculum experiment unit',
+        unit: cur.unit || 'pcs',
+        unitCost: cur.unitCost || 0,
+        sourcing,
+        chapter: cur.chapter ? `${cur.grade} • Ch ${cur.chapter} (${cur.activityCode})` : cur.grade,
+        source: 'CURRICULUM',
+        imageUrl: getItemThumbnailUrl({ name: displayName, category: cat, sourcingChannel: sourcing })
+      });
+    });
+
+    // Filter by query if typed
+    if (!query) {
+      return suggestions.slice(0, 15);
+    }
+
+    return suggestions
+      .filter(s => s.name.toLowerCase().includes(query) || (s.chapter && s.chapter.toLowerCase().includes(query)))
+      .slice(0, 20);
+  }, [inventory, itemFormName]);
+
+  // Click outside to dismiss autocomplete dropdown
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (autocompleteRef.current && !autocompleteRef.current.contains(e.target as Node)) {
+        setIsAutocompleteOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
   // Class Statistics
   const classStats = useMemo(() => {
     if (!activeClass || !activeClass.items || activeClass.items.length === 0) {
@@ -227,6 +354,27 @@ export default function ProjectPortfolioManagerTab({ onNavigateToTab }: ProjectP
     }
   };
 
+  // Select item from autocomplete
+  const handleSelectCatalogItem = (item: typeof catalogSuggestions[0]) => {
+    setItemFormName(item.name);
+    setItemFormCategory(item.category);
+    setItemFormSpec(item.spec);
+    setItemFormUnit(item.unit);
+    setItemFormCost(item.unitCost > 0 ? String(item.unitCost) : '');
+    setItemFormSourcing(item.sourcing);
+    setItemFormImageUrl(item.imageUrl || '');
+    if (item.chapter) setItemFormChapter(item.chapter);
+    setIsAutocompleteOpen(false);
+    showToast(`Autofilled details from ${item.source.toLowerCase()} catalog!`, 'info');
+  };
+
+  // Select preset image
+  const handleSelectPresetImage = (preset: StemPresetImage) => {
+    setItemFormImageUrl(preset.url);
+    setIsPresetPickerOpen(false);
+    showToast(`Selected "${preset.name}" image!`, 'success');
+  };
+
   // Create Project Submit
   const handleCreateProjectSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -255,6 +403,29 @@ export default function ProjectPortfolioManagerTab({ onNavigateToTab }: ProjectP
       { id: user?.id || 'usr-admin-01', name: user?.name || 'Dr. Samartha HM', role: 'admin' },
       templateType
     );
+
+    // Register Undo Action & Audit Trail
+    addAction({
+      id: `create_proj_${created.id}`,
+      name: `Create Project "${created.name}"`,
+      category: 'general',
+      undo: () => {
+        ProjectManagementService.deleteProject(created.id);
+        refreshProjectsList();
+      },
+      redo: () => {
+        // Re-add project
+        refreshProjectsList(created.id);
+      }
+    });
+
+    logTransaction({
+      id: `tx_${Date.now()}`,
+      timestamp: new Date().toISOString(),
+      type: 'PROJECT_CREATED',
+      description: `Created educational project "${created.name}" (${created.code}) with ${created.classes?.length || 0} classes. Lead: ${created.leadUserName}`,
+      items: []
+    }).catch(() => {});
 
     refreshProjectsList(created.id);
     setIsCreateProjectModalOpen(false);
@@ -294,7 +465,8 @@ export default function ProjectPortfolioManagerTab({ onNavigateToTab }: ProjectP
     e.preventDefault();
     if (!selectedProject) return;
 
-    ProjectManagementService.updateProject(
+    const previousSnapshot = { ...selectedProject };
+    const updated = ProjectManagementService.updateProject(
       selectedProject.id,
       {
         code: projectFormCode.trim(),
@@ -315,6 +487,31 @@ export default function ProjectPortfolioManagerTab({ onNavigateToTab }: ProjectP
       { id: user?.id || 'usr-admin-01', name: user?.name || 'Dr. Samartha HM', role: 'admin' }
     );
 
+    // Register Undo Action
+    addAction({
+      id: `edit_proj_${selectedProject.id}_${Date.now()}`,
+      name: `Update Project "${projectFormName}"`,
+      category: 'general',
+      undo: () => {
+        ProjectManagementService.updateProject(selectedProject.id, previousSnapshot);
+        refreshProjectsList(selectedProject.id);
+      },
+      redo: () => {
+        if (updated) {
+          ProjectManagementService.updateProject(selectedProject.id, updated);
+          refreshProjectsList(selectedProject.id);
+        }
+      }
+    });
+
+    logTransaction({
+      id: `tx_${Date.now()}`,
+      timestamp: new Date().toISOString(),
+      type: 'PROJECT_UPDATED',
+      description: `Updated project fields for "${projectFormName}" (${selectedProject.code})`,
+      items: []
+    }).catch(() => {});
+
     refreshProjectsList(selectedProject.id);
     setIsEditProjectModalOpen(false);
     showToast('Project updated successfully!', 'success');
@@ -322,8 +519,26 @@ export default function ProjectPortfolioManagerTab({ onNavigateToTab }: ProjectP
 
   // Delete Project
   const handleDeleteProject = (id: string, name: string) => {
+    const projectToDelete = projects.find(p => p.id === id);
+    if (!projectToDelete) return;
+
     if (window.confirm(`Are you sure you want to delete project "${name}"? This action cannot be undone.`)) {
       ProjectManagementService.deleteProject(id);
+
+      addAction({
+        id: `del_proj_${id}`,
+        name: `Delete Project "${name}"`,
+        category: 'general',
+        undo: () => {
+          ProjectManagementService.createProject(projectToDelete);
+          refreshProjectsList(id);
+        },
+        redo: () => {
+          ProjectManagementService.deleteProject(id);
+          refreshProjectsList();
+        }
+      });
+
       refreshProjectsList();
       showToast(`Deleted project "${name}"`, 'success');
     }
@@ -332,8 +547,25 @@ export default function ProjectPortfolioManagerTab({ onNavigateToTab }: ProjectP
   // Class Multiplier Change
   const handleClassMultiplierChange = (newMultiplier: number) => {
     if (!selectedProject || !activeClass) return;
+    const oldMultiplier = activeClass.batchMultiplier;
     const val = Math.max(1, Number(newMultiplier) || 1);
+
     ProjectManagementService.updateClass(selectedProject.id, activeClass.id, { batchMultiplier: val });
+
+    addAction({
+      id: `mult_class_${activeClass.id}_${Date.now()}`,
+      name: `Scale ${activeClass.name} Batch to ${val}x`,
+      category: 'general',
+      undo: () => {
+        ProjectManagementService.updateClass(selectedProject.id, activeClass.id, { batchMultiplier: oldMultiplier });
+        refreshProjectsList(selectedProject.id);
+      },
+      redo: () => {
+        ProjectManagementService.updateClass(selectedProject.id, activeClass.id, { batchMultiplier: val });
+        refreshProjectsList(selectedProject.id);
+      }
+    });
+
     refreshProjectsList(selectedProject.id);
     showToast(`Updated ${activeClass.name} batch multiplier to ${val}x`, 'info');
   };
@@ -349,8 +581,33 @@ export default function ProjectPortfolioManagerTab({ onNavigateToTab }: ProjectP
       batchMultiplier: Math.max(1, Number(newClassBatchMultiplier) || 1)
     });
 
+    if (added) {
+      addAction({
+        id: `add_class_${added.id}`,
+        name: `Add Class "${newClassName}" to ${selectedProject.name}`,
+        category: 'general',
+        undo: () => {
+          ProjectManagementService.removeClassFromProject(selectedProject.id, added.id);
+          refreshProjectsList(selectedProject.id);
+        },
+        redo: () => {
+          ProjectManagementService.addClassToProject(selectedProject.id, added);
+          refreshProjectsList(selectedProject.id);
+        }
+      });
+
+      logTransaction({
+        id: `tx_${Date.now()}`,
+        timestamp: new Date().toISOString(),
+        type: 'CLASS_ADDED',
+        description: `Added "${newClassName}" (${added.batchMultiplier}x batch) to project ${selectedProject.name}`,
+        items: []
+      }).catch(() => {});
+
+      setActiveClassId(added.id);
+    }
+
     refreshProjectsList(selectedProject.id);
-    if (added) setActiveClassId(added.id);
     setIsAddClassModalOpen(false);
     setNewClassName('');
     setNewClassDesc('');
@@ -359,9 +616,26 @@ export default function ProjectPortfolioManagerTab({ onNavigateToTab }: ProjectP
 
   // Delete Class
   const handleDeleteClass = (classId: string, className: string) => {
-    if (!selectedProject) return;
+    if (!selectedProject || !activeClass) return;
+    const classSnapshot = { ...activeClass };
+
     if (window.confirm(`Remove "${className}" and all its deliverables from this project?`)) {
       ProjectManagementService.removeClassFromProject(selectedProject.id, classId);
+
+      addAction({
+        id: `del_class_${classId}`,
+        name: `Remove Class "${className}"`,
+        category: 'general',
+        undo: () => {
+          ProjectManagementService.addClassToProject(selectedProject.id, classSnapshot);
+          refreshProjectsList(selectedProject.id);
+        },
+        redo: () => {
+          ProjectManagementService.removeClassFromProject(selectedProject.id, classId);
+          refreshProjectsList(selectedProject.id);
+        }
+      });
+
       refreshProjectsList(selectedProject.id);
       showToast(`Removed ${className}`, 'info');
     }
@@ -378,6 +652,7 @@ export default function ProjectPortfolioManagerTab({ onNavigateToTab }: ProjectP
     setItemFormSourcing('BUY_LOCAL');
     setItemFormStatus('PENDING');
     setItemFormCost('');
+    setItemFormImageUrl('');
     setItemFormAssignee(selectedProject?.leadUserName || 'Ravi Kumar (Lead Tech)');
     setItemFormChapter('');
     setItemFormNotes('');
@@ -395,6 +670,7 @@ export default function ProjectPortfolioManagerTab({ onNavigateToTab }: ProjectP
     setItemFormSourcing(item.sourcingChannel);
     setItemFormStatus(item.status);
     setItemFormCost(item.unitCost !== undefined ? String(item.unitCost) : '');
+    setItemFormImageUrl(item.imageUrl || '');
     setItemFormAssignee(item.leadAssignee || '');
     setItemFormChapter(item.sourceChapter || '');
     setItemFormNotes(item.notes || '');
@@ -409,8 +685,15 @@ export default function ProjectPortfolioManagerTab({ onNavigateToTab }: ProjectP
       return;
     }
 
+    const currentThumbnail = itemFormImageUrl.trim() || getItemThumbnailUrl({
+      name: itemFormName,
+      category: itemFormCategory,
+      sourcingChannel: itemFormSourcing
+    });
+
     if (editingItem) {
-      ProjectManagementService.updateWorkItem(selectedProject.id, activeClass.id, editingItem.id, {
+      const prevItem = { ...editingItem };
+      const updated = ProjectManagementService.updateWorkItem(selectedProject.id, activeClass.id, editingItem.id, {
         name: itemFormName.trim(),
         category: itemFormCategory,
         specification: itemFormSpec.trim(),
@@ -419,13 +702,39 @@ export default function ProjectPortfolioManagerTab({ onNavigateToTab }: ProjectP
         sourcingChannel: itemFormSourcing,
         status: itemFormStatus,
         unitCost: itemFormCost ? Number(itemFormCost) : undefined,
+        imageUrl: currentThumbnail,
         leadAssignee: itemFormAssignee.trim(),
         sourceChapter: itemFormChapter.trim() || undefined,
         notes: itemFormNotes.trim() || undefined
       });
+
+      addAction({
+        id: `edit_item_${editingItem.id}_${Date.now()}`,
+        name: `Edit deliverable "${itemFormName}"`,
+        category: 'item',
+        undo: () => {
+          ProjectManagementService.updateWorkItem(selectedProject.id, activeClass.id, editingItem.id, prevItem);
+          refreshProjectsList(selectedProject.id);
+        },
+        redo: () => {
+          if (updated) {
+            ProjectManagementService.updateWorkItem(selectedProject.id, activeClass.id, editingItem.id, updated);
+            refreshProjectsList(selectedProject.id);
+          }
+        }
+      });
+
+      logTransaction({
+        id: `tx_${Date.now()}`,
+        timestamp: new Date().toISOString(),
+        type: 'DELIVERABLE_UPDATED',
+        description: `Modified deliverable "${itemFormName}" in ${activeClass.name} (${selectedProject.name})`,
+        items: [{ componentName: itemFormName, qtyDiff: Number(itemFormQty) }]
+      }).catch(() => {});
+
       showToast(`Updated deliverable "${itemFormName}"`, 'success');
     } else {
-      ProjectManagementService.addWorkItem(selectedProject.id, activeClass.id, {
+      const added = ProjectManagementService.addWorkItem(selectedProject.id, activeClass.id, {
         name: itemFormName.trim(),
         category: itemFormCategory,
         specification: itemFormSpec.trim(),
@@ -434,10 +743,36 @@ export default function ProjectPortfolioManagerTab({ onNavigateToTab }: ProjectP
         sourcingChannel: itemFormSourcing,
         status: itemFormStatus,
         unitCost: itemFormCost ? Number(itemFormCost) : undefined,
+        imageUrl: currentThumbnail,
         leadAssignee: itemFormAssignee.trim(),
         sourceChapter: itemFormChapter.trim() || undefined,
         notes: itemFormNotes.trim() || undefined
       });
+
+      if (added) {
+        addAction({
+          id: `add_item_${added.id}`,
+          name: `Add "${itemFormName}" to ${activeClass.name}`,
+          category: 'item',
+          undo: () => {
+            ProjectManagementService.deleteWorkItem(selectedProject.id, activeClass.id, added.id);
+            refreshProjectsList(selectedProject.id);
+          },
+          redo: () => {
+            ProjectManagementService.addWorkItem(selectedProject.id, activeClass.id, added);
+            refreshProjectsList(selectedProject.id);
+          }
+        });
+
+        logTransaction({
+          id: `tx_${Date.now()}`,
+          timestamp: new Date().toISOString(),
+          type: 'DELIVERABLE_ADDED',
+          description: `Added new deliverable "${itemFormName}" (${itemFormCategory}) to ${activeClass.name} in ${selectedProject.name}`,
+          items: [{ componentName: itemFormName, qtyDiff: Number(itemFormQty) }]
+        }).catch(() => {});
+      }
+
       showToast(`Added "${itemFormName}" to ${activeClass.name}`, 'success');
     }
 
@@ -446,22 +781,71 @@ export default function ProjectPortfolioManagerTab({ onNavigateToTab }: ProjectP
   };
 
   // Toggle Work Item Status
-  const handleToggleItemStatus = (itemId: string) => {
+  const handleToggleItemStatus = (itemId: string, itemName: string, currentStatus: WorkItemStatus) => {
     if (!selectedProject || !activeClass) return;
     const updated = ProjectManagementService.cycleWorkItemStatus(selectedProject.id, activeClass.id, itemId);
-    refreshProjectsList(selectedProject.id);
+
     if (updated) {
+      addAction({
+        id: `toggle_status_${itemId}_${Date.now()}`,
+        name: `Status "${itemName}": ${currentStatus} → ${updated.status}`,
+        category: 'item',
+        undo: () => {
+          ProjectManagementService.updateWorkItem(selectedProject.id, activeClass.id, itemId, { status: currentStatus });
+          refreshProjectsList(selectedProject.id);
+        },
+        redo: () => {
+          ProjectManagementService.updateWorkItem(selectedProject.id, activeClass.id, itemId, { status: updated.status });
+          refreshProjectsList(selectedProject.id);
+        }
+      });
+
+      logTransaction({
+        id: `tx_${Date.now()}`,
+        timestamp: new Date().toISOString(),
+        type: 'STATUS_CHANGED',
+        description: `Deliverable "${itemName}" status changed from ${currentStatus} to ${updated.status} in ${activeClass.name}`,
+        items: []
+      }).catch(() => {});
+
       showToast(`Status updated to ${updated.status}`, 'info');
     }
+
+    refreshProjectsList(selectedProject.id);
   };
 
   // Delete Work Item
-  const handleDeleteItem = (itemId: string, itemName: string) => {
+  const handleDeleteItem = (item: ProjectWorkItem) => {
     if (!selectedProject || !activeClass) return;
-    if (window.confirm(`Delete item "${itemName}"?`)) {
-      ProjectManagementService.deleteWorkItem(selectedProject.id, activeClass.id, itemId);
+    const itemSnapshot = { ...item };
+
+    if (window.confirm(`Delete deliverable "${item.name}"?`)) {
+      ProjectManagementService.deleteWorkItem(selectedProject.id, activeClass.id, item.id);
+
+      addAction({
+        id: `del_item_${item.id}`,
+        name: `Delete deliverable "${item.name}"`,
+        category: 'item',
+        undo: () => {
+          ProjectManagementService.addWorkItem(selectedProject.id, activeClass.id, itemSnapshot);
+          refreshProjectsList(selectedProject.id);
+        },
+        redo: () => {
+          ProjectManagementService.deleteWorkItem(selectedProject.id, activeClass.id, item.id);
+          refreshProjectsList(selectedProject.id);
+        }
+      });
+
+      logTransaction({
+        id: `tx_${Date.now()}`,
+        timestamp: new Date().toISOString(),
+        type: 'DELIVERABLE_DELETED',
+        description: `Removed deliverable "${item.name}" from ${activeClass.name} in ${selectedProject.name}`,
+        items: []
+      }).catch(() => {});
+
       refreshProjectsList(selectedProject.id);
-      showToast(`Deleted "${itemName}"`, 'info');
+      showToast(`Deleted "${item.name}"`, 'info');
     }
   };
 
@@ -567,12 +951,12 @@ export default function ProjectPortfolioManagerTab({ onNavigateToTab }: ProjectP
     }
   };
 
-  const getItemStatusButton = (status: WorkItemStatus, itemId: string) => {
+  const getItemStatusButton = (status: WorkItemStatus, itemId: string, itemName: string) => {
     switch (status) {
       case 'PENDING':
         return (
           <button
-            onClick={() => handleToggleItemStatus(itemId)}
+            onClick={() => handleToggleItemStatus(itemId, itemName, status)}
             title="Click to cycle status to IN_PREP"
             className="inline-flex items-center gap-1 bg-slate-800 text-slate-300 hover:bg-slate-700 border border-slate-700 px-2 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer"
           >
@@ -582,7 +966,7 @@ export default function ProjectPortfolioManagerTab({ onNavigateToTab }: ProjectP
       case 'IN_PREP':
         return (
           <button
-            onClick={() => handleToggleItemStatus(itemId)}
+            onClick={() => handleToggleItemStatus(itemId, itemName, status)}
             title="Click to cycle status to READY"
             className="inline-flex items-center gap-1 bg-amber-500/20 text-amber-300 hover:bg-amber-500/30 border border-amber-500/40 px-2 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer"
           >
@@ -592,7 +976,7 @@ export default function ProjectPortfolioManagerTab({ onNavigateToTab }: ProjectP
       case 'READY':
         return (
           <button
-            onClick={() => handleToggleItemStatus(itemId)}
+            onClick={() => handleToggleItemStatus(itemId, itemName, status)}
             title="Click to cycle status to PACKED"
             className="inline-flex items-center gap-1 bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/30 border border-emerald-500/40 px-2 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer"
           >
@@ -602,7 +986,7 @@ export default function ProjectPortfolioManagerTab({ onNavigateToTab }: ProjectP
       case 'PACKED':
         return (
           <button
-            onClick={() => handleToggleItemStatus(itemId)}
+            onClick={() => handleToggleItemStatus(itemId, itemName, status)}
             title="Click to cycle status to PENDING"
             className="inline-flex items-center gap-1 bg-cyan-500/20 text-cyan-300 hover:bg-cyan-500/30 border border-cyan-500/40 px-2 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer"
           >
@@ -625,7 +1009,7 @@ export default function ProjectPortfolioManagerTab({ onNavigateToTab }: ProjectP
               Project Portfolio & Class Production Manager
             </h1>
             <p className="text-sm text-slate-400 max-w-3xl">
-              100% customizable planning, fabrication, and class-wise tracking. Monitor activity pouches, demonstration models, wall charts, laser-cut parts, chemicals, and hardware supplies for every educational project.
+              100% customizable planning, visual thumbnail previews, and class-wise tracking. Monitor activity pouches, demonstration models, wall charts, laser-cut parts, chemicals, and hardware supplies with full Undo/Redo support.
             </p>
           </div>
 
@@ -728,7 +1112,6 @@ export default function ProjectPortfolioManagerTab({ onNavigateToTab }: ProjectP
               0
             );
             const progressPct = totalClassDeliverables > 0 ? Math.round((readyDeliverables / totalClassDeliverables) * 100) : 0;
-            const expTotal = (p.expenses || []).reduce((a, b) => a + b.amountINR, 0);
 
             return (
               <div
@@ -1037,6 +1420,7 @@ export default function ProjectPortfolioManagerTab({ onNavigateToTab }: ProjectP
                     <table className="w-full text-left text-xs">
                       <thead className="bg-slate-900/90 text-slate-400 font-bold border-b border-slate-800 uppercase text-[10px] tracking-wider">
                         <tr>
+                          <th className="py-3 px-3 w-12 text-center">Preview</th>
                           <th className="py-3 px-4">Deliverable / Material</th>
                           <th className="py-3 px-4">Work Category</th>
                           <th className="py-3 px-4">Sourcing Channel</th>
@@ -1049,56 +1433,83 @@ export default function ProjectPortfolioManagerTab({ onNavigateToTab }: ProjectP
                       </thead>
                       <tbody className="divide-y divide-slate-800/60">
                         {filteredClassItems.length > 0 ? (
-                          filteredClassItems.map(item => (
-                            <tr key={item.id} className="hover:bg-slate-900/50 transition-colors">
-                              <td className="py-3 px-4">
-                                <div className="font-bold text-white text-xs">{item.name}</div>
-                                <div className="text-[11px] text-slate-400 line-clamp-1">{item.specification}</div>
-                                {item.sourceChapter && (
-                                  <div className="text-[10px] text-indigo-400 font-mono mt-0.5">{item.sourceChapter}</div>
-                                )}
-                              </td>
-                              <td className="py-3 px-4">
-                                {getItemCategoryBadge(item.category)}
-                              </td>
-                              <td className="py-3 px-4">
-                                {getSourcingBadge(item.sourcingChannel)}
-                              </td>
-                              <td className="py-3 px-4 text-center font-mono text-slate-300">
-                                {item.quantityPerBatchUnit} <span className="text-[10px] text-slate-500">{item.unit}</span>
-                              </td>
-                              <td className="py-3 px-4 text-center font-mono font-bold text-cyan-400">
-                                {item.totalQuantity} <span className="text-[10px] text-slate-400">{item.unit}</span>
-                              </td>
-                              <td className="py-3 px-4 text-slate-300">
-                                {item.leadAssignee || 'Unassigned'}
-                              </td>
-                              <td className="py-3 px-4 text-center">
-                                {getItemStatusButton(item.status, item.id)}
-                              </td>
-                              <td className="py-3 px-4 text-right">
-                                <div className="inline-flex items-center gap-1.5">
+                          filteredClassItems.map(item => {
+                            const thumbUrl = getItemThumbnailUrl(item);
+
+                            return (
+                              <tr key={item.id} className="hover:bg-slate-900/50 transition-colors">
+                                {/* Thumbnail Image Column */}
+                                <td className="py-2.5 px-3 text-center">
                                   <button
-                                    onClick={() => handleOpenEditItem(item)}
-                                    title="Edit Item"
-                                    className="p-1 rounded text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
+                                    type="button"
+                                    onClick={() => setPreviewImageItem(item)}
+                                    title="Click to view full preview"
+                                    className="relative w-10 h-10 rounded-xl overflow-hidden border border-slate-700/80 bg-slate-900 hover:border-indigo-500 transition-all group cursor-pointer"
                                   >
-                                    <Edit2 className="w-3.5 h-3.5" />
+                                    <img
+                                      src={thumbUrl}
+                                      alt={item.name}
+                                      className="w-full h-full object-cover group-hover:scale-110 transition-transform"
+                                      loading="lazy"
+                                      onError={(e) => {
+                                        (e.target as HTMLElement).style.display = 'none';
+                                      }}
+                                    />
+                                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                                      <ZoomIn className="w-3.5 h-3.5 text-white" />
+                                    </div>
                                   </button>
-                                  <button
-                                    onClick={() => handleDeleteItem(item.id, item.name)}
-                                    title="Delete Item"
-                                    className="p-1 rounded text-slate-400 hover:text-rose-400 hover:bg-slate-800 transition-colors cursor-pointer"
-                                  >
-                                    <Trash2 className="w-3.5 h-3.5" />
-                                  </button>
-                                </div>
-                              </td>
-                            </tr>
-                          ))
+                                </td>
+
+                                <td className="py-3 px-4">
+                                  <div className="font-bold text-white text-xs">{item.name}</div>
+                                  <div className="text-[11px] text-slate-400 line-clamp-1">{item.specification}</div>
+                                  {item.sourceChapter && (
+                                    <div className="text-[10px] text-indigo-400 font-mono mt-0.5">{item.sourceChapter}</div>
+                                  )}
+                                </td>
+                                <td className="py-3 px-4">
+                                  {getItemCategoryBadge(item.category)}
+                                </td>
+                                <td className="py-3 px-4">
+                                  {getSourcingBadge(item.sourcingChannel)}
+                                </td>
+                                <td className="py-3 px-4 text-center font-mono text-slate-300">
+                                  {item.quantityPerBatchUnit} <span className="text-[10px] text-slate-500">{item.unit}</span>
+                                </td>
+                                <td className="py-3 px-4 text-center font-mono font-bold text-cyan-400">
+                                  {item.totalQuantity} <span className="text-[10px] text-slate-400">{item.unit}</span>
+                                </td>
+                                <td className="py-3 px-4 text-slate-300">
+                                  {item.leadAssignee || 'Unassigned'}
+                                </td>
+                                <td className="py-3 px-4 text-center">
+                                  {getItemStatusButton(item.status, item.id, item.name)}
+                                </td>
+                                <td className="py-3 px-4 text-right">
+                                  <div className="inline-flex items-center gap-1.5">
+                                    <button
+                                      onClick={() => handleOpenEditItem(item)}
+                                      title="Edit Item"
+                                      className="p-1 rounded text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
+                                    >
+                                      <Edit2 className="w-3.5 h-3.5" />
+                                    </button>
+                                    <button
+                                      onClick={() => handleDeleteItem(item)}
+                                      title="Delete Item"
+                                      className="p-1 rounded text-slate-400 hover:text-rose-400 hover:bg-slate-800 transition-colors cursor-pointer"
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                    </button>
+                                  </div>
+                                </td>
+                              </tr>
+                            );
+                          })
                         ) : (
                           <tr>
-                            <td colSpan={8} className="py-8 text-center text-slate-500 text-xs">
+                            <td colSpan={9} className="py-8 text-center text-slate-500 text-xs">
                               No deliverables matching the selected filter. Click <strong>"+ Add Deliverable"</strong> to add items to {activeClass.name}.
                             </td>
                           </tr>
@@ -1597,7 +2008,7 @@ export default function ProjectPortfolioManagerTab({ onNavigateToTab }: ProjectP
         </div>
       )}
 
-      {/* ===== 8. Modal: Add / Edit Deliverable Item ===== */}
+      {/* ===== 8. Modal: Add / Edit Deliverable Item with Smart Autocomplete & Visual Gallery ===== */}
       {isAddEditItemModalOpen && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-xl w-full p-6 space-y-4 shadow-2xl max-h-[90vh] overflow-y-auto">
@@ -1617,18 +2028,65 @@ export default function ProjectPortfolioManagerTab({ onNavigateToTab }: ProjectP
             </div>
 
             <form onSubmit={handleSaveWorkItem} className="space-y-3 text-xs">
-              <div>
-                <label className="text-slate-300 font-bold block mb-1">Deliverable / Component Name *</label>
-                <input
-                  type="text"
-                  required
-                  value={itemFormName}
-                  onChange={e => setItemFormName(e.target.value)}
-                  placeholder="e.g. Electric Motor Demo Rig, 3mm MDF Optical Bench, 0.1M HCl Dropper..."
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                />
+              {/* Deliverable Name with Smart Autocomplete Combobox */}
+              <div className="space-y-1 relative" ref={autocompleteRef}>
+                <div className="flex items-center justify-between">
+                  <label className="text-slate-300 font-bold block">Deliverable / Component Name *</label>
+                  <span className="text-[10px] text-indigo-400">💡 Type to search 236+ curriculum & inventory items</span>
+                </div>
+                <div className="relative">
+                  <input
+                    type="text"
+                    required
+                    value={itemFormName}
+                    onChange={e => {
+                      setItemFormName(e.target.value);
+                      setIsAutocompleteOpen(true);
+                    }}
+                    onFocus={() => setIsAutocompleteOpen(true)}
+                    placeholder="Search or enter name (e.g. Convex Lens, 0.1M HCl Dropper, MDF Base...)"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  />
+                  {catalogSuggestions.length > 0 && isAutocompleteOpen && (
+                    <div className="absolute left-0 right-0 top-full mt-1 bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl max-h-56 overflow-y-auto z-50 divide-y divide-slate-800">
+                      <div className="px-3 py-1.5 text-[10px] uppercase font-bold text-slate-400 bg-slate-950/60 sticky top-0 flex items-center justify-between">
+                        <span>Matching Catalog Suggestions</span>
+                        <span className="text-indigo-400 font-mono">{catalogSuggestions.length} found</span>
+                      </div>
+                      {catalogSuggestions.map(s => (
+                        <div
+                          key={s.id}
+                          onClick={() => handleSelectCatalogItem(s)}
+                          className="p-2.5 hover:bg-indigo-950/50 flex items-center justify-between gap-3 cursor-pointer transition-colors"
+                        >
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <img
+                              src={s.imageUrl}
+                              alt={s.name}
+                              className="w-8 h-8 rounded-lg object-cover border border-slate-700 shrink-0"
+                            />
+                            <div className="min-w-0">
+                              <div className="font-bold text-white text-xs truncate">{s.name}</div>
+                              <div className="text-[10px] text-slate-400 truncate">{s.spec}</div>
+                              {s.chapter && (
+                                <div className="text-[9px] text-indigo-400 font-mono">{s.chapter}</div>
+                              )}
+                            </div>
+                          </div>
+                          <div className="text-right shrink-0">
+                            {getItemCategoryBadge(s.category)}
+                            {s.unitCost > 0 && (
+                              <div className="text-[10px] font-mono font-bold text-emerald-400 mt-0.5">₹{s.unitCost}</div>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
 
+              {/* Category and Sourcing */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="text-slate-300 font-bold block mb-1">Category</label>
@@ -1677,6 +2135,7 @@ export default function ProjectPortfolioManagerTab({ onNavigateToTab }: ProjectP
                 />
               </div>
 
+              {/* Quantities & Pricing */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
                   <label className="text-slate-300 font-bold block mb-1">Base Qty (per 1 kit)</label>
@@ -1712,6 +2171,55 @@ export default function ProjectPortfolioManagerTab({ onNavigateToTab }: ProjectP
                 </div>
               </div>
 
+              {/* Image Preview & URL with Preset Picker */}
+              <div className="bg-slate-950/70 p-3 rounded-2xl border border-slate-800 space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-slate-300 font-bold flex items-center gap-1.5">
+                    <ImageIcon className="w-3.5 h-3.5 text-indigo-400" /> Deliverable Thumbnail / Preview Image
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setIsPresetPickerOpen(!isPresetPickerOpen)}
+                    className="text-[11px] font-bold text-indigo-400 hover:text-indigo-300 underline cursor-pointer"
+                  >
+                    🎨 Choose from STEM Preset Gallery
+                  </button>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <img
+                    src={itemFormImageUrl || getItemThumbnailUrl({ name: itemFormName, category: itemFormCategory, sourcingChannel: itemFormSourcing })}
+                    alt="Preview"
+                    className="w-12 h-12 rounded-xl object-cover border border-slate-700 shrink-0 bg-slate-900"
+                  />
+                  <input
+                    type="url"
+                    value={itemFormImageUrl}
+                    onChange={e => setItemFormImageUrl(e.target.value)}
+                    placeholder="Custom Image URL (https://...)"
+                    className="flex-1 bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-white text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  />
+                </div>
+
+                {/* Preset Gallery Picker Grid */}
+                {isPresetPickerOpen && (
+                  <div className="grid grid-cols-4 sm:grid-cols-6 gap-2 pt-2 border-t border-slate-800 max-h-36 overflow-y-auto">
+                    {STEM_PRESET_IMAGES.map(p => (
+                      <button
+                        key={p.id}
+                        type="button"
+                        onClick={() => handleSelectPresetImage(p)}
+                        className="p-1 rounded-xl bg-slate-900 hover:bg-indigo-950/60 border border-slate-800 hover:border-indigo-500 text-center transition-all cursor-pointer group"
+                      >
+                        <img src={p.url} alt={p.name} className="w-full h-10 object-cover rounded-lg" />
+                        <div className="text-[9px] text-slate-300 truncate mt-1">{p.emoji} {p.name}</div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Assignee & Status */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="text-slate-300 font-bold block mb-1">Lead Assignee (Technician / Person)</label>
@@ -1779,6 +2287,75 @@ export default function ProjectPortfolioManagerTab({ onNavigateToTab }: ProjectP
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ===== 9. Modal: High-Res Visual Zoom Preview ===== */}
+      {previewImageItem && (
+        <div className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-lg w-full p-6 space-y-4 shadow-2xl animate-in fade-in zoom-in-95">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div className="flex items-center gap-2">
+                <ZoomIn className="w-5 h-5 text-indigo-400" />
+                <h3 className="text-base font-bold text-white truncate max-w-sm">{previewImageItem.name}</h3>
+              </div>
+              <button
+                onClick={() => setPreviewImageItem(null)}
+                className="text-slate-400 hover:text-white p-1 rounded-lg cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              <div className="w-full h-64 rounded-2xl overflow-hidden border border-slate-700 bg-slate-950">
+                <img
+                  src={getItemThumbnailUrl(previewImageItem)}
+                  alt={previewImageItem.name}
+                  className="w-full h-full object-cover"
+                />
+              </div>
+
+              <div className="space-y-2 bg-slate-950 p-3.5 rounded-2xl border border-slate-800 text-xs">
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-400">Category:</span>
+                  <span>{getItemCategoryBadge(previewImageItem.category)}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-400">Sourcing:</span>
+                  <span>{getSourcingBadge(previewImageItem.sourcingChannel)}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-400">Specification:</span>
+                  <span className="text-white font-medium text-right max-w-xs">{previewImageItem.specification}</span>
+                </div>
+                {previewImageItem.sourceChapter && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-400">Chapter / Ref:</span>
+                    <span className="font-mono text-indigo-400">{previewImageItem.sourceChapter}</span>
+                  </div>
+                )}
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-400">Status:</span>
+                  <span>{getItemStatusButton(previewImageItem.status, previewImageItem.id, previewImageItem.name)}</span>
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const itemToEdit = previewImageItem;
+                    setPreviewImageItem(null);
+                    handleOpenEditItem(itemToEdit);
+                  }}
+                  className="px-4 py-2 rounded-xl text-white font-bold bg-indigo-600 hover:bg-indigo-500 cursor-pointer flex items-center gap-1.5"
+                >
+                  <Edit2 className="w-3.5 h-3.5" /> Edit Item Details
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

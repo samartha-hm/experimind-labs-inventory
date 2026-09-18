@@ -36,6 +36,7 @@ export interface ProjectWorkItem {
   sourcingChannel: WorkItemSourcingChannel;
   status: WorkItemStatus;
   unitCost?: number;
+  imageUrl?: string;
   leadAssignee?: string;
   notes?: string;
   sourceChapter?: string;
