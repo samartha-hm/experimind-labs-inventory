@@ -27,6 +27,8 @@ import {
   Globe,
   Cpu,
   Layers,
+  Factory,
+  FolderKanban,
   X,
 } from 'lucide-react';
 
@@ -81,6 +83,7 @@ export default function Sidebar({
       title: 'OPERATIONAL COMMAND',
       items: [
         { id: 'overview', label: 'Executive Cockpit', icon: <LayoutDashboard className="w-4 h-4" /> },
+        { id: 'projects_hub', label: 'Projects & Portfolio Hub', icon: <FolderKanban className="w-4 h-4" />, badge: 'P&L', badgeColor: 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30' },
         { id: 'sales_orders', label: 'Sales & Dispatches', icon: <PackageCheck className="w-4 h-4" />, badge: openSoCount > 0 ? `${openSoCount}` : undefined, badgeColor: 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30' },
         { id: 'shop', label: 'Storefront Channel Hub', icon: <ShoppingBag className="w-4 h-4" />, badge: 'Live', badgeColor: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' },
       ],
@@ -105,6 +108,7 @@ export default function Sidebar({
     {
       title: 'MANUFACTURING & KITTING (BOM)',
       items: [
+        { id: 'production_command', label: 'Production & Sourcing Matrix', icon: <Factory className="w-4 h-4" />, badge: 'Top 1%', badgeColor: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' },
         { id: 'kitting', label: 'Composite Kits (STEM Packs)', icon: <Package className="w-4 h-4" />, badge: 'Kits', badgeColor: 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30' },
         { id: 'pcba_bom', label: 'Recursive PCBA BOM & CAD', icon: <Layers className="w-4 h-4" />, badge: 'EDA', badgeColor: 'bg-purple-500/20 text-purple-300 border-purple-500/30' },
         { id: 'hardware_workbench', label: 'Component Workbench (SMD/THT)', icon: <Cpu className="w-4 h-4" />, badge: 'SMT', badgeColor: 'bg-cyan-500/20 text-cyan-300 border-cyan-500/30' },

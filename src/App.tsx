@@ -54,6 +54,8 @@ import { ToastProvider } from '@/src/contexts/ToastContext';
 import { ApprovalProvider } from '@/src/contexts/ApprovalContext';
 import HardwareWorkbenchTab from '@/src/features/hardware/HardwareWorkbenchTab';
 import BomTreeManagerTab from '@/src/features/hardware/BomTreeManagerTab';
+import ProductionCommandCenterTab from '@/src/features/production/ProductionCommandCenterTab';
+import ProjectPortfolioManagerTab from '@/src/features/projects/ProjectPortfolioManagerTab';
 import ToastContainer from '@/src/components/ToastContainer';
 import MobileBottomNav from '@/src/shared/components/MobileBottomNav';
 
@@ -353,6 +355,14 @@ function MainApp() {
                   onOpenBarcodeStudio={() => setIsBarcodeStudioOpen(true)}
                   onOpenBarcodeScanner={() => setIsBarcodeScannerOpen(true)}
                 />
+              )}
+
+              {activeTab === 'projects_hub' && (
+                <ProjectPortfolioManagerTab />
+              )}
+
+              {activeTab === 'production_command' && (
+                <ProductionCommandCenterTab />
               )}
 
               {activeTab === 'kitting' && (
