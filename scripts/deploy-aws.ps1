@@ -41,7 +41,9 @@ chmod +x /home/admin/setup-aws.sh
 
 APP_DIR="/home/admin/experimind-inventory"
 mkdir -p $APP_DIR
-tar -xzf /home/admin/deploy_bundle.tar.gz -C $APP_DIR
+chmod -R u+w $APP_DIR 2>/dev/null || true
+tar --overwrite -xzf /home/admin/deploy_bundle.tar.gz -C $APP_DIR
+chmod -R u+w $APP_DIR 2>/dev/null || true
 
 cd $APP_DIR
 echo "Installing production dependencies..."
