@@ -57,7 +57,41 @@ export interface PortfolioSummary {
 }
 
 export class ProjectManagementService {
-  private static projects: Project[] = [...INITIAL_PROJECTS];
+  private static STORAGE_KEY = 'experimind_projects_portfolio_v2';
+  private static projects: Project[] = ProjectManagementService.loadProjects();
+
+  public static loadProjects(): Project[] {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      try {
+        const saved = window.localStorage.getItem(this.STORAGE_KEY);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            return parsed;
+          }
+        }
+      } catch (err) {
+        console.warn('Failed to load projects from localStorage:', err);
+      }
+    }
+    return [...INITIAL_PROJECTS];
+  }
+
+  public static saveProjects(): void {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      try {
+        window.localStorage.setItem(this.STORAGE_KEY, JSON.stringify(this.projects));
+        window.dispatchEvent(new CustomEvent('experimind_projects_updated', { detail: { projects: this.projects } }));
+      } catch (err) {
+        console.warn('Failed to save projects to localStorage:', err);
+      }
+    }
+  }
+
+  public static resetStore(): void {
+    this.projects = [...INITIAL_PROJECTS];
+    this.saveProjects();
+  }
 
   public static getAllProjects(filters?: {
     category?: ProjectCategory | 'ALL';
@@ -160,14 +194,35 @@ export class ProjectManagementService {
     };
 
     this.projects.unshift(newProject);
+    this.saveProjects();
     return newProject;
   }
 
-  public static updateProject(id: string, updates: Partial<Project>, updaterUser?: { id: string; name: string; role: string }): Project | null {
+  public static updateProject(
+    id: string,
+    updates: Partial<Project>,
+    updaterUser?: { id: string; name: string; role: string },
+    options?: { applyMultiplierToClasses?: boolean }
+  ): Project | null {
     const project = this.getProjectById(id);
     if (!project) return null;
 
     Object.assign(project, updates);
+
+    // If defaultBatchMultiplier is updated and options.applyMultiplierToClasses is true
+    if (updates.defaultBatchMultiplier !== undefined) {
+      const mult = Math.max(1, Number(updates.defaultBatchMultiplier));
+      project.defaultBatchMultiplier = mult;
+      if (options?.applyMultiplierToClasses && project.classes) {
+        project.classes.forEach(c => {
+          c.batchMultiplier = mult;
+          c.items.forEach(i => {
+            i.totalQuantity = i.quantityPerBatchUnit * mult;
+          });
+        });
+      }
+    }
+
     project.updatedAt = new Date().toISOString();
 
     if (updaterUser) {
@@ -183,6 +238,7 @@ export class ProjectManagementService {
       });
     }
 
+    this.saveProjects();
     return project;
   }
 
@@ -190,6 +246,7 @@ export class ProjectManagementService {
     const idx = this.projects.findIndex(p => p.id === id);
     if (idx === -1) return false;
     this.projects.splice(idx, 1);
+    this.saveProjects();
     return true;
   }
 
@@ -212,6 +269,7 @@ export class ProjectManagementService {
 
     project.classes.push(newClass);
     project.updatedAt = new Date().toISOString();
+    this.saveProjects();
     return newClass;
   }
 
@@ -234,6 +292,7 @@ export class ProjectManagementService {
     }
 
     project.updatedAt = new Date().toISOString();
+    this.saveProjects();
     return targetClass;
   }
 
@@ -246,6 +305,7 @@ export class ProjectManagementService {
 
     project.classes.splice(idx, 1);
     project.updatedAt = new Date().toISOString();
+    this.saveProjects();
     return true;
   }
 
@@ -298,6 +358,7 @@ export class ProjectManagementService {
 
     targetClass.items.push(newItem);
     project.updatedAt = new Date().toISOString();
+    this.saveProjects();
     return newItem;
   }
 
@@ -324,6 +385,7 @@ export class ProjectManagementService {
     }
 
     project.updatedAt = new Date().toISOString();
+    this.saveProjects();
     return item;
   }
 
@@ -339,6 +401,7 @@ export class ProjectManagementService {
 
     targetClass.items.splice(idx, 1);
     project.updatedAt = new Date().toISOString();
+    this.saveProjects();
     return true;
   }
 
@@ -361,6 +424,7 @@ export class ProjectManagementService {
 
     item.status = statusFlow[item.status] || 'PENDING';
     project.updatedAt = new Date().toISOString();
+    this.saveProjects();
     return item;
   }
 
@@ -380,6 +444,7 @@ export class ProjectManagementService {
     });
 
     project.updatedAt = new Date().toISOString();
+    this.saveProjects();
     return project;
   }
 
@@ -476,6 +541,10 @@ export class ProjectManagementService {
       overallGrossMarginPercent: marginPercent,
       totalConflictsCount: conflicts.length
     };
+  }
+
+  public static getPortfolioInventoryConflicts(): InventoryConflictItem[] {
+    return this.detectInventoryConflicts();
   }
 
   public static detectInventoryConflicts(): InventoryConflictItem[] {
@@ -594,6 +663,7 @@ export class ProjectManagementService {
     });
 
     project.updatedAt = new Date().toISOString();
+    this.saveProjects();
     return newExpense;
   }
 
@@ -627,6 +697,7 @@ export class ProjectManagementService {
     });
 
     project.updatedAt = new Date().toISOString();
+    this.saveProjects();
     return project;
   }
 }

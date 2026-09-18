@@ -61,29 +61,64 @@ import { useToast } from '../../contexts/ToastContext';
 interface ProductionCommandCenterTabProps {
   initialProjectId?: string;
   initialGrade?: string;
+  embeddedMode?: boolean;
 }
 
 export default function ProductionCommandCenterTab({
   initialProjectId,
-  initialGrade
+  initialGrade,
+  embeddedMode = false
 }: ProductionCommandCenterTabProps = {}) {
   const { showToast } = useToast();
 
   // Multi-Project State
-  const [projectsList] = useState<Project[]>(() => ProjectManagementService.getAllProjects());
+  const [projectsList, setProjectsList] = useState<Project[]>(() => ProjectManagementService.getAllProjects());
   const [activeProjectId, setActiveProjectId] = useState<string>(initialProjectId || 'ALL');
 
   // State
   const [items, setItems] = useState<ProductionItem[]>(() => ProductionWorkflowService.getItems());
   const [doubts, setDoubts] = useState<ProductionDoubt[]>(() => ProductionWorkflowService.getDoubts());
-  const [batchMultiplier, setBatchMultiplier] = useState<number>(5);
+  const [batchMultiplier, setBatchMultiplier] = useState<number>(() => {
+    if (initialProjectId && initialProjectId !== 'ALL') {
+      const p = ProjectManagementService.getProjectById(initialProjectId);
+      return p?.defaultBatchMultiplier || 5;
+    }
+    return 5;
+  });
   const [selectedGrade, setSelectedGrade] = useState<string>(initialGrade || 'ALL');
   const [activeSubView, setActiveSubView] = useState<'matrix' | 'chemicals' | 'laser' | 'bagging' | 'procurement'>('matrix');
+
+  useEffect(() => {
+    const handleProjectsUpdate = () => {
+      setProjectsList(ProjectManagementService.getAllProjects());
+    };
+    window.addEventListener('experimind_projects_updated', handleProjectsUpdate);
+    return () => window.removeEventListener('experimind_projects_updated', handleProjectsUpdate);
+  }, []);
 
   useEffect(() => {
     if (initialProjectId) setActiveProjectId(initialProjectId);
     if (initialGrade) setSelectedGrade(initialGrade);
   }, [initialProjectId, initialGrade]);
+
+  useEffect(() => {
+    if (activeProjectId && activeProjectId !== 'ALL') {
+      const proj = ProjectManagementService.getProjectById(activeProjectId);
+      if (proj && proj.defaultBatchMultiplier) {
+        setBatchMultiplier(proj.defaultBatchMultiplier);
+      }
+    }
+  }, [activeProjectId, projectsList]);
+
+  // Sync batch multiplier changes to project if specific project is selected
+  const handleMultiplierChange = (newMultiplier: number) => {
+    const val = Math.max(1, newMultiplier);
+    setBatchMultiplier(val);
+    if (activeProjectId && activeProjectId !== 'ALL') {
+      ProjectManagementService.updateProject(activeProjectId, { defaultBatchMultiplier: val }, undefined, { applyMultiplierToClasses: true });
+      showToast(`Saved ${val}x multiplier to active project!`, 'info');
+    }
+  };
 
   // Filters
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -458,8 +493,8 @@ export default function ProductionCommandCenterTab({
               {[1, 5, 10, 20, 50, 100].map(multiplier => (
                 <button
                   key={multiplier}
-                  onClick={() => setBatchMultiplier(multiplier)}
-                  className={`flex-1 py-1.5 px-2 rounded-xl text-xs font-bold transition-all ${
+                  onClick={() => handleMultiplierChange(multiplier)}
+                  className={`flex-1 py-1.5 px-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                     batchMultiplier === multiplier
                       ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg shadow-indigo-500/25 scale-105'
                       : 'bg-slate-800/80 hover:bg-slate-700 text-slate-300'

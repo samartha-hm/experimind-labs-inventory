@@ -171,4 +171,28 @@ describe('ProjectManagementService (Multi-Project Operations & Class-Wise Delive
     expect(summary.totalProjects).toBeGreaterThanOrEqual(2);
     expect(summary.totalExpensesINR).toBeGreaterThan(0);
   });
+
+  it('should update project defaultBatchMultiplier and cascade to all classes and items when requested', () => {
+    const proj = ProjectManagementService.getProjectById('PRJ-001');
+    expect(proj).not.toBeNull();
+
+    // Set multiplier to 25 with cascade
+    const updated = ProjectManagementService.setProjectDefaultBatchMultiplier('PRJ-001', 25, true);
+    expect(updated).not.toBeNull();
+    expect(updated?.defaultBatchMultiplier).toBe(25);
+
+    // Verify all classes and items have been scaled to 25
+    for (const cls of updated!.classes) {
+      expect(cls.batchMultiplier).toBe(25);
+      for (const item of cls.items) {
+        expect(item.totalQuantity).toBe(item.quantityPerBatchUnit * 25);
+      }
+    }
+
+    // Reset back to 10
+    const restored = ProjectManagementService.setProjectDefaultBatchMultiplier('PRJ-001', 10, true);
+    expect(restored?.defaultBatchMultiplier).toBe(10);
+    expect(restored?.classes[0].batchMultiplier).toBe(10);
+  });
 });
+

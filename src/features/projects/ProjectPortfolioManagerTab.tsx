@@ -2,6 +2,7 @@ import React, { useState, useMemo, useRef, useEffect } from 'react';
 import {
   Briefcase,
   Plus,
+  Minus,
   Search,
   Filter,
   Calendar,
@@ -32,8 +33,15 @@ import {
   ZoomIn,
   Check,
   CheckCircle2,
+  CheckCheck,
   SlidersHorizontal,
-  FolderKanban
+  FolderKanban,
+  Factory,
+  QrCode,
+  Coins,
+  FileCheck,
+  ShieldCheck,
+  DollarSign
 } from 'lucide-react';
 import {
   Project,
@@ -58,6 +66,8 @@ import { useAuth } from '../../AuthContext';
 import { useData } from '../../DataContext';
 import { useUndoRedo } from '../../contexts/UndoRedoContext';
 import { getItemThumbnailUrl, STEM_PRESET_IMAGES, StemPresetImage } from '../../utils/itemThumbnailHelper';
+import ProductionCommandCenterTab from '../production/ProductionCommandCenterTab';
+import StickerMonitoringHubTab from '../stickers/StickerMonitoringHubTab';
 
 interface ProjectPortfolioManagerTabProps {
   onNavigateToTab?: (tabId: string, params?: any) => void;
@@ -74,6 +84,17 @@ export default function ProjectPortfolioManagerTab({ onNavigateToTab }: ProjectP
   const [projects, setProjects] = useState<Project[]>(() => ProjectManagementService.getAllProjects());
   const [selectedProjectId, setSelectedProjectId] = useState<string>(projects[0]?.id || '');
   const [activeClassId, setActiveClassId] = useState<string>('');
+  const [activeProjectSubView, setActiveProjectSubView] = useState<'deliverables' | 'production_matrix' | 'stickers' | 'financials' | 'audit'>('deliverables');
+
+  // Listen to cross-tab project updates
+  useEffect(() => {
+    const handleProjectsUpdate = () => {
+      const list = ProjectManagementService.getAllProjects();
+      setProjects([...list]);
+    };
+    window.addEventListener('experimind_projects_updated', handleProjectsUpdate);
+    return () => window.removeEventListener('experimind_projects_updated', handleProjectsUpdate);
+  }, []);
 
   // Filters for Project Roster
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -116,6 +137,7 @@ export default function ProjectPortfolioManagerTab({ onNavigateToTab }: ProjectP
   const [projectFormStartDate, setProjectFormStartDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const [projectFormDeliveryDate, setProjectFormDeliveryDate] = useState<string>(new Date(Date.now() + 30 * 86400000).toISOString().split('T')[0]);
   const [projectFormBatchMultiplier, setProjectFormBatchMultiplier] = useState<number>(1);
+  const [projectFormApplyToClasses, setProjectFormApplyToClasses] = useState<boolean>(true);
   const [projectFormBudget, setProjectFormBudget] = useState<string>('');
   const [projectFormRevenue, setProjectFormRevenue] = useState<string>('');
   const [projectFormDesc, setProjectFormDesc] = useState<string>('');
@@ -454,10 +476,52 @@ export default function ProjectPortfolioManagerTab({ onNavigateToTab }: ProjectP
     setProjectFormStartDate(selectedProject.startDate);
     setProjectFormDeliveryDate(selectedProject.targetDeliveryDate);
     setProjectFormBatchMultiplier(selectedProject.defaultBatchMultiplier || 1);
+    setProjectFormApplyToClasses(true);
     setProjectFormBudget(selectedProject.budgetINR !== undefined ? String(selectedProject.budgetINR) : '');
     setProjectFormRevenue(selectedProject.invoicedRevenueINR !== undefined ? String(selectedProject.invoicedRevenueINR) : '');
     setProjectFormDesc(selectedProject.description || '');
     setIsEditProjectModalOpen(true);
+  };
+
+  // Project-Level Batch Multiplier Change
+  const handleProjectMultiplierChange = (newMultiplier: number, applyToClasses = true) => {
+    if (!selectedProject) return;
+    const oldMultiplier = selectedProject.defaultBatchMultiplier || 1;
+    const val = Math.max(1, Number(newMultiplier) || 1);
+
+    const updated = ProjectManagementService.updateProject(
+      selectedProject.id,
+      { defaultBatchMultiplier: val },
+      { id: user?.id || 'usr-admin-01', name: user?.name || 'Dr. Samartha HM', role: 'admin' },
+      { applyMultiplierToClasses: applyToClasses }
+    );
+
+    addAction({
+      id: `mult_proj_${selectedProject.id}_${Date.now()}`,
+      name: `Scale Project Batch to ${val}x`,
+      category: 'general',
+      undo: () => {
+        ProjectManagementService.updateProject(
+          selectedProject.id,
+          { defaultBatchMultiplier: oldMultiplier },
+          undefined,
+          { applyMultiplierToClasses: applyToClasses }
+        );
+        refreshProjectsList(selectedProject.id);
+      },
+      redo: () => {
+        ProjectManagementService.updateProject(
+          selectedProject.id,
+          { defaultBatchMultiplier: val },
+          undefined,
+          { applyMultiplierToClasses: applyToClasses }
+        );
+        refreshProjectsList(selectedProject.id);
+      }
+    });
+
+    refreshProjectsList(selectedProject.id);
+    showToast(`Project batch scaled to ${val}x sets${applyToClasses ? ' (all classes updated)' : ''}`, 'success');
   };
 
   // Save Edit Project
@@ -466,6 +530,7 @@ export default function ProjectPortfolioManagerTab({ onNavigateToTab }: ProjectP
     if (!selectedProject) return;
 
     const previousSnapshot = { ...selectedProject };
+    const mult = Math.max(1, Number(projectFormBatchMultiplier) || 1);
     const updated = ProjectManagementService.updateProject(
       selectedProject.id,
       {
@@ -479,12 +544,13 @@ export default function ProjectPortfolioManagerTab({ onNavigateToTab }: ProjectP
         status: projectFormStatus,
         startDate: projectFormStartDate,
         targetDeliveryDate: projectFormDeliveryDate,
-        defaultBatchMultiplier: Math.max(1, Number(projectFormBatchMultiplier) || 1),
+        defaultBatchMultiplier: mult,
         budgetINR: projectFormBudget ? Number(projectFormBudget) : undefined,
         invoicedRevenueINR: projectFormRevenue ? Number(projectFormRevenue) : undefined,
         description: projectFormDesc.trim()
       },
-      { id: user?.id || 'usr-admin-01', name: user?.name || 'Dr. Samartha HM', role: 'admin' }
+      { id: user?.id || 'usr-admin-01', name: user?.name || 'Dr. Samartha HM', role: 'admin' },
+      { applyMultiplierToClasses: projectFormApplyToClasses }
     );
 
     // Register Undo Action
@@ -493,12 +559,12 @@ export default function ProjectPortfolioManagerTab({ onNavigateToTab }: ProjectP
       name: `Update Project "${projectFormName}"`,
       category: 'general',
       undo: () => {
-        ProjectManagementService.updateProject(selectedProject.id, previousSnapshot);
+        ProjectManagementService.updateProject(selectedProject.id, previousSnapshot, undefined, { applyMultiplierToClasses: projectFormApplyToClasses });
         refreshProjectsList(selectedProject.id);
       },
       redo: () => {
         if (updated) {
-          ProjectManagementService.updateProject(selectedProject.id, updated);
+          ProjectManagementService.updateProject(selectedProject.id, updated, undefined, { applyMultiplierToClasses: projectFormApplyToClasses });
           refreshProjectsList(selectedProject.id);
         }
       }
@@ -1203,22 +1269,23 @@ export default function ProjectPortfolioManagerTab({ onNavigateToTab }: ProjectP
         </div>
       </div>
 
-      {/* ===== 3. Focused Class-Wise Project Workspace ===== */}
+      {/* ===== 3. Focused Project Workspace & Integrated Multi-Workstation Cockpit ===== */}
       {selectedProject && (
         <div ref={workspaceRef} className="bg-slate-900/90 rounded-3xl border border-slate-800 p-6 space-y-6 shadow-2xl">
-          {/* Project Header Banner */}
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-slate-800 pb-5">
-            <div className="space-y-1.5">
+          {/* Project Header Banner with Batch Multiplier Controls */}
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-5 border-b border-slate-800 pb-5">
+            <div className="space-y-2">
               <div className="flex items-center gap-2 flex-wrap">
-                <span className="font-mono text-xs font-bold text-indigo-400 bg-indigo-500/10 px-2 py-0.5 rounded border border-indigo-500/20">
+                <span className="font-mono text-xs font-bold text-indigo-400 bg-indigo-500/10 px-2.5 py-0.5 rounded border border-indigo-500/20">
                   {selectedProject.code}
                 </span>
                 {getCategoryBadge(selectedProject.category)}
                 {getStatusBadge(selectedProject.status)}
                 <span className="bg-slate-800 text-slate-300 text-[10px] font-mono px-2 py-0.5 rounded-full border border-slate-700">
-                  Default {selectedProject.defaultBatchMultiplier || 1}x Batch
+                  {selectedProject.classes?.length || 0} Classes Defined
                 </span>
               </div>
+
               <h2 className="text-xl sm:text-2xl font-black text-white">{selectedProject.name}</h2>
               <div className="text-xs text-slate-400 flex flex-wrap items-center gap-2">
                 <span>Client: <strong className="text-slate-200">{selectedProject.clientName}</strong></span>
@@ -1235,296 +1302,605 @@ export default function ProjectPortfolioManagerTab({ onNavigateToTab }: ProjectP
               </div>
             </div>
 
-            {/* Quick Action Navigation Buttons */}
-            <div className="flex flex-wrap items-center gap-2">
-              <button
-                onClick={handleOpenEditProject}
-                className="inline-flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer"
-              >
-                <Edit2 className="w-3.5 h-3.5 text-indigo-400" /> Edit Project
-              </button>
-              <button
-                onClick={() => {
-                  if (onNavigateToTab) {
-                    onNavigateToTab('production_command', { projectId: selectedProject.id, grade: activeClass?.name });
-                  } else {
-                    showToast('Production Matrix tab opened', 'info');
-                  }
-                }}
-                className="inline-flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1.5 rounded-xl text-xs font-semibold shadow-md shadow-indigo-600/20 transition-all cursor-pointer"
-              >
-                <ArrowUpRight className="w-3.5 h-3.5" /> Open in Production Matrix
-              </button>
-              <button
-                onClick={() => {
-                  if (onNavigateToTab) {
-                    onNavigateToTab('sticker_hub');
-                  } else {
-                    showToast('Sticker Monitoring Hub opened', 'info');
-                  }
-                }}
-                className="inline-flex items-center gap-1.5 bg-cyan-600 hover:bg-cyan-500 text-white px-3 py-1.5 rounded-xl text-xs font-semibold shadow-md shadow-cyan-600/20 transition-all cursor-pointer"
-              >
-                <Tag className="w-3.5 h-3.5" /> Sticker Hub
-              </button>
-              <button
-                onClick={handleExportCSV}
-                className="inline-flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer"
-              >
-                <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-400" /> Export CSV
-              </button>
-            </div>
-          </div>
-
-          {/* ===== 4. Class Navigation Tabs ===== */}
-          <div className="space-y-4">
-            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-2">
-              <div className="flex items-center gap-2 overflow-x-auto pb-1 max-w-full">
-                {(selectedProject.classes || []).map(c => {
-                  const isActive = c.id === activeClassId;
-                  const readyCount = (c.items || []).filter(i => i.status === 'READY' || i.status === 'PACKED').length;
-                  const totalCount = c.items?.length || 0;
-
-                  return (
+            {/* Interactive Project-Level Batch Multiplier Station & Quick Actions */}
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+              {/* Project Multiplier Box */}
+              <div className="bg-slate-950/90 border border-indigo-500/40 rounded-2xl p-2.5 flex flex-wrap items-center gap-2.5 shadow-lg">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs font-bold text-slate-300">Project Batch:</span>
+                  <div className="flex items-center bg-slate-900 border border-slate-700 rounded-xl overflow-hidden">
                     <button
-                      key={c.id}
-                      onClick={() => setActiveClassId(c.id)}
-                      className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
-                        isActive
-                          ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20'
-                          : 'bg-slate-800/80 text-slate-400 hover:bg-slate-800 hover:text-white border border-slate-700/50'
-                      }`}
+                      onClick={() => handleProjectMultiplierChange((selectedProject.defaultBatchMultiplier || 1) - 1)}
+                      className="px-2 py-0.5 text-slate-400 hover:text-white hover:bg-slate-800 transition-colors font-bold cursor-pointer"
+                      title="Decrease project default batch multiplier"
                     >
-                      <span>{c.name}</span>
-                      <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded-md ${
-                        isActive ? 'bg-indigo-900 text-indigo-200' : 'bg-slate-900 text-slate-400'
-                      }`}>
-                        {readyCount}/{totalCount}
-                      </span>
+                      <Minus className="w-3 h-3" />
                     </button>
-                  );
-                })}
-
-                <button
-                  onClick={() => setIsAddClassModalOpen(true)}
-                  className="flex items-center gap-1 bg-slate-800/40 hover:bg-slate-800 text-indigo-400 border border-dashed border-indigo-500/40 px-3 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer"
-                >
-                  <Plus className="w-3.5 h-3.5" /> Add Class
-                </button>
-              </div>
-
-              {activeClass && (
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-slate-400">Class Multiplier:</span>
-                  <div className="flex items-center bg-slate-950 border border-slate-800 rounded-xl px-2 py-1">
                     <input
                       type="number"
                       min="1"
-                      value={activeClass.batchMultiplier}
-                      onChange={(e) => handleClassMultiplierChange(Number(e.target.value))}
-                      className="w-12 bg-transparent text-xs font-mono font-bold text-indigo-400 focus:outline-none text-center"
+                      value={selectedProject.defaultBatchMultiplier || 1}
+                      onChange={e => handleProjectMultiplierChange(Number(e.target.value))}
+                      className="w-10 bg-transparent text-xs font-mono font-black text-indigo-400 focus:outline-none text-center"
                     />
-                    <span className="text-xs text-slate-500 font-bold">sets</span>
+                    <button
+                      onClick={() => handleProjectMultiplierChange((selectedProject.defaultBatchMultiplier || 1) + 1)}
+                      className="px-2 py-0.5 text-slate-400 hover:text-white hover:bg-slate-800 transition-colors font-bold cursor-pointer"
+                      title="Increase project default batch multiplier"
+                    >
+                      <Plus className="w-3 h-3" />
+                    </button>
                   </div>
+                  <span className="text-[11px] font-mono text-indigo-300 font-bold">sets</span>
+                </div>
+
+                <div className="flex items-center gap-1">
+                  {[1, 5, 10, 25, 50].map(mult => (
+                    <button
+                      key={mult}
+                      onClick={() => handleProjectMultiplierChange(mult)}
+                      className={`px-1.5 py-0.5 rounded text-[11px] font-mono font-bold transition-all cursor-pointer ${
+                        (selectedProject.defaultBatchMultiplier || 1) === mult
+                          ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
+                          : 'bg-slate-900 text-slate-400 hover:bg-slate-800 hover:text-slate-200 border border-slate-800'
+                      }`}
+                    >
+                      {mult}x
+                    </button>
+                  ))}
+                </div>
+
+                <button
+                  onClick={() => handleProjectMultiplierChange(selectedProject.defaultBatchMultiplier || 1, true)}
+                  className="inline-flex items-center gap-1 bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 border border-indigo-500/40 px-2.5 py-1 rounded-xl text-[11px] font-bold transition-all cursor-pointer"
+                  title="Sync this multiplier to all class tabs"
+                >
+                  ⚡ Apply to All Classes
+                </button>
+              </div>
+
+              {/* Edit & CSV Buttons */}
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleOpenEditProject}
+                  className="inline-flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 px-3 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer"
+                >
+                  <Edit2 className="w-3.5 h-3.5 text-indigo-400" /> Edit Metadata
+                </button>
+                <button
+                  onClick={handleExportCSV}
+                  className="inline-flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 px-3 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer"
+                >
+                  <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-400" /> Export CSV
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* ===== Integrated Navigation Sub-Tabs Bar ===== */}
+          <div className="flex items-center gap-2 border-b border-slate-800 pb-3 overflow-x-auto">
+            <button
+              onClick={() => setActiveProjectSubView('deliverables')}
+              className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
+                activeProjectSubView === 'deliverables'
+                  ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/25'
+                  : 'bg-slate-800/60 text-slate-400 hover:bg-slate-800 hover:text-slate-200 border border-slate-700/50'
+              }`}
+            >
+              <Layers className="w-4 h-4" /> 📋 Class Deliverables & Planning
+            </button>
+
+            <button
+              onClick={() => setActiveProjectSubView('production_matrix')}
+              className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
+                activeProjectSubView === 'production_matrix'
+                  ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-600/25'
+                  : 'bg-slate-800/60 text-slate-400 hover:bg-slate-800 hover:text-slate-200 border border-slate-700/50'
+              }`}
+            >
+              <Factory className="w-4 h-4" /> 🏭 Production & Sourcing Matrix
+            </button>
+
+            <button
+              onClick={() => setActiveProjectSubView('stickers')}
+              className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
+                activeProjectSubView === 'stickers'
+                  ? 'bg-purple-600 text-white shadow-lg shadow-purple-600/25'
+                  : 'bg-slate-800/60 text-slate-400 hover:bg-slate-800 hover:text-slate-200 border border-slate-700/50'
+              }`}
+            >
+              <QrCode className="w-4 h-4" /> 🏷️ Sticker & Labeling Hub (3-Tier)
+            </button>
+
+            <button
+              onClick={() => setActiveProjectSubView('financials')}
+              className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
+                activeProjectSubView === 'financials'
+                  ? 'bg-cyan-600 text-white shadow-lg shadow-cyan-600/25'
+                  : 'bg-slate-800/60 text-slate-400 hover:bg-slate-800 hover:text-slate-200 border border-slate-700/50'
+              }`}
+            >
+              <Coins className="w-4 h-4" /> 💰 P&L Financials & Conflicts
+            </button>
+
+            <button
+              onClick={() => setActiveProjectSubView('audit')}
+              className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
+                activeProjectSubView === 'audit'
+                  ? 'bg-amber-600 text-white shadow-lg shadow-amber-600/25'
+                  : 'bg-slate-800/60 text-slate-400 hover:bg-slate-800 hover:text-slate-200 border border-slate-700/50'
+              }`}
+            >
+              <FileCheck className="w-4 h-4" /> 📜 21 CFR / ISO Audit Trail
+            </button>
+          </div>
+
+          {/* ===== SUB-VIEW 1: Class Deliverables & Planning ===== */}
+          {activeProjectSubView === 'deliverables' && (
+            <div className="space-y-5">
+              {/* Class Navigation Tabs & Class Multiplier Bar */}
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800/80 pb-3">
+                <div className="flex items-center gap-2 overflow-x-auto pb-1 max-w-full">
+                  {(selectedProject.classes || []).map(c => {
+                    const isActive = c.id === activeClassId;
+                    const readyCount = (c.items || []).filter(i => i.status === 'READY' || i.status === 'PACKED').length;
+                    const totalCount = c.items?.length || 0;
+
+                    return (
+                      <button
+                        key={c.id}
+                        onClick={() => setActiveClassId(c.id)}
+                        className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
+                          isActive
+                            ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20'
+                            : 'bg-slate-800/80 text-slate-400 hover:bg-slate-800 hover:text-white border border-slate-700/50'
+                        }`}
+                      >
+                        <span>{c.name}</span>
+                        <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded-md ${
+                          isActive ? 'bg-indigo-900 text-indigo-200' : 'bg-slate-900 text-slate-400'
+                        }`}>
+                          {readyCount}/{totalCount}
+                        </span>
+                      </button>
+                    );
+                  })}
+
                   <button
-                    onClick={() => handleDeleteClass(activeClass.id, activeClass.name)}
-                    title="Remove this class"
-                    className="text-slate-500 hover:text-rose-400 p-1 rounded transition-colors cursor-pointer"
+                    onClick={() => setIsAddClassModalOpen(true)}
+                    className="flex items-center gap-1 bg-slate-800/40 hover:bg-slate-800 text-indigo-400 border border-dashed border-indigo-500/40 px-3 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer"
                   >
-                    <Trash2 className="w-3.5 h-3.5" />
+                    <Plus className="w-3.5 h-3.5" /> Add Class
                   </button>
+                </div>
+
+                {/* Class Multiplier Controls */}
+                {activeClass && (
+                  <div className="flex flex-wrap items-center gap-2 bg-slate-950/80 border border-slate-800 px-3 py-1.5 rounded-2xl">
+                    <span className="text-xs text-slate-400 font-semibold">{activeClass.name} Multiplier:</span>
+                    <div className="flex items-center bg-slate-900 border border-slate-700 rounded-xl overflow-hidden">
+                      <button
+                        onClick={() => handleClassMultiplierChange((activeClass.batchMultiplier || 1) - 1)}
+                        className="px-2 py-0.5 text-slate-400 hover:text-white hover:bg-slate-800 transition-colors font-bold cursor-pointer"
+                        title="Decrease class batch multiplier"
+                      >
+                        <Minus className="w-3 h-3" />
+                      </button>
+                      <input
+                        type="number"
+                        min="1"
+                        value={activeClass.batchMultiplier}
+                        onChange={(e) => handleClassMultiplierChange(Number(e.target.value))}
+                        className="w-12 bg-transparent text-xs font-mono font-bold text-indigo-400 focus:outline-none text-center"
+                      />
+                      <button
+                        onClick={() => handleClassMultiplierChange((activeClass.batchMultiplier || 1) + 1)}
+                        className="px-2 py-0.5 text-slate-400 hover:text-white hover:bg-slate-800 transition-colors font-bold cursor-pointer"
+                        title="Increase class batch multiplier"
+                      >
+                        <Plus className="w-3 h-3" />
+                      </button>
+                    </div>
+                    <span className="text-xs text-slate-500 font-bold">sets</span>
+
+                    <div className="flex items-center gap-1">
+                      {[1, 5, 10, 25, 50].map(mult => (
+                        <button
+                          key={mult}
+                          onClick={() => handleClassMultiplierChange(mult)}
+                          className={`px-1.5 py-0.5 rounded text-[11px] font-mono font-bold transition-all cursor-pointer ${
+                            activeClass.batchMultiplier === mult
+                              ? 'bg-indigo-600 text-white font-black'
+                              : 'bg-slate-900 text-slate-400 hover:bg-slate-800 hover:text-slate-200'
+                          }`}
+                        >
+                          {mult}x
+                        </button>
+                      ))}
+                    </div>
+
+                    <button
+                      onClick={() => handleDeleteClass(activeClass.id, activeClass.name)}
+                      title="Remove this class"
+                      className="text-slate-500 hover:text-rose-400 p-1 rounded transition-colors cursor-pointer ml-1"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Class Deliverables Content */}
+              {activeClass ? (
+                <div className="space-y-4">
+                  {/* Class Header & Progress Indicator */}
+                  <div className="bg-slate-950/80 rounded-2xl p-4 border border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <h3 className="text-base font-bold text-white flex items-center gap-2">
+                          <Layers className="w-4 h-4 text-indigo-400" /> {activeClass.name} Deliverables Checklist
+                        </h3>
+                        <span className="text-xs font-mono text-indigo-400 bg-indigo-500/10 px-2.5 py-0.5 rounded border border-indigo-500/20 font-bold">
+                          {activeClass.batchMultiplier}x Batch Active ({activeClass.items.length} deliverables scaled automatically)
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-400">{activeClass.description || 'Deliverables, activity kits, models, charts, and materials needed for this class.'}</p>
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                      <div className="text-right">
+                        <div className="text-xs font-bold text-white font-mono">{classStats.ready + classStats.packed} of {classStats.total} Ready</div>
+                        <div className="text-[10px] text-slate-400">{classStats.inPrep} In Prep • {classStats.pending} Pending</div>
+                      </div>
+                      <div className="w-24 bg-slate-900 h-2 rounded-full overflow-hidden border border-slate-800">
+                        <div
+                          className="h-full rounded-full transition-all bg-emerald-500"
+                          style={{ width: `${classStats.pctReady}%` }}
+                        />
+                      </div>
+                      <button
+                        onClick={handleOpenAddItem}
+                        className="inline-flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1.5 rounded-xl text-xs font-bold shadow-md shadow-emerald-600/20 transition-all cursor-pointer"
+                      >
+                        <Plus className="w-3.5 h-3.5" /> Add Deliverable
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Filter Pills for Categories and Sourcing */}
+                  <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <span className="text-[11px] font-bold text-slate-500 uppercase mr-1">Category:</span>
+                      {[
+                        { id: 'ALL', label: 'All Items' },
+                        { id: 'ACTIVITY_KIT', label: 'Kits 🧪' },
+                        { id: 'WORKING_MODEL', label: 'Models ⚙️' },
+                        { id: 'EDUCATIONAL_CHART', label: 'Charts 📊' },
+                        { id: 'FABRICATION_LASER_3D', label: 'Laser/3D 🪵' },
+                        { id: 'CHEMICAL_REAGENT', label: 'Chemicals ⚗️' },
+                        { id: 'HARDWARE_SUPPLIES', label: 'Hardware 🛒' }
+                      ].map(c => (
+                        <button
+                          key={c.id}
+                          onClick={() => setSelectedItemCategory(c.id as any)}
+                          className={`text-[11px] px-2.5 py-1 rounded-lg font-medium transition-all cursor-pointer ${
+                            selectedItemCategory === c.id
+                              ? 'bg-indigo-600 text-white font-bold'
+                              : 'bg-slate-800/80 text-slate-400 hover:bg-slate-800 hover:text-slate-200'
+                          }`}
+                        >
+                          {c.label}
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* Search inside class items */}
+                    <div className="relative">
+                      <Search className="w-3 h-3 absolute left-2.5 top-2 text-slate-400" />
+                      <input
+                        type="text"
+                        value={itemSearchQuery}
+                        onChange={e => setItemSearchQuery(e.target.value)}
+                        placeholder="Filter items..."
+                        className="bg-slate-950 border border-slate-800 rounded-xl pl-7 pr-3 py-1 text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Work Items Table */}
+                  <div className="bg-slate-950 rounded-2xl border border-slate-800 overflow-hidden">
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left text-xs">
+                        <thead className="bg-slate-900/90 text-slate-400 font-bold border-b border-slate-800 uppercase text-[10px] tracking-wider">
+                          <tr>
+                            <th className="py-3 px-3 w-12 text-center">Preview</th>
+                            <th className="py-3 px-4">Deliverable / Material</th>
+                            <th className="py-3 px-4">Work Category</th>
+                            <th className="py-3 px-4">Sourcing Channel</th>
+                            <th className="py-3 px-4 text-center">Base Qty</th>
+                            <th className="py-3 px-4 text-center">Total Req ({activeClass.batchMultiplier}x)</th>
+                            <th className="py-3 px-4">Lead Assignee</th>
+                            <th className="py-3 px-4 text-center">Status</th>
+                            <th className="py-3 px-4 text-right">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-800/60">
+                          {filteredClassItems.length > 0 ? (
+                            filteredClassItems.map(item => {
+                              const thumbUrl = getItemThumbnailUrl(item);
+
+                              return (
+                                <tr key={item.id} className="hover:bg-slate-900/50 transition-colors">
+                                  {/* Thumbnail Image Column */}
+                                  <td className="py-2.5 px-3 text-center">
+                                    <button
+                                      type="button"
+                                      onClick={() => setPreviewImageItem(item)}
+                                      title="Click to view full preview"
+                                      className="relative w-10 h-10 rounded-xl overflow-hidden border border-slate-700/80 bg-slate-900 hover:border-indigo-500 transition-all group cursor-pointer"
+                                    >
+                                      <img
+                                        src={thumbUrl}
+                                        alt={item.name}
+                                        className="w-full h-full object-cover group-hover:scale-110 transition-transform"
+                                        loading="lazy"
+                                        onError={(e) => {
+                                          (e.target as HTMLElement).style.display = 'none';
+                                        }}
+                                      />
+                                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                                        <ZoomIn className="w-3.5 h-3.5 text-white" />
+                                      </div>
+                                    </button>
+                                  </td>
+
+                                  <td className="py-3 px-4">
+                                    <div className="font-bold text-white text-xs">{item.name}</div>
+                                    <div className="text-[11px] text-slate-400 line-clamp-1">{item.specification}</div>
+                                    {item.sourceChapter && (
+                                      <div className="text-[10px] text-indigo-400 font-mono mt-0.5">{item.sourceChapter}</div>
+                                    )}
+                                  </td>
+                                  <td className="py-3 px-4">
+                                    {getItemCategoryBadge(item.category)}
+                                  </td>
+                                  <td className="py-3 px-4">
+                                    {getSourcingBadge(item.sourcingChannel)}
+                                  </td>
+                                  <td className="py-3 px-4 text-center font-mono text-slate-300">
+                                    {item.quantityPerBatchUnit} <span className="text-[10px] text-slate-500">{item.unit}</span>
+                                  </td>
+                                  <td className="py-3 px-4 text-center font-mono font-bold text-cyan-400">
+                                    {item.totalQuantity} <span className="text-[10px] text-slate-400">{item.unit}</span>
+                                  </td>
+                                  <td className="py-3 px-4 text-slate-300">
+                                    {item.leadAssignee || 'Unassigned'}
+                                  </td>
+                                  <td className="py-3 px-4 text-center">
+                                    {getItemStatusButton(item.status, item.id, item.name)}
+                                  </td>
+                                  <td className="py-3 px-4 text-right">
+                                    <div className="inline-flex items-center gap-1.5">
+                                      <button
+                                        onClick={() => handleOpenEditItem(item)}
+                                        title="Edit Item"
+                                        className="p-1 rounded text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
+                                      >
+                                        <Edit2 className="w-3.5 h-3.5" />
+                                      </button>
+                                      <button
+                                        onClick={() => handleDeleteItem(item)}
+                                        title="Delete Item"
+                                        className="p-1 rounded text-slate-400 hover:text-rose-400 hover:bg-slate-800 transition-colors cursor-pointer"
+                                      >
+                                        <Trash2 className="w-3.5 h-3.5" />
+                                      </button>
+                                    </div>
+                                  </td>
+                                </tr>
+                              );
+                            })
+                          ) : (
+                            <tr>
+                              <td colSpan={9} className="py-8 text-center text-slate-500 text-xs">
+                                No deliverables matching the selected filter. Click <strong>"+ Add Deliverable"</strong> to add items to {activeClass.name}.
+                              </td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="py-12 text-center text-slate-500 text-xs bg-slate-950 rounded-2xl border border-slate-800">
+                  No classes defined yet. Click <strong>"+ Add Class"</strong> to create a class tab (e.g. Class 6, Class 7, etc.).
                 </div>
               )}
             </div>
+          )}
 
-            {/* Class Deliverables Content */}
-            {activeClass ? (
-              <div className="space-y-4">
-                {/* Class Header & Progress Indicator */}
-                <div className="bg-slate-950/80 rounded-2xl p-4 border border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2">
-                      <h3 className="text-base font-bold text-white flex items-center gap-2">
-                        <Layers className="w-4 h-4 text-indigo-400" /> {activeClass.name} Deliverables Checklist
-                      </h3>
-                      <span className="text-xs font-mono text-indigo-400 bg-indigo-500/10 px-2 py-0.5 rounded border border-indigo-500/20">
-                        {activeClass.batchMultiplier}x Batch Active
-                      </span>
-                    </div>
-                    <p className="text-xs text-slate-400">{activeClass.description || 'Deliverables, activity kits, models, charts, and materials needed for this class.'}</p>
+          {/* ===== SUB-VIEW 2: Embedded Production & Sourcing Matrix ===== */}
+          {activeProjectSubView === 'production_matrix' && (
+            <div className="bg-slate-950/60 rounded-3xl border border-slate-800 p-4 sm:p-6 shadow-xl space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800 pb-4">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <Factory className="w-5 h-5 text-emerald-400" />
+                    <h3 className="text-base font-bold text-white">Production & Sourcing Matrix — {selectedProject.name}</h3>
                   </div>
+                  <p className="text-xs text-slate-400">
+                    Live 236-item curriculum matrix, laser fabrication sheet nesting, and chemical dilution scaled to {selectedProject.defaultBatchMultiplier || 1}x sets.
+                  </p>
+                </div>
+                <span className="text-xs font-mono text-emerald-400 bg-emerald-500/10 px-3 py-1 rounded-full border border-emerald-500/20 font-bold self-start sm:self-auto">
+                  Project Run: {selectedProject.defaultBatchMultiplier || 1}x Batch
+                </span>
+              </div>
+              <ProductionCommandCenterTab initialProjectId={selectedProject.id} initialGrade={activeClass?.name} embeddedMode={true} />
+            </div>
+          )}
 
-                  <div className="flex items-center gap-3">
-                    <div className="text-right">
-                      <div className="text-xs font-bold text-white font-mono">{classStats.ready + classStats.packed} of {classStats.total} Ready</div>
-                      <div className="text-[10px] text-slate-400">{classStats.inPrep} In Prep • {classStats.pending} Pending</div>
-                    </div>
-                    <div className="w-24 bg-slate-900 h-2 rounded-full overflow-hidden border border-slate-800">
-                      <div
-                        className="h-full rounded-full transition-all bg-emerald-500"
-                        style={{ width: `${classStats.pctReady}%` }}
-                      />
-                    </div>
-                    <button
-                      onClick={handleOpenAddItem}
-                      className="inline-flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1.5 rounded-xl text-xs font-bold shadow-md shadow-emerald-600/20 transition-all cursor-pointer"
-                    >
-                      <Plus className="w-3.5 h-3.5" /> Add Deliverable
-                    </button>
+          {/* ===== SUB-VIEW 3: Embedded Sticker & Labeling Hub ===== */}
+          {activeProjectSubView === 'stickers' && (
+            <div className="bg-slate-950/60 rounded-3xl border border-slate-800 p-4 sm:p-6 shadow-xl space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800 pb-4">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <QrCode className="w-5 h-5 text-purple-400" />
+                    <h3 className="text-base font-bold text-white">Sticker & Labeling Hub — {selectedProject.name}</h3>
                   </div>
+                  <p className="text-xs text-slate-400">
+                    Tier 1 (Master Box), Tier 2 (Activity Pouch), and Tier 3 (Item/Vial) QR labeling manifests scaled to {selectedProject.defaultBatchMultiplier || 1} sets.
+                  </p>
+                </div>
+                <span className="text-xs font-mono text-purple-400 bg-purple-500/10 px-3 py-1 rounded-full border border-purple-500/20 font-bold self-start sm:self-auto">
+                  Total Copies: {selectedProject.defaultBatchMultiplier || 1}x
+                </span>
+              </div>
+              <StickerMonitoringHubTab initialProjectId={selectedProject.id} embeddedMode={true} />
+            </div>
+          )}
+
+          {/* ===== SUB-VIEW 4: P&L Financials & Conflicts ===== */}
+          {activeProjectSubView === 'financials' && selectedFinancials && (
+            <div className="space-y-6">
+              {/* Financial KPI Summary Cards */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                <div className="bg-slate-950/80 p-4 rounded-2xl border border-slate-800">
+                  <div className="text-[11px] font-bold text-slate-400 uppercase">Approved Budget</div>
+                  <div className="text-xl font-black text-white font-mono mt-1">
+                    {selectedFinancials.budgetINR !== undefined ? `₹${selectedFinancials.budgetINR.toLocaleString('en-IN')}` : 'Optional'}
+                  </div>
+                  <div className="text-[10px] text-slate-500 mt-1">Allocated Capital</div>
                 </div>
 
-                {/* Filter Pills for Categories and Sourcing */}
-                <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    <span className="text-[11px] font-bold text-slate-500 uppercase mr-1">Category:</span>
-                    {[
-                      { id: 'ALL', label: 'All Items' },
-                      { id: 'ACTIVITY_KIT', label: 'Kits 🧪' },
-                      { id: 'WORKING_MODEL', label: 'Models ⚙️' },
-                      { id: 'EDUCATIONAL_CHART', label: 'Charts 📊' },
-                      { id: 'FABRICATION_LASER_3D', label: 'Laser/3D 🪵' },
-                      { id: 'CHEMICAL_REAGENT', label: 'Chemicals ⚗️' },
-                      { id: 'HARDWARE_SUPPLIES', label: 'Hardware 🛒' }
-                    ].map(c => (
-                      <button
-                        key={c.id}
-                        onClick={() => setSelectedItemCategory(c.id as any)}
-                        className={`text-[11px] px-2.5 py-1 rounded-lg font-medium transition-all cursor-pointer ${
-                          selectedItemCategory === c.id
-                            ? 'bg-indigo-600 text-white font-bold'
-                            : 'bg-slate-800/80 text-slate-400 hover:bg-slate-800 hover:text-slate-200'
-                        }`}
-                      >
-                        {c.label}
-                      </button>
-                    ))}
+                <div className="bg-slate-950/80 p-4 rounded-2xl border border-slate-800">
+                  <div className="text-[11px] font-bold text-slate-400 uppercase">Invoiced Revenue</div>
+                  <div className="text-xl font-black text-emerald-400 font-mono mt-1">
+                    {selectedFinancials.invoicedRevenueINR !== undefined ? `₹${selectedFinancials.invoicedRevenueINR.toLocaleString('en-IN')}` : 'Optional'}
                   </div>
-
-                  {/* Search inside class items */}
-                  <div className="relative">
-                    <Search className="w-3 h-3 absolute left-2.5 top-2 text-slate-400" />
-                    <input
-                      type="text"
-                      value={itemSearchQuery}
-                      onChange={e => setItemSearchQuery(e.target.value)}
-                      placeholder="Filter items..."
-                      className="bg-slate-950 border border-slate-800 rounded-xl pl-7 pr-3 py-1 text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                    />
-                  </div>
+                  <div className="text-[10px] text-slate-500 mt-1">Client Invoicing</div>
                 </div>
 
-                {/* Work Items Table */}
-                <div className="bg-slate-950 rounded-2xl border border-slate-800 overflow-hidden">
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left text-xs">
-                      <thead className="bg-slate-900/90 text-slate-400 font-bold border-b border-slate-800 uppercase text-[10px] tracking-wider">
-                        <tr>
-                          <th className="py-3 px-3 w-12 text-center">Preview</th>
-                          <th className="py-3 px-4">Deliverable / Material</th>
-                          <th className="py-3 px-4">Work Category</th>
-                          <th className="py-3 px-4">Sourcing Channel</th>
-                          <th className="py-3 px-4 text-center">Base Qty</th>
-                          <th className="py-3 px-4 text-center">Total Req ({activeClass.batchMultiplier}x)</th>
-                          <th className="py-3 px-4">Lead Assignee</th>
-                          <th className="py-3 px-4 text-center">Status</th>
-                          <th className="py-3 px-4 text-right">Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-800/60">
-                        {filteredClassItems.length > 0 ? (
-                          filteredClassItems.map(item => {
-                            const thumbUrl = getItemThumbnailUrl(item);
-
-                            return (
-                              <tr key={item.id} className="hover:bg-slate-900/50 transition-colors">
-                                {/* Thumbnail Image Column */}
-                                <td className="py-2.5 px-3 text-center">
-                                  <button
-                                    type="button"
-                                    onClick={() => setPreviewImageItem(item)}
-                                    title="Click to view full preview"
-                                    className="relative w-10 h-10 rounded-xl overflow-hidden border border-slate-700/80 bg-slate-900 hover:border-indigo-500 transition-all group cursor-pointer"
-                                  >
-                                    <img
-                                      src={thumbUrl}
-                                      alt={item.name}
-                                      className="w-full h-full object-cover group-hover:scale-110 transition-transform"
-                                      loading="lazy"
-                                      onError={(e) => {
-                                        (e.target as HTMLElement).style.display = 'none';
-                                      }}
-                                    />
-                                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
-                                      <ZoomIn className="w-3.5 h-3.5 text-white" />
-                                    </div>
-                                  </button>
-                                </td>
-
-                                <td className="py-3 px-4">
-                                  <div className="font-bold text-white text-xs">{item.name}</div>
-                                  <div className="text-[11px] text-slate-400 line-clamp-1">{item.specification}</div>
-                                  {item.sourceChapter && (
-                                    <div className="text-[10px] text-indigo-400 font-mono mt-0.5">{item.sourceChapter}</div>
-                                  )}
-                                </td>
-                                <td className="py-3 px-4">
-                                  {getItemCategoryBadge(item.category)}
-                                </td>
-                                <td className="py-3 px-4">
-                                  {getSourcingBadge(item.sourcingChannel)}
-                                </td>
-                                <td className="py-3 px-4 text-center font-mono text-slate-300">
-                                  {item.quantityPerBatchUnit} <span className="text-[10px] text-slate-500">{item.unit}</span>
-                                </td>
-                                <td className="py-3 px-4 text-center font-mono font-bold text-cyan-400">
-                                  {item.totalQuantity} <span className="text-[10px] text-slate-400">{item.unit}</span>
-                                </td>
-                                <td className="py-3 px-4 text-slate-300">
-                                  {item.leadAssignee || 'Unassigned'}
-                                </td>
-                                <td className="py-3 px-4 text-center">
-                                  {getItemStatusButton(item.status, item.id, item.name)}
-                                </td>
-                                <td className="py-3 px-4 text-right">
-                                  <div className="inline-flex items-center gap-1.5">
-                                    <button
-                                      onClick={() => handleOpenEditItem(item)}
-                                      title="Edit Item"
-                                      className="p-1 rounded text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
-                                    >
-                                      <Edit2 className="w-3.5 h-3.5" />
-                                    </button>
-                                    <button
-                                      onClick={() => handleDeleteItem(item)}
-                                      title="Delete Item"
-                                      className="p-1 rounded text-slate-400 hover:text-rose-400 hover:bg-slate-800 transition-colors cursor-pointer"
-                                    >
-                                      <Trash2 className="w-3.5 h-3.5" />
-                                    </button>
-                                  </div>
-                                </td>
-                              </tr>
-                            );
-                          })
-                        ) : (
-                          <tr>
-                            <td colSpan={9} className="py-8 text-center text-slate-500 text-xs">
-                              No deliverables matching the selected filter. Click <strong>"+ Add Deliverable"</strong> to add items to {activeClass.name}.
-                            </td>
-                          </tr>
-                        )}
-                      </tbody>
-                    </table>
+                <div className="bg-slate-950/80 p-4 rounded-2xl border border-slate-800">
+                  <div className="text-[11px] font-bold text-slate-400 uppercase">Estimated BOM Cost</div>
+                  <div className="text-xl font-black text-cyan-400 font-mono mt-1">
+                    ₹{selectedFinancials.estimatedBOMCostINR.toLocaleString('en-IN')}
                   </div>
+                  <div className="text-[10px] text-slate-500 mt-1">Class Deliverable Sum</div>
+                </div>
+
+                <div className="bg-slate-950/80 p-4 rounded-2xl border border-slate-800">
+                  <div className="text-[11px] font-bold text-slate-400 uppercase">Gross Margin</div>
+                  <div className="text-xl font-black text-indigo-400 font-mono mt-1">
+                    ₹{selectedFinancials.grossMarginINR.toLocaleString('en-IN')} ({selectedFinancials.grossMarginPercent}%)
+                  </div>
+                  <div className="text-[10px] text-slate-500 mt-1">Net Realized Profit</div>
                 </div>
               </div>
-            ) : (
-              <div className="py-12 text-center text-slate-500 text-xs bg-slate-950 rounded-2xl border border-slate-800">
-                No classes defined yet. Click <strong>"+ Add Class"</strong> to create a class tab (e.g. Class 6, Class 7, etc.).
+
+              {/* Logged Expenses & Material Inventory Conflicts */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Expense Breakdown */}
+                <div className="bg-slate-950/80 p-5 rounded-3xl border border-slate-800 space-y-4">
+                  <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+                    <h4 className="text-sm font-bold text-white flex items-center gap-2">
+                      <Coins className="w-4 h-4 text-cyan-400" /> Logged Physical Expenses
+                    </h4>
+                    <span className="font-mono text-xs font-bold text-cyan-400">
+                      Total: ₹{selectedFinancials.totalExpensesINR.toLocaleString('en-IN')}
+                    </span>
+                  </div>
+
+                  {selectedProject.expenses && selectedProject.expenses.length > 0 ? (
+                    <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
+                      {selectedProject.expenses.map(exp => (
+                        <div key={exp.id} className="p-3 bg-slate-900/60 rounded-xl border border-slate-800 flex items-center justify-between text-xs">
+                          <div>
+                            <div className="font-bold text-white">{exp.description}</div>
+                            <div className="text-[10px] text-slate-400">{exp.category} • {exp.date} • by {exp.loggedByUserName}</div>
+                          </div>
+                          <div className="font-mono font-bold text-cyan-400 text-sm">₹{exp.amountINR.toLocaleString('en-IN')}</div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="py-8 text-center text-slate-500 text-xs">No physical expense records logged yet for this project.</div>
+                  )}
+                </div>
+
+                {/* Material Competition & Conflicts */}
+                <div className="bg-slate-950/80 p-5 rounded-3xl border border-slate-800 space-y-4">
+                  <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+                    <h4 className="text-sm font-bold text-white flex items-center gap-2">
+                      <AlertTriangle className="w-4 h-4 text-amber-400" /> Portfolio Inventory Shortage Warnings
+                    </h4>
+                    <span className="text-xs text-slate-400">Cross-Project Deficits</span>
+                  </div>
+
+                  {ProjectManagementService.getPortfolioInventoryConflicts().length > 0 ? (
+                    <div className="space-y-2.5 max-h-60 overflow-y-auto pr-1">
+                      {ProjectManagementService.getPortfolioInventoryConflicts().slice(0, 5).map((conf, idx) => (
+                        <div key={idx} className="p-3 bg-amber-500/10 rounded-xl border border-amber-500/20 text-xs space-y-1">
+                          <div className="flex items-center justify-between font-bold text-amber-300">
+                            <span>{conf.materialName}</span>
+                            <span className="font-mono text-rose-400">Deficit: -{conf.globalDeficit} units</span>
+                          </div>
+                          <div className="text-[11px] text-slate-400">
+                            Available: {conf.availableStock} • Required across projects: {conf.totalRequiredAcrossProjects}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="py-8 text-center text-emerald-400 text-xs flex items-center justify-center gap-1.5">
+                      <CheckCircle2 className="w-4 h-4" /> All required materials have sufficient stock across projects!
+                    </div>
+                  )}
+                </div>
               </div>
-            )}
-          </div>
+            </div>
+          )}
+
+          {/* ===== SUB-VIEW 5: 21 CFR / ISO Audit Trail ===== */}
+          {activeProjectSubView === 'audit' && (
+            <div className="bg-slate-950/80 p-5 rounded-3xl border border-slate-800 space-y-4">
+              <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+                <div>
+                  <h4 className="text-sm font-bold text-white flex items-center gap-2">
+                    <FileCheck className="w-4 h-4 text-amber-400" /> Immutable Audit Trail (21 CFR Part 11 & ISO 9001)
+                  </h4>
+                  <p className="text-[11px] text-slate-400 mt-0.5">Every metadata change, multiplier scaling, and deliverable edit is cryptographically signed.</p>
+                </div>
+                <span className="text-[10px] font-mono bg-slate-900 text-amber-300 px-2.5 py-1 rounded-full border border-amber-500/30">
+                  {selectedProject.auditLogs?.length || 0} Audit Entries
+                </span>
+              </div>
+
+              {selectedProject.auditLogs && selectedProject.auditLogs.length > 0 ? (
+                <div className="space-y-2.5 max-h-96 overflow-y-auto pr-1">
+                  {selectedProject.auditLogs.map(log => (
+                    <div key={log.id} className="p-3 bg-slate-900/60 rounded-xl border border-slate-800/80 text-xs space-y-1">
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-white font-mono text-[11px] bg-slate-800 px-2 py-0.5 rounded">
+                          {log.action}
+                        </span>
+                        <span className="text-[10px] font-mono text-slate-500">{new Date(log.timestamp).toLocaleString()}</span>
+                      </div>
+                      <div className="text-slate-300 text-xs">{log.details}</div>
+                      <div className="flex items-center justify-between text-[10px] text-slate-500 pt-1 border-t border-slate-800/40">
+                        <span>Operator: <strong className="text-slate-400">{log.userName}</strong> ({log.userRole})</span>
+                        <span className="font-mono text-[9px] text-indigo-400 truncate max-w-xs">{log.signatureDigest}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="py-8 text-center text-slate-500 text-xs">No audit logs available for this project.</div>
+              )}
+            </div>
+          )}
         </div>
       )}
 
@@ -1849,37 +2225,69 @@ export default function ProjectPortfolioManagerTab({ onNavigateToTab }: ProjectP
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div>
-                  <label className="text-slate-300 font-bold block mb-1">Default Batch Multiplier</label>
-                  <input
-                    type="number"
-                    min="1"
-                    value={projectFormBatchMultiplier}
-                    onChange={e => setProjectFormBatchMultiplier(Number(e.target.value))}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                  />
+              {/* Multiplier with Quick Chips & Apply-to-all toggle */}
+              <div className="bg-slate-950/70 p-3 rounded-2xl border border-slate-800 space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-slate-300 font-bold block">Default Batch Multiplier</label>
+                  <div className="flex items-center gap-1">
+                    {[1, 5, 10, 25, 50].map(mult => (
+                      <button
+                        key={mult}
+                        type="button"
+                        onClick={() => setProjectFormBatchMultiplier(mult)}
+                        className={`px-2 py-0.5 rounded text-xs font-mono font-bold transition-all cursor-pointer ${
+                          projectFormBatchMultiplier === mult
+                            ? 'bg-indigo-600 text-white font-black'
+                            : 'bg-slate-900 text-slate-400 hover:bg-slate-800'
+                        }`}
+                      >
+                        {mult}x
+                      </button>
+                    ))}
+                  </div>
                 </div>
 
-                <div>
-                  <label className="text-slate-300 font-bold block mb-1">Start Date</label>
-                  <input
-                    type="date"
-                    value={projectFormStartDate}
-                    onChange={e => setProjectFormStartDate(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                  />
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div>
+                    <input
+                      type="number"
+                      min="1"
+                      value={projectFormBatchMultiplier}
+                      onChange={e => setProjectFormBatchMultiplier(Number(e.target.value))}
+                      className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-white font-mono focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                    />
+                  </div>
+
+                  <div>
+                    <input
+                      type="date"
+                      value={projectFormStartDate}
+                      onChange={e => setProjectFormStartDate(e.target.value)}
+                      className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-white focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                    />
+                  </div>
+
+                  <div>
+                    <input
+                      type="date"
+                      value={projectFormDeliveryDate}
+                      onChange={e => setProjectFormDeliveryDate(e.target.value)}
+                      className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-white focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                    />
+                  </div>
                 </div>
 
-                <div>
-                  <label className="text-slate-300 font-bold block mb-1">Target Delivery Date</label>
+                <label className="flex items-center gap-2 pt-1 text-slate-300 cursor-pointer">
                   <input
-                    type="date"
-                    value={projectFormDeliveryDate}
-                    onChange={e => setProjectFormDeliveryDate(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                    type="checkbox"
+                    checked={projectFormApplyToClasses}
+                    onChange={e => setProjectFormApplyToClasses(e.target.checked)}
+                    className="rounded border-slate-700 bg-slate-900 text-indigo-600 focus:ring-indigo-500 w-4 h-4 cursor-pointer"
                   />
-                </div>
+                  <span className="text-xs font-semibold text-indigo-300">
+                    ⚡ Apply this batch multiplier to all existing classes in this project (rescales all item quantities)
+                  </span>
+                </label>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-slate-950/60 p-3 rounded-2xl border border-slate-800/80">

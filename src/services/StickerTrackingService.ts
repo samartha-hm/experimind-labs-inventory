@@ -7,6 +7,7 @@ import {
 } from '../data/stickerDataset';
 import { MASTER_PRODUCTION_ITEMS, ProductionItem } from '../data/productionDataset';
 import { INITIAL_PROJECTS, Project } from '../data/projectsDataset';
+import { ProjectManagementService } from './ProjectManagementService';
 
 export interface StickerProjectSummary {
   projectId: string;
@@ -34,21 +35,62 @@ export interface StickerProjectSummary {
 }
 
 class StickerTrackingServiceClass {
+  private STORAGE_KEY = 'experimind_stickers_store_v2';
   private stickers: Map<string, StickerRecord> = new Map();
   private boxMappings: ChapterBoxMapping[] = [...DEFAULT_CHAPTER_BOX_MAPPINGS];
 
   constructor() {
-    this.seedDefaultManifests();
+    this.loadFromStorage();
+  }
+
+  private loadFromStorage(): void {
+    let loaded = false;
+    if (typeof window !== 'undefined' && window.localStorage) {
+      try {
+        const saved = window.localStorage.getItem(this.STORAGE_KEY);
+        if (saved) {
+          const parsed: StickerRecord[] = JSON.parse(saved);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            this.stickers.clear();
+            parsed.forEach(s => this.stickers.set(s.id, s));
+            loaded = true;
+          }
+        }
+      } catch (err) {
+        console.warn('Failed to load stickers from localStorage:', err);
+      }
+    }
+    if (!loaded || this.stickers.size === 0) {
+      this.seedDefaultManifests();
+    }
+  }
+
+  private saveToStorage(): void {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      try {
+        const arr = Array.from(this.stickers.values());
+        window.localStorage.setItem(this.STORAGE_KEY, JSON.stringify(arr));
+        window.dispatchEvent(new CustomEvent('experimind_stickers_updated', { detail: { count: arr.length } }));
+      } catch (err) {
+        console.warn('Failed to save stickers to localStorage:', err);
+      }
+    }
   }
 
   public resetStore(): void {
     this.stickers.clear();
     this.boxMappings = [...DEFAULT_CHAPTER_BOX_MAPPINGS];
+    if (typeof window !== 'undefined' && window.localStorage) {
+      try {
+        window.localStorage.removeItem(this.STORAGE_KEY);
+      } catch (_) {}
+    }
+    this.seedDefaultManifests();
   }
 
   private seedDefaultManifests(): void {
     INITIAL_PROJECTS.forEach(project => {
-      this.generateManifestForProject(project.id, 1);
+      this.generateManifestForProject(project.id, project.defaultBatchMultiplier || 1);
     });
   }
 
@@ -58,28 +100,36 @@ class StickerTrackingServiceClass {
 
   public updateChapterBoxMappings(mappings: ChapterBoxMapping[]): void {
     this.boxMappings = mappings;
+    this.saveToStorage();
   }
 
-  public generateManifestForProject(projectId: string, batchMultiplier: number = 1): StickerRecord[] {
-    const project = INITIAL_PROJECTS.find(p => p.id === projectId) || {
+  public generateManifestForProject(projectId: string, batchMultiplier?: number): StickerRecord[] {
+    const liveProject = ProjectManagementService.getProjectById(projectId);
+    const project = liveProject || INITIAL_PROJECTS.find(p => p.id === projectId) || {
       id: projectId,
       code: projectId,
-      name: "Custom Manufacturing Batch"
+      name: "Custom Manufacturing Batch",
+      defaultBatchMultiplier: 1
     };
 
+    const effectiveMultiplier = batchMultiplier !== undefined
+      ? batchMultiplier
+      : ((project as any).defaultBatchMultiplier || 1);
     const generated: StickerRecord[] = [];
-    const sanitizedMultiplier = Math.max(1, Math.min(100, batchMultiplier));
+    const sanitizedMultiplier = Math.max(1, Math.min(100, effectiveMultiplier));
 
     for (let copy = 1; copy <= sanitizedMultiplier; copy++) {
       // 1. TIER 1: Box / Crate Stickers
       this.boxMappings.forEach(box => {
         const boxStickerId = `STK-${project.code}-BOX-${box.boxId}-C${copy}`;
+        const existing = this.stickers.get(boxStickerId);
+
         const boxSticker: StickerRecord = {
           id: boxStickerId,
           projectId: project.id,
           projectCode: project.code,
           tier: 'BOX_CRATE',
-          status: 'QUEUED_TO_PRINT',
+          status: existing ? existing.status : 'QUEUED_TO_PRINT',
           boxId: box.boxId,
           boxNumber: box.boxNumber,
           grade: box.grade,
@@ -101,7 +151,14 @@ class StickerTrackingServiceClass {
           dimensionsMm: { width: 100, height: 75 },
           batchNumber: copy,
           copyIndex: copy,
-          totalCopies: sanitizedMultiplier
+          totalCopies: sanitizedMultiplier,
+          printedAt: existing?.printedAt,
+          printedByUserId: existing?.printedByUserId,
+          printedByUserName: existing?.printedByUserName,
+          affixedAt: existing?.affixedAt,
+          affixedByUserId: existing?.affixedByUserId,
+          affixedByUserName: existing?.affixedByUserName,
+          verificationNotes: existing?.verificationNotes
         };
         generated.push(boxSticker);
         this.stickers.set(boxSticker.id, boxSticker);
@@ -117,16 +174,17 @@ class StickerTrackingServiceClass {
         }
       });
 
-      distinctActivities.forEach((activity, key) => {
+      distinctActivities.forEach((activity) => {
         const matchingBox = this.findMatchingBox(activity.grade, activity.chapter);
         const pouchStickerId = `STK-${project.code}-ACT-${activity.activityCode}-C${copy}`;
+        const existing = this.stickers.get(pouchStickerId);
         
         const pouchSticker: StickerRecord = {
           id: pouchStickerId,
           projectId: project.id,
           projectCode: project.code,
           tier: 'ACTIVITY_POUCH',
-          status: 'QUEUED_TO_PRINT',
+          status: existing ? existing.status : 'QUEUED_TO_PRINT',
           boxId: matchingBox?.boxId,
           boxNumber: matchingBox?.boxNumber,
           grade: activity.grade,
@@ -152,7 +210,14 @@ class StickerTrackingServiceClass {
           dimensionsMm: { width: 70, height: 40 },
           batchNumber: copy,
           copyIndex: copy,
-          totalCopies: sanitizedMultiplier
+          totalCopies: sanitizedMultiplier,
+          printedAt: existing?.printedAt,
+          printedByUserId: existing?.printedByUserId,
+          printedByUserName: existing?.printedByUserName,
+          affixedAt: existing?.affixedAt,
+          affixedByUserId: existing?.affixedByUserId,
+          affixedByUserName: existing?.affixedByUserName,
+          verificationNotes: existing?.verificationNotes
         };
         generated.push(pouchSticker);
         this.stickers.set(pouchSticker.id, pouchSticker);
@@ -162,13 +227,14 @@ class StickerTrackingServiceClass {
       MASTER_PRODUCTION_ITEMS.forEach(item => {
         const matchingBox = this.findMatchingBox(item.grade, item.chapter);
         const itemStickerId = `STK-${project.code}-ITM-${item.id}-C${copy}`;
+        const existing = this.stickers.get(itemStickerId);
 
         const itemSticker: StickerRecord = {
           id: itemStickerId,
           projectId: project.id,
           projectCode: project.code,
           tier: 'COMPONENT_ITEM',
-          status: 'QUEUED_TO_PRINT',
+          status: existing ? existing.status : 'QUEUED_TO_PRINT',
           boxId: matchingBox?.boxId,
           boxNumber: matchingBox?.boxNumber,
           grade: item.grade,
@@ -197,13 +263,21 @@ class StickerTrackingServiceClass {
           dimensionsMm: { width: 50, height: 25 },
           batchNumber: copy,
           copyIndex: copy,
-          totalCopies: sanitizedMultiplier
+          totalCopies: sanitizedMultiplier,
+          printedAt: existing?.printedAt,
+          printedByUserId: existing?.printedByUserId,
+          printedByUserName: existing?.printedByUserName,
+          affixedAt: existing?.affixedAt,
+          affixedByUserId: existing?.affixedByUserId,
+          affixedByUserName: existing?.affixedByUserName,
+          verificationNotes: existing?.verificationNotes
         };
         generated.push(itemSticker);
         this.stickers.set(itemSticker.id, itemSticker);
       });
     }
 
+    this.saveToStorage();
     return generated;
   }
 
@@ -219,7 +293,13 @@ class StickerTrackingServiceClass {
   }
 
   public getStickersByProject(projectId: string): StickerRecord[] {
-    return Array.from(this.stickers.values()).filter(s => s.projectId === projectId || s.projectCode === projectId);
+    let list = Array.from(this.stickers.values()).filter(s => s.projectId === projectId || s.projectCode === projectId);
+    if (list.length === 0) {
+      const liveProject = ProjectManagementService.getProjectById(projectId);
+      const targetMultiplier = liveProject?.defaultBatchMultiplier || 1;
+      list = this.generateManifestForProject(projectId, targetMultiplier);
+    }
+    return list;
   }
 
   public updateStickerStatus(
@@ -255,6 +335,7 @@ class StickerTrackingServiceClass {
     }
 
     this.stickers.set(id, updated);
+    this.saveToStorage();
     return updated;
   }
 
@@ -275,6 +356,7 @@ class StickerTrackingServiceClass {
       }
     });
 
+    this.saveToStorage();
     return { updatedCount: count, updatedIds };
   }
 

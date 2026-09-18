@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   Tag,
   Printer,
@@ -36,18 +36,29 @@ import {
 } from '../../data/stickerDataset';
 import { StickerTrackingService, StickerProjectSummary } from '../../services/StickerTrackingService';
 import { INITIAL_PROJECTS, Project } from '../../data/projectsDataset';
+import { ProjectManagementService } from '../../services/ProjectManagementService';
 import { useToast } from '../../contexts/ToastContext';
 import { useAuth } from '../../AuthContext';
 
-export default function StickerMonitoringHubTab() {
+interface StickerMonitoringHubTabProps {
+  initialProjectId?: string;
+  embeddedMode?: boolean;
+}
+
+export default function StickerMonitoringHubTab({
+  initialProjectId,
+  embeddedMode = false
+}: StickerMonitoringHubTabProps = {}) {
   const { showToast } = useToast();
   const { user } = useAuth();
 
   // State
-  const [projects] = useState<Project[]>(INITIAL_PROJECTS);
-  const [selectedProjectId, setSelectedProjectId] = useState<string>(projects[0]?.id || 'PRJ-001');
+  const [projects, setProjects] = useState<Project[]>(() => ProjectManagementService.getAllProjects());
+  const [selectedProjectId, setSelectedProjectId] = useState<string>(
+    initialProjectId || projects[0]?.id || 'PRJ-001'
+  );
   const [stickers, setStickers] = useState<StickerRecord[]>(() =>
-    StickerTrackingService.getStickersByProject(projects[0]?.id || 'PRJ-001')
+    StickerTrackingService.getStickersByProject(initialProjectId || projects[0]?.id || 'PRJ-001')
   );
   const [selectedTier, setSelectedTier] = useState<StickerTier | 'ALL'>('ALL');
   const [selectedStatus, setSelectedStatus] = useState<StickerStatus | 'ALL'>('ALL');
@@ -57,6 +68,30 @@ export default function StickerMonitoringHubTab() {
   const [previewSticker, setPreviewSticker] = useState<StickerRecord | null>(null);
   const [scanBarcodeQuery, setScanBarcodeQuery] = useState<string>('');
   const [boxMappings] = useState<ChapterBoxMapping[]>(() => StickerTrackingService.getChapterBoxMappings());
+
+  // Listen to project updates
+  useEffect(() => {
+    const handleProjectsUpdate = () => {
+      const updatedProjects = ProjectManagementService.getAllProjects();
+      setProjects(updatedProjects);
+      if (selectedProjectId) {
+        setStickers(StickerTrackingService.getStickersByProject(selectedProjectId));
+      }
+    };
+    window.addEventListener('experimind_projects_updated', handleProjectsUpdate);
+    window.addEventListener('experimind_stickers_updated', handleProjectsUpdate);
+    return () => {
+      window.removeEventListener('experimind_projects_updated', handleProjectsUpdate);
+      window.removeEventListener('experimind_stickers_updated', handleProjectsUpdate);
+    };
+  }, [selectedProjectId]);
+
+  useEffect(() => {
+    if (initialProjectId) {
+      setSelectedProjectId(initialProjectId);
+      setStickers(StickerTrackingService.getStickersByProject(initialProjectId));
+    }
+  }, [initialProjectId]);
 
   // Selected Project Details
   const activeProject = useMemo(() => {
