@@ -1,11 +1,14 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Upload, Image as ImageIcon, Package, Clock, Settings, MapPin, Cpu } from 'lucide-react';
+import { X, Upload, Image as ImageIcon, Package, Clock, Settings, MapPin, Cpu, Sparkles, ZoomIn, Link as LinkIcon, Check } from 'lucide-react';
 import { InventoryItem, KitBOM } from '@/src/types';
 import { uploadImage } from '@/src/utils/storage';
 import { useData } from '@/src/DataContext';
 import DiffViewer from '@/src/components/DiffViewer';
 import ItemImage from '@/src/shared/components/ItemImage';
+import ImagePreviewModal from '@/src/shared/components/ImagePreviewModal';
+import { STEM_PRESET_IMAGES, getItemThumbnailUrl } from '@/src/utils/itemThumbnailHelper';
+import { MASTER_PRODUCTION_ITEMS } from '@/src/data/productionDataset';
 
 interface EditPartModalProps {
   item: InventoryItem;
@@ -25,7 +28,7 @@ export default function EditPartModal({
   kits = [],
 }: EditPartModalProps) {
   const [activeTab, setActiveTab] = useState<'details' | 'history'>('details');
-  const { transactions, bins = [], warehouses = [] } = useData() as any;
+  const { transactions, bins = [], warehouses = [], inventory = [] } = useData() as any;
 
   const [name, setName] = useState(item.name);
   const [category, setCategory] = useState(item.category);
@@ -36,6 +39,7 @@ export default function EditPartModal({
   const [binLocation, setBinLocation] = useState(item.binLocation || '');
   const [assignedKitName, setAssignedKitName] = useState(item.assignedKitName || '');
   const [isCommon, setIsCommon] = useState(item.isCommon || false);
+  const [imageUrl, setImageUrl] = useState(item.imageUrl || '');
   const [mpn, setMpn] = useState(item.mpn || '');
   const [manufacturer, setManufacturer] = useState(item.manufacturer || '');
   const [packageFootprint, setPackageFootprint] = useState(item.package_footprint || item.packageFootprint || '');
@@ -43,8 +47,49 @@ export default function EditPartModal({
   const [mslRating, setMslRating] = useState(item.msl_rating || item.mslRating || 'MSL 1');
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [showPresets, setShowPresets] = useState(false);
+  const [isZoomOpen, setIsZoomOpen] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Standard item suggestions from curriculum + inventory
+  const standardItemSuggestions = useMemo(() => {
+    const map = new Map<string, { name: string; category?: string; unit?: string; unitCost?: number; bin?: string }>();
+    MASTER_PRODUCTION_ITEMS.forEach(p => {
+      if (p.materialName && !map.has(p.materialName)) {
+        map.set(p.materialName, {
+          name: p.materialName,
+          category: p.pouchCategory ? p.pouchCategory.replace('_', ' ') : 'STEM Activity',
+          unit: p.unit || 'pcs',
+          unitCost: p.unitCost || 0,
+          bin: p.warehouseBin || ''
+        });
+      }
+    });
+    inventory.forEach((inv: InventoryItem) => {
+      if (inv.name && !map.has(inv.name)) {
+        map.set(inv.name, {
+          name: inv.name,
+          category: inv.category,
+          unit: inv.unit,
+          unitCost: inv.unitCost ?? inv.basePrice,
+          bin: inv.binLocation
+        });
+      }
+    });
+    return Array.from(map.values());
+  }, [inventory]);
+
+  const handleSelectSuggestion = (sug: { name: string; category?: string; unit?: string; unitCost?: number; bin?: string }) => {
+    setName(sug.name);
+    if (sug.category && (!category || category === 'Uncategorized')) setCategory(sug.category);
+    if (sug.unit) setUnit(sug.unit);
+    if (sug.unitCost) setUnitCost(sug.unitCost.toString());
+    if (sug.bin && !binLocation) setBinLocation(sug.bin);
+    if (!imageUrl && !imageFile) {
+      setImageUrl(getItemThumbnailUrl(sug.name, sug.category));
+    }
+  };
 
   useEffect(() => {
     if (isOpen) {
@@ -62,7 +107,9 @@ export default function EditPartModal({
       setPackageFootprint(item.package_footprint || item.packageFootprint || '');
       setMountingType(item.mounting_type || item.mountingType || 'SMD');
       setMslRating(item.msl_rating || item.mslRating || 'MSL 1');
+      setImageUrl(item.imageUrl || '');
       setImageFile(null);
+      setShowPresets(false);
     }
   }, [isOpen, item]);
 
@@ -72,9 +119,9 @@ export default function EditPartModal({
     if (!name.trim()) return;
     setIsSaving(true);
     try {
-      let imageUrl = item.imageUrl;
+      let finalImageUrl = imageUrl || item.imageUrl || '';
       if (imageFile) {
-        imageUrl = await uploadImage(imageFile, `inventory/${Date.now()}_${imageFile.name}`);
+        finalImageUrl = await uploadImage(imageFile, `inventory/${Date.now()}_${imageFile.name}`);
       }
 
       await onSave(item.id, {
@@ -88,7 +135,7 @@ export default function EditPartModal({
         binLocation: binLocation.trim() || undefined,
         assignedKitName: assignedKitName.trim() || undefined,
         isCommon,
-        imageUrl,
+        imageUrl: finalImageUrl || undefined,
         mpn: mpn.trim() || undefined,
         manufacturer: manufacturer.trim() || undefined,
         package_footprint: packageFootprint.trim() || undefined,
@@ -145,48 +192,147 @@ export default function EditPartModal({
           {activeTab === 'details' && (
             <div className="space-y-5">
               <div className="flex flex-col sm:flex-row gap-5">
-                <div className="w-32 h-32 rounded-2xl bg-slate-100 border-2 border-dashed border-slate-200 flex flex-col items-center justify-center shrink-0 overflow-hidden relative group">
-                  {imageFile ? (
-                    <img src={URL.createObjectURL(imageFile)} alt="Preview" className="w-full h-full object-cover" />
-                  ) : item.imageUrl ? (
-                    <ItemImage src={item.imageUrl} alt={item.name} category={item.category} className="w-full h-full object-cover" />
-                  ) : (
-                    <ImageIcon className="w-8 h-8 text-slate-300 mb-2" />
-                  )}
+                <div className="flex flex-col items-center gap-2">
+                  <div
+                    className="w-32 h-32 rounded-2xl bg-slate-100 border-2 border-dashed border-slate-200 flex flex-col items-center justify-center shrink-0 overflow-hidden relative group cursor-pointer"
+                    onClick={() => setIsZoomOpen(true)}
+                    title="Click to zoom image"
+                  >
+                    {imageFile ? (
+                      <img src={URL.createObjectURL(imageFile)} alt="Preview" className="w-full h-full object-cover" />
+                    ) : imageUrl ? (
+                      <ItemImage src={imageUrl} alt={name || item.name} category={category || item.category} className="w-full h-full object-cover" />
+                    ) : (
+                      <ItemImage src={item.imageUrl} alt={name || item.name} category={category || item.category} className="w-full h-full object-cover" />
+                    )}
 
-                  <div className="absolute inset-0 bg-slate-900/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                    <button
-                      onClick={() => fileInputRef.current?.click()}
-                      className="bg-white/90 text-slate-900 text-xs font-bold px-3 py-1.5 rounded-lg flex items-center gap-1.5 hover:bg-white cursor-pointer"
-                    >
-                      <Upload className="w-3 h-3" />
-                      Upload
-                    </button>
+                    <div className="absolute inset-0 bg-slate-900/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          fileInputRef.current?.click();
+                        }}
+                        className="bg-white/90 text-slate-900 text-[10px] font-bold px-2 py-1 rounded-lg flex items-center gap-1 hover:bg-white cursor-pointer"
+                      >
+                        <Upload className="w-3 h-3" />
+                        Upload
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setIsZoomOpen(true);
+                        }}
+                        className="bg-indigo-600 text-white text-[10px] font-bold p-1 rounded-lg hover:bg-indigo-700 cursor-pointer"
+                      >
+                        <ZoomIn className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      ref={fileInputRef}
+                      onChange={(e) => {
+                        if (e.target.files && e.target.files.length > 0) {
+                          setImageFile(e.target.files[0]);
+                        }
+                      }}
+                    />
                   </div>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    ref={fileInputRef}
-                    onChange={(e) => {
-                      if (e.target.files && e.target.files.length > 0) {
-                        setImageFile(e.target.files[0]);
-                      }
-                    }}
-                  />
+
+                  <div className="flex items-center gap-1.5 w-full">
+                    <button
+                      type="button"
+                      onClick={() => setShowPresets(!showPresets)}
+                      className="flex-1 py-1 px-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg text-[10px] font-bold flex items-center justify-center gap-1 transition-all cursor-pointer border border-indigo-200"
+                    >
+                      <Sparkles className="w-3 h-3 text-indigo-500" />
+                      Presets
+                    </button>
+                    {(imageUrl || imageFile) && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setImageFile(null);
+                          setImageUrl('');
+                        }}
+                        className="py-1 px-2 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-lg text-[10px] font-bold transition-all cursor-pointer border border-rose-200"
+                        title="Reset to default auto-thumbnail"
+                      >
+                        Clear
+                      </button>
+                    )}
+                  </div>
                 </div>
 
                 <div className="flex-1 space-y-3">
+                  {/* STEM Preset Image Selector Panel */}
+                  {showPresets && (
+                    <div className="p-3 bg-slate-50 border border-indigo-200 rounded-2xl space-y-2 animate-fadeIn">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-bold text-indigo-900 uppercase">Select Standard STEM Photo</span>
+                        <button
+                          type="button"
+                          onClick={() => setShowPresets(false)}
+                          className="text-slate-400 hover:text-slate-600 text-xs"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                      <div className="grid grid-cols-4 sm:grid-cols-6 gap-2 max-h-36 overflow-y-auto pr-1">
+                        {STEM_PRESET_IMAGES.map((preset) => (
+                          <div
+                            key={preset.id}
+                            onClick={() => {
+                              setImageUrl(preset.url);
+                              setImageFile(null);
+                              setShowPresets(false);
+                            }}
+                            className={`group relative rounded-xl border p-1 cursor-pointer transition-all hover:scale-105 ${
+                              imageUrl === preset.url ? 'border-indigo-600 bg-indigo-50 ring-2 ring-indigo-500/20' : 'border-slate-200 bg-white hover:border-slate-300'
+                            }`}
+                          >
+                            <img src={preset.url} alt={preset.name} className="w-full h-10 object-cover rounded-lg" />
+                            <div className="text-[9px] font-bold text-slate-700 truncate mt-1 text-center">{preset.name}</div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
                   <div>
-                    <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">
-                      Part Name *
-                    </label>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                        Part Name * (Standard Suggestions Available)
+                      </label>
+                      <span className="text-[10px] text-indigo-600 font-bold flex items-center gap-1">
+                        <Sparkles className="w-2.5 h-2.5" /> Auto-fill on select
+                      </span>
+                    </div>
                     <input
                       type="text"
+                      list="edit-part-name-suggestions"
                       value={name}
-                      onChange={(e) => setName(e.target.value)}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setName(val);
+                        const match = standardItemSuggestions.find(s => s.name.toLowerCase() === val.toLowerCase());
+                        if (match) {
+                          handleSelectSuggestion(match);
+                        }
+                      }}
+                      placeholder="Type or select standard STEM material..."
                       className="w-full text-xs font-bold text-slate-800 border border-slate-200 rounded-xl p-2.5 focus:ring-2 focus:ring-indigo-500 bg-slate-50 focus:bg-white transition-all"
                     />
+                    <datalist id="edit-part-name-suggestions">
+                      {standardItemSuggestions.map((sug, idx) => (
+                        <option key={`${sug.name}-${idx}`} value={sug.name}>
+                          {sug.category ? `[${sug.category}]` : ''} {sug.unitCost ? `(₹${sug.unitCost}/${sug.unit || 'pcs'})` : ''}
+                        </option>
+                      ))}
+                    </datalist>
                   </div>
 
                   <div className="grid grid-cols-3 gap-3">
@@ -231,6 +377,24 @@ export default function EditPartModal({
                         className="w-full text-xs text-slate-800 border border-slate-200 rounded-xl p-2.5 focus:ring-2 focus:ring-indigo-500 bg-slate-50 focus:bg-white transition-all font-bold font-mono"
                       />
                     </div>
+                  </div>
+
+                  {/* Image URL Direct Input */}
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1 flex items-center gap-1">
+                      <LinkIcon className="w-3 h-3 text-slate-400" />
+                      Image Web URL (Optional)
+                    </label>
+                    <input
+                      type="url"
+                      placeholder="https://images.unsplash.com/... or cloud image URL"
+                      value={imageUrl}
+                      onChange={(e) => {
+                        setImageUrl(e.target.value);
+                        setImageFile(null);
+                      }}
+                      className="w-full text-xs text-slate-700 border border-slate-200 rounded-xl p-2 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 font-mono"
+                    />
                   </div>
                 </div>
               </div>
@@ -507,6 +671,19 @@ export default function EditPartModal({
           </button>
         </div>
       </div>
+
+      {isZoomOpen && (
+        <ImagePreviewModal
+          isOpen={isZoomOpen}
+          onClose={() => setIsZoomOpen(false)}
+          imageUrl={imageFile ? URL.createObjectURL(imageFile) : imageUrl || item.imageUrl}
+          title={name || item.name}
+          category={category || item.category}
+          stockQty={parseInt(stock) || item.stockQty}
+          unit={unit || item.unit}
+          binLocation={binLocation || item.binLocation}
+        />
+      )}
     </div>,
     document.body
   );

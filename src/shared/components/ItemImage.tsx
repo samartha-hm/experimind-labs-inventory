@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { getItemThumbnailUrl } from '@/src/utils/itemThumbnailHelper';
 
 interface ItemImageProps {
   src?: string;
@@ -6,6 +7,7 @@ interface ItemImageProps {
   className?: string;
   category?: string;
   size?: 'sm' | 'md' | 'lg' | 'full';
+  onClick?: () => void;
 }
 
 function getCategoryIcon(category?: string): string {
@@ -40,17 +42,21 @@ export default function ItemImage({
   className = 'w-full h-full object-cover',
   category,
   size = 'md',
+  onClick,
 }: ItemImageProps) {
   const [hasError, setHasError] = useState(false);
   const [loaded, setLoaded] = useState(false);
 
-  const transformedSrc = transformDriveUrl(src);
+  // Compute primary and fallback source
+  const rawSrc = src && src.trim() ? src : getItemThumbnailUrl({ name: alt, category });
+  const transformedSrc = transformDriveUrl(rawSrc);
   const icon = getCategoryIcon(category);
 
   if (!transformedSrc || hasError) {
     return (
       <div
-        className={`flex flex-col items-center justify-center bg-gradient-to-br from-slate-800 to-slate-900 border border-slate-700/50 rounded-xl select-none ${className}`}
+        onClick={onClick}
+        className={`flex flex-col items-center justify-center bg-gradient-to-br from-slate-800 to-slate-900 border border-slate-700/50 rounded-xl select-none ${onClick ? 'cursor-pointer hover:opacity-90' : ''} ${className}`}
         title={alt}
       >
         <span className="text-xl filter drop-shadow opacity-90">{icon}</span>
@@ -64,7 +70,7 @@ export default function ItemImage({
   }
 
   return (
-    <div className={`relative overflow-hidden ${className}`}>
+    <div className={`relative overflow-hidden ${onClick ? 'cursor-pointer hover:opacity-95' : ''} ${className}`} onClick={onClick}>
       {!loaded && (
         <div className="absolute inset-0 flex items-center justify-center bg-slate-800/80 animate-pulse">
           <span className="text-sm opacity-50">{icon}</span>
@@ -82,3 +88,4 @@ export default function ItemImage({
     </div>
   );
 }
+

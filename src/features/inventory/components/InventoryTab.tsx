@@ -34,18 +34,24 @@ import {
   Cpu,
   ExternalLink,
   FileText,
+  Sparkles,
+  ZoomIn,
+  Link as LinkIcon
 } from 'lucide-react';
 import { InventoryItem, KitBOM } from '@/src/types';
 import EditPartModal from '@/src/features/inventory/components/EditPartModal';
 import SerialNumbersModal from '@/src/features/inventory/components/SerialNumbersModal';
 import { BulkImportModal } from '@/src/features/inventory/components/BulkImportModal';
 import ItemImage from '@/src/shared/components/ItemImage';
+import ImagePreviewModal from '@/src/shared/components/ImagePreviewModal';
 import { uploadImage } from '@/src/utils/storage';
 import { useData } from '@/src/DataContext';
 import { useToast } from '@/src/contexts/ToastContext';
 import SmartSelect from '@/src/shared/components/SmartSelect';
 import EmptyState from '@/src/shared/components/EmptyState';
 import ResponsiveDataView from '@/src/components/common/ResponsiveDataView';
+import { STEM_PRESET_IMAGES, getItemThumbnailUrl } from '@/src/utils/itemThumbnailHelper';
+import { MASTER_PRODUCTION_ITEMS } from '@/src/data/productionDataset';
 
 interface InventoryTabProps {
   inventory: InventoryItem[];
@@ -104,7 +110,19 @@ export default function InventoryTab({
   const [newBinLocation, setNewBinLocation] = useState('');
   const [newAssignedKitName, setNewAssignedKitName] = useState('');
   const [newIsCommon, setNewIsCommon] = useState(false);
+  const [newImageUrl, setNewImageUrl] = useState('');
+  const [showAddPresets, setShowAddPresets] = useState(false);
   const [newImageFile, setNewImageFile] = useState<File | null>(null);
+
+  // Universal Lightbox Zoom Preview Modal State
+  const [zoomItem, setZoomItem] = useState<{
+    imageUrl?: string;
+    title: string;
+    category?: string;
+    stockQty?: number;
+    unit?: string;
+    binLocation?: string;
+  } | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
@@ -120,6 +138,47 @@ export default function InventoryTab({
   const getItemStep = (id: string) => itemSteps[id] ?? 1;
   const setItemStep = (id: string, val: number) => {
     setItemSteps(prev => ({ ...prev, [id]: Math.max(1, isNaN(val) ? 1 : val) }));
+  };
+
+  // Standard item suggestions from curriculum + inventory
+  const standardItemSuggestions = useMemo(() => {
+    const map = new Map<string, { name: string; category?: string; unit?: string; unitCost?: number; bin?: string; threshold?: number }>();
+    MASTER_PRODUCTION_ITEMS.forEach(p => {
+      if (p.materialName && !map.has(p.materialName)) {
+        map.set(p.materialName, {
+          name: p.materialName,
+          category: p.pouchCategory ? p.pouchCategory.replace('_', ' ') : 'STEM Activity',
+          unit: p.unit || 'pcs',
+          unitCost: p.unitCost || 0,
+          bin: p.warehouseBin || '',
+          threshold: 10
+        });
+      }
+    });
+    inventory.forEach((inv: InventoryItem) => {
+      if (inv.name && !map.has(inv.name)) {
+        map.set(inv.name, {
+          name: inv.name,
+          category: inv.category,
+          unit: inv.unit,
+          unitCost: inv.unitCost ?? inv.basePrice,
+          bin: inv.binLocation,
+          threshold: inv.threshold
+        });
+      }
+    });
+    return Array.from(map.values());
+  }, [inventory]);
+
+  const handleSelectAddSuggestion = (sug: { name: string; category?: string; unit?: string; unitCost?: number; bin?: string; threshold?: number }) => {
+    setNewName(sug.name);
+    if (sug.category) setNewCategory(sug.category);
+    if (sug.unit) setNewUnit(sug.unit);
+    if (sug.bin) setNewBinLocation(sug.bin);
+    if (sug.threshold) setNewThreshold(sug.threshold.toString());
+    if (!newImageUrl && !newImageFile) {
+      setNewImageUrl(getItemThumbnailUrl(sug.name, sug.category));
+    }
   };
 
   const PREDEFINED_CATEGORIES = useMemo(() => [
@@ -244,10 +303,10 @@ export default function InventoryTab({
     e.preventDefault();
     if (!newName.trim()) return;
 
-    let imageUrl = '';
+    let finalImageUrl = newImageUrl || '';
     if (newImageFile) {
       try {
-        imageUrl = await uploadImage(newImageFile, `inventory/${Date.now()}_${newImageFile.name}`);
+        finalImageUrl = await uploadImage(newImageFile, `inventory/${Date.now()}_${newImageFile.name}`);
       } catch (err) {
         console.error("Failed to upload image:", err);
       }
@@ -262,7 +321,7 @@ export default function InventoryTab({
       binLocation: newBinLocation.trim() || undefined,
       assignedKitName: newAssignedKitName.trim() || undefined,
       isCommon: newIsCommon,
-      imageUrl: imageUrl || undefined,
+      imageUrl: finalImageUrl || undefined,
     });
 
     setIsAdding(false);
@@ -275,6 +334,8 @@ export default function InventoryTab({
     setNewAssignedKitName('');
     setNewIsCommon(false);
     setNewImageFile(null);
+    setNewImageUrl('');
+    setShowAddPresets(false);
     showToast('success', 'Component Added', `Created "${newName.trim()}"`);
   };
 
@@ -490,121 +551,257 @@ export default function InventoryTab({
           <h3 className="text-base font-black text-slate-900 dark:text-white mb-4">Create New Master Catalog Item</h3>
           
           <div className="flex flex-col md:flex-row gap-6">
-            <div className="w-32 h-32 rounded-2xl bg-slate-50 dark:bg-slate-800 border-2 border-dashed border-slate-200 dark:border-slate-700 flex flex-col items-center justify-center shrink-0 overflow-hidden relative group">
-              {newImageFile ? (
-                <img src={URL.createObjectURL(newImageFile)} alt="Preview" className="w-full h-full object-cover" />
-              ) : (
-                <ImageIcon className="w-8 h-8 text-slate-300 mb-2" />
-              )}
-              <div className="absolute inset-0 bg-slate-900/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  className="bg-white/90 text-slate-900 text-xs font-bold px-3 py-1.5 rounded-lg flex items-center gap-1.5 hover:bg-white cursor-pointer"
-                >
-                  <Upload className="w-3 h-3" />
-                  Upload
-                </button>
-              </div>
-              <input
-                type="file"
-                accept="image/*"
-                className="hidden"
-                ref={fileInputRef}
-                onChange={(e) => {
-                  if (e.target.files && e.target.files.length > 0) {
-                    setNewImageFile(e.target.files[0]);
+            <div className="flex flex-col items-center gap-2">
+              <div
+                className="w-32 h-32 rounded-2xl bg-slate-50 dark:bg-slate-800 border-2 border-dashed border-slate-200 dark:border-slate-700 flex flex-col items-center justify-center shrink-0 overflow-hidden relative group cursor-pointer"
+                onClick={() => {
+                  if (newImageFile || newImageUrl) {
+                    setZoomItem({
+                      imageUrl: newImageFile ? URL.createObjectURL(newImageFile) : newImageUrl,
+                      title: newName || 'New Component Preview',
+                      category: newCategory || 'Draft Item'
+                    });
                   }
                 }}
-              />
+                title="Click to preview image"
+              >
+                {newImageFile ? (
+                  <img src={URL.createObjectURL(newImageFile)} alt="Preview" className="w-full h-full object-cover" />
+                ) : newImageUrl ? (
+                  <ItemImage src={newImageUrl} alt={newName} category={newCategory} className="w-full h-full object-cover" />
+                ) : (
+                  <div className="flex flex-col items-center justify-center p-2 text-center">
+                    <ImageIcon className="w-7 h-7 text-slate-300 mb-1" />
+                    <span className="text-[10px] font-bold text-slate-400">Photo / Icon</span>
+                  </div>
+                )}
+                <div className="absolute inset-0 bg-slate-900/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      fileInputRef.current?.click();
+                    }}
+                    className="bg-white/90 text-slate-900 text-[10px] font-bold px-2 py-1 rounded-lg flex items-center gap-1 hover:bg-white cursor-pointer"
+                  >
+                    <Upload className="w-3 h-3" />
+                    Upload
+                  </button>
+                  {(newImageFile || newImageUrl) && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setZoomItem({
+                          imageUrl: newImageFile ? URL.createObjectURL(newImageFile) : newImageUrl,
+                          title: newName || 'New Component Preview',
+                          category: newCategory || 'Draft Item'
+                        });
+                      }}
+                      className="bg-indigo-600 text-white text-[10px] font-bold p-1 rounded-lg hover:bg-indigo-700 cursor-pointer"
+                    >
+                      <ZoomIn className="w-3 h-3" />
+                    </button>
+                  )}
+                </div>
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  ref={fileInputRef}
+                  onChange={(e) => {
+                    if (e.target.files && e.target.files.length > 0) {
+                      setNewImageFile(e.target.files[0]);
+                    }
+                  }}
+                />
+              </div>
+
+              <div className="flex items-center gap-1.5 w-full">
+                <button
+                  type="button"
+                  onClick={() => setShowAddPresets(!showAddPresets)}
+                  className="flex-1 py-1 px-2 bg-indigo-50 dark:bg-indigo-950/60 hover:bg-indigo-100 text-indigo-700 dark:text-indigo-300 rounded-lg text-[10px] font-bold flex items-center justify-center gap-1 transition-all cursor-pointer border border-indigo-200 dark:border-indigo-800"
+                >
+                  <Sparkles className="w-3 h-3 text-indigo-500" />
+                  Presets
+                </button>
+                {(newImageUrl || newImageFile) && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setNewImageFile(null);
+                      setNewImageUrl('');
+                    }}
+                    className="py-1 px-2 bg-rose-50 dark:bg-rose-950/50 hover:bg-rose-100 text-rose-600 rounded-lg text-[10px] font-bold transition-all cursor-pointer border border-rose-200"
+                    title="Clear selected image"
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
             </div>
 
-            <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              <div>
-                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Item Name *</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. ESP32-S3 Microcontroller"
-                  value={newName}
-                  onChange={(e) => setNewName(e.target.value)}
-                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white font-bold focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
-                />
-              </div>
+            <div className="flex-1 space-y-4">
+              {/* STEM Preset Image Selector Panel */}
+              {showAddPresets && (
+                <div className="p-3 bg-slate-50 dark:bg-slate-800/80 border border-indigo-200 dark:border-indigo-800 rounded-2xl space-y-2 animate-fadeIn">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-bold text-indigo-900 dark:text-indigo-300 uppercase">Select Standard STEM Photo</span>
+                    <button
+                      type="button"
+                      onClick={() => setShowAddPresets(false)}
+                      className="text-slate-400 hover:text-slate-600 dark:hover:text-white text-xs"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-4 sm:grid-cols-6 gap-2 max-h-36 overflow-y-auto pr-1">
+                    {STEM_PRESET_IMAGES.map((preset) => (
+                      <div
+                        key={preset.id}
+                        onClick={() => {
+                          setNewImageUrl(preset.url);
+                          setNewImageFile(null);
+                          setShowAddPresets(false);
+                        }}
+                        className={`group relative rounded-xl border p-1 cursor-pointer transition-all hover:scale-105 ${
+                          newImageUrl === preset.url ? 'border-indigo-600 bg-indigo-50 dark:bg-indigo-950/60 ring-2 ring-indigo-500/20' : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:border-slate-300'
+                        }`}
+                      >
+                        <img src={preset.url} alt={preset.name} className="w-full h-10 object-cover rounded-lg" />
+                        <div className="text-[9px] font-bold text-slate-700 dark:text-slate-300 truncate mt-1 text-center">{preset.name}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
-              <div>
-                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Category</label>
-                <input
-                  type="text"
-                  list="add-category-options"
-                  placeholder="e.g. Electronics, Stationary..."
-                  value={newCategory}
-                  onChange={(e) => setNewCategory(e.target.value)}
-                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white font-bold focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
-                />
-                <datalist id="add-category-options">
-                  {allExistingCategories.map((c) => (
-                    <option key={c} value={c} />
-                  ))}
-                </datalist>
-              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div className="lg:col-span-2">
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                      Item Name * (Standard Suggestions Available)
+                    </label>
+                    <span className="text-[10px] text-indigo-600 dark:text-indigo-400 font-bold flex items-center gap-1">
+                      <Sparkles className="w-2.5 h-2.5" /> Auto-fill on select
+                    </span>
+                  </div>
+                  <input
+                    type="text"
+                    required
+                    list="add-part-name-suggestions"
+                    placeholder="Type new name or select standard item from curriculum / catalog..."
+                    value={newName}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setNewName(val);
+                      const match = standardItemSuggestions.find(s => s.name.toLowerCase() === val.toLowerCase());
+                      if (match) {
+                        handleSelectAddSuggestion(match);
+                      }
+                    }}
+                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white font-bold focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                  />
+                  <datalist id="add-part-name-suggestions">
+                    {standardItemSuggestions.map((sug, idx) => (
+                      <option key={`${sug.name}-${idx}`} value={sug.name}>
+                        {sug.category ? `[${sug.category}]` : ''} {sug.unitCost ? `(₹${sug.unitCost}/${sug.unit || 'pcs'})` : ''}
+                      </option>
+                    ))}
+                  </datalist>
+                </div>
 
-              {/* Storage Bin Location */}
-              <div>
-                <label className="block text-[10px] font-bold text-amber-700 dark:text-amber-400 uppercase tracking-wider mb-1 flex items-center gap-1">
-                  <MapPin className="w-3 h-3 text-amber-500" /> Storage Bin Location
-                </label>
-                <input
-                  type="text"
-                  list="create-bin-options"
-                  placeholder="e.g. Rack - Shelf 1, BIN-A1-01..."
-                  value={newBinLocation}
-                  onChange={(e) => setNewBinLocation(e.target.value)}
-                  className="w-full bg-amber-50/50 dark:bg-slate-800 border border-amber-300 dark:border-amber-700 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white font-bold focus:outline-none focus:ring-2 focus:ring-amber-500/20"
-                />
-                <datalist id="create-bin-options">
-                  {bins.map((b: any) => (
-                    <option key={b.id} value={b.code}>{b.code} ({b.description})</option>
-                  ))}
-                  <option value="Rack - Shelf 1" />
-                  <option value="Rack - Shelf 2" />
-                  <option value="Rack 1, Shelf A" />
-                  <option value="Bin A-01" />
-                  <option value="Chemical Cabinet" />
-                </datalist>
-              </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Category</label>
+                  <input
+                    type="text"
+                    list="add-category-options"
+                    placeholder="e.g. Electronics, Stationary..."
+                    value={newCategory}
+                    onChange={(e) => setNewCategory(e.target.value)}
+                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white font-bold focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                  />
+                  <datalist id="add-category-options">
+                    {allExistingCategories.map((c) => (
+                      <option key={c} value={c} />
+                    ))}
+                  </datalist>
+                </div>
 
-              <div>
-                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Initial Stock Qty</label>
-                <input
-                  type="number"
-                  min="0"
-                  value={newStock}
-                  onChange={(e) => setNewStock(e.target.value)}
-                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white font-bold focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
-                />
-              </div>
+                {/* Storage Bin Location */}
+                <div>
+                  <label className="block text-[10px] font-bold text-amber-700 dark:text-amber-400 uppercase tracking-wider mb-1 flex items-center gap-1">
+                    <MapPin className="w-3 h-3 text-amber-500" /> Storage Bin Location
+                  </label>
+                  <input
+                    type="text"
+                    list="create-bin-options"
+                    placeholder="e.g. Rack - Shelf 1, BIN-A1-01..."
+                    value={newBinLocation}
+                    onChange={(e) => setNewBinLocation(e.target.value)}
+                    className="w-full bg-amber-50/50 dark:bg-slate-800 border border-amber-300 dark:border-amber-700 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white font-bold focus:outline-none focus:ring-2 focus:ring-amber-500/20"
+                  />
+                  <datalist id="create-bin-options">
+                    {bins.map((b: any) => (
+                      <option key={b.id} value={b.code}>{b.code} ({b.description})</option>
+                    ))}
+                    <option value="Rack - Shelf 1" />
+                    <option value="Rack - Shelf 2" />
+                    <option value="Rack 1, Shelf A" />
+                    <option value="Bin A-01" />
+                    <option value="Chemical Cabinet" />
+                  </datalist>
+                </div>
 
-              <div>
-                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Reorder Safety Threshold</label>
-                <input
-                  type="number"
-                  min="0"
-                  value={newThreshold}
-                  onChange={(e) => setNewThreshold(e.target.value)}
-                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white font-bold focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
-                />
-              </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Initial Stock Qty</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={newStock}
+                    onChange={(e) => setNewStock(e.target.value)}
+                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white font-bold focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                  />
+                </div>
 
-              <div>
-                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Unit</label>
-                <input
-                  type="text"
-                  placeholder="pcs, sets, rolls"
-                  value={newUnit}
-                  onChange={(e) => setNewUnit(e.target.value)}
-                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white font-bold focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
-                />
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Reorder Safety Threshold</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={newThreshold}
+                    onChange={(e) => setNewThreshold(e.target.value)}
+                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white font-bold focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Unit</label>
+                  <input
+                    type="text"
+                    placeholder="pcs, sets, rolls"
+                    value={newUnit}
+                    onChange={(e) => setNewUnit(e.target.value)}
+                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white font-bold focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                  />
+                </div>
+
+                <div className="lg:col-span-2">
+                  <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1 flex items-center gap-1">
+                    <LinkIcon className="w-3 h-3 text-slate-400" /> Web Image URL (Optional)
+                  </label>
+                  <input
+                    type="url"
+                    placeholder="https://images.unsplash.com/... or paste web image link"
+                    value={newImageUrl}
+                    onChange={(e) => {
+                      setNewImageUrl(e.target.value);
+                      setNewImageFile(null);
+                    }}
+                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                  />
+                </div>
               </div>
             </div>
           </div>
@@ -673,7 +870,21 @@ export default function InventoryTab({
                 }`}
               >
                 {/* 1. Large High-Clarity Visual Showcase Header */}
-                <div className="w-full h-44 sm:h-48 bg-gradient-to-b from-slate-50 via-slate-100/90 to-slate-200/60 dark:from-slate-800/90 dark:via-slate-800 dark:to-slate-850 relative overflow-hidden flex items-center justify-center p-3 group/img">
+                <div
+                  className="w-full h-44 sm:h-48 bg-gradient-to-b from-slate-50 via-slate-100/90 to-slate-200/60 dark:from-slate-800/90 dark:via-slate-800 dark:to-slate-850 relative overflow-hidden flex items-center justify-center p-3 group/img cursor-pointer"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setZoomItem({
+                      imageUrl: item.imageUrl,
+                      title: item.name,
+                      category: item.category,
+                      stockQty: item.stockQty,
+                      unit: item.unit,
+                      binLocation: item.binLocation
+                    });
+                  }}
+                  title="Click to zoom image and specifications"
+                >
                   {item.imageUrl ? (
                     <ItemImage
                       src={item.imageUrl}
@@ -686,6 +897,14 @@ export default function InventoryTab({
                   ) : (
                     <Box className="w-12 h-12 text-indigo-500/70 dark:text-indigo-400/60" />
                   )}
+
+                  {/* Hover Zoom Indicator */}
+                  <div className="absolute inset-0 bg-slate-900/30 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center pointer-events-none">
+                    <div className="p-2 rounded-xl bg-white/90 dark:bg-slate-900/90 text-slate-800 dark:text-white shadow-lg backdrop-blur-sm flex items-center gap-1.5 text-xs font-bold">
+                      <ZoomIn className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                      <span>Preview</span>
+                    </div>
+                  </div>
 
                   {/* Floating Stock Status Badge (Top-Right) */}
                   <div className="absolute top-2.5 right-2.5">
@@ -952,7 +1171,20 @@ export default function InventoryTab({
 
             <div className="space-y-4">
               {/* Large Product Hero Showcase */}
-              <div className="w-full h-52 rounded-2xl bg-gradient-to-b from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-850 border border-slate-200/80 dark:border-slate-700/80 flex items-center justify-center p-3 overflow-hidden relative group/img shadow-xs">
+              <div
+                className="w-full h-52 rounded-2xl bg-gradient-to-b from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-850 border border-slate-200/80 dark:border-slate-700/80 flex items-center justify-center p-3 overflow-hidden relative group/img shadow-xs cursor-pointer"
+                onClick={() => {
+                  setZoomItem({
+                    imageUrl: drawerItem.imageUrl,
+                    title: drawerItem.name,
+                    category: drawerItem.category,
+                    stockQty: drawerItem.stockQty,
+                    unit: drawerItem.unit,
+                    binLocation: drawerItem.binLocation
+                  });
+                }}
+                title="Click to zoom image and specifications"
+              >
                 {drawerItem.imageUrl ? (
                   <ItemImage
                     src={drawerItem.imageUrl}
@@ -967,6 +1199,12 @@ export default function InventoryTab({
                   <span className="text-[10px] font-bold px-2.5 py-1 bg-white/90 dark:bg-slate-900/90 text-indigo-700 dark:text-indigo-300 rounded-xl border border-indigo-200 dark:border-indigo-800 shadow-xs backdrop-blur-md">
                     {drawerItem.category || 'General'}
                   </span>
+                </div>
+                <div className="absolute inset-0 bg-slate-900/30 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center pointer-events-none">
+                  <div className="p-2 rounded-xl bg-white/90 dark:bg-slate-900/90 text-slate-800 dark:text-white shadow-lg backdrop-blur-sm flex items-center gap-1.5 text-xs font-bold">
+                    <ZoomIn className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                    <span>Zoom Image</span>
+                  </div>
                 </div>
               </div>
 
@@ -1095,6 +1333,20 @@ export default function InventoryTab({
           }
         }}
       />
+
+      {/* Universal High-Res Image Preview Modal */}
+      {zoomItem && (
+        <ImagePreviewModal
+          isOpen={!!zoomItem}
+          onClose={() => setZoomItem(null)}
+          imageUrl={zoomItem.imageUrl}
+          title={zoomItem.title}
+          category={zoomItem.category}
+          stockQty={zoomItem.stockQty}
+          unit={zoomItem.unit}
+          binLocation={zoomItem.binLocation}
+        />
+      )}
     </div>
   );
 }

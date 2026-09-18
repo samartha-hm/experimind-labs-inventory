@@ -1,11 +1,15 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Plus, Trash2, Save, Sparkles, Upload, Image as ImageIcon, Search, Settings, Clock } from 'lucide-react';
+import { X, Plus, Trash2, Save, Sparkles, Upload, Image as ImageIcon, Search, Settings, Clock, Palette, Link as LinkIcon, ZoomIn } from 'lucide-react';
 import { InventoryItem, KitBOM, BOMRequirement } from '@/src/types';
 import { uploadImage } from '@/src/utils/storage';
 import { useData } from '@/src/DataContext';
 import DiffViewer from '@/src/components/DiffViewer';
 import SmartSelect from '@/src/shared/components/SmartSelect';
+import ItemImage from '@/src/shared/components/ItemImage';
+import ImagePreviewModal from '@/src/shared/components/ImagePreviewModal';
+import { STEM_PRESET_IMAGES } from '@/src/utils/itemThumbnailHelper';
+import { MASTER_PRODUCTION_ITEMS } from '@/src/data/productionDataset';
 
 interface BOMCustomizerModalProps {
   isOpen: boolean;
@@ -29,16 +33,28 @@ export default function BOMCustomizerModal({
   const [description, setDescription] = useState('');
   
   const [activeTab, setActiveTab] = useState<'editor' | 'history'>('editor');
-  const { transactions } = useData();
+  const { transactions, addInventoryItem } = useData();
   
   const [isUploading, setIsUploading] = useState(false);
   const [newImageFile, setNewImageFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [customUrlInput, setCustomUrlInput] = useState('');
+  const [showPresetGallery, setShowPresetGallery] = useState(false);
+  const [showUrlInput, setShowUrlInput] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Search and Category Filter States
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
+
+  // Zoom Lightbox Modal
+  const [zoomItem, setZoomItem] = useState<{
+    imageUrl?: string;
+    title: string;
+    category?: string;
+    stockQty?: number;
+    unit?: string;
+  } | null>(null);
 
   // Reset state when kit changes
   useEffect(() => {
@@ -48,6 +64,9 @@ export default function BOMCustomizerModal({
       setDescription(kit.description || '');
       setPreviewUrl(kit.imageUrl || null);
       setNewImageFile(null);
+      setCustomUrlInput('');
+      setShowPresetGallery(false);
+      setShowUrlInput(false);
       setSearchTerm('');
       setSelectedCategory('all');
       setSelectedPartId('');
@@ -70,7 +89,7 @@ export default function BOMCustomizerModal({
     setRequirements((prev) => prev.filter((req) => req.componentId !== componentId));
   };
 
-  const handleAddPart = (partId: string) => {
+  const handleAddPart = async (partId: string) => {
     if (!partId) return;
 
     if (requirements.some((req) => req.componentId === partId)) {
@@ -78,9 +97,31 @@ export default function BOMCustomizerModal({
       return;
     }
 
+    // Check if it exists in live inventory or is from master production catalog
+    let actualPartId = partId;
+    const existsInInv = inventory.some(i => i.id === partId);
+
+    if (!existsInInv && partId.startsWith('master_')) {
+      const masterCode = partId.replace('master_', '');
+      const masterItem = MASTER_PRODUCTION_ITEMS.find(m => m.code === masterCode);
+      if (masterItem) {
+        // Auto-provision or register in inventory
+        const newId = await addInventoryItem({
+          name: masterItem.name,
+          category: masterItem.category || 'General Components',
+          stockQty: 50,
+          unit: masterItem.unit || 'pcs',
+          threshold: 10,
+          basePrice: masterItem.unitCost || 0,
+          isCommon: false
+        });
+        if (newId) actualPartId = newId;
+      }
+    }
+
     setRequirements((prev) => [
       ...prev,
-      { componentId: partId, qty: Math.max(1, parseInt(partQty) || 1) },
+      { componentId: actualPartId, qty: Math.max(1, parseInt(partQty) || 1) },
     ]);
 
     setSelectedPartId('');
@@ -93,6 +134,22 @@ export default function BOMCustomizerModal({
       const file = e.target.files[0];
       setNewImageFile(file);
       setPreviewUrl(URL.createObjectURL(file));
+      setShowPresetGallery(false);
+      setShowUrlInput(false);
+    }
+  };
+
+  const handleSelectPreset = (url: string) => {
+    setPreviewUrl(url);
+    setNewImageFile(null);
+    setShowPresetGallery(false);
+  };
+
+  const handleApplyCustomUrl = () => {
+    if (customUrlInput.trim()) {
+      setPreviewUrl(customUrlInput.trim());
+      setNewImageFile(null);
+      setShowUrlInput(false);
     }
   };
 
@@ -100,7 +157,7 @@ export default function BOMCustomizerModal({
     if (!name.trim()) return alert('Kit name is required.');
     setIsUploading(true);
     try {
-      let imageUrl = kit.imageUrl;
+      let imageUrl = previewUrl || kit.imageUrl;
       if (newImageFile) {
         imageUrl = await uploadImage(newImageFile, `kits/${Date.now()}_${newImageFile.name}`);
       }
@@ -113,10 +170,6 @@ export default function BOMCustomizerModal({
       setIsUploading(false);
     }
   };
-
-  const availableInventoryParts = inventory.filter(
-    (inv) => !requirements.some((req) => req.componentId === inv.id)
-  );
 
   const PREDEFINED_CATS = [
     'Prastuti Science',
@@ -136,7 +189,42 @@ export default function BOMCustomizerModal({
     new Set([...PREDEFINED_CATS, ...inventory.map((inv) => inv.category).filter(Boolean)])
   );
 
-  const filteredParts = availableInventoryParts.filter((part) => {
+  // Combined inventory + Master Production Items
+  const allCatalogOptions = useMemo(() => {
+    const list: { id: string; name: string; category: string; stockQty: number; unit: string; imageUrl?: string; isMaster?: boolean }[] = [];
+
+    inventory.forEach(inv => {
+      if (!requirements.some(r => r.componentId === inv.id)) {
+        list.push({
+          id: inv.id,
+          name: inv.name,
+          category: inv.category,
+          stockQty: inv.stockQty,
+          unit: inv.unit,
+          imageUrl: inv.imageUrl,
+          isMaster: false
+        });
+      }
+    });
+
+    (MASTER_PRODUCTION_ITEMS || []).forEach(m => {
+      const alreadyInInv = inventory.some(i => i.name.toLowerCase() === m.name.toLowerCase());
+      if (!alreadyInInv && !requirements.some(r => r.componentId === `master_${m.code}`)) {
+        list.push({
+          id: `master_${m.code}`,
+          name: m.name,
+          category: m.category,
+          stockQty: 0,
+          unit: m.unit || 'pcs',
+          isMaster: true
+        });
+      }
+    });
+
+    return list;
+  }, [inventory, requirements]);
+
+  const filteredParts = allCatalogOptions.filter((part) => {
     const matchesSearch = part.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       part.id.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesCategory =
@@ -148,63 +236,75 @@ export default function BOMCustomizerModal({
 
   return createPortal(
     <div className="fixed inset-0 w-screen h-screen z-[99999] bg-slate-950/70 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 overflow-y-auto animate-fadeIn">
-      <div className="relative bg-white dark:bg-slate-900 rounded-t-3xl sm:rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl max-w-3xl w-full max-h-[85vh] sm:max-h-[92vh] flex flex-col overflow-hidden pb-[calc(1rem+env(safe-area-inset-bottom))] sm:pb-0">
+      <div className="relative bg-white dark:bg-slate-900 rounded-t-3xl sm:rounded-3xl w-full sm:max-w-4xl overflow-hidden shadow-2xl border border-slate-200 dark:border-slate-800 flex flex-col max-h-[90vh] pb-[calc(1rem+env(safe-area-inset-bottom))] sm:pb-0">
+        
         {/* Modal Header */}
-        <div className="bg-slate-50 border-b border-slate-100 p-5 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="p-2 bg-indigo-50 text-indigo-600 rounded-xl">
-              <Sparkles className="w-5 h-5" />
+        <div className="p-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-800/50">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-full bg-purple-100 dark:bg-purple-950 flex items-center justify-center text-purple-600 dark:text-purple-400">
+              <Sparkles className="w-4 h-4" />
             </div>
             <div>
-              <h3 className="text-base font-black text-slate-900">
-                Customize Kit Bill of Materials (BOM)
-              </h3>
-              <p className="text-[10px] text-slate-500 font-mono">
-                Code ID: {kit.id}
-              </p>
+              <h2 className="text-lg font-black text-slate-800 dark:text-white">Customize Bill of Materials (BOM)</h2>
+              <p className="text-xs text-slate-500 font-medium">{kit.name}</p>
             </div>
           </div>
-          <button
-            onClick={onClose}
-            className="p-2.5 bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-700 rounded-xl transition-colors cursor-pointer"
-          >
+          <button onClick={onClose} className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors cursor-pointer">
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        <div className="flex border-b border-slate-100 bg-white">
+        {/* Tab Switcher */}
+        <div className="flex border-b border-slate-100 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/40">
           <button
             onClick={() => setActiveTab('editor')}
-            className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 font-semibold text-sm transition-colors ${
-              activeTab === 'editor' ? 'text-indigo-600 border-b-2 border-indigo-600' : 'text-slate-500 hover:bg-slate-50'
+            className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 font-bold text-xs transition-colors cursor-pointer ${
+              activeTab === 'editor' ? 'text-indigo-600 dark:text-indigo-400 border-b-2 border-indigo-600 bg-white dark:bg-slate-900' : 'text-slate-500 hover:bg-slate-100/60'
             }`}
           >
-            <Settings className="w-4 h-4" />
-            BOM Editor
+            <Settings className="w-4 h-4" /> BOM Structure & Properties
           </button>
           <button
             onClick={() => setActiveTab('history')}
-            className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 font-semibold text-sm transition-colors ${
-              activeTab === 'history' ? 'text-indigo-600 border-b-2 border-indigo-600' : 'text-slate-500 hover:bg-slate-50'
+            className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 font-bold text-xs transition-colors cursor-pointer ${
+              activeTab === 'history' ? 'text-indigo-600 dark:text-indigo-400 border-b-2 border-indigo-600 bg-white dark:bg-slate-900' : 'text-slate-500 hover:bg-slate-100/60'
             }`}
           >
-            <Clock className="w-4 h-4" />
-            Revision History
+            <Clock className="w-4 h-4" /> Revision History
           </button>
         </div>
 
         {/* Modal Body */}
-        <div className="flex-1 overflow-y-auto flex flex-col p-6 bg-slate-50/50">
+        <div className="p-6 overflow-y-auto space-y-6 flex-1">
           {activeTab === 'editor' && (
-            <div className="flex-1 flex flex-col gap-6">
-              <div className="grid grid-cols-1 md:grid-cols-12 gap-4 bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
-                <div className="md:col-span-4 flex flex-col items-center justify-center p-4 bg-slate-50 border border-slate-100 rounded-2xl relative group">
-                  <div className="w-24 h-24 rounded-2xl bg-slate-200 border border-slate-300 flex items-center justify-center overflow-hidden shadow-xs relative">
+            <div className="space-y-6">
+              {/* Section 1: Kit Metadata Profile */}
+              <div className="grid grid-cols-1 md:grid-cols-12 gap-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-xs">
+                <div className="md:col-span-4 flex flex-col items-center justify-center p-4 bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl relative group">
+                  <div
+                    className="w-24 h-24 rounded-2xl bg-slate-200 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 flex items-center justify-center overflow-hidden shadow-xs relative cursor-pointer"
+                    onClick={() => {
+                      if (previewUrl) {
+                        setZoomItem({
+                          imageUrl: previewUrl,
+                          title: name || kit.name,
+                          category: 'Composite Kit Profile',
+                          stockQty: undefined
+                        });
+                      } else {
+                        fileInputRef.current?.click();
+                      }
+                    }}
+                    title="Click to zoom high-res photo"
+                  >
                     {previewUrl ? (
                       <img src={previewUrl} alt={name} className="w-full h-full object-cover" />
                     ) : (
                       <ImageIcon className="w-8 h-8 text-slate-400" />
                     )}
+                    <div className="absolute inset-0 bg-slate-900/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-[9px] font-bold">
+                      {previewUrl ? 'Zoom / Edit' : 'Upload'}
+                    </div>
                   </div>
                   <input 
                     type="file" 
@@ -213,14 +313,45 @@ export default function BOMCustomizerModal({
                     ref={fileInputRef}
                     onChange={handleImageChange}
                   />
-                  <button
-                    type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    className="mt-3 flex items-center gap-1 text-[10px] font-bold text-indigo-600 hover:text-indigo-850 bg-indigo-50 hover:bg-indigo-100 px-3 py-1.5 rounded-lg transition-colors cursor-pointer"
-                  >
-                    <Upload className="w-3 h-3" />
-                    Upload Photo
-                  </button>
+
+                  <div className="flex flex-wrap items-center gap-1.5 mt-3">
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="flex items-center gap-1 text-[10px] font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950 px-2 py-1 rounded-lg transition-colors cursor-pointer"
+                    >
+                      <Upload className="w-3 h-3" /> Upload
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowPresetGallery(!showPresetGallery);
+                        setShowUrlInput(false);
+                      }}
+                      className="flex items-center gap-1 text-[10px] font-bold text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-950 px-2 py-1 rounded-lg transition-colors cursor-pointer"
+                    >
+                      <Palette className="w-3 h-3" /> Presets
+                    </button>
+                  </div>
+
+                  {/* Preset Gallery */}
+                  {showPresetGallery && (
+                    <div className="mt-2 p-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl space-y-1.5 w-full z-10 shadow-lg animate-fadeIn">
+                      <div className="text-[9px] font-bold text-slate-500 uppercase">STEM Preset</div>
+                      <div className="grid grid-cols-4 gap-1.5 max-h-28 overflow-y-auto">
+                        {STEM_PRESET_IMAGES.map((preset) => (
+                          <div
+                            key={preset.id}
+                            onClick={() => handleSelectPreset(preset.url)}
+                            className="group rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700 hover:border-indigo-500 cursor-pointer relative aspect-square shadow-2xs"
+                            title={preset.name}
+                          >
+                            <img src={preset.url} alt={preset.name} className="w-full h-full object-cover" />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <div className="md:col-span-8 space-y-3">
@@ -233,7 +364,7 @@ export default function BOMCustomizerModal({
                       required
                       value={name}
                       onChange={(e) => setName(e.target.value)}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 focus:outline-none focus:bg-white focus:ring-2 focus:ring-indigo-500/20 font-bold transition-all"
+                      className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 dark:text-white focus:outline-none focus:bg-white focus:ring-2 focus:ring-indigo-500/20 font-bold transition-all"
                     />
                   </div>
 
@@ -245,17 +376,19 @@ export default function BOMCustomizerModal({
                       rows={2}
                       value={description}
                       onChange={(e) => setDescription(e.target.value)}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs text-slate-800 focus:outline-none focus:bg-white focus:ring-2 focus:ring-indigo-500/20 transition-all"
+                      className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-2 text-xs text-slate-800 dark:text-white focus:outline-none focus:bg-white focus:ring-2 focus:ring-indigo-500/20 transition-all"
                     />
                   </div>
                 </div>
               </div>
 
               {/* Section 2: Component Catalog Finder */}
-              <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-4">
-                <h4 className="text-[10px] font-black text-slate-600 uppercase tracking-wider">
-                  Add Component from Catalog
-                </h4>
+              <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-xs space-y-4">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-[10px] font-black text-slate-600 dark:text-slate-300 uppercase tracking-wider">
+                    Add Component from Inventory & Curriculum Catalog ({allCatalogOptions.length} items available)
+                  </h4>
+                </div>
                 <div className="grid grid-cols-1 sm:grid-cols-12 gap-2 items-center">
                   <div className="sm:col-span-4">
                     <SmartSelect
@@ -274,14 +407,14 @@ export default function BOMCustomizerModal({
                     <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" />
                     <input
                       type="text"
-                      placeholder="Search parts by name or SKU..."
+                      placeholder="Search parts by name, SKU, or master curriculum..."
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-3 py-2 text-xs focus:outline-none"
+                      className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl pl-9 pr-3 py-2 text-xs text-slate-800 dark:text-white focus:outline-none"
                     />
                   </div>
                   <div className="sm:col-span-3 flex gap-1.5">
-                    <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-xl px-2.5">
+                    <div className="flex items-center gap-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-2.5">
                       <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Qty</span>
                       <input
                         type="number"
@@ -289,14 +422,14 @@ export default function BOMCustomizerModal({
                         placeholder="1"
                         value={partQty}
                         onChange={(e) => setPartQty(e.target.value)}
-                        className="w-12 bg-transparent py-2 text-center text-xs focus:outline-none font-mono font-bold text-slate-700"
+                        className="w-12 bg-transparent py-2 text-center text-xs focus:outline-none font-mono font-bold text-slate-700 dark:text-white"
                       />
                     </div>
                     <button
                       type="button"
                       disabled={!selectedPartId}
                       onClick={() => handleAddPart(selectedPartId)}
-                      className={`flex-1 text-xs font-bold py-2 rounded-xl transition-all flex items-center justify-center gap-1 shadow-sm ${
+                      className={`flex-1 text-xs font-bold py-2 rounded-xl transition-all flex items-center justify-center gap-1 shadow-xs ${
                         selectedPartId
                           ? 'bg-indigo-600 hover:bg-indigo-700 text-white cursor-pointer'
                           : 'bg-slate-200 text-slate-400 border border-slate-300 cursor-not-allowed'
@@ -306,24 +439,65 @@ export default function BOMCustomizerModal({
                     </button>
                   </div>
                 </div>
-                <div className="border border-slate-200 rounded-xl bg-white max-h-40 overflow-y-auto divide-y divide-slate-100">
+
+                {/* Catalog items with 40x40 thumbnails */}
+                <div className="border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-900 max-h-52 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800">
                   {filteredParts.length > 0 ? (
                     filteredParts.map((part) => (
                       <div
                         key={part.id}
                         onClick={() => setSelectedPartId(part.id)}
-                        className={`p-2.5 flex items-center justify-between cursor-pointer transition-colors ${
-                          selectedPartId === part.id ? 'bg-indigo-50/70 border-l-4 border-indigo-600' : 'hover:bg-slate-50'
+                        className={`p-2.5 flex items-center justify-between cursor-pointer transition-colors gap-3 ${
+                          selectedPartId === part.id ? 'bg-indigo-50/70 dark:bg-indigo-950/50 border-l-4 border-indigo-600' : 'hover:bg-slate-50 dark:hover:bg-slate-800'
                         }`}
                       >
-                        <div>
-                          <div className="text-xs font-bold text-slate-800">{part.name}</div>
-                          <div className="text-[9px] text-slate-400 font-mono">
-                            {part.category}
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div
+                            className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shrink-0 overflow-hidden relative cursor-pointer group"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setZoomItem({
+                                imageUrl: part.imageUrl,
+                                title: part.name,
+                                category: part.category,
+                                stockQty: part.stockQty,
+                                unit: part.unit
+                              });
+                            }}
+                            title="Click to zoom image"
+                          >
+                            <ItemImage
+                              src={part.imageUrl}
+                              alt={part.name}
+                              category={part.category}
+                              className="w-full h-full object-contain p-0.5"
+                            />
+                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white">
+                              <ZoomIn className="w-3.5 h-3.5" />
+                            </div>
+                          </div>
+
+                          <div className="min-w-0">
+                            <div className="text-xs font-bold text-slate-800 dark:text-white truncate flex items-center gap-1.5">
+                              <span>{part.name}</span>
+                              {part.isMaster && (
+                                <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-indigo-100 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300">
+                                  Curriculum Master
+                                </span>
+                              )}
+                            </div>
+                            <div className="text-[9px] text-slate-400 font-mono">
+                              {part.category}
+                            </div>
                           </div>
                         </div>
-                        <div className="text-[10px] text-slate-500 font-medium">
-                          Stock: <span className="font-mono font-bold">{part.stockQty}</span> {part.unit}
+
+                        <div className="text-[10px] text-slate-500 font-medium shrink-0">
+                          {part.isMaster ? (
+                            <span className="text-indigo-600 dark:text-indigo-400 font-bold">Standard Catalog</span>
+                          ) : (
+                            <>Stock: <span className="font-mono font-bold">{part.stockQty}</span> {part.unit}</>
+                          )}
                         </div>
                       </div>
                     ))
@@ -335,23 +509,53 @@ export default function BOMCustomizerModal({
                 </div>
               </div>
               
-              {/* Active BOM list */}
+              {/* Active BOM list with thumbnails */}
               <div className="space-y-2">
                 <h4 className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
                   Composite Bill of Materials List ({requirements.length} parts)
                 </h4>
-                <div className="space-y-1.5 max-h-56 overflow-y-auto pr-1">
+                <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
                   {requirements.length > 0 ? (
                     requirements.map((req) => {
                       const part = inventory.find((inv) => inv.id === req.componentId);
-                      if (!part) return null;
+                      const partName = part ? part.name : `Component #${req.componentId}`;
+                      const partCat = part?.category || 'General';
+                      const partImg = part?.imageUrl;
+
                       return (
-                        <div key={req.componentId} className="p-3 border border-slate-200 rounded-2xl bg-white flex items-center justify-between gap-4">
-                          <div className="flex-1">
-                            <span className="text-xs font-bold text-slate-800 block">{part.name}</span>
-                            <span className="text-[9px] font-mono text-slate-400">{part.category}</span>
+                        <div key={req.componentId} className="p-3 border border-slate-200 dark:border-slate-700 rounded-2xl bg-white dark:bg-slate-900 flex items-center justify-between gap-4 shadow-2xs">
+                          <div className="flex items-center gap-3 min-w-0 flex-1">
+                            <div
+                              className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shrink-0 overflow-hidden relative cursor-pointer group"
+                              onClick={() => {
+                                setZoomItem({
+                                  imageUrl: partImg,
+                                  title: partName,
+                                  category: partCat,
+                                  stockQty: part?.stockQty,
+                                  unit: part?.unit
+                                });
+                              }}
+                              title="Click to zoom image"
+                            >
+                              <ItemImage
+                                src={partImg}
+                                alt={partName}
+                                category={partCat}
+                                className="w-full h-full object-contain p-0.5"
+                              />
+                              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white">
+                                <ZoomIn className="w-3.5 h-3.5" />
+                              </div>
+                            </div>
+
+                            <div className="min-w-0">
+                              <span className="text-xs font-bold text-slate-800 dark:text-white block truncate">{partName}</span>
+                              <span className="text-[9px] font-mono text-slate-400">{partCat}</span>
+                            </div>
                           </div>
-                          <div className="flex items-center gap-3">
+
+                          <div className="flex items-center gap-3 shrink-0">
                             <div className="flex items-center gap-1.5">
                               <span className="text-[10px] text-slate-400 font-medium">Needed:</span>
                               <input
@@ -359,10 +563,10 @@ export default function BOMCustomizerModal({
                                 min="1"
                                 value={req.qty}
                                 onChange={(e) => handleQtyChange(req.componentId, parseInt(e.target.value) || 1)}
-                                className="w-12 text-center font-mono text-xs font-bold text-slate-700 bg-slate-50 border border-slate-200 rounded-lg py-1 focus:outline-none"
+                                className="w-14 text-center font-mono text-xs font-bold text-slate-700 dark:text-white bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg py-1 focus:outline-none"
                               />
                             </div>
-                            <button onClick={() => handleRemovePart(req.componentId)} className="p-1 rounded-full text-slate-300 hover:text-rose-500 hover:bg-rose-50 transition-colors cursor-pointer">
+                            <button onClick={() => handleRemovePart(req.componentId)} className="p-1.5 rounded-xl text-slate-300 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950 transition-colors cursor-pointer">
                               <Trash2 className="w-4 h-4" />
                             </button>
                           </div>
@@ -370,7 +574,7 @@ export default function BOMCustomizerModal({
                       );
                     })
                   ) : (
-                    <div className="text-center text-slate-400 py-6 border border-dashed border-slate-200 rounded-2xl">
+                    <div className="text-center text-slate-400 py-6 border border-dashed border-slate-200 dark:border-slate-700 rounded-2xl">
                       No parts selected. Use the search finder above to add parts to this composite kit.
                     </div>
                   )}
@@ -472,6 +676,18 @@ export default function BOMCustomizerModal({
           </div>
         )}
       </div>
+
+      {zoomItem && (
+        <ImagePreviewModal
+          isOpen={!!zoomItem}
+          onClose={() => setZoomItem(null)}
+          imageUrl={zoomItem.imageUrl}
+          title={zoomItem.title}
+          category={zoomItem.category}
+          stockQty={zoomItem.stockQty}
+          unit={zoomItem.unit}
+        />
+      )}
     </div>,
     document.body
   );

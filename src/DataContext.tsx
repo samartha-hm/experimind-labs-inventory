@@ -598,7 +598,66 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     if (!oldItem) return;
 
     // 0ms Optimistic UI update immediately
-    setInventory(prev => prev.map(item => item.id === id ? { ...item, ...updates } : item));
+    const newItem = { ...oldItem, ...updates };
+    setInventory(prev => prev.map(item => item.id === id ? newItem : item));
+
+    // Calculate detailed property diffs for audit trail
+    const diffs: { field: string; oldValue: any; newValue: any }[] = [];
+    (Object.keys(updates) as (keyof InventoryItem)[]).forEach(k => {
+      if (updates[k] !== undefined && updates[k] !== oldItem[k]) {
+        diffs.push({
+          field: String(k),
+          oldValue: oldItem[k] !== undefined ? String(oldItem[k]) : null,
+          newValue: updates[k] !== undefined ? String(updates[k]) : null
+        });
+      }
+    });
+
+    const stockDelta = typeof updates.stockQty === 'number' ? updates.stockQty - oldItem.stockQty : 0;
+
+    logTransaction({
+      id: `tx_${Date.now()}`,
+      timestamp: new Date().toISOString(),
+      type: 'adjust',
+      description: `Updated component "${newItem.name}"`,
+      items: stockDelta !== 0 ? [{ componentId: id, componentName: newItem.name, qtyDiff: stockDelta }] : [],
+      diffs
+    });
+
+    addAction({
+      id: `upd_item_${Date.now()}`,
+      name: `Edit Item: ${newItem.name}`,
+      undo: async () => {
+        setInventory(prev => prev.map(item => item.id === id ? oldItem : item));
+        try {
+          if (stockDelta !== 0) {
+            await apiFetch(`/api/v1/inventory/${id}/adjust`, {
+              method: 'POST',
+              body: JSON.stringify({ delta: -stockDelta, reason: 'Undo stock adjustment' })
+            });
+          }
+          const oldPayload = mapItemToBackend(oldItem);
+          await apiFetch(`/api/v1/inventory/${id}`, { method: 'PUT', body: JSON.stringify(oldPayload) });
+        } catch (err) {
+          console.warn('Undo item error:', err);
+        }
+      },
+      redo: async () => {
+        setInventory(prev => prev.map(item => item.id === id ? newItem : item));
+        try {
+          if (stockDelta !== 0) {
+            await apiFetch(`/api/v1/inventory/${id}/adjust`, {
+              method: 'POST',
+              body: JSON.stringify({ delta: stockDelta, reason: 'Redo stock adjustment' })
+            });
+          }
+          const newPayload = mapItemToBackend(updates);
+          await apiFetch(`/api/v1/inventory/${id}`, { method: 'PUT', body: JSON.stringify(newPayload) });
+        } catch (err) {
+          console.warn('Redo item error:', err);
+        }
+      }
+    });
 
     try {
       // Concurrency-safe delta stock mutation via /adjust endpoint
@@ -1414,12 +1473,51 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   };
 
   const postStockAdjustment = async (itemId: string, qtyDelta: number, binLocation?: string, reasonCode?: string, notes?: string) => {
+    const item = inventory.find(i => i.id === itemId);
+    const itemName = item?.name || 'Component';
+
     // 0ms Optimistic UI update on inventory
     setInventory(prev => prev.map(i => i.id === itemId ? {
       ...i,
       stockQty: Math.max(0, i.stockQty + qtyDelta),
       binLocation: binLocation || i.binLocation
     } : i));
+
+    logTransaction({
+      id: `tx_${Date.now()}`,
+      timestamp: new Date().toISOString(),
+      type: 'adjust',
+      description: `Stock adjustment for "${itemName}" (${qtyDelta > 0 ? '+' : ''}${qtyDelta})`,
+      items: [{ componentId: itemId, componentName: itemName, qtyDiff: qtyDelta }],
+      diffs: [{ field: 'stockQty', oldValue: item?.stockQty ?? 0, newValue: (item?.stockQty ?? 0) + qtyDelta }]
+    });
+
+    addAction({
+      id: `adj_stock_${Date.now()}`,
+      name: `Stock Adjust: ${itemName} (${qtyDelta > 0 ? '+' : ''}${qtyDelta})`,
+      undo: async () => {
+        setInventory(prev => prev.map(i => i.id === itemId ? { ...i, stockQty: Math.max(0, i.stockQty - qtyDelta) } : i));
+        try {
+          await apiFetch('/api/v1/stock-ledger/adjust', {
+            method: 'POST',
+            body: JSON.stringify({ itemId, qtyDelta: -qtyDelta, binLocation, reasonCode: 'Undo Stock Adjustment' })
+          });
+        } catch (err) {
+          console.warn('Undo stock adjust error:', err);
+        }
+      },
+      redo: async () => {
+        setInventory(prev => prev.map(i => i.id === itemId ? { ...i, stockQty: Math.max(0, i.stockQty + qtyDelta) } : i));
+        try {
+          await apiFetch('/api/v1/stock-ledger/adjust', {
+            method: 'POST',
+            body: JSON.stringify({ itemId, qtyDelta, binLocation, reasonCode: reasonCode || 'Redo Stock Adjustment' })
+          });
+        } catch (err) {
+          console.warn('Redo stock adjust error:', err);
+        }
+      }
+    });
 
     try {
       const res = await apiFetch('/api/v1/stock-ledger/adjust', {

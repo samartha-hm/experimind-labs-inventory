@@ -16,9 +16,12 @@ import {
   Edit2,
   Trash2,
   X,
+  ZoomIn
 } from 'lucide-react';
 import { InventoryItem, KitBOM, TransactionRecord } from '@/src/types';
 import { analyzeKitting } from '@/src/utils/kitting';
+import ItemImage from '@/src/shared/components/ItemImage';
+import ImagePreviewModal from '@/src/shared/components/ImagePreviewModal';
 
 interface KittingTabProps {
   inventory: InventoryItem[];
@@ -52,6 +55,14 @@ export default function KittingTab({
   const [packQtyToExecute, setPackQtyToExecute] = useState(1);
   const [unpackQtyToExecute, setUnpackQtyToExecute] = useState(1);
 
+  const [zoomItem, setZoomItem] = useState<{
+    imageUrl?: string;
+    title: string;
+    category?: string;
+    stockQty?: number;
+    unit?: string;
+    binLocation?: string;
+  } | null>(null);
 
   const currentKit = useMemo(() => {
     if (kits.length === 0) return null;
@@ -77,8 +88,6 @@ export default function KittingTab({
   const toggleCheck = (id: string) => {
     setCheckedItems((prev) => ({ ...prev, [id]: !prev[id] }));
   };
-
-
 
   return (
     <div className="space-y-6 w-full">
@@ -159,9 +168,33 @@ export default function KittingTab({
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           {/* Left Column: BOM Requirements & Picking List */}
           <div className="bg-white/80 backdrop-blur-md p-6 rounded-3xl border border-slate-200/60 shadow-xl shadow-indigo-500/5 lg:col-span-8 space-y-6">
-            <div>
-              <h3 className="text-lg font-black text-slate-900">{currentKit.name}</h3>
-              <p className="text-xs text-slate-500 mt-0.5">{currentKit.description}</p>
+            <div className="flex items-center gap-4">
+              <div
+                className="w-16 h-16 rounded-2xl bg-slate-100 border border-slate-200 overflow-hidden shrink-0 cursor-pointer relative group"
+                onClick={() => {
+                  setZoomItem({
+                    imageUrl: currentKit.imageUrl,
+                    title: currentKit.name,
+                    category: 'Composite Kit Profile'
+                  });
+                }}
+                title="Click to zoom kit image"
+              >
+                <ItemImage
+                  src={currentKit.imageUrl}
+                  alt={currentKit.name}
+                  category="Composite Kit Profile"
+                  className="w-full h-full object-cover"
+                />
+                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white">
+                  <ZoomIn className="w-4 h-4" />
+                </div>
+              </div>
+
+              <div>
+                <h3 className="text-lg font-black text-slate-900">{currentKit.name}</h3>
+                <p className="text-xs text-slate-500 mt-0.5">{currentKit.description || 'Standard assembly Bill of Materials'}</p>
+              </div>
             </div>
 
             {/* Bill of Materials Table */}
@@ -175,6 +208,7 @@ export default function KittingTab({
                   <thead className="bg-slate-50 border-b border-slate-200/80 text-slate-500 uppercase font-bold text-[10px]">
                     <tr>
                       <th className="p-3 w-10 text-center">Pick</th>
+                      <th className="p-3 w-14 text-center">Photo</th>
                       <th className="p-3">Component Name</th>
                       <th className="p-3">Required / Kit</th>
                       <th className="p-3">Available Stock</th>
@@ -187,6 +221,7 @@ export default function KittingTab({
                       const available = item ? item.stockQty : 0;
                       const isSufficient = available >= req.qty;
                       const isChecked = checkedItems[req.componentId] || false;
+                      const itemName = item ? item.name : `Component #${req.componentId}`;
 
                       return (
                         <tr
@@ -203,8 +238,38 @@ export default function KittingTab({
                               <Square className="w-4 h-4 text-slate-300 mx-auto" />
                             )}
                           </td>
+                          <td className="p-2 text-center" onClick={(e) => {
+                            e.stopPropagation();
+                            setZoomItem({
+                              imageUrl: item?.imageUrl,
+                              title: itemName,
+                              category: item?.category,
+                              stockQty: available,
+                              unit: item?.unit || 'pcs',
+                              binLocation: item?.binLocation
+                            });
+                          }}>
+                            <div className="w-9 h-9 rounded-xl bg-slate-100 border border-slate-200 overflow-hidden mx-auto relative group">
+                              <ItemImage
+                                src={item?.imageUrl}
+                                alt={itemName}
+                                category={item?.category}
+                                className="w-full h-full object-contain p-0.5"
+                              />
+                              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white">
+                                <ZoomIn className="w-3 h-3" />
+                              </div>
+                            </div>
+                          </td>
                           <td className="p-3 font-bold text-slate-900">
-                            {item ? item.name : `Component #${req.componentId}`}
+                            <div>
+                              <span>{itemName}</span>
+                              {item?.binLocation && (
+                                <span className="block text-[9px] text-amber-700 font-mono font-normal">
+                                  Bin: {item.binLocation}
+                                </span>
+                              )}
+                            </div>
                           </td>
                           <td className="p-3 font-mono font-bold text-slate-700">{req.qty} pcs</td>
                           <td className="p-3 font-mono font-bold text-slate-900">{available} pcs</td>
@@ -301,12 +366,24 @@ export default function KittingTab({
           </div>
         </div>
       ) : (
-        <div className="p-8 text-center bg-white rounded-3xl border border-slate-200 text-slate-400">
-          No composite kits defined. Click "Create Composite Kit" to build a new Bill of Materials.
+        <div className="bg-white/80 backdrop-blur-md p-12 rounded-3xl border border-slate-200/60 text-center space-y-3">
+          <p className="text-sm font-bold text-slate-600">No STEM Kits available yet.</p>
+          <p className="text-xs text-slate-400">Click &ldquo;Create New Kit&rdquo; above to configure a bill of materials with auto-suggestions.</p>
         </div>
       )}
 
-
+      {zoomItem && (
+        <ImagePreviewModal
+          isOpen={!!zoomItem}
+          onClose={() => setZoomItem(null)}
+          imageUrl={zoomItem.imageUrl}
+          title={zoomItem.title}
+          category={zoomItem.category}
+          stockQty={zoomItem.stockQty}
+          unit={zoomItem.unit}
+          binLocation={zoomItem.binLocation}
+        />
+      )}
     </div>
   );
 }
