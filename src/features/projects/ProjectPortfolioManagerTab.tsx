@@ -42,8 +42,11 @@ import {
   FileCheck,
   ShieldCheck,
   DollarSign,
-  Download
+  Download,
+  Upload,
+  Zap
 } from 'lucide-react';
+import { downloadStandardPrastutiTemplateXlsx } from '../../utils/prastutiTemplateEngine';
 import {
   Project,
   ProjectCategory,
@@ -1085,6 +1088,37 @@ export default function ProjectPortfolioManagerTab({ onNavigateToTab }: ProjectP
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
+            {/* ⚡ Dispatch & Kitting Cockpit */}
+            <button
+              onClick={() => setIsProjectDispatchModalOpen(true)}
+              className="inline-flex items-center gap-2 bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 text-white px-4 py-2.5 rounded-xl font-bold text-xs shadow-lg shadow-emerald-500/20 transition-all cursor-pointer"
+              title="Generate Laser Cutting, Lab Prep, Vendor POs, or Full Dispatch checklist for this project"
+            >
+              <Zap className="w-4 h-4 text-emerald-200" /> Dispatch & Kitting Hub
+            </button>
+
+            {/* 📥 Standard 6-Column Template Download */}
+            <button
+              onClick={() => {
+                downloadStandardPrastutiTemplateXlsx();
+                showToast('success', 'Template Downloaded', 'Downloaded Standard 6-Column Prastuti Excel Template (8th, 9th, 10th)!');
+              }}
+              className="inline-flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white border border-slate-700 px-3.5 py-2.5 rounded-xl font-semibold text-xs shadow-sm transition-all cursor-pointer"
+              title="Download standardized Excel curriculum template for 8th, 9th, and 10th grades"
+            >
+              <FileSpreadsheet className="w-4 h-4 text-emerald-400" /> Standard Template (.xlsx)
+            </button>
+
+            {/* 📊 Import Spreadsheet */}
+            <button
+              onClick={() => setIsProjectDispatchModalOpen(true)}
+              className="inline-flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white border border-slate-700 px-3.5 py-2.5 rounded-xl font-semibold text-xs shadow-sm transition-all cursor-pointer"
+              title="Import custom Prastuti Excel spreadsheet into project deliverables"
+            >
+              <Upload className="w-4 h-4 text-cyan-400" /> Import Sheet
+            </button>
+
+            {/* + New Project */}
             <button
               onClick={() => setIsCreateProjectModalOpen(true)}
               className="inline-flex items-center gap-2 bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 text-white px-4 py-2.5 rounded-xl font-bold text-xs shadow-lg shadow-indigo-500/25 transition-all cursor-pointer"
@@ -1516,7 +1550,7 @@ export default function ProjectPortfolioManagerTab({ onNavigateToTab }: ProjectP
                     <span className="text-xs text-slate-500 font-bold">sets</span>
 
                     <div className="flex items-center gap-1">
-                      {[1, 5, 10, 25, 50].map(mult => (
+                      {[1, 5, 10, 25, 50, 100].map(mult => (
                         <button
                           key={mult}
                           onClick={() => handleClassMultiplierChange(mult)}

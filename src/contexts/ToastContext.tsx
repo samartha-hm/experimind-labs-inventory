@@ -9,7 +9,7 @@ export interface ToastMessage {
 
 interface ToastContextType {
   toasts: ToastMessage[];
-  showToast: (type: ToastMessage['type'], title: string, message?: string) => void;
+  showToast: ((type: ToastMessage['type'], title: string, message?: string) => void) & ((title: string, type?: ToastMessage['type']) => void);
   removeToast: (id: string) => void;
 }
 
@@ -22,7 +22,26 @@ export const ToastProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     setToasts((prev) => prev.filter((t) => t.id !== id));
   }, []);
 
-  const showToast = useCallback((type: ToastMessage['type'], title: string, message?: string) => {
+  const showToast = useCallback((first: any, second?: any, third?: any) => {
+    let type: ToastMessage['type'] = 'info';
+    let title = '';
+    let message: string | undefined = undefined;
+
+    const validTypes = new Set(['success', 'error', 'info', 'warning']);
+
+    if (validTypes.has(first)) {
+      type = first;
+      title = String(second || '');
+      message = third ? String(third) : undefined;
+    } else if (validTypes.has(second)) {
+      type = second;
+      title = String(first || '');
+      message = third ? String(third) : undefined;
+    } else {
+      title = String(first || '');
+      message = second ? String(second) : undefined;
+    }
+
     const id = `toast_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
     const newToast: ToastMessage = { id, type, title, message };
     

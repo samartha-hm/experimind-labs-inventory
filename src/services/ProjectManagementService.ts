@@ -67,6 +67,16 @@ export class ProjectManagementService {
         if (saved) {
           const parsed = JSON.parse(saved);
           if (Array.isArray(parsed) && parsed.length > 0) {
+            // Auto-merge any missing initial projects (such as new Prastuti curriculum kits)
+            const existingIds = new Set(parsed.map((p: any) => p.id));
+            const missing = INITIAL_PROJECTS.filter(p => !existingIds.has(p.id));
+            if (missing.length > 0) {
+              const merged = [...parsed, ...missing];
+              try {
+                window.localStorage.setItem(this.STORAGE_KEY, JSON.stringify(merged));
+              } catch {}
+              return merged;
+            }
             return parsed;
           }
         }
@@ -294,6 +304,10 @@ export class ProjectManagementService {
     project.updatedAt = new Date().toISOString();
     this.saveProjects();
     return targetClass;
+  }
+
+  public static setBatchMultiplierForClass(projectId: string, classId: string, multiplier: number): ProjectClassWork | null {
+    return this.updateClass(projectId, classId, { batchMultiplier: multiplier });
   }
 
   public static removeClassFromProject(projectId: string, classId: string): boolean {
