@@ -90,17 +90,17 @@ export default function KittingTab({
   };
 
   return (
-    <div className="space-y-6 w-full">
+    <div className="space-y-6 w-full animate-fadeIn">
       {/* Top Banner */}
-      <div className="bg-white/80 backdrop-blur-md p-6 rounded-3xl border border-slate-200/60 shadow-xl shadow-indigo-500/5 flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h2 className="text-xl font-black text-slate-900 flex items-center gap-2.5 tracking-tight">
-            <div className="p-2.5 bg-purple-50 text-purple-600 rounded-2xl border border-purple-100/80">
+          <h2 className="text-xl font-black text-slate-900 dark:text-white flex items-center gap-2.5 tracking-tight">
+            <div className="p-2.5 bg-purple-50 dark:bg-purple-950/60 text-purple-600 dark:text-purple-400 rounded-2xl border border-purple-100 dark:border-purple-900/50">
               <Package className="w-5 h-5" />
             </div>
             Composite Items & Assembly Kitting (BOM)
           </h2>
-          <p className="text-xs text-slate-500 mt-1 font-medium">
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 font-medium">
             Manage Bill of Materials (BOM), calculate assembly capacity, and execute 1-click work orders with full owner control.
           </p>
         </div>
@@ -109,7 +109,7 @@ export default function KittingTab({
           {onCreateKitClick && (
             <button
               onClick={onCreateKitClick}
-              className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-4 py-2.5 rounded-2xl text-xs shadow-md shadow-indigo-600/20 transition-all flex items-center gap-2 cursor-pointer"
+              className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-4 py-2.5 rounded-2xl text-xs shadow-md shadow-indigo-600/20 active:scale-95 transition-all flex items-center gap-2 cursor-pointer touch-target"
             >
               <Plus className="w-4 h-4" />
               <span>Create Composite Kit</span>
@@ -119,16 +119,16 @@ export default function KittingTab({
       </div>
 
       {/* Kit Selector Bar */}
-      <div className="bg-white/80 backdrop-blur-md p-4 rounded-3xl border border-slate-200/60 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="flex items-center gap-2 overflow-x-auto pb-1">
+      <div className="bg-white dark:bg-slate-900 p-4 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 custom-scrollbar">
           {kits.map((kit) => (
             <button
               key={kit.id}
               onClick={() => setSelectedKitId(kit.id)}
-              className={`px-4 py-2 rounded-2xl font-bold text-xs transition-all flex items-center gap-2 cursor-pointer ${
+              className={`px-4 py-2.5 rounded-2xl font-bold text-xs transition-all flex items-center gap-2 cursor-pointer shrink-0 touch-target ${
                 selectedKitId === kit.id
-                  ? 'bg-slate-900 text-white shadow-md'
-                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  ? 'bg-slate-900 dark:bg-indigo-600 text-white shadow-md'
+                  : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
               }`}
             >
               <Package className="w-4 h-4" /> {kit.name}
@@ -137,15 +137,15 @@ export default function KittingTab({
         </div>
 
         {currentKit && (
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 shrink-0">
             <button
               onClick={() => {
                 setSelectedKitId(currentKit.id);
                 if (onConfigureKitClick) onConfigureKitClick();
               }}
-              className="p-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs transition-all cursor-pointer flex items-center gap-1.5"
+              className="px-3.5 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold rounded-xl text-xs transition-all cursor-pointer flex items-center gap-1.5 touch-target"
             >
-              <Edit2 className="w-4 h-4 text-indigo-600" /> Edit BOM
+              <Edit2 className="w-4 h-4 text-indigo-600 dark:text-indigo-400" /> Edit BOM
             </button>
             {onDeleteKit && (
               <button
@@ -154,7 +154,8 @@ export default function KittingTab({
                     onDeleteKit(currentKit.id);
                   }
                 }}
-                className="p-2 bg-slate-100 hover:bg-rose-50 text-slate-700 hover:text-rose-600 font-bold rounded-xl text-xs transition-all cursor-pointer"
+                className="p-2 bg-slate-100 dark:bg-slate-800 hover:bg-rose-50 dark:hover:bg-rose-950/40 text-slate-700 dark:text-slate-300 hover:text-rose-600 dark:hover:text-rose-400 font-bold rounded-xl text-xs transition-all cursor-pointer touch-target"
+                title="Delete Kit"
               >
                 <Trash2 className="w-4 h-4" />
               </button>
@@ -167,10 +168,10 @@ export default function KittingTab({
       {currentKit ? (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           {/* Left Column: BOM Requirements & Picking List */}
-          <div className="bg-white/80 backdrop-blur-md p-6 rounded-3xl border border-slate-200/60 shadow-xl shadow-indigo-500/5 lg:col-span-8 space-y-6">
+          <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-sm lg:col-span-8 space-y-6">
             <div className="flex items-center gap-4">
               <div
-                className="w-16 h-16 rounded-2xl bg-slate-100 border border-slate-200 overflow-hidden shrink-0 cursor-pointer relative group"
+                className="w-16 h-16 rounded-2xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 overflow-hidden shrink-0 cursor-pointer relative group"
                 onClick={() => {
                   setZoomItem({
                     imageUrl: currentKit.imageUrl,
@@ -192,20 +193,20 @@ export default function KittingTab({
               </div>
 
               <div>
-                <h3 className="text-lg font-black text-slate-900">{currentKit.name}</h3>
-                <p className="text-xs text-slate-500 mt-0.5">{currentKit.description || 'Standard assembly Bill of Materials'}</p>
+                <h3 className="text-lg font-black text-slate-900 dark:text-white">{currentKit.name}</h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{currentKit.description || 'Standard assembly Bill of Materials'}</p>
               </div>
             </div>
 
             {/* Bill of Materials Table */}
             <div className="space-y-3">
-              <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
-                <ClipboardList className="w-4 h-4 text-indigo-600" /> Bill of Materials Picking Checklist ({currentKit.items.length} raw parts)
+              <h4 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider flex items-center gap-2">
+                <ClipboardList className="w-4 h-4 text-indigo-600 dark:text-indigo-400" /> Bill of Materials Picking Checklist ({currentKit.items.length} raw parts)
               </h4>
 
-              <div className="overflow-x-auto border border-slate-200/80 rounded-2xl">
+              <div className="overflow-x-auto border border-slate-200/80 dark:border-slate-800 rounded-2xl">
                 <table className="w-full text-left text-xs">
-                  <thead className="bg-slate-50 border-b border-slate-200/80 text-slate-500 uppercase font-bold text-[10px]">
+                  <thead className="bg-slate-50 dark:bg-slate-950/70 border-b border-slate-200/80 dark:border-slate-800 text-slate-500 dark:text-slate-400 uppercase font-bold text-[10px]">
                     <tr>
                       <th className="p-3 w-10 text-center">Pick</th>
                       <th className="p-3 w-14 text-center">Photo</th>
@@ -215,7 +216,7 @@ export default function KittingTab({
                       <th className="p-3">Status</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100">
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                     {currentKit.items.map((req) => {
                       const item = inventory.find((i) => i.id === req.componentId);
                       const available = item ? item.stockQty : 0;
@@ -227,15 +228,15 @@ export default function KittingTab({
                         <tr
                           key={req.componentId}
                           onClick={() => toggleCheck(req.componentId)}
-                          className={`hover:bg-slate-50/50 cursor-pointer transition-colors ${
-                            isChecked ? 'bg-indigo-50/30' : ''
+                          className={`hover:bg-slate-50/50 dark:hover:bg-slate-800/40 cursor-pointer transition-colors ${
+                            isChecked ? 'bg-indigo-50/40 dark:bg-indigo-950/30' : ''
                           }`}
                         >
                           <td className="p-3 text-center">
                             {isChecked ? (
-                              <CheckSquare className="w-4 h-4 text-indigo-600 mx-auto" />
+                              <CheckSquare className="w-4 h-4 text-indigo-600 dark:text-indigo-400 mx-auto" />
                             ) : (
-                              <Square className="w-4 h-4 text-slate-300 mx-auto" />
+                              <Square className="w-4 h-4 text-slate-300 dark:text-slate-600 mx-auto" />
                             )}
                           </td>
                           <td className="p-2 text-center" onClick={(e) => {
@@ -249,7 +250,7 @@ export default function KittingTab({
                               binLocation: item?.binLocation
                             });
                           }}>
-                            <div className="w-9 h-9 rounded-xl bg-slate-100 border border-slate-200 overflow-hidden mx-auto relative group">
+                            <div className="w-9 h-9 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 overflow-hidden mx-auto relative group">
                               <ItemImage
                                 src={item?.imageUrl}
                                 alt={itemName}
@@ -261,25 +262,25 @@ export default function KittingTab({
                               </div>
                             </div>
                           </td>
-                          <td className="p-3 font-bold text-slate-900">
+                          <td className="p-3 font-bold text-slate-900 dark:text-white">
                             <div>
                               <span>{itemName}</span>
                               {item?.binLocation && (
-                                <span className="block text-[9px] text-amber-700 font-mono font-normal">
+                                <span className="block text-[9px] text-amber-600 dark:text-amber-400 font-mono font-normal">
                                   Bin: {item.binLocation}
                                 </span>
                               )}
                             </div>
                           </td>
-                          <td className="p-3 font-mono font-bold text-slate-700">{req.qty} pcs</td>
-                          <td className="p-3 font-mono font-bold text-slate-900">{available} pcs</td>
+                          <td className="p-3 font-mono font-bold text-slate-700 dark:text-slate-300 tabular-num">{req.qty} pcs</td>
+                          <td className="p-3 font-mono font-bold text-slate-900 dark:text-white tabular-num">{available} pcs</td>
                           <td className="p-3">
                             {isSufficient ? (
-                              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700">
+                              <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
                                 Stock Ready
                               </span>
                             ) : (
-                              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-rose-50 text-rose-700">
+                              <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-rose-50 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800">
                                 Shortage
                               </span>
                             )}
@@ -294,21 +295,21 @@ export default function KittingTab({
           </div>
 
           {/* Right Column: Execution Work Order */}
-          <div className="bg-white/80 backdrop-blur-md p-6 rounded-3xl border border-slate-200/60 shadow-xl shadow-indigo-500/5 lg:col-span-4 space-y-6 flex flex-col justify-start">
+          <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-sm lg:col-span-4 space-y-6 flex flex-col justify-start">
             <div className="space-y-4">
-              <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
-                <Play className="w-5 h-5 text-indigo-600" /> Build Kits (Pack)
+              <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                <Play className="w-5 h-5 text-indigo-600 dark:text-indigo-400" /> Build Kits (Pack)
               </h3>
 
-              <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200/60 space-y-2">
-                <div className="text-xs font-bold text-slate-500 uppercase">Max Assemblable Kits</div>
-                <div className="text-3xl font-black text-slate-900">{kittingAnalysis.maxKitsPossible} kits</div>
-                <p className="text-[11px] text-slate-500">Based on lowest component stock availability.</p>
+              <div className="p-4 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-200/80 dark:border-slate-700 space-y-2">
+                <div className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase">Max Assemblable Kits</div>
+                <div className="text-3xl font-black text-slate-900 dark:text-white tabular-num">{kittingAnalysis.maxKitsPossible} kits</div>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400">Based on lowest component stock availability.</p>
               </div>
 
               {kittingAnalysis.maxKitsPossible > 0 && (
                 <div className="space-y-3">
-                  <label className="block text-xs font-bold text-slate-500 uppercase">Kits to Pack & Credit:</label>
+                  <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase">Kits to Pack & Credit:</label>
                   <div className="flex items-center gap-3">
                     <input
                       type="number"
@@ -316,13 +317,13 @@ export default function KittingTab({
                       max={kittingAnalysis.maxKitsPossible}
                       value={packQtyToExecute}
                       onChange={(e) => setPackQtyToExecute(Math.max(1, parseInt(e.target.value) || 1))}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm font-bold text-slate-900 focus:outline-none"
+                      className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-sm font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 tabular-num"
                     />
                     <button
                       onClick={() => onPackKits(currentKit.id, packQtyToExecute)}
-                      className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-5 py-2.5 rounded-xl text-xs shadow-md transition-all cursor-pointer shrink-0 flex items-center gap-2"
+                      className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-5 py-2.5 rounded-xl text-xs shadow-md active:scale-95 transition-all cursor-pointer shrink-0 flex items-center gap-2 touch-target"
                     >
-                      <Plus className="w-3 h-3" /> Build & Pack
+                      <Plus className="w-3.5 h-3.5" /> Build & Pack
                     </button>
                   </div>
                 </div>
@@ -330,20 +331,20 @@ export default function KittingTab({
             </div>
 
             {/* Reduce / Unpack Kits */}
-            <div className="space-y-4 pt-6 border-t border-slate-100">
-              <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
-                <History className="w-5 h-5 text-amber-600" /> Reduce / Unpack Kits
+            <div className="space-y-4 pt-6 border-t border-slate-100 dark:border-slate-800">
+              <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                <History className="w-5 h-5 text-amber-600 dark:text-amber-400" /> Reduce / Unpack Kits
               </h3>
 
-              <div className="p-4 bg-amber-50/50 rounded-2xl border border-amber-100/60 space-y-2">
-                <div className="text-xs font-bold text-amber-600 uppercase">Assembled Kits in Stock</div>
-                <div className="text-3xl font-black text-slate-900">{assembledKitItem ? assembledKitItem.stockQty : 0} kits</div>
-                <p className="text-[11px] text-amber-700/70">Disassembling will return components back to raw inventory.</p>
+              <div className="p-4 bg-amber-50/50 dark:bg-amber-950/30 rounded-2xl border border-amber-100/60 dark:border-amber-900/50 space-y-2">
+                <div className="text-xs font-bold text-amber-700 dark:text-amber-400 uppercase">Assembled Kits in Stock</div>
+                <div className="text-3xl font-black text-slate-900 dark:text-white tabular-num">{assembledKitItem ? assembledKitItem.stockQty : 0} kits</div>
+                <p className="text-[11px] text-amber-700/80 dark:text-amber-400/80">Disassembling will return components back to raw inventory.</p>
               </div>
 
               {assembledKitItem && assembledKitItem.stockQty > 0 && onUnpackKits && (
                 <div className="space-y-3">
-                  <label className="block text-xs font-bold text-amber-700/70 uppercase">Kits to Reduce/Disassemble:</label>
+                  <label className="block text-xs font-bold text-amber-700/80 dark:text-amber-400 uppercase">Kits to Reduce/Disassemble:</label>
                   <div className="flex items-center gap-3">
                     <input
                       type="number"
@@ -351,13 +352,13 @@ export default function KittingTab({
                       max={assembledKitItem.stockQty}
                       value={unpackQtyToExecute}
                       onChange={(e) => setUnpackQtyToExecute(Math.max(1, parseInt(e.target.value) || 1))}
-                      className="w-full bg-white border border-amber-200 rounded-xl px-3 py-2 text-sm font-bold text-slate-900 focus:outline-none"
+                      className="w-full bg-white dark:bg-slate-800 border border-amber-200 dark:border-amber-700/60 rounded-xl px-3 py-2 text-sm font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 tabular-num"
                     />
                     <button
                       onClick={() => onUnpackKits(currentKit.id, unpackQtyToExecute)}
-                      className="bg-amber-600 hover:bg-amber-700 text-white font-bold px-5 py-2.5 rounded-xl text-xs shadow-md transition-all cursor-pointer shrink-0 flex items-center gap-2"
+                      className="bg-amber-600 hover:bg-amber-700 text-white font-bold px-5 py-2.5 rounded-xl text-xs shadow-md active:scale-95 transition-all cursor-pointer shrink-0 flex items-center gap-2 touch-target"
                     >
-                      <Trash2 className="w-3 h-3" /> Reduce Kit
+                      <Trash2 className="w-3.5 h-3.5" /> Reduce Kit
                     </button>
                   </div>
                 </div>
@@ -366,8 +367,8 @@ export default function KittingTab({
           </div>
         </div>
       ) : (
-        <div className="bg-white/80 backdrop-blur-md p-12 rounded-3xl border border-slate-200/60 text-center space-y-3">
-          <p className="text-sm font-bold text-slate-600">No STEM Kits available yet.</p>
+        <div className="bg-white dark:bg-slate-900 p-12 rounded-3xl border border-slate-200/80 dark:border-slate-800 text-center space-y-3">
+          <p className="text-sm font-bold text-slate-700 dark:text-slate-300">No STEM Kits available yet.</p>
           <p className="text-xs text-slate-400">Click &ldquo;Create New Kit&rdquo; above to configure a bill of materials with auto-suggestions.</p>
         </div>
       )}
