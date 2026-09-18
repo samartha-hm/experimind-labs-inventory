@@ -45,6 +45,7 @@ import { useData } from '@/src/DataContext';
 import { useToast } from '@/src/contexts/ToastContext';
 import SmartSelect from '@/src/shared/components/SmartSelect';
 import EmptyState from '@/src/shared/components/EmptyState';
+import ResponsiveDataView from '@/src/components/common/ResponsiveDataView';
 
 interface InventoryTabProps {
   inventory: InventoryItem[];
@@ -304,7 +305,7 @@ export default function InventoryTab({
       {/* Top Banner */}
       <div className="bg-white/90 dark:bg-slate-900/90 backdrop-blur-md p-5 sm:p-6 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-sm hover:shadow-md transition-all flex flex-col xl:flex-row xl:items-center justify-between gap-4">
         <div className="min-w-0">
-          <h2 className="text-xl font-black text-slate-900 dark:text-white flex items-center gap-2.5 tracking-tight">
+          <h2 className="text-lg sm:text-xl md:text-2xl font-black text-slate-900 dark:text-white flex items-center gap-2.5 tracking-tight">
             <div className="p-2.5 bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 rounded-2xl border border-indigo-100/80 dark:border-indigo-800 shrink-0">
               <Box className="w-5 h-5" />
             </div>
@@ -405,7 +406,7 @@ export default function InventoryTab({
               placeholder="Search items by name, SKU, category, or bin location..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-11 pr-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700 rounded-2xl text-xs font-medium text-slate-800 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:bg-white dark:focus:bg-slate-900 transition-all"
+              className="w-full pl-11 pr-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700 rounded-2xl text-base sm:text-xs font-medium text-slate-800 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:bg-white dark:focus:bg-slate-900 transition-all"
             />
           </div>
 
@@ -832,101 +833,27 @@ export default function InventoryTab({
         </div>
       )}
 
-      {/* Table Mode View */}
+      {/* Table Mode View — Responsive Table-to-Card Transformer */}
       {filteredAndSortedInventory.length > 0 && viewMode === 'table' && (
-        <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-xs overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-slate-50 dark:bg-slate-800 border-b border-slate-200/80 dark:border-slate-700 text-slate-500 uppercase font-bold text-[10px]">
-                <tr>
-                  <th className="py-3 px-4">Item</th>
-                  <th className="py-3 px-4">Category</th>
-                  <th className="py-3 px-4">Barcode / SKU</th>
-                  <th className="py-3 px-4">Storage Bin Location</th>
-                  <th className="py-3 px-4 text-center">Status</th>
-                  <th className="py-3 px-4 text-center">Stock Level</th>
-                  <th className="py-3 px-4 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                {filteredAndSortedInventory.map((item) => {
-                  const isZero = item.stockQty === 0 && !item.isCommon;
-                  const isLow = item.stockQty < item.threshold && !item.isCommon && !isZero;
-                  const catStyle = getCategoryBadgeStyle(item.category);
-
-                  return (
-                    <tr
-                      key={item.id}
-                      onClick={() => setDrawerItem(item)}
-                      className="hover:bg-slate-50/70 dark:hover:bg-slate-800/50 cursor-pointer transition-colors"
-                    >
-                      <td className="py-3 px-4 font-bold text-slate-900 dark:text-white">
-                        {item.name}
-                      </td>
-                      <td className="py-3 px-4">
-                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md border ${catStyle.bg}`}>
-                          {item.category || 'General'}
-                        </span>
-                      </td>
-                      <td className="py-3 px-4 font-mono font-bold text-slate-700 dark:text-slate-300 text-[11px]">
-                        {item.barcode || `EL-${item.id}`}
-                      </td>
-                      <td className="py-3 px-4" onClick={(e) => e.stopPropagation()}>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setQuickRelocateItem(item);
-                            setTargetBinLocation(item.binLocation || '');
-                          }}
-                          className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/60 hover:bg-amber-100 border border-amber-200/80 dark:border-amber-800/80 px-2.5 py-1 rounded-xl cursor-pointer transition-colors"
-                          title="Click to relocate bin"
-                        >
-                          <MapPin className="w-3 h-3 text-amber-600" />
-                          <span>{item.binLocation || 'Rack - Shelf 1'}</span>
-                        </button>
-                      </td>
-                      <td className="py-3 px-4 text-center">
-                        {isZero ? (
-                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-200">
-                            Out of Stock
-                          </span>
-                        ) : isLow ? (
-                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
-                            Low Stock
-                          </span>
-                        ) : (
-                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                            In Stock
-                          </span>
-                        )}
-                      </td>
-                      <td className="py-3 px-4 text-center font-mono font-bold text-slate-900 dark:text-white">
-                        {item.stockQty} {item.unit}
-                      </td>
-                      <td className="py-3 px-4 text-right" onClick={(e) => e.stopPropagation()}>
-                        <div className="flex items-center justify-end gap-1">
-                          <button
-                            onClick={() => setEditingItem(item)}
-                            className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-slate-800 rounded-lg cursor-pointer"
-                          >
-                            <Edit2 className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => {
-                              if (window.confirm(`Delete ${item.name}?`)) onDeleteComponent(item.id);
-                            }}
-                            className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-slate-800 rounded-lg cursor-pointer"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+        <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-xs overflow-hidden p-3 sm:p-0">
+          <ResponsiveDataView
+            items={filteredAndSortedInventory.map((item) => ({
+              id: item.id,
+              ipn: item.barcode || item.mpn || `EL-${item.id.slice(0, 8)}`,
+              name: item.name,
+              category: item.category,
+              footprint: item.package_footprint || (item as any).packageFootprint || 'N/A',
+              totalQuantity: item.stockQty,
+              reservedQuantity: (item as any).reservedQuantity || (item as any).reserved_quantity || 0,
+              unitCostMac: Number(item.unitCost ?? item.basePrice ?? 0),
+              locationPath: item.binLocation || 'Unassigned',
+              isEsdSafe: (item as any).isEsdSafe ?? false,
+            }))}
+            onSelectItem={(cItem) => {
+              const originalItem = filteredAndSortedInventory.find((i) => i.id === cItem.id);
+              if (originalItem) setDrawerItem(originalItem);
+            }}
+          />
         </div>
       )}
 

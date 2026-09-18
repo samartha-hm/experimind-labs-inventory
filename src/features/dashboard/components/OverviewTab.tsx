@@ -239,7 +239,7 @@ export default function OverviewTab({
               </span>
             </div>
 
-            <h1 className="text-2xl md:text-3xl font-black tracking-tight text-white flex items-center gap-2.5">
+            <h1 className="text-lg sm:text-2xl md:text-3xl font-black tracking-tight text-white flex items-center gap-2.5">
               Executive Fulfillment & Warehouse Cockpit
             </h1>
             <p className="text-xs text-slate-300 font-medium max-w-2xl leading-relaxed">

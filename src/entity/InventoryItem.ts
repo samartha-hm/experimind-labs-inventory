@@ -52,6 +52,9 @@ export class InventoryItem {
   @Column({ type: "int" })
   quantity: number;
 
+  @Column({ type: "int", default: 0 })
+  reserved_quantity: number;
+
   @Column({ type: "varchar", default: "pcs" })
   unit: string;
 

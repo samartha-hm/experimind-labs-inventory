@@ -767,7 +767,7 @@ export default function StorefrontManagerTab({ role }: StorefrontManagerTabProps
               </span>
               <span className="text-xs text-slate-400 font-mono">shop.experimindlabs.com</span>
             </div>
-            <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight flex items-center gap-2">
+            <h1 className="text-lg sm:text-2xl md:text-3xl font-black text-white tracking-tight flex items-center gap-2">
               <ShoppingBag className="w-7 h-7 text-indigo-400" /> Storefront Channel Hub
             </h1>
             <p className="text-slate-400 text-sm mt-1 max-w-2xl">

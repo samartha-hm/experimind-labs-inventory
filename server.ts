@@ -48,6 +48,7 @@ import hardwareRoutes from "./src/routes/v1/hardware.ts";
 import cartReservationRoutes from "./src/routes/v1/cart-reservation.ts";
 import { qcRouter } from "./src/routes/v1/qc.ts";
 import { traceabilityRouter } from "./src/routes/v1/traceability.ts";
+import { startReservationReaper } from "./src/workers/reservationReaper.ts";
 import { openApiSpec, renderSwaggerUiHtml } from "./src/docs/openapi.ts";
 
 // Initialize Postgres (with retry)
@@ -71,6 +72,10 @@ async function connectDatabase(retries = 3): Promise<void> {
 async function startServer() {
   // Connect to database first
   await connectDatabase();
+
+  // Start automated 5-minute orphan reservation reaper worker (zero-drift reconciliation)
+  startReservationReaper(300000);
+
   const app = express();
   const PORT = env.port;
 

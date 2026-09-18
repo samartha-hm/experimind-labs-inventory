@@ -321,7 +321,7 @@ function MainApp() {
         />
 
         <div className="flex-1 overflow-y-auto overflow-x-hidden overscroll-contain">
-          <div className="w-full px-3 sm:px-4 md:px-6 lg:px-10 py-4 sm:py-6 pb-24 md:pb-6">
+          <div className="p-3 sm:p-6 md:p-8 max-w-7xl mx-auto pb-24 md:pb-8">
             <main>
               {activeTab === 'overview' && (
                 <OverviewTab

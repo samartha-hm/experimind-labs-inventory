@@ -258,7 +258,7 @@ export default function BomTreeManagerTab() {
     }
   };
 
-  // Recursive Tree Node Renderer
+  // Recursive Tree Node Renderer (Responsive Card-to-Tree Adapter)
   const renderTreeNode = (node: TreeNode) => {
     const isExpanded = expandedNodeIds.has(node.id);
     const hasChildren = node.children && node.children.length > 0;
@@ -266,33 +266,33 @@ export default function BomTreeManagerTab() {
     return (
       <div key={node.id} className="space-y-1">
         <div
-          className={`flex items-center justify-between p-3 rounded-xl border transition ${
+          className={`flex flex-col sm:flex-row sm:items-center justify-between p-3 rounded-xl border transition gap-2.5 sm:gap-0 ${
             node.doNotPopulate
               ? "bg-slate-950/40 border-slate-800 text-slate-500 opacity-60"
               : "bg-slate-900 border-slate-800/80 hover:border-slate-700 text-slate-200"
           }`}
-          style={{ marginLeft: `${(node.level - 1) * 24}px` }}
+          style={{ marginLeft: `min(${(node.level - 1) * 16}px, 48px)` }}
         >
           {/* Left: Node Information */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-start sm:items-center gap-2.5 sm:gap-3 min-w-0">
             {hasChildren ? (
               <button
                 onClick={() => toggleExpand(node.id)}
-                className="p-1 hover:bg-slate-800 rounded text-slate-400 hover:text-white transition"
+                className="p-1 hover:bg-slate-800 rounded text-slate-400 hover:text-white transition shrink-0 mt-0.5 sm:mt-0"
               >
                 {isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
               </button>
             ) : (
-              <div className="w-6" />
+              <div className="w-6 shrink-0" />
             )}
 
-            <div className="p-2 bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 rounded-lg">
+            <div className="p-2 bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 rounded-lg shrink-0">
               <Cpu className="w-4 h-4" />
             </div>
 
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="font-bold text-white text-xs">{node.mpn || node.name}</span>
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+                <span className="font-bold text-white text-xs truncate max-w-[200px] sm:max-w-none">{node.mpn || node.name}</span>
                 <span className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-slate-800 text-slate-300 border border-slate-700/60">
                   {node.packageFootprint || "0603"}
                 </span>
@@ -308,16 +308,16 @@ export default function BomTreeManagerTab() {
 
               {/* Reference Designators */}
               {node.referenceDesignators && node.referenceDesignators.length > 0 && (
-                <div className="text-[11px] text-slate-400 font-mono mt-0.5">
+                <div className="text-[11px] text-slate-400 font-mono mt-0.5 truncate">
                   Ref: <span className="text-indigo-300">{node.referenceDesignators.join(", ")}</span>
                 </div>
               )}
             </div>
           </div>
 
-          {/* Right: Quantity, Scrap, Cost & Stock Status */}
-          <div className="flex items-center gap-4 text-xs font-mono">
-            <div className="text-right">
+          {/* Right: Quantity, Scrap, Cost & Stock Status (Mobile-Friendly Stacked Row) */}
+          <div className="flex items-center justify-between sm:justify-end gap-3 sm:gap-4 text-xs font-mono pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-800/80 w-full sm:w-auto">
+            <div className="text-left sm:text-right">
               <div className="text-slate-200">
                 <strong>{node.quantityPerAssembly}</strong> pcs
                 {node.scrapPercentage > 0 && (
@@ -328,7 +328,7 @@ export default function BomTreeManagerTab() {
             </div>
 
             {/* Stock Badge */}
-            <div className="w-28 text-right">
+            <div className="w-28 text-right shrink-0">
               {node.stockStatus === "IN_STOCK" ? (
                 <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/10 text-emerald-300 border border-emerald-500/20">
                   {node.currentStock} in stock
@@ -364,7 +364,7 @@ export default function BomTreeManagerTab() {
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-xl font-bold text-white tracking-tight">Recursive PCBA BOM & CAD Engine</h1>
+              <h1 className="text-lg sm:text-2xl md:text-3xl font-bold tracking-tight text-white">Recursive PCBA BOM & CAD Engine</h1>
               <span className="px-2 py-0.5 text-xs font-semibold bg-purple-500/20 text-purple-300 border border-purple-500/30 rounded-full">
                 Multi-Level Tree
               </span>

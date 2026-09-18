@@ -161,6 +161,20 @@ export class CartReservationService {
   }
 
   /**
+   * Exposes all active reservations for the orphan reaper reconciler
+   */
+  public static getActiveReservations(): SoftLockReservation[] {
+    return Array.from(this.softLocks.values());
+  }
+
+  /**
+   * Reconciles or releases stock soft-locks
+   */
+  public static async releaseStock(params: { cartId: string; itemId?: string }): Promise<number> {
+    return this.releaseReservation(params.cartId, params.itemId);
+  }
+
+  /**
    * Hard-Lock checkout execution using PostgreSQL Row-Level Locking (SELECT ... FOR UPDATE)
    * executed within SERIALIZABLE transaction isolation for absolute ledger integrity.
    */

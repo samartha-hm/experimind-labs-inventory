@@ -108,8 +108,8 @@ export default function EditPartModal({
   };
 
   return createPortal(
-    <div className="fixed inset-0 w-screen h-screen z-[99999] bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto animate-fadeIn">
-      <div className="relative my-auto bg-white dark:bg-slate-900 rounded-3xl shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh] border border-slate-200 dark:border-slate-800">
+    <div className="fixed inset-0 w-screen h-screen z-[99999] bg-slate-950/70 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 overflow-y-auto animate-fadeIn">
+      <div className="relative bg-white dark:bg-slate-900 rounded-t-3xl sm:rounded-3xl shadow-2xl w-full sm:max-w-2xl overflow-hidden flex flex-col max-h-[85vh] sm:max-h-[90vh] border border-slate-200 dark:border-slate-800 pb-[calc(1rem+env(safe-area-inset-bottom))] sm:pb-0">
         <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between sticky top-0 bg-white z-10">
           <h2 className="text-xl font-black text-slate-800 flex items-center gap-2">
             <Package className="w-5 h-5 text-indigo-600" />
