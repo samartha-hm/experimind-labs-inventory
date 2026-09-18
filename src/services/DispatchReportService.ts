@@ -333,7 +333,7 @@ export class DispatchReportService {
   /**
    * Exports an Excel (.xlsx) file with multiple categorized worksheets
    */
-  public static generateExcelWorkbook(summary: DispatchReportSummary): Uint8Array | ArrayBuffer {
+  public static generateExcelWorkbook(summary: DispatchReportSummary): any {
     const wb = XLSX.utils.book_new();
 
     // 1. Sheet: Master Summary
@@ -437,7 +437,7 @@ export class DispatchReportService {
   public static downloadExcel(summary: DispatchReportSummary, filename?: string): void {
     if (typeof window === 'undefined') return;
     const data = this.generateExcelWorkbook(summary);
-    const blob = new Blob([data], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const blob = new Blob([data as unknown as BlobPart], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
     const name = filename || `${summary.documentRef}_${summary.projectName.replace(/[^a-zA-Z0-9_-]/g, '_')}.xlsx`;
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
