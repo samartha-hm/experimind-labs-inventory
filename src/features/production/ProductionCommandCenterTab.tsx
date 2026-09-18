@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   Factory,
   Layers,
@@ -58,19 +58,32 @@ import {
 } from '../../services/ChemicalSafetyService';
 import { useToast } from '../../contexts/ToastContext';
 
-export default function ProductionCommandCenterTab() {
+interface ProductionCommandCenterTabProps {
+  initialProjectId?: string;
+  initialGrade?: string;
+}
+
+export default function ProductionCommandCenterTab({
+  initialProjectId,
+  initialGrade
+}: ProductionCommandCenterTabProps = {}) {
   const { showToast } = useToast();
 
   // Multi-Project State
   const [projectsList] = useState<Project[]>(() => ProjectManagementService.getAllProjects());
-  const [activeProjectId, setActiveProjectId] = useState<string>('ALL');
+  const [activeProjectId, setActiveProjectId] = useState<string>(initialProjectId || 'ALL');
 
   // State
   const [items, setItems] = useState<ProductionItem[]>(() => ProductionWorkflowService.getItems());
   const [doubts, setDoubts] = useState<ProductionDoubt[]>(() => ProductionWorkflowService.getDoubts());
   const [batchMultiplier, setBatchMultiplier] = useState<number>(5);
-  const [selectedGrade, setSelectedGrade] = useState<string>('ALL');
+  const [selectedGrade, setSelectedGrade] = useState<string>(initialGrade || 'ALL');
   const [activeSubView, setActiveSubView] = useState<'matrix' | 'chemicals' | 'laser' | 'bagging' | 'procurement'>('matrix');
+
+  useEffect(() => {
+    if (initialProjectId) setActiveProjectId(initialProjectId);
+    if (initialGrade) setSelectedGrade(initialGrade);
+  }, [initialProjectId, initialGrade]);
 
   // Filters
   const [searchQuery, setSearchQuery] = useState<string>('');

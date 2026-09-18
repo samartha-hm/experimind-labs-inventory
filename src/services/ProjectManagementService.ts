@@ -4,23 +4,29 @@ import {
   ProjectCategory,
   ProjectStatus,
   ProjectExpense,
-  ProjectAuditLog
+  ProjectAuditLog,
+  ProjectClassWork,
+  ProjectWorkItem,
+  WorkItemCategory,
+  WorkItemSourcingChannel,
+  WorkItemStatus,
+  buildCurriculumClasses,
+  buildDefaultStandardClasses
 } from '../data/projectsDataset';
 import { ProductionWorkflowService } from './ProductionWorkflowService';
-import { MASTER_PRODUCTION_ITEMS } from '../data/productionDataset';
 
 export interface ProjectFinancials {
   projectId: string;
   projectCode: string;
   projectName: string;
-  budgetINR: number;
-  invoicedRevenueINR: number;
+  budgetINR?: number;
+  invoicedRevenueINR?: number;
   totalExpensesINR: number;
   expensesByCategory: Record<string, number>;
   estimatedBOMCostINR: number;
   grossMarginINR: number;
   grossMarginPercent: number;
-  budgetVarianceINR: number;
+  budgetVarianceINR?: number;
   isOverBudget: boolean;
 }
 
@@ -73,7 +79,8 @@ export class ProjectManagementService {
           p.name.toLowerCase().includes(q) ||
           p.code.toLowerCase().includes(q) ||
           p.clientName.toLowerCase().includes(q) ||
-          p.leadUserName.toLowerCase().includes(q)
+          p.leadUserName.toLowerCase().includes(q) ||
+          (p.assignedBy && p.assignedBy.toLowerCase().includes(q))
         );
       }
     }
@@ -85,10 +92,29 @@ export class ProjectManagementService {
     return this.projects.find(p => p.id === id || p.code.toLowerCase() === id.toLowerCase()) || null;
   }
 
-  public static createProject(data: Partial<Project>, creatorUser?: { id: string; name: string; role: string }): Project {
+  public static createProject(
+    data: Partial<Project>,
+    creatorUser?: { id: string; name: string; role: string },
+    templateType: 'CURRICULUM' | 'STANDARD_LAB' | 'BLANK' = 'CURRICULUM'
+  ): Project {
     const idNum = this.projects.length + 1;
     const newId = `PRJ-${idNum.toString().padStart(3, '0')}`;
     const newCode = data.code || `PRJ-EXP-${idNum.toString().padStart(3, '0')}`;
+    const defaultBatch = Number(data.defaultBatchMultiplier) || 1;
+
+    let classes: ProjectClassWork[] = [];
+    if (data.classes && data.classes.length > 0) {
+      classes = data.classes;
+    } else if (templateType === 'CURRICULUM') {
+      classes = buildCurriculumClasses(defaultBatch);
+    } else if (templateType === 'STANDARD_LAB') {
+      classes = buildDefaultStandardClasses(defaultBatch);
+    } else {
+      // Blank template with clean default classes
+      classes = [
+        { id: 'cls-1', name: 'General Activities', batchMultiplier: defaultBatch, description: 'Primary Project Activities', items: [] }
+      ];
+    }
 
     const newProject: Project = {
       id: newId,
@@ -98,18 +124,23 @@ export class ProjectManagementService {
       category: data.category || 'STEM_CURRICULUM',
       clientName: data.clientName || 'General Institutional Client',
       leadUserId: data.leadUserId || creatorUser?.id || 'usr-admin-01',
-      leadUserName: data.leadUserName || creatorUser?.name || 'Administrator',
+      leadUserName: data.leadUserName || creatorUser?.name || 'Dr. Samartha HM',
+      assignedBy: data.assignedBy || 'Operations Lead',
       assignedUserIds: data.assignedUserIds || [creatorUser?.id || 'usr-admin-01'],
-      assignedUserNames: data.assignedUserNames || [creatorUser?.name || 'Administrator'],
+      assignedUserNames: data.assignedUserNames || [creatorUser?.name || 'Dr. Samartha HM'],
       status: data.status || 'PLANNING',
       priority: data.priority || 'MEDIUM',
       startDate: data.startDate || new Date().toISOString().split('T')[0],
       targetDeliveryDate: data.targetDeliveryDate || new Date(Date.now() + 30 * 86400000).toISOString().split('T')[0],
-      budgetINR: data.budgetINR || 100000,
-      invoicedRevenueINR: data.invoicedRevenueINR || 150000,
-      batchConfigurations: data.batchConfigurations || [
-        { gradeOrKitId: 'Grade 10', kitName: 'Grade 10 STEM Set', targetQuantity: 5 }
-      ],
+      defaultBatchMultiplier: defaultBatch,
+      budgetINR: data.budgetINR !== undefined ? data.budgetINR : undefined,
+      invoicedRevenueINR: data.invoicedRevenueINR !== undefined ? data.invoicedRevenueINR : undefined,
+      classes,
+      batchConfigurations: data.batchConfigurations || classes.map(c => ({
+        gradeOrKitId: c.name,
+        kitName: `${c.name} Set`,
+        targetQuantity: c.batchMultiplier
+      })),
       expenses: data.expenses || [],
       auditLogs: [
         {
@@ -119,7 +150,7 @@ export class ProjectManagementService {
           userName: creatorUser?.name || 'Administrator',
           userRole: creatorUser?.role || 'admin',
           action: 'PROJECT_CREATED',
-          details: `Project "${data.name || newCode}" created with budget ₹${(data.budgetINR || 100000).toLocaleString('en-IN')}`,
+          details: `Project "${data.name || newCode}" initialized with ${classes.length} classes. Lead: ${data.leadUserName || 'Dr. Samartha HM'} (Assigned by: ${data.assignedBy || 'Operations'})`,
           signatureDigest: `sha256-${Math.random().toString(36).substring(2, 12)}`
         }
       ],
@@ -162,6 +193,198 @@ export class ProjectManagementService {
     return true;
   }
 
+  // ==========================================
+  // Class-Wise Management Methods
+  // ==========================================
+
+  public static addClassToProject(projectId: string, classData: Partial<ProjectClassWork>): ProjectClassWork | null {
+    const project = this.getProjectById(projectId);
+    if (!project) return null;
+
+    const classId = classData.id || `cls-${Date.now()}`;
+    const newClass: ProjectClassWork = {
+      id: classId,
+      name: classData.name || `Class ${project.classes.length + 6}`,
+      batchMultiplier: Number(classData.batchMultiplier) || project.defaultBatchMultiplier || 1,
+      description: classData.description || '',
+      items: classData.items || []
+    };
+
+    project.classes.push(newClass);
+    project.updatedAt = new Date().toISOString();
+    return newClass;
+  }
+
+  public static updateClass(projectId: string, classId: string, updates: Partial<ProjectClassWork>): ProjectClassWork | null {
+    const project = this.getProjectById(projectId);
+    if (!project) return null;
+
+    const targetClass = project.classes.find(c => c.id === classId);
+    if (!targetClass) return null;
+
+    if (updates.name !== undefined) targetClass.name = updates.name;
+    if (updates.description !== undefined) targetClass.description = updates.description;
+    if (updates.batchMultiplier !== undefined) {
+      const newMult = Math.max(1, Number(updates.batchMultiplier));
+      targetClass.batchMultiplier = newMult;
+      // Rescale all items in this class
+      targetClass.items.forEach(item => {
+        item.totalQuantity = item.quantityPerBatchUnit * newMult;
+      });
+    }
+
+    project.updatedAt = new Date().toISOString();
+    return targetClass;
+  }
+
+  public static removeClassFromProject(projectId: string, classId: string): boolean {
+    const project = this.getProjectById(projectId);
+    if (!project) return false;
+
+    const idx = project.classes.findIndex(c => c.id === classId);
+    if (idx === -1) return false;
+
+    project.classes.splice(idx, 1);
+    project.updatedAt = new Date().toISOString();
+    return true;
+  }
+
+  // ==========================================
+  // Class Item CRUD Methods
+  // ==========================================
+
+  public static addWorkItem(
+    projectId: string,
+    classId: string,
+    itemData: {
+      name: string;
+      category?: WorkItemCategory;
+      specification?: string;
+      quantityPerBatchUnit?: number;
+      unit?: string;
+      sourcingChannel?: WorkItemSourcingChannel;
+      status?: WorkItemStatus;
+      unitCost?: number;
+      leadAssignee?: string;
+      sourceChapter?: string;
+      notes?: string;
+    }
+  ): ProjectWorkItem | null {
+    const project = this.getProjectById(projectId);
+    if (!project) return null;
+
+    const targetClass = project.classes.find(c => c.id === classId);
+    if (!targetClass) return null;
+
+    const baseQty = Number(itemData.quantityPerBatchUnit) || 1;
+    const newItem: ProjectWorkItem = {
+      id: `ITM-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+      classId,
+      name: itemData.name || 'Untitled Deliverable Item',
+      category: itemData.category || 'ACTIVITY_KIT',
+      specification: itemData.specification || '',
+      quantityPerBatchUnit: baseQty,
+      totalQuantity: baseQty * targetClass.batchMultiplier,
+      unit: itemData.unit || 'pcs',
+      sourcingChannel: itemData.sourcingChannel || 'IN_STOCK',
+      status: itemData.status || 'PENDING',
+      unitCost: Number(itemData.unitCost) || 0,
+      leadAssignee: itemData.leadAssignee || project.leadUserName,
+      sourceChapter: itemData.sourceChapter,
+      notes: itemData.notes
+    };
+
+    targetClass.items.push(newItem);
+    project.updatedAt = new Date().toISOString();
+    return newItem;
+  }
+
+  public static updateWorkItem(
+    projectId: string,
+    classId: string,
+    itemId: string,
+    updates: Partial<ProjectWorkItem>
+  ): ProjectWorkItem | null {
+    const project = this.getProjectById(projectId);
+    if (!project) return null;
+
+    const targetClass = project.classes.find(c => c.id === classId);
+    if (!targetClass) return null;
+
+    const item = targetClass.items.find(i => i.id === itemId);
+    if (!item) return null;
+
+    Object.assign(item, updates);
+
+    if (updates.quantityPerBatchUnit !== undefined) {
+      item.quantityPerBatchUnit = Number(updates.quantityPerBatchUnit) || 1;
+      item.totalQuantity = item.quantityPerBatchUnit * targetClass.batchMultiplier;
+    }
+
+    project.updatedAt = new Date().toISOString();
+    return item;
+  }
+
+  public static deleteWorkItem(projectId: string, classId: string, itemId: string): boolean {
+    const project = this.getProjectById(projectId);
+    if (!project) return false;
+
+    const targetClass = project.classes.find(c => c.id === classId);
+    if (!targetClass) return false;
+
+    const idx = targetClass.items.findIndex(i => i.id === itemId);
+    if (idx === -1) return false;
+
+    targetClass.items.splice(idx, 1);
+    project.updatedAt = new Date().toISOString();
+    return true;
+  }
+
+  public static cycleWorkItemStatus(projectId: string, classId: string, itemId: string): ProjectWorkItem | null {
+    const project = this.getProjectById(projectId);
+    if (!project) return null;
+
+    const targetClass = project.classes.find(c => c.id === classId);
+    if (!targetClass) return null;
+
+    const item = targetClass.items.find(i => i.id === itemId);
+    if (!item) return null;
+
+    const statusFlow: Record<WorkItemStatus, WorkItemStatus> = {
+      'PENDING': 'IN_PREP',
+      'IN_PREP': 'READY',
+      'READY': 'PACKED',
+      'PACKED': 'PENDING'
+    };
+
+    item.status = statusFlow[item.status] || 'PENDING';
+    project.updatedAt = new Date().toISOString();
+    return item;
+  }
+
+  public static setProjectDefaultBatchMultiplier(projectId: string, multiplier: number): Project | null {
+    const project = this.getProjectById(projectId);
+    if (!project) return null;
+
+    const mult = Math.max(1, Number(multiplier) || 1);
+    project.defaultBatchMultiplier = mult;
+
+    // Update all classes and recalculate totals
+    project.classes.forEach(c => {
+      c.batchMultiplier = mult;
+      c.items.forEach(i => {
+        i.totalQuantity = i.quantityPerBatchUnit * mult;
+      });
+    });
+
+    project.updatedAt = new Date().toISOString();
+    return project;
+  }
+
+  // ==========================================
+  // Financials & Portfolio Analytics
+  // ==========================================
+
   public static getProjectFinancials(id: string): ProjectFinancials | null {
     const project = this.getProjectById(id);
     if (!project) return null;
@@ -181,18 +404,28 @@ export class ProjectManagementService {
       catMap[exp.category] = (catMap[exp.category] || 0) + exp.amountINR;
     }
 
-    // Dynamic BOM estimate based on batch configurations
+    // Dynamic BOM estimate based on class work items
     let estimatedBOM = 0;
-    for (const b of project.batchConfigurations) {
-      const calc = ProductionWorkflowService.calculateBatchRequirements(b.targetQuantity, b.gradeOrKitId);
-      estimatedBOM += calc.totalEstimatedCost;
+    if (project.classes && project.classes.length > 0) {
+      for (const cls of project.classes) {
+        for (const item of cls.items) {
+          estimatedBOM += (item.unitCost || 0) * (item.totalQuantity || item.quantityPerBatchUnit);
+        }
+      }
+    } else {
+      for (const b of project.batchConfigurations) {
+        const calc = ProductionWorkflowService.calculateBatchRequirements(b.targetQuantity, b.gradeOrKitId);
+        estimatedBOM += calc.totalEstimatedCost;
+      }
     }
 
-    const grossMargin = project.invoicedRevenueINR - totalExpenses;
-    const grossMarginPercent = project.invoicedRevenueINR > 0
-      ? Number(((grossMargin / project.invoicedRevenueINR) * 100).toFixed(1))
+    const revenue = project.invoicedRevenueINR ?? 0;
+    const budget = project.budgetINR ?? 0;
+    const grossMargin = revenue - totalExpenses;
+    const grossMarginPercent = revenue > 0
+      ? Number(((grossMargin / revenue) * 100).toFixed(1))
       : 0;
-    const variance = project.budgetINR - totalExpenses;
+    const variance = budget > 0 ? budget - totalExpenses : undefined;
 
     return {
       projectId: project.id,
@@ -206,7 +439,7 @@ export class ProjectManagementService {
       grossMarginINR: grossMargin,
       grossMarginPercent: grossMarginPercent,
       budgetVarianceINR: variance,
-      isOverBudget: totalExpenses > project.budgetINR
+      isOverBudget: budget > 0 ? totalExpenses > budget : false
     };
   }
 
@@ -217,8 +450,8 @@ export class ProjectManagementService {
     let activeCount = 0;
 
     for (const p of this.projects) {
-      totalBudget += p.budgetINR;
-      totalRevenue += p.invoicedRevenueINR;
+      if (p.budgetINR) totalBudget += p.budgetINR;
+      if (p.invoicedRevenueINR) totalRevenue += p.invoicedRevenueINR;
       if (p.status !== 'COMPLETED' && p.status !== 'ARCHIVED') {
         activeCount++;
       }
@@ -252,35 +485,60 @@ export class ProjectManagementService {
       competing: Array<{ projectId: string; projectCode: string; projectName: string; qtyRequired: number }>;
     }>();
 
-    // Scan active projects
     const activeProjects = this.projects.filter(p => p.status !== 'COMPLETED' && p.status !== 'ARCHIVED');
 
     for (const proj of activeProjects) {
-      for (const batch of proj.batchConfigurations) {
-        const batchItems = ProductionWorkflowService.getItems(
-          batch.gradeOrKitId !== 'ALL' ? { grade: batch.gradeOrKitId } : undefined
-        );
+      if (proj.classes && proj.classes.length > 0) {
+        for (const cls of proj.classes) {
+          for (const item of cls.items) {
+            const qtyNeeded = item.totalQuantity;
+            const key = item.name.toLowerCase().trim();
 
-        for (const item of batchItems) {
-          const qtyNeeded = item.quantityPerKit * batch.targetQuantity;
-          const key = item.materialName.toLowerCase().trim();
+            const existing = demandMap.get(key) || {
+              materialName: item.name,
+              activityCode: item.sourceChapter || cls.name,
+              unitCost: item.unitCost || 0,
+              availableStock: 50, // Default baseline or mapped stock
+              competing: []
+            };
 
-          const existing = demandMap.get(key) || {
-            materialName: item.materialName,
-            activityCode: item.activityCode,
-            unitCost: item.unitCost,
-            availableStock: item.currentStock,
-            competing: []
-          };
+            existing.competing.push({
+              projectId: proj.id,
+              projectCode: proj.code,
+              projectName: proj.name,
+              qtyRequired: qtyNeeded
+            });
 
-          existing.competing.push({
-            projectId: proj.id,
-            projectCode: proj.code,
-            projectName: proj.name,
-            qtyRequired: qtyNeeded
-          });
+            demandMap.set(key, existing);
+          }
+        }
+      } else {
+        for (const batch of proj.batchConfigurations) {
+          const batchItems = ProductionWorkflowService.getItems(
+            batch.gradeOrKitId !== 'ALL' ? { grade: batch.gradeOrKitId } : undefined
+          );
 
-          demandMap.set(key, existing);
+          for (const item of batchItems) {
+            const qtyNeeded = item.quantityPerKit * batch.targetQuantity;
+            const key = item.materialName.toLowerCase().trim();
+
+            const existing = demandMap.get(key) || {
+              materialName: item.materialName,
+              activityCode: item.activityCode,
+              unitCost: item.unitCost,
+              availableStock: item.currentStock,
+              competing: []
+            };
+
+            existing.competing.push({
+              projectId: proj.id,
+              projectCode: proj.code,
+              projectName: proj.name,
+              qtyRequired: qtyNeeded
+            });
+
+            demandMap.set(key, existing);
+          }
         }
       }
     }

@@ -1,110 +1,140 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import {
-  FolderKanban,
   Briefcase,
-  Layers,
-  Coins,
-  Users,
-  Calendar,
-  AlertTriangle,
   Plus,
-  ArrowUpRight,
-  ShieldCheck,
-  CheckCircle2,
-  Clock,
   Search,
   Filter,
-  TrendingUp,
-  Building2,
-  FileText,
-  Lock,
-  Download,
-  X,
+  Calendar,
+  Layers,
   Sparkles,
+  ArrowUpRight,
+  TrendingUp,
+  AlertTriangle,
+  Clock,
+  ExternalLink,
   ChevronRight,
+  FileSpreadsheet,
+  Edit2,
+  Trash2,
+  X,
   Package,
-  Scissors,
+  Wrench,
   FlaskConical,
-  Truck,
-  DollarSign,
-  Square
+  Scissors,
+  Printer,
+  ShoppingCart,
+  Building2,
+  Tag,
+  RefreshCw,
+  Info
 } from 'lucide-react';
 import {
-  INITIAL_PROJECTS,
   Project,
   ProjectCategory,
   ProjectStatus,
+  ProjectClassWork,
+  ProjectWorkItem,
+  WorkItemCategory,
+  WorkItemSourcingChannel,
+  WorkItemStatus,
   ProjectExpense
 } from '../../data/projectsDataset';
 import {
   ProjectManagementService,
   ProjectFinancials,
-  InventoryConflictItem,
-  PortfolioSummary
+  PortfolioSummary,
+  InventoryConflictItem
 } from '../../services/ProjectManagementService';
-import {
-  ProjectGanttService,
-  ProjectGanttItem,
-  WorkstationCapacity,
-  BottleneckAlert
-} from '../../services/ProjectGanttService';
 import { useToast } from '../../contexts/ToastContext';
 import { useAuth } from '../../AuthContext';
 
-export default function ProjectPortfolioManagerTab() {
+interface ProjectPortfolioManagerTabProps {
+  onNavigateToTab?: (tabId: string, params?: any) => void;
+}
+
+export default function ProjectPortfolioManagerTab({ onNavigateToTab }: ProjectPortfolioManagerTabProps = {}) {
   const { showToast } = useToast();
   const { user } = useAuth();
+  const workspaceRef = useRef<HTMLDivElement>(null);
 
-  // State
+  // Core State
   const [projects, setProjects] = useState<Project[]>(() => ProjectManagementService.getAllProjects());
   const [selectedProjectId, setSelectedProjectId] = useState<string>(projects[0]?.id || '');
-  const [activeProjectTab, setActiveProjectTab] = useState<'sourcing' | 'financials' | 'team' | 'timeline'>('sourcing');
+  const [activeClassId, setActiveClassId] = useState<string>('');
 
-  // Filters
+  // Filters for Project Roster
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedCategory, setSelectedCategory] = useState<ProjectCategory | 'ALL'>('ALL');
   const [selectedStatus, setSelectedStatus] = useState<ProjectStatus | 'ALL'>('ALL');
 
+  // Filters for Class Items
+  const [itemSearchQuery, setItemSearchQuery] = useState<string>('');
+  const [selectedItemCategory, setSelectedItemCategory] = useState<WorkItemCategory | 'ALL'>('ALL');
+  const [selectedItemSourcing, setSelectedItemSourcing] = useState<WorkItemSourcingChannel | 'ALL'>('ALL');
+  const [selectedItemStatus, setSelectedItemStatus] = useState<WorkItemStatus | 'ALL'>('ALL');
+
   // Modals
-  const [isCreateModalOpen, setIsCreateModalOpen] = useState<boolean>(false);
-  const [isExpenseModalOpen, setIsExpenseModalOpen] = useState<boolean>(false);
-  const [isConflictModalOpen, setIsConflictModalOpen] = useState<boolean>(false);
-  const [isSignOffModalOpen, setIsSignOffModalOpen] = useState<boolean>(false);
-  const [isInvoiceModalOpen, setIsInvoiceModalOpen] = useState<boolean>(false);
-
-  // Gantt and Capacity Data
-  const ganttTimelines: ProjectGanttItem[] = useMemo(() => {
-    return ProjectGanttService.getTimelineSchedule();
-  }, [projects]);
-
-  const workstationCapacity = useMemo(() => {
-    return ProjectGanttService.getWorkstationCapacity();
-  }, [projects]);
+  const [isCreateProjectModalOpen, setIsCreateProjectModalOpen] = useState<boolean>(false);
+  const [isEditProjectModalOpen, setIsEditProjectModalOpen] = useState<boolean>(false);
+  const [isAddClassModalOpen, setIsAddClassModalOpen] = useState<boolean>(false);
+  const [isAddEditItemModalOpen, setIsAddEditItemModalOpen] = useState<boolean>(false);
+  const [editingItem, setEditingItem] = useState<ProjectWorkItem | null>(null);
 
   // New Project Form State
-  const [newCode, setNewCode] = useState<string>('');
-  const [newName, setNewName] = useState<string>('');
-  const [newCategory, setNewCategory] = useState<ProjectCategory>('STEM_CURRICULUM');
-  const [newClient, setNewClient] = useState<string>('');
-  const [newBudget, setNewBudget] = useState<number>(100000);
-  const [newRevenue, setNewRevenue] = useState<number>(150000);
-  const [newPriority, setNewPriority] = useState<'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL'>('HIGH');
-  const [newStartDate, setNewStartDate] = useState<string>(new Date().toISOString().split('T')[0]);
-  const [newDeliveryDate, setNewDeliveryDate] = useState<string>(new Date(Date.now() + 30 * 86400000).toISOString().split('T')[0]);
+  const [templateType, setTemplateType] = useState<'CURRICULUM' | 'STANDARD_LAB' | 'BLANK'>('CURRICULUM');
+  const [projectFormCode, setProjectFormCode] = useState<string>('');
+  const [projectFormName, setProjectFormName] = useState<string>('');
+  const [projectFormClient, setProjectFormClient] = useState<string>('');
+  const [projectFormCategory, setProjectFormCategory] = useState<ProjectCategory>('STEM_CURRICULUM');
+  const [projectFormLead, setProjectFormLead] = useState<string>('Dr. Samartha HM');
+  const [projectFormAssignedBy, setProjectFormAssignedBy] = useState<string>('Operations Director');
+  const [projectFormPriority, setProjectFormPriority] = useState<'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL'>('HIGH');
+  const [projectFormStatus, setProjectFormStatus] = useState<ProjectStatus>('PLANNING');
+  const [projectFormStartDate, setProjectFormStartDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [projectFormDeliveryDate, setProjectFormDeliveryDate] = useState<string>(new Date(Date.now() + 30 * 86400000).toISOString().split('T')[0]);
+  const [projectFormBatchMultiplier, setProjectFormBatchMultiplier] = useState<number>(1);
+  const [projectFormBudget, setProjectFormBudget] = useState<string>('');
+  const [projectFormRevenue, setProjectFormRevenue] = useState<string>('');
+  const [projectFormDesc, setProjectFormDesc] = useState<string>('');
 
-  // Expense Form State
-  const [expCategory, setExpCategory] = useState<'MATERIAL' | 'LASER_MACHINE' | 'CHEMICAL_PREP' | 'VENDOR_PO' | 'SHIPPING' | 'LABOR'>('MATERIAL');
-  const [expDescription, setExpDescription] = useState<string>('');
-  const [expAmount, setExpAmount] = useState<number>(5000);
-  const [expRef, setExpRef] = useState<string>('');
+  // Class Form State
+  const [newClassName, setNewClassName] = useState<string>('Class 6');
+  const [newClassDesc, setNewClassDesc] = useState<string>('');
+  const [newClassBatchMultiplier, setNewClassBatchMultiplier] = useState<number>(1);
 
-  // Sign-off Form State
-  const [signOffComments, setSignOffComments] = useState<string>('');
+  // Work Item Form State
+  const [itemFormName, setItemFormName] = useState<string>('');
+  const [itemFormCategory, setItemFormCategory] = useState<WorkItemCategory>('ACTIVITY_KIT');
+  const [itemFormSpec, setItemFormSpec] = useState<string>('');
+  const [itemFormQty, setItemFormQty] = useState<number>(1);
+  const [itemFormUnit, setItemFormUnit] = useState<string>('pcs');
+  const [itemFormSourcing, setItemFormSourcing] = useState<WorkItemSourcingChannel>('BUY_LOCAL');
+  const [itemFormStatus, setItemFormStatus] = useState<WorkItemStatus>('PENDING');
+  const [itemFormCost, setItemFormCost] = useState<string>('');
+  const [itemFormAssignee, setItemFormAssignee] = useState<string>('Ravi Kumar (Lead Tech)');
+  const [itemFormChapter, setItemFormChapter] = useState<string>('');
+  const [itemFormNotes, setItemFormNotes] = useState<string>('');
 
-  // Selected Project & Calculations
+  // Selected Project & Sync
   const selectedProject = useMemo(() => {
     return projects.find(p => p.id === selectedProjectId) || projects[0] || null;
   }, [projects, selectedProjectId]);
+
+  // Set active class when selected project changes
+  useEffect(() => {
+    if (selectedProject && selectedProject.classes && selectedProject.classes.length > 0) {
+      if (!activeClassId || !selectedProject.classes.some(c => c.id === activeClassId)) {
+        setActiveClassId(selectedProject.classes[0].id);
+      }
+    } else {
+      setActiveClassId('');
+    }
+  }, [selectedProject, activeClassId]);
+
+  const activeClass = useMemo(() => {
+    if (!selectedProject || !selectedProject.classes) return null;
+    return selectedProject.classes.find(c => c.id === activeClassId) || selectedProject.classes[0] || null;
+  }, [selectedProject, activeClassId]);
 
   const selectedFinancials: ProjectFinancials | null = useMemo(() => {
     if (!selectedProject) return null;
@@ -113,10 +143,6 @@ export default function ProjectPortfolioManagerTab() {
 
   const portfolioSummary: PortfolioSummary = useMemo(() => {
     return ProjectManagementService.getPortfolioSummary();
-  }, [projects]);
-
-  const conflicts: InventoryConflictItem[] = useMemo(() => {
-    return ProjectManagementService.detectInventoryConflicts();
   }, [projects]);
 
   // Filtered Projects
@@ -130,214 +156,532 @@ export default function ProjectPortfolioManagerTab() {
           p.name.toLowerCase().includes(q) ||
           p.code.toLowerCase().includes(q) ||
           p.clientName.toLowerCase().includes(q) ||
-          p.leadUserName.toLowerCase().includes(q)
+          p.leadUserName.toLowerCase().includes(q) ||
+          (p.assignedBy && p.assignedBy.toLowerCase().includes(q))
         );
       }
       return true;
     });
   }, [projects, selectedCategory, selectedStatus, searchQuery]);
 
-  // Handlers
-  const handleCreateProject = (e: React.FormEvent) => {
+  // Filtered Class Work Items
+  const filteredClassItems = useMemo(() => {
+    if (!activeClass || !activeClass.items) return [];
+    return activeClass.items.filter(item => {
+      if (selectedItemCategory !== 'ALL' && item.category !== selectedItemCategory) return false;
+      if (selectedItemSourcing !== 'ALL' && item.sourcingChannel !== selectedItemSourcing) return false;
+      if (selectedItemStatus !== 'ALL' && item.status !== selectedItemStatus) return false;
+      if (itemSearchQuery.trim()) {
+        const q = itemSearchQuery.toLowerCase().trim();
+        return (
+          item.name.toLowerCase().includes(q) ||
+          item.specification.toLowerCase().includes(q) ||
+          (item.sourceChapter && item.sourceChapter.toLowerCase().includes(q)) ||
+          (item.leadAssignee && item.leadAssignee.toLowerCase().includes(q))
+        );
+      }
+      return true;
+    });
+  }, [activeClass, selectedItemCategory, selectedItemSourcing, selectedItemStatus, itemSearchQuery]);
+
+  // Class Statistics
+  const classStats = useMemo(() => {
+    if (!activeClass || !activeClass.items || activeClass.items.length === 0) {
+      return { total: 0, ready: 0, inPrep: 0, pending: 0, packed: 0, pctReady: 0 };
+    }
+    const total = activeClass.items.length;
+    const ready = activeClass.items.filter(i => i.status === 'READY').length;
+    const inPrep = activeClass.items.filter(i => i.status === 'IN_PREP').length;
+    const pending = activeClass.items.filter(i => i.status === 'PENDING').length;
+    const packed = activeClass.items.filter(i => i.status === 'PACKED').length;
+    const pctReady = Math.round(((ready + packed) / total) * 100);
+    return { total, ready, inPrep, pending, packed, pctReady };
+  }, [activeClass]);
+
+  // Total Project Items Statistics
+  const projectStats = useMemo(() => {
+    if (!selectedProject || !selectedProject.classes) return { totalItems: 0, completedItems: 0, percent: 0 };
+    let total = 0;
+    let done = 0;
+    selectedProject.classes.forEach(c => {
+      (c.items || []).forEach(i => {
+        total++;
+        if (i.status === 'READY' || i.status === 'PACKED') done++;
+      });
+    });
+    const percent = total > 0 ? Math.round((done / total) * 100) : 0;
+    return { totalItems: total, completedItems: done, percent };
+  }, [selectedProject]);
+
+  // Helper Functions
+  const refreshProjectsList = (selectId?: string) => {
+    const list = ProjectManagementService.getAllProjects();
+    setProjects([...list]);
+    if (selectId) setSelectedProjectId(selectId);
+  };
+
+  const handleSelectProjectAndScroll = (id: string) => {
+    setSelectedProjectId(id);
+    if (workspaceRef.current) {
+      workspaceRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  };
+
+  // Create Project Submit
+  const handleCreateProjectSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newName.trim()) {
+    if (!projectFormName.trim()) {
       showToast('Project name is required', 'error');
       return;
     }
+
     const created = ProjectManagementService.createProject(
       {
-        code: newCode || `PRJ-EXP-${Date.now().toString().slice(-4)}`,
-        name: newName,
-        category: newCategory,
-        clientName: newClient || 'General Institutional Client',
-        budgetINR: newBudget,
-        invoicedRevenueINR: newRevenue,
-        priority: newPriority,
-        startDate: newStartDate,
-        targetDeliveryDate: newDeliveryDate,
-        leadUserId: user?.id || 'usr-admin-01',
-        leadUserName: user?.name || 'Dr. Samartha HM',
-        assignedUserIds: [user?.id || 'usr-admin-01'],
-        assignedUserNames: [user?.name || 'Dr. Samartha HM'],
-        batchConfigurations: [
-          { gradeOrKitId: 'Grade 10', kitName: 'Grade 10 STEM Science & Math', targetQuantity: 10 }
-        ]
+        code: projectFormCode.trim() || undefined,
+        name: projectFormName.trim(),
+        clientName: projectFormClient.trim() || 'General Institutional Client',
+        category: projectFormCategory,
+        leadUserName: projectFormLead.trim() || 'Dr. Samartha HM',
+        assignedBy: projectFormAssignedBy.trim() || 'Operations Lead',
+        priority: projectFormPriority,
+        status: projectFormStatus,
+        startDate: projectFormStartDate,
+        targetDeliveryDate: projectFormDeliveryDate,
+        defaultBatchMultiplier: Math.max(1, Number(projectFormBatchMultiplier) || 1),
+        budgetINR: projectFormBudget ? Number(projectFormBudget) : undefined,
+        invoicedRevenueINR: projectFormRevenue ? Number(projectFormRevenue) : undefined,
+        description: projectFormDesc.trim()
       },
-      { id: user?.id || 'usr-admin-01', name: user?.name || 'Dr. Samartha HM', role: user?.role || 'admin' }
+      { id: user?.id || 'usr-admin-01', name: user?.name || 'Dr. Samartha HM', role: 'admin' },
+      templateType
     );
 
-    setProjects([...ProjectManagementService.getAllProjects()]);
-    setSelectedProjectId(created.id);
-    setIsCreateModalOpen(false);
-    showToast(`Project ${created.name} initiated successfully!`, 'success');
+    refreshProjectsList(created.id);
+    setIsCreateProjectModalOpen(false);
+    showToast(`Project "${created.name}" created successfully!`, 'success');
+
+    // Reset Form
+    setProjectFormName('');
+    setProjectFormCode('');
+    setProjectFormClient('');
+    setProjectFormBudget('');
+    setProjectFormRevenue('');
+    setProjectFormDesc('');
   };
 
-  const handleLogExpense = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selectedProject || !expDescription.trim() || expAmount <= 0) {
-      showToast('Valid description and amount required', 'error');
-      return;
-    }
-
-    const exp = ProjectManagementService.logProjectExpense(
-      selectedProject.id,
-      {
-        date: new Date().toISOString().split('T')[0],
-        category: expCategory,
-        description: expDescription,
-        amountINR: expAmount,
-        loggedByUserId: user?.id || 'usr-admin-01',
-        loggedByUserName: user?.name || 'Dr. Samartha HM',
-        receiptOrPoRef: expRef || undefined
-      },
-      { id: user?.id || 'usr-admin-01', name: user?.name || 'Dr. Samartha HM', role: user?.role || 'admin' }
-    );
-
-    if (exp) {
-      setProjects([...ProjectManagementService.getAllProjects()]);
-      setIsExpenseModalOpen(false);
-      setExpDescription('');
-      setExpAmount(5000);
-      setExpRef('');
-      showToast(`Logged ₹${exp.amountINR.toLocaleString('en-IN')} under ${exp.category}!`, 'success');
-    }
+  // Open Edit Project Modal
+  const handleOpenEditProject = () => {
+    if (!selectedProject) return;
+    setProjectFormCode(selectedProject.code);
+    setProjectFormName(selectedProject.name);
+    setProjectFormClient(selectedProject.clientName);
+    setProjectFormCategory(selectedProject.category);
+    setProjectFormLead(selectedProject.leadUserName);
+    setProjectFormAssignedBy(selectedProject.assignedBy || 'Operations Lead');
+    setProjectFormPriority(selectedProject.priority);
+    setProjectFormStatus(selectedProject.status);
+    setProjectFormStartDate(selectedProject.startDate);
+    setProjectFormDeliveryDate(selectedProject.targetDeliveryDate);
+    setProjectFormBatchMultiplier(selectedProject.defaultBatchMultiplier || 1);
+    setProjectFormBudget(selectedProject.budgetINR !== undefined ? String(selectedProject.budgetINR) : '');
+    setProjectFormRevenue(selectedProject.invoicedRevenueINR !== undefined ? String(selectedProject.invoicedRevenueINR) : '');
+    setProjectFormDesc(selectedProject.description || '');
+    setIsEditProjectModalOpen(true);
   };
 
-  const handleExecuteSignOff = (e: React.FormEvent) => {
+  // Save Edit Project
+  const handleSaveEditProject = (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedProject) return;
 
-    const updated = ProjectManagementService.signOffProjectQA(selectedProject.id, {
-      userId: user?.id || 'usr-admin-01',
-      userName: user?.name || 'Dr. Samartha HM',
-      role: user?.role || 'admin',
-      comments: signOffComments || 'All batch kits inspected, packaged, and verified under 21 CFR Part 11 standards.'
+    ProjectManagementService.updateProject(
+      selectedProject.id,
+      {
+        code: projectFormCode.trim(),
+        name: projectFormName.trim(),
+        clientName: projectFormClient.trim(),
+        category: projectFormCategory,
+        leadUserName: projectFormLead.trim(),
+        assignedBy: projectFormAssignedBy.trim(),
+        priority: projectFormPriority,
+        status: projectFormStatus,
+        startDate: projectFormStartDate,
+        targetDeliveryDate: projectFormDeliveryDate,
+        defaultBatchMultiplier: Math.max(1, Number(projectFormBatchMultiplier) || 1),
+        budgetINR: projectFormBudget ? Number(projectFormBudget) : undefined,
+        invoicedRevenueINR: projectFormRevenue ? Number(projectFormRevenue) : undefined,
+        description: projectFormDesc.trim()
+      },
+      { id: user?.id || 'usr-admin-01', name: user?.name || 'Dr. Samartha HM', role: 'admin' }
+    );
+
+    refreshProjectsList(selectedProject.id);
+    setIsEditProjectModalOpen(false);
+    showToast('Project updated successfully!', 'success');
+  };
+
+  // Delete Project
+  const handleDeleteProject = (id: string, name: string) => {
+    if (window.confirm(`Are you sure you want to delete project "${name}"? This action cannot be undone.`)) {
+      ProjectManagementService.deleteProject(id);
+      refreshProjectsList();
+      showToast(`Deleted project "${name}"`, 'success');
+    }
+  };
+
+  // Class Multiplier Change
+  const handleClassMultiplierChange = (newMultiplier: number) => {
+    if (!selectedProject || !activeClass) return;
+    const val = Math.max(1, Number(newMultiplier) || 1);
+    ProjectManagementService.updateClass(selectedProject.id, activeClass.id, { batchMultiplier: val });
+    refreshProjectsList(selectedProject.id);
+    showToast(`Updated ${activeClass.name} batch multiplier to ${val}x`, 'info');
+  };
+
+  // Add Class
+  const handleAddClassSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedProject || !newClassName.trim()) return;
+
+    const added = ProjectManagementService.addClassToProject(selectedProject.id, {
+      name: newClassName.trim(),
+      description: newClassDesc.trim(),
+      batchMultiplier: Math.max(1, Number(newClassBatchMultiplier) || 1)
     });
 
+    refreshProjectsList(selectedProject.id);
+    if (added) setActiveClassId(added.id);
+    setIsAddClassModalOpen(false);
+    setNewClassName('');
+    setNewClassDesc('');
+    showToast(`Added ${newClassName} to project!`, 'success');
+  };
+
+  // Delete Class
+  const handleDeleteClass = (classId: string, className: string) => {
+    if (!selectedProject) return;
+    if (window.confirm(`Remove "${className}" and all its deliverables from this project?`)) {
+      ProjectManagementService.removeClassFromProject(selectedProject.id, classId);
+      refreshProjectsList(selectedProject.id);
+      showToast(`Removed ${className}`, 'info');
+    }
+  };
+
+  // Open Add Work Item
+  const handleOpenAddItem = () => {
+    setEditingItem(null);
+    setItemFormName('');
+    setItemFormCategory('ACTIVITY_KIT');
+    setItemFormSpec('');
+    setItemFormQty(1);
+    setItemFormUnit('pcs');
+    setItemFormSourcing('BUY_LOCAL');
+    setItemFormStatus('PENDING');
+    setItemFormCost('');
+    setItemFormAssignee(selectedProject?.leadUserName || 'Ravi Kumar (Lead Tech)');
+    setItemFormChapter('');
+    setItemFormNotes('');
+    setIsAddEditItemModalOpen(true);
+  };
+
+  // Open Edit Work Item
+  const handleOpenEditItem = (item: ProjectWorkItem) => {
+    setEditingItem(item);
+    setItemFormName(item.name);
+    setItemFormCategory(item.category);
+    setItemFormSpec(item.specification);
+    setItemFormQty(item.quantityPerBatchUnit);
+    setItemFormUnit(item.unit);
+    setItemFormSourcing(item.sourcingChannel);
+    setItemFormStatus(item.status);
+    setItemFormCost(item.unitCost !== undefined ? String(item.unitCost) : '');
+    setItemFormAssignee(item.leadAssignee || '');
+    setItemFormChapter(item.sourceChapter || '');
+    setItemFormNotes(item.notes || '');
+    setIsAddEditItemModalOpen(true);
+  };
+
+  // Save Work Item (Add or Edit)
+  const handleSaveWorkItem = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedProject || !activeClass || !itemFormName.trim()) {
+      showToast('Item name is required', 'error');
+      return;
+    }
+
+    if (editingItem) {
+      ProjectManagementService.updateWorkItem(selectedProject.id, activeClass.id, editingItem.id, {
+        name: itemFormName.trim(),
+        category: itemFormCategory,
+        specification: itemFormSpec.trim(),
+        quantityPerBatchUnit: Math.max(1, Number(itemFormQty) || 1),
+        unit: itemFormUnit.trim() || 'pcs',
+        sourcingChannel: itemFormSourcing,
+        status: itemFormStatus,
+        unitCost: itemFormCost ? Number(itemFormCost) : undefined,
+        leadAssignee: itemFormAssignee.trim(),
+        sourceChapter: itemFormChapter.trim() || undefined,
+        notes: itemFormNotes.trim() || undefined
+      });
+      showToast(`Updated deliverable "${itemFormName}"`, 'success');
+    } else {
+      ProjectManagementService.addWorkItem(selectedProject.id, activeClass.id, {
+        name: itemFormName.trim(),
+        category: itemFormCategory,
+        specification: itemFormSpec.trim(),
+        quantityPerBatchUnit: Math.max(1, Number(itemFormQty) || 1),
+        unit: itemFormUnit.trim() || 'pcs',
+        sourcingChannel: itemFormSourcing,
+        status: itemFormStatus,
+        unitCost: itemFormCost ? Number(itemFormCost) : undefined,
+        leadAssignee: itemFormAssignee.trim(),
+        sourceChapter: itemFormChapter.trim() || undefined,
+        notes: itemFormNotes.trim() || undefined
+      });
+      showToast(`Added "${itemFormName}" to ${activeClass.name}`, 'success');
+    }
+
+    refreshProjectsList(selectedProject.id);
+    setIsAddEditItemModalOpen(false);
+  };
+
+  // Toggle Work Item Status
+  const handleToggleItemStatus = (itemId: string) => {
+    if (!selectedProject || !activeClass) return;
+    const updated = ProjectManagementService.cycleWorkItemStatus(selectedProject.id, activeClass.id, itemId);
+    refreshProjectsList(selectedProject.id);
     if (updated) {
-      setProjects([...ProjectManagementService.getAllProjects()]);
-      setIsSignOffModalOpen(false);
-      setSignOffComments('');
-      showToast(`21 CFR Part 11 Electronic Signature executed for ${updated.name}!`, 'success');
+      showToast(`Status updated to ${updated.status}`, 'info');
     }
   };
 
-  const getStatusBadge = (status: ProjectStatus) => {
-    switch (status) {
-      case 'COMPLETED':
-        return <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center gap-1"><CheckCircle2 className="w-3 h-3" /> Completed</span>;
-      case 'ASSEMBLY_QC':
-        return <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 flex items-center gap-1"><ShieldCheck className="w-3 h-3" /> Assembly & QC</span>;
-      case 'IN_PREP':
-        return <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-purple-500/20 text-purple-300 border border-purple-500/30 flex items-center gap-1"><FlaskConical className="w-3 h-3" /> In Prep</span>;
-      case 'PROCURING':
-        return <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30 flex items-center gap-1"><Truck className="w-3 h-3" /> Procuring</span>;
-      default:
-        return <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-slate-700/50 text-slate-300 border border-slate-600/30 flex items-center gap-1"><Clock className="w-3 h-3" /> Planning</span>;
+  // Delete Work Item
+  const handleDeleteItem = (itemId: string, itemName: string) => {
+    if (!selectedProject || !activeClass) return;
+    if (window.confirm(`Delete item "${itemName}"?`)) {
+      ProjectManagementService.deleteWorkItem(selectedProject.id, activeClass.id, itemId);
+      refreshProjectsList(selectedProject.id);
+      showToast(`Deleted "${itemName}"`, 'info');
     }
   };
 
+  // Export Class Checklist CSV
+  const handleExportCSV = () => {
+    if (!selectedProject || !activeClass || !activeClass.items) return;
+    const headers = ['Class', 'Item Name', 'Category', 'Sourcing Channel', 'Base Qty', 'Total Qty', 'Unit', 'Unit Cost (INR)', 'Total Cost (INR)', 'Assignee', 'Status', 'Specification', 'Notes'];
+    const rows = activeClass.items.map(i => [
+      `"${activeClass.name}"`,
+      `"${i.name.replace(/"/g, '""')}"`,
+      `"${i.category}"`,
+      `"${i.sourcingChannel}"`,
+      i.quantityPerBatchUnit,
+      i.totalQuantity,
+      `"${i.unit}"`,
+      i.unitCost || 0,
+      (i.unitCost || 0) * i.totalQuantity,
+      `"${i.leadAssignee || ''}"`,
+      `"${i.status}"`,
+      `"${(i.specification || '').replace(/"/g, '""')}"`,
+      `"${(i.notes || '').replace(/"/g, '""')}"`
+    ]);
+
+    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement('a');
+    link.setAttribute('href', encodedUri);
+    link.setAttribute('download', `${selectedProject.code}_${activeClass.name.replace(/\s+/g, '_')}_Deliverables.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    showToast(`Exported ${activeClass.name} checklist to CSV!`, 'success');
+  };
+
+  // Badges & Color Helpers
   const getCategoryBadge = (cat: ProjectCategory) => {
     switch (cat) {
       case 'STEM_CURRICULUM':
-        return <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">STEM Curriculum</span>;
+        return <span className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 text-[10px] font-bold px-2 py-0.5 rounded-full">STEM Curriculum</span>;
       case 'IOT_HARDWARE':
-        return <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">IoT Hardware</span>;
+        return <span className="bg-cyan-500/10 text-cyan-400 border border-cyan-500/30 text-[10px] font-bold px-2 py-0.5 rounded-full">IoT Hardware</span>;
       case 'CUSTOM_INSTITUTIONAL':
-        return <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-amber-500/20 text-amber-300 border border-amber-500/30">Custom B2B</span>;
+        return <span className="bg-amber-500/10 text-amber-400 border border-amber-500/30 text-[10px] font-bold px-2 py-0.5 rounded-full">Custom B2B</span>;
       default:
-        return <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-purple-500/20 text-purple-300 border border-purple-500/30">R&D Prototype</span>;
+        return <span className="bg-purple-500/10 text-purple-400 border border-purple-500/30 text-[10px] font-bold px-2 py-0.5 rounded-full">Prototype</span>;
+    }
+  };
+
+  const getStatusBadge = (st: ProjectStatus) => {
+    switch (st) {
+      case 'PLANNING':
+        return <span className="bg-slate-500/10 text-slate-400 border border-slate-500/30 text-[10px] font-bold px-2 py-0.5 rounded-full">Planning</span>;
+      case 'PROCURING':
+        return <span className="bg-blue-500/10 text-blue-400 border border-blue-500/30 text-[10px] font-bold px-2 py-0.5 rounded-full">Procuring</span>;
+      case 'IN_PREP':
+        return <span className="bg-amber-500/10 text-amber-400 border border-amber-500/30 text-[10px] font-bold px-2 py-0.5 rounded-full">In Preparation</span>;
+      case 'ASSEMBLY_QC':
+        return <span className="bg-purple-500/10 text-purple-400 border border-purple-500/30 text-[10px] font-bold px-2 py-0.5 rounded-full">Assembly & QC</span>;
+      case 'COMPLETED':
+        return <span className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 text-[10px] font-bold px-2 py-0.5 rounded-full">Completed</span>;
+      default:
+        return <span className="bg-rose-500/10 text-rose-400 border border-rose-500/30 text-[10px] font-bold px-2 py-0.5 rounded-full">Archived</span>;
+    }
+  };
+
+  const getItemCategoryBadge = (cat: WorkItemCategory) => {
+    switch (cat) {
+      case 'ACTIVITY_KIT':
+        return <span className="inline-flex items-center gap-1 bg-amber-500/15 text-amber-300 border border-amber-500/30 text-[10px] font-bold px-2 py-0.5 rounded-lg"><Package className="w-3 h-3" /> Kit Pouch</span>;
+      case 'WORKING_MODEL':
+        return <span className="inline-flex items-center gap-1 bg-indigo-500/15 text-indigo-300 border border-indigo-500/30 text-[10px] font-bold px-2 py-0.5 rounded-lg"><Wrench className="w-3 h-3" /> Demo Model</span>;
+      case 'EDUCATIONAL_CHART':
+        return <span className="inline-flex items-center gap-1 bg-teal-500/15 text-teal-300 border border-teal-500/30 text-[10px] font-bold px-2 py-0.5 rounded-lg"><FileSpreadsheet className="w-3 h-3" /> Chart / Poster</span>;
+      case 'FABRICATION_LASER_3D':
+        return <span className="inline-flex items-center gap-1 bg-rose-500/15 text-rose-300 border border-rose-500/30 text-[10px] font-bold px-2 py-0.5 rounded-lg"><Scissors className="w-3 h-3" /> Laser / 3D Cut</span>;
+      case 'CHEMICAL_REAGENT':
+        return <span className="inline-flex items-center gap-1 bg-orange-500/15 text-orange-300 border border-orange-500/30 text-[10px] font-bold px-2 py-0.5 rounded-lg"><FlaskConical className="w-3 h-3" /> Chemical Sol.</span>;
+      case 'HARDWARE_SUPPLIES':
+        return <span className="inline-flex items-center gap-1 bg-blue-500/15 text-blue-300 border border-blue-500/30 text-[10px] font-bold px-2 py-0.5 rounded-lg"><ShoppingCart className="w-3 h-3" /> Hardware / Glass</span>;
+    }
+  };
+
+  const getSourcingBadge = (channel: WorkItemSourcingChannel) => {
+    switch (channel) {
+      case 'BUY_LOCAL':
+        return <span className="bg-amber-950/60 text-amber-300 border border-amber-800/60 text-[10px] px-2 py-0.5 rounded font-mono">🛒 Buy Local</span>;
+      case 'ORDER_ONLINE':
+        return <span className="bg-blue-950/60 text-blue-300 border border-blue-800/60 text-[10px] px-2 py-0.5 rounded font-mono">📦 Order Online</span>;
+      case 'LASER_CUT':
+        return <span className="bg-rose-950/60 text-rose-300 border border-rose-800/60 text-[10px] px-2 py-0.5 rounded font-mono">🪵 Laser Cut</span>;
+      case '3D_PRINT':
+        return <span className="bg-purple-950/60 text-purple-300 border border-purple-800/60 text-[10px] px-2 py-0.5 rounded font-mono">🖨️ 3D Print</span>;
+      case 'FOAM_CUT':
+        return <span className="bg-pink-950/60 text-pink-300 border border-pink-800/60 text-[10px] px-2 py-0.5 rounded font-mono">✂️ Foam Cut</span>;
+      case 'CHEMICAL_PREP':
+        return <span className="bg-orange-950/60 text-orange-300 border border-orange-800/60 text-[10px] px-2 py-0.5 rounded font-mono">⚗️ Chemical Prep</span>;
+      case 'CHART_PRINT':
+        return <span className="bg-teal-950/60 text-teal-300 border border-teal-800/60 text-[10px] px-2 py-0.5 rounded font-mono">📊 Plot / Print</span>;
+      case 'MODEL_ASSEMBLY':
+        return <span className="bg-indigo-950/60 text-indigo-300 border border-indigo-800/60 text-[10px] px-2 py-0.5 rounded font-mono">⚙️ Model Assembly</span>;
+      case 'IN_STOCK':
+        return <span className="bg-emerald-950/60 text-emerald-300 border border-emerald-800/60 text-[10px] px-2 py-0.5 rounded font-mono">✅ In Stock</span>;
+    }
+  };
+
+  const getItemStatusButton = (status: WorkItemStatus, itemId: string) => {
+    switch (status) {
+      case 'PENDING':
+        return (
+          <button
+            onClick={() => handleToggleItemStatus(itemId)}
+            title="Click to cycle status to IN_PREP"
+            className="inline-flex items-center gap-1 bg-slate-800 text-slate-300 hover:bg-slate-700 border border-slate-700 px-2 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer"
+          >
+            <Clock className="w-3 h-3 text-slate-400" /> Pending
+          </button>
+        );
+      case 'IN_PREP':
+        return (
+          <button
+            onClick={() => handleToggleItemStatus(itemId)}
+            title="Click to cycle status to READY"
+            className="inline-flex items-center gap-1 bg-amber-500/20 text-amber-300 hover:bg-amber-500/30 border border-amber-500/40 px-2 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer"
+          >
+            <RefreshCw className="w-3 h-3 text-amber-400 animate-spin" /> In Prep
+          </button>
+        );
+      case 'READY':
+        return (
+          <button
+            onClick={() => handleToggleItemStatus(itemId)}
+            title="Click to cycle status to PACKED"
+            className="inline-flex items-center gap-1 bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/30 border border-emerald-500/40 px-2 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer"
+          >
+            <Sparkles className="w-3 h-3 text-emerald-400" /> Ready
+          </button>
+        );
+      case 'PACKED':
+        return (
+          <button
+            onClick={() => handleToggleItemStatus(itemId)}
+            title="Click to cycle status to PENDING"
+            className="inline-flex items-center gap-1 bg-cyan-500/20 text-cyan-300 hover:bg-cyan-500/30 border border-cyan-500/40 px-2 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer"
+          >
+            <Package className="w-3 h-3 text-cyan-400" /> Packed
+          </button>
+        );
     }
   };
 
   return (
-    <div className="space-y-6">
-      {/* ===== 1. Portfolio Cockpit Header ===== */}
-      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-slate-900 via-slate-950 to-indigo-950 p-6 md:p-8 border border-indigo-500/20 shadow-2xl">
-        <div className="absolute top-0 right-0 w-96 h-96 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute -bottom-10 left-20 w-80 h-80 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none" />
-
-        <div className="relative z-10 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
-          <div className="space-y-2 max-w-2xl">
-            <div className="flex items-center gap-2">
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 tracking-wide uppercase">
-                <FolderKanban className="w-3.5 h-3.5" /> Multi-Project Portfolio Command
-              </span>
-              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                <ShieldCheck className="w-3.5 h-3.5" /> 21 CFR Part 11 Audit
-              </span>
+    <div className="space-y-8 pb-20 text-slate-200">
+      {/* ===== 1. Executive Operations Header & KPI Ribbon ===== */}
+      <div className="bg-gradient-to-r from-slate-900 via-indigo-950/40 to-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl relative overflow-hidden">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 relative z-10">
+          <div className="space-y-2">
+            <div className="inline-flex items-center gap-2 bg-indigo-500/10 border border-indigo-500/20 px-3 py-1 rounded-full text-indigo-400 text-xs font-semibold">
+              <Briefcase className="w-3.5 h-3.5" /> Multi-Project Operations & Class-Wise Deliverables Cockpit
             </div>
-            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-black text-white tracking-tight">
-              Projects & Financial Cost Accounting Hub
+            <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
+              Project Portfolio & Class Production Manager
             </h1>
-            <p className="text-slate-300 text-xs sm:text-sm leading-relaxed">
-              Manage multiple concurrent manufacturing runs, school curriculum batches, and IoT hardware projects with isolated cost centers, live P&L accounting, and operator traceability.
+            <p className="text-sm text-slate-400 max-w-3xl">
+              100% customizable planning, fabrication, and class-wise tracking. Monitor activity pouches, demonstration models, wall charts, laser-cut parts, chemicals, and hardware supplies for every educational project.
             </p>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             <button
-              onClick={() => setIsCreateModalOpen(true)}
-              className="px-4 py-2.5 rounded-2xl text-xs font-bold bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white flex items-center gap-2 shadow-lg shadow-indigo-500/25 transition-all scale-105"
+              onClick={() => setIsCreateProjectModalOpen(true)}
+              className="inline-flex items-center gap-2 bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 text-white px-4 py-2.5 rounded-xl font-bold text-xs shadow-lg shadow-indigo-500/25 transition-all cursor-pointer"
             >
-              <Plus className="w-4 h-4" /> New Project
-            </button>
-            <button
-              onClick={() => setIsConflictModalOpen(true)}
-              className={`px-4 py-2.5 rounded-2xl text-xs font-bold flex items-center gap-2 transition-all ${
-                conflicts.length > 0
-                  ? 'bg-rose-500/20 text-rose-300 border border-rose-500/40 hover:bg-rose-500/30'
-                  : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
-              }`}
-            >
-              <AlertTriangle className="w-4 h-4" />
-              <span>Stock Conflicts ({conflicts.length})</span>
+              <Plus className="w-4 h-4" /> + New Project
             </button>
           </div>
         </div>
 
-        {/* Global Portfolio KPIs */}
+        {/* Global KPI Stats */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-6 pt-6 border-t border-slate-800/80">
-          <div className="bg-slate-950/60 p-4 rounded-2xl border border-slate-800">
-            <div className="text-[11px] font-bold text-slate-400 uppercase">Active Initiatives</div>
-            <div className="text-2xl font-black text-indigo-400 mt-1">{portfolioSummary.activeProjectsCount} / {portfolioSummary.totalProjects}</div>
-            <div className="text-[10px] text-slate-400 mt-1">Concurrent production runs</div>
+          <div className="bg-slate-950/60 rounded-2xl p-4 border border-slate-800">
+            <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Total Projects</div>
+            <div className="text-2xl font-black text-white mt-1 font-mono">{portfolioSummary.totalProjects}</div>
+            <div className="text-[10px] text-indigo-400 mt-1">{portfolioSummary.activeProjectsCount} Active in Flight</div>
           </div>
-
-          <div className="bg-slate-950/60 p-4 rounded-2xl border border-slate-800">
-            <div className="text-[11px] font-bold text-slate-400 uppercase">Portfolio Revenue</div>
-            <div className="text-2xl font-black text-emerald-400 mt-1 font-mono">₹{portfolioSummary.totalRevenueINR.toLocaleString('en-IN')}</div>
-            <div className="text-[10px] text-slate-400 mt-1">Invoiced Institutional Orders</div>
+          <div className="bg-slate-950/60 rounded-2xl p-4 border border-slate-800">
+            <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Selected Project Progress</div>
+            <div className="text-2xl font-black text-emerald-400 mt-1 font-mono">{projectStats.percent}%</div>
+            <div className="text-[10px] text-slate-400 mt-1">{projectStats.completedItems} / {projectStats.totalItems} Items Ready</div>
           </div>
-
-          <div className="bg-slate-950/60 p-4 rounded-2xl border border-slate-800">
-            <div className="text-[11px] font-bold text-slate-400 uppercase">Total Expenses</div>
-            <div className="text-2xl font-black text-purple-400 mt-1 font-mono">₹{portfolioSummary.totalExpensesINR.toLocaleString('en-IN')}</div>
-            <div className="text-[10px] text-slate-400 mt-1">Material, Laser & Aliquots</div>
+          <div className="bg-slate-950/60 rounded-2xl p-4 border border-slate-800">
+            <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Approved Budget (Optional)</div>
+            <div className="text-2xl font-black text-slate-200 mt-1 font-mono">
+              {portfolioSummary.totalBudgetINR > 0 ? `₹${portfolioSummary.totalBudgetINR.toLocaleString('en-IN')}` : '—'}
+            </div>
+            <div className="text-[10px] text-slate-400 mt-1">Total Portfolio Allocation</div>
           </div>
-
-          <div className="bg-slate-950/60 p-4 rounded-2xl border border-slate-800">
-            <div className="text-[11px] font-bold text-slate-400 uppercase">Portfolio Gross Margin</div>
-            <div className="text-2xl font-black text-cyan-400 mt-1 font-mono">{portfolioSummary.overallGrossMarginPercent}%</div>
-            <div className="text-[10px] text-slate-400 mt-1">Net: ₹{portfolioSummary.overallGrossMarginINR.toLocaleString('en-IN')}</div>
+          <div className="bg-slate-950/60 rounded-2xl p-4 border border-slate-800">
+            <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Total Portfolio Spend</div>
+            <div className="text-2xl font-black text-cyan-400 mt-1 font-mono">
+              ₹{portfolioSummary.totalExpensesINR.toLocaleString('en-IN')}
+            </div>
+            <div className="text-[10px] text-slate-400 mt-1">Logged Physical Costs</div>
           </div>
         </div>
       </div>
 
-      {/* ===== 2. Multi-Project Selector & Cards ===== */}
+      {/* ===== 2. Active Project Roster & Selector ===== */}
       <div className="space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <h2 className="text-lg font-bold text-white flex items-center gap-2">
               <Briefcase className="w-5 h-5 text-indigo-400" /> Active Project Roster
             </h2>
-            <span className="text-xs font-mono bg-slate-800 text-slate-300 px-2 py-0.5 rounded-full">
-              {filteredProjects.length}
+            <span className="text-xs font-mono bg-slate-800 text-slate-300 px-2.5 py-0.5 rounded-full border border-slate-700">
+              {filteredProjects.length} Projects
             </span>
           </div>
 
           {/* Quick Search & Filters */}
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <div className="relative">
               <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-slate-400" />
               <input
@@ -345,18 +689,31 @@ export default function ProjectPortfolioManagerTab() {
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
                 placeholder="Search projects..."
-                className="bg-slate-900 border border-slate-800 rounded-xl pl-8 pr-3 py-1.5 text-xs text-white focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                className="bg-slate-900 border border-slate-800 rounded-xl pl-8 pr-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
               />
             </div>
             <select
               value={selectedCategory}
               onChange={e => setSelectedCategory(e.target.value as any)}
-              className="bg-slate-900 border border-slate-800 rounded-xl px-2.5 py-1.5 text-xs text-white"
+              className="bg-slate-900 border border-slate-800 rounded-xl px-2.5 py-1.5 text-xs text-white focus:outline-none focus:ring-1 focus:ring-indigo-500"
             >
               <option value="ALL">All Categories</option>
               <option value="STEM_CURRICULUM">STEM Curriculum</option>
               <option value="IOT_HARDWARE">IoT Hardware</option>
               <option value="CUSTOM_INSTITUTIONAL">Custom B2B</option>
+              <option value="R_AND_D_PROTOTYPE">Prototype</option>
+            </select>
+            <select
+              value={selectedStatus}
+              onChange={e => setSelectedStatus(e.target.value as any)}
+              className="bg-slate-900 border border-slate-800 rounded-xl px-2.5 py-1.5 text-xs text-white focus:outline-none focus:ring-1 focus:ring-indigo-500"
+            >
+              <option value="ALL">All Statuses</option>
+              <option value="PLANNING">Planning</option>
+              <option value="PROCURING">Procuring</option>
+              <option value="IN_PREP">In Prep</option>
+              <option value="ASSEMBLY_QC">Assembly & QC</option>
+              <option value="COMPLETED">Completed</option>
             </select>
           </div>
         </div>
@@ -365,39 +722,46 @@ export default function ProjectPortfolioManagerTab() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filteredProjects.map(p => {
             const isSelected = p.id === selectedProjectId;
-            const expTotal = p.expenses.reduce((a, b) => a + b.amountINR, 0);
-            const budgetUsedPct = p.budgetINR > 0 ? Math.min(100, Math.round((expTotal / p.budgetINR) * 100)) : 0;
+            const totalClassDeliverables = (p.classes || []).reduce((sum, c) => sum + (c.items?.length || 0), 0);
+            const readyDeliverables = (p.classes || []).reduce(
+              (sum, c) => sum + (c.items?.filter(i => i.status === 'READY' || i.status === 'PACKED').length || 0),
+              0
+            );
+            const progressPct = totalClassDeliverables > 0 ? Math.round((readyDeliverables / totalClassDeliverables) * 100) : 0;
+            const expTotal = (p.expenses || []).reduce((a, b) => a + b.amountINR, 0);
 
             return (
               <div
                 key={p.id}
                 onClick={() => setSelectedProjectId(p.id)}
-                className={`p-5 rounded-2xl border cursor-pointer transition-all space-y-3 relative overflow-hidden ${
+                className={`p-5 rounded-2xl border transition-all space-y-3 relative overflow-hidden cursor-pointer ${
                   isSelected
-                    ? 'bg-gradient-to-br from-slate-900 via-indigo-950/50 to-slate-900 border-indigo-500 shadow-xl shadow-indigo-500/10 scale-[1.02]'
+                    ? 'bg-gradient-to-br from-slate-900 via-indigo-950/50 to-slate-900 border-indigo-500 shadow-xl shadow-indigo-500/10 scale-[1.01]'
                     : 'bg-slate-900/70 border-slate-800 hover:border-slate-700 hover:bg-slate-800/40'
                 }`}
               >
                 <div className="flex items-start justify-between gap-2">
                   <div>
-                    <div className="flex items-center gap-1.5">
+                    <div className="flex items-center gap-1.5 flex-wrap">
                       <span className="font-mono text-[10px] font-bold text-indigo-400 bg-indigo-500/10 px-1.5 py-0.5 rounded border border-indigo-500/20">
                         {p.code}
                       </span>
                       {getCategoryBadge(p.category)}
                     </div>
                     <h3 className="font-bold text-white text-sm mt-1.5 line-clamp-1">{p.name}</h3>
+                    <div className="text-[11px] text-slate-400 line-clamp-1">Client: {p.clientName}</div>
                   </div>
                   {getStatusBadge(p.status)}
                 </div>
 
-                <p className="text-xs text-slate-400 line-clamp-2 leading-relaxed">{p.description}</p>
+                <p className="text-xs text-slate-400 line-clamp-2 leading-relaxed">{p.description || 'No description provided.'}</p>
 
-                <div className="grid grid-cols-2 gap-2 bg-slate-950 p-2.5 rounded-xl border border-slate-800 text-xs">
+                {/* Meta details */}
+                <div className="grid grid-cols-2 gap-2 bg-slate-950/80 p-2.5 rounded-xl border border-slate-800 text-xs">
                   <div>
-                    <div className="text-[10px] text-slate-500 uppercase">Budget / Spent</div>
+                    <div className="text-[10px] text-slate-500 uppercase">Classes / Batch</div>
                     <div className="font-bold text-slate-200 font-mono text-[11px]">
-                      ₹{expTotal.toLocaleString('en-IN')} / ₹{p.budgetINR.toLocaleString('en-IN')}
+                      {p.classes?.length || 0} Classes ({p.defaultBatchMultiplier || 1}x Batch)
                     </div>
                   </div>
                   <div>
@@ -408,20 +772,47 @@ export default function ProjectPortfolioManagerTab() {
                   </div>
                 </div>
 
-                <div className="w-full bg-slate-950 h-1.5 rounded-full overflow-hidden border border-slate-800">
-                  <div
-                    className={`h-full rounded-full transition-all ${
-                      budgetUsedPct > 90 ? 'bg-rose-500' : 'bg-indigo-500'
-                    }`}
-                    style={{ width: `${budgetUsedPct}%` }}
-                  />
+                {/* Progress bar */}
+                <div className="space-y-1">
+                  <div className="flex justify-between text-[10px] text-slate-400">
+                    <span>Readiness: {readyDeliverables}/{totalClassDeliverables} items</span>
+                    <span className="font-bold text-emerald-400">{progressPct}%</span>
+                  </div>
+                  <div className="w-full bg-slate-950 h-1.5 rounded-full overflow-hidden border border-slate-800">
+                    <div
+                      className="h-full rounded-full transition-all bg-emerald-500"
+                      style={{ width: `${progressPct}%` }}
+                    />
+                  </div>
                 </div>
 
-                <div className="flex items-center justify-between text-[11px] text-slate-400 pt-1">
-                  <span>Lead: <strong className="text-slate-200">{p.leadUserName}</strong></span>
-                  <span className="text-indigo-400 font-bold flex items-center gap-0.5 hover:underline">
-                    View Details <ChevronRight className="w-3 h-3" />
-                  </span>
+                {/* Footer with Lead & Actions */}
+                <div className="flex items-center justify-between text-[11px] text-slate-400 pt-1 border-t border-slate-800/60">
+                  <div>
+                    Lead: <strong className="text-slate-200">{p.leadUserName}</strong>
+                    {p.assignedBy && <span className="text-slate-500 text-[10px]"> (by {p.assignedBy})</span>}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleSelectProjectAndScroll(p.id);
+                      }}
+                      className="text-indigo-400 font-bold flex items-center gap-0.5 hover:text-indigo-300 cursor-pointer"
+                    >
+                      View Details <ChevronRight className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeleteProject(p.id, p.name);
+                      }}
+                      title="Delete Project"
+                      className="text-slate-500 hover:text-rose-400 p-1 rounded transition-colors cursor-pointer"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
                 </div>
               </div>
             );
@@ -429,484 +820,525 @@ export default function ProjectPortfolioManagerTab() {
         </div>
       </div>
 
-      {/* ===== 3. Focused Project Workspace ===== */}
-      {selectedProject && selectedFinancials && (
-        <div className="bg-slate-900/90 rounded-3xl border border-slate-800 p-6 space-y-6 shadow-2xl">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-5">
-            <div className="space-y-1">
-              <div className="flex items-center gap-2">
+      {/* ===== 3. Focused Class-Wise Project Workspace ===== */}
+      {selectedProject && (
+        <div ref={workspaceRef} className="bg-slate-900/90 rounded-3xl border border-slate-800 p-6 space-y-6 shadow-2xl">
+          {/* Project Header Banner */}
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-slate-800 pb-5">
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-2 flex-wrap">
                 <span className="font-mono text-xs font-bold text-indigo-400 bg-indigo-500/10 px-2 py-0.5 rounded border border-indigo-500/20">
                   {selectedProject.code}
                 </span>
                 {getCategoryBadge(selectedProject.category)}
                 {getStatusBadge(selectedProject.status)}
+                <span className="bg-slate-800 text-slate-300 text-[10px] font-mono px-2 py-0.5 rounded-full border border-slate-700">
+                  Default {selectedProject.defaultBatchMultiplier || 1}x Batch
+                </span>
               </div>
               <h2 className="text-xl sm:text-2xl font-black text-white">{selectedProject.name}</h2>
-              <div className="text-xs text-slate-400 flex items-center gap-2">
+              <div className="text-xs text-slate-400 flex flex-wrap items-center gap-2">
                 <span>Client: <strong className="text-slate-200">{selectedProject.clientName}</strong></span>
                 <span>•</span>
                 <span>Lead: <strong className="text-indigo-300">{selectedProject.leadUserName}</strong></span>
+                {selectedProject.assignedBy && (
+                  <>
+                    <span>•</span>
+                    <span>Assigned By: <strong className="text-slate-300">{selectedProject.assignedBy}</strong></span>
+                  </>
+                )}
+                <span>•</span>
+                <span>Target Delivery: <strong className="text-amber-300 font-mono">📅 {selectedProject.targetDeliveryDate}</strong></span>
               </div>
             </div>
 
-            {/* Action Buttons for Selected Project */}
-            <div className="flex items-center gap-2">
+            {/* Quick Action Navigation Buttons */}
+            <div className="flex flex-wrap items-center gap-2">
               <button
-                onClick={() => setIsExpenseModalOpen(true)}
-                className="px-3.5 py-2 rounded-xl text-xs font-bold bg-purple-600 hover:bg-purple-500 text-white flex items-center gap-1.5 shadow-md shadow-purple-600/20"
+                onClick={handleOpenEditProject}
+                className="inline-flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer"
               >
-                <DollarSign className="w-4 h-4" /> Log Expense
+                <Edit2 className="w-3.5 h-3.5 text-indigo-400" /> Edit Project
               </button>
               <button
-                onClick={() => setIsSignOffModalOpen(true)}
-                className="px-3.5 py-2 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white flex items-center gap-1.5 shadow-md shadow-emerald-600/20"
+                onClick={() => {
+                  if (onNavigateToTab) {
+                    onNavigateToTab('production_command', { projectId: selectedProject.id, grade: activeClass?.name });
+                  } else {
+                    showToast('Production Matrix tab opened', 'info');
+                  }
+                }}
+                className="inline-flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1.5 rounded-xl text-xs font-semibold shadow-md shadow-indigo-600/20 transition-all cursor-pointer"
               >
-                <Lock className="w-4 h-4" /> 21 CFR Sign-Off
+                <ArrowUpRight className="w-3.5 h-3.5" /> Open in Production Matrix
+              </button>
+              <button
+                onClick={() => {
+                  if (onNavigateToTab) {
+                    onNavigateToTab('sticker_hub');
+                  } else {
+                    showToast('Sticker Monitoring Hub opened', 'info');
+                  }
+                }}
+                className="inline-flex items-center gap-1.5 bg-cyan-600 hover:bg-cyan-500 text-white px-3 py-1.5 rounded-xl text-xs font-semibold shadow-md shadow-cyan-600/20 transition-all cursor-pointer"
+              >
+                <Tag className="w-3.5 h-3.5" /> Sticker Hub
+              </button>
+              <button
+                onClick={handleExportCSV}
+                className="inline-flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer"
+              >
+                <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-400" /> Export CSV
               </button>
             </div>
           </div>
 
-          {/* Sub-Tabs for Focused Project */}
-          <div className="flex items-center gap-2 border-b border-slate-800 pb-2">
-            <button
-              onClick={() => setActiveProjectTab('sourcing')}
-              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
-                activeProjectTab === 'sourcing'
-                  ? 'bg-indigo-600 text-white'
-                  : 'bg-slate-950 text-slate-400 hover:text-white'
-              }`}
-            >
-              <Layers className="w-4 h-4" /> Sourcing & Batch Config
-            </button>
-            <button
-              onClick={() => setActiveProjectTab('financials')}
-              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
-                activeProjectTab === 'financials'
-                  ? 'bg-purple-600 text-white'
-                  : 'bg-slate-950 text-slate-400 hover:text-white'
-              }`}
-            >
-              <Coins className="w-4 h-4" /> Project Financials & P&L
-            </button>
-            <button
-              onClick={() => setActiveProjectTab('team')}
-              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
-                activeProjectTab === 'team'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-slate-950 text-slate-400 hover:text-white'
-              }`}
-            >
-              <Users className="w-4 h-4" /> Operator Profiles & Audit ({selectedProject.auditLogs.length})
-            </button>
-            <button
-              onClick={() => setActiveProjectTab('timeline')}
-              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
-                activeProjectTab === 'timeline'
-                  ? 'bg-amber-600 text-white'
-                  : 'bg-slate-950 text-slate-400 hover:text-white'
-              }`}
-            >
-              <Calendar className="w-4 h-4" /> Milestones & Timeline
-            </button>
-          </div>
+          {/* ===== 4. Class Navigation Tabs ===== */}
+          <div className="space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-2">
+              <div className="flex items-center gap-2 overflow-x-auto pb-1 max-w-full">
+                {(selectedProject.classes || []).map(c => {
+                  const isActive = c.id === activeClassId;
+                  const readyCount = (c.items || []).filter(i => i.status === 'READY' || i.status === 'PACKED').length;
+                  const totalCount = c.items?.length || 0;
 
-          {/* Sub-Tab 1: Sourcing & Batch Config */}
-          {activeProjectTab === 'sourcing' && (
-            <div className="space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                {selectedProject.batchConfigurations.map((batch, idx) => (
-                  <div key={idx} className="bg-slate-950 p-4 rounded-2xl border border-slate-800 space-y-2">
-                    <div className="text-[11px] font-bold text-indigo-400 font-mono uppercase">{batch.gradeOrKitId}</div>
-                    <div className="text-sm font-bold text-white">{batch.kitName}</div>
-                    <div className="text-xs text-slate-400">Target Production: <strong className="text-white font-mono">{batch.targetQuantity} complete sets</strong></div>
-                  </div>
-                ))}
-              </div>
-
-              <div className="bg-slate-950 p-5 rounded-2xl border border-slate-800 flex items-center justify-between">
-                <div className="space-y-1">
-                  <div className="text-sm font-bold text-white">Direct Production Execution</div>
-                  <div className="text-xs text-slate-400">Jump directly to the interactive 5-channel sourcing workbench filtered for this project.</div>
-                </div>
-                <button
-                  onClick={() => showToast('Switched project filter in Production Matrix!', 'success')}
-                  className="px-4 py-2 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white flex items-center gap-1.5"
-                >
-                  <ArrowUpRight className="w-4 h-4" /> Open in Production Matrix
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* Sub-Tab 2: Financials & Cost Center */}
-          {activeProjectTab === 'financials' && (
-            <div className="space-y-6">
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800">
-                  <div className="text-[10px] text-slate-400 uppercase font-bold">Approved Budget</div>
-                  <div className="text-xl font-black text-white font-mono mt-1">₹{selectedFinancials.budgetINR.toLocaleString('en-IN')}</div>
-                </div>
-                <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800">
-                  <div className="text-[10px] text-slate-400 uppercase font-bold">Total Expenses</div>
-                  <div className="text-xl font-black text-purple-400 font-mono mt-1">₹{selectedFinancials.totalExpensesINR.toLocaleString('en-IN')}</div>
-                </div>
-                <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800">
-                  <div className="text-[10px] text-slate-400 uppercase font-bold">Invoiced Revenue</div>
-                  <div className="text-xl font-black text-emerald-400 font-mono mt-1">₹{selectedFinancials.invoicedRevenueINR.toLocaleString('en-IN')}</div>
-                </div>
-                <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800">
-                  <div className="text-[10px] text-slate-400 uppercase font-bold">Gross Margin</div>
-                  <div className="text-xl font-black text-cyan-400 font-mono mt-1">{selectedFinancials.grossMarginPercent}%</div>
-                  <div className="text-[10px] text-slate-400">Net: ₹{selectedFinancials.grossMarginINR.toLocaleString('en-IN')}</div>
-                </div>
-              </div>
-
-              {/* Cost Center Category Breakdown */}
-              <div className="bg-slate-950 p-5 rounded-2xl border border-slate-800 space-y-3">
-                <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                  <Coins className="w-4 h-4 text-purple-400" /> Cost Center Allocation Breakdown
-                </h3>
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3">
-                  {Object.entries(selectedFinancials.expensesByCategory).map(([cat, amount]) => (
-                    <div key={cat} className="bg-slate-900 p-3 rounded-xl border border-slate-800">
-                      <div className="text-[10px] text-slate-400 font-bold uppercase">{cat.replace('_', ' ')}</div>
-                      <div className="text-sm font-bold text-white font-mono mt-1">₹{amount.toLocaleString('en-IN')}</div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Logged Expenses List */}
-              <div className="bg-slate-950 p-5 rounded-2xl border border-slate-800 space-y-3">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-bold text-white">Expense Ledger ({selectedProject.expenses.length})</h3>
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => setIsInvoiceModalOpen(true)}
-                      className="px-3 py-1 rounded-lg text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white flex items-center gap-1.5 shadow"
-                    >
-                      <FileText className="w-3.5 h-3.5" /> GST Tax Invoice
-                    </button>
-                    <button
-                      onClick={() => setIsExpenseModalOpen(true)}
-                      className="px-3 py-1 rounded-lg text-xs font-bold bg-purple-600 hover:bg-purple-500 text-white"
-                    >
-                      + Add Entry
-                    </button>
-                  </div>
-                </div>
-
-                <div className="divide-y divide-slate-800/80 max-h-60 overflow-y-auto">
-                  {selectedProject.expenses.map(exp => (
-                    <div key={exp.id} className="py-2.5 flex items-center justify-between text-xs">
-                      <div>
-                        <div className="font-bold text-white">{exp.description}</div>
-                        <div className="text-[10px] text-slate-400 font-mono">
-                          {exp.date} • {exp.category} • Logged by {exp.loggedByUserName}
-                          {exp.receiptOrPoRef && ` • Ref: ${exp.receiptOrPoRef}`}
-                        </div>
-                      </div>
-                      <div className="font-bold text-emerald-400 font-mono text-sm">
-                        ₹{exp.amountINR.toLocaleString('en-IN')}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Sub-Tab 3: Team & Operator Profiles */}
-          {activeProjectTab === 'team' && (
-            <div className="space-y-6">
-              {/* QA Sign-off Banner if present */}
-              {selectedProject.qaSignOff && (
-                <div className="bg-emerald-950/40 border border-emerald-500/40 p-5 rounded-2xl flex items-center justify-between">
-                  <div className="space-y-1">
-                    <div className="text-xs font-bold text-emerald-300 flex items-center gap-1.5 uppercase tracking-wider">
-                      <Lock className="w-4 h-4" /> 21 CFR Part 11 Electronic Signature Verified
-                    </div>
-                    <div className="text-sm font-bold text-white">Signed by {selectedProject.qaSignOff.signedBy} ({selectedProject.qaSignOff.role})</div>
-                    <div className="text-xs text-slate-400 font-mono">Digest: {selectedProject.qaSignOff.signatureDigest}</div>
-                    <div className="text-xs text-slate-300 italic">"{selectedProject.qaSignOff.comments}"</div>
-                  </div>
-                  <span className="text-xs font-mono text-emerald-400 bg-emerald-500/20 px-3 py-1 rounded-full border border-emerald-500/30">
-                    Compliant
-                  </span>
-                </div>
-              )}
-
-              {/* Assigned Operators */}
-              <div className="bg-slate-950 p-5 rounded-2xl border border-slate-800 space-y-3">
-                <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                  <Users className="w-4 h-4 text-blue-400" /> Assigned Team & Operators
-                </h3>
-                <div className="flex flex-wrap gap-2">
-                  {selectedProject.assignedUserNames.map((name, i) => (
-                    <span key={i} className="px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-900 text-slate-200 border border-slate-800 flex items-center gap-1.5">
-                      👤 {name}
-                    </span>
-                  ))}
-                </div>
-              </div>
-
-              {/* Chronological Audit Trail */}
-              <div className="bg-slate-950 p-5 rounded-2xl border border-slate-800 space-y-3">
-                <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                  <Clock className="w-4 h-4 text-indigo-400" /> Chronological Operator Audit Trail
-                </h3>
-
-                <div className="space-y-2 max-h-72 overflow-y-auto">
-                  {selectedProject.auditLogs.map(log => (
-                    <div key={log.id} className="p-3 bg-slate-900/80 rounded-xl border border-slate-800/80 text-xs space-y-1">
-                      <div className="flex items-center justify-between text-[11px]">
-                        <span className="font-bold text-indigo-300 font-mono">👤 {log.userName} ({log.userRole})</span>
-                        <span className="text-slate-500 font-mono">{new Date(log.timestamp).toLocaleString('en-IN')}</span>
-                      </div>
-                      <div className="text-slate-200">{log.details}</div>
-                      {log.signatureDigest && (
-                        <div className="text-[10px] text-slate-500 font-mono">Digest: {log.signatureDigest}</div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Sub-Tab 4: Milestones, Multi-Project Gantt & Workstation Capacity Radar */}
-          {activeProjectTab === 'timeline' && (
-            <div className="space-y-6">
-              {/* Capacity Bottleneck Radar Alert */}
-              {workstationCapacity.bottleneckAlerts.length > 0 && (
-                <div className="bg-amber-950/40 border border-amber-500/40 rounded-2xl p-4 shadow-xl space-y-2">
-                  <div className="flex items-center gap-2 text-amber-300 font-bold text-sm">
-                    <AlertTriangle className="w-5 h-5 text-amber-400" />
-                    <span>Workstation Capacity Bottleneck Detected ({workstationCapacity.bottleneckAlerts.length} overloaded days)</span>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
-                    {workstationCapacity.bottleneckAlerts.slice(0, 4).map((alert, idx) => (
-                      <div key={idx} className="bg-slate-950/80 p-2.5 rounded-xl border border-amber-500/20 space-y-1">
-                        <div className="flex justify-between font-bold text-amber-300">
-                          <span>{alert.workstationName} on {alert.date}</span>
-                          <span className="text-rose-400 font-mono">+{alert.overloadHours}h over capacity</span>
-                        </div>
-                        <div className="text-slate-400 text-[11px]">
-                          Projects: {alert.involvedProjects.join(', ')} ({alert.utilizationPercentage}% load)
-                        </div>
-                        <div className="text-cyan-400 text-[10px] font-mono">💡 {alert.recommendation}</div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Workstation Capacity Meters */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {workstationCapacity.workstations.map(st => {
-                  const avgUtil = Math.round(
-                    st.dailyLoads.reduce((a, b) => a + b.utilizationPercentage, 0) / st.dailyLoads.length
-                  );
                   return (
-                    <div key={st.workstationId} className="bg-slate-950 p-4 rounded-2xl border border-slate-800 space-y-2">
-                      <div className="flex justify-between items-center text-xs">
-                        <span className="font-bold text-slate-300">{st.workstationName}</span>
-                        <span className="font-mono text-indigo-400 font-bold">{st.maxDailyCapacityHours}h/day cap</span>
-                      </div>
-                      <div className="flex justify-between items-baseline">
-                        <span className="text-2xl font-black text-white">{avgUtil}%</span>
-                        <span className="text-[10px] text-slate-400">30-day Avg Load</span>
-                      </div>
-                      <div className="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
-                        <div
-                          className={`h-full rounded-full ${
-                            avgUtil > 90 ? 'bg-rose-500' : avgUtil > 70 ? 'bg-amber-500' : 'bg-emerald-500'
-                          }`}
-                          style={{ width: `${Math.min(100, avgUtil)}%` }}
-                        />
-                      </div>
-                    </div>
+                    <button
+                      key={c.id}
+                      onClick={() => setActiveClassId(c.id)}
+                      className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
+                        isActive
+                          ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20'
+                          : 'bg-slate-800/80 text-slate-400 hover:bg-slate-800 hover:text-white border border-slate-700/50'
+                      }`}
+                    >
+                      <span>{c.name}</span>
+                      <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded-md ${
+                        isActive ? 'bg-indigo-900 text-indigo-200' : 'bg-slate-900 text-slate-400'
+                      }`}>
+                        {readyCount}/{totalCount}
+                      </span>
+                    </button>
                   );
                 })}
+
+                <button
+                  onClick={() => setIsAddClassModalOpen(true)}
+                  className="flex items-center gap-1 bg-slate-800/40 hover:bg-slate-800 text-indigo-400 border border-dashed border-indigo-500/40 px-3 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer"
+                >
+                  <Plus className="w-3.5 h-3.5" /> Add Class
+                </button>
               </div>
 
-              {/* Multi-Project Chronological Gantt Matrix */}
-              <div className="bg-slate-950 p-5 rounded-2xl border border-slate-800 space-y-4">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                    <Calendar className="w-4 h-4 text-indigo-400" /> Multi-Project Timeline & Milestone Matrix
-                  </h3>
-                  <span className="text-xs font-mono text-slate-400">{ganttTimelines.length} Active Timelines</span>
+              {activeClass && (
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-slate-400">Class Multiplier:</span>
+                  <div className="flex items-center bg-slate-950 border border-slate-800 rounded-xl px-2 py-1">
+                    <input
+                      type="number"
+                      min="1"
+                      value={activeClass.batchMultiplier}
+                      onChange={(e) => handleClassMultiplierChange(Number(e.target.value))}
+                      className="w-12 bg-transparent text-xs font-mono font-bold text-indigo-400 focus:outline-none text-center"
+                    />
+                    <span className="text-xs text-slate-500 font-bold">sets</span>
+                  </div>
+                  <button
+                    onClick={() => handleDeleteClass(activeClass.id, activeClass.name)}
+                    title="Remove this class"
+                    className="text-slate-500 hover:text-rose-400 p-1 rounded transition-colors cursor-pointer"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
                 </div>
-
-                <div className="space-y-4">
-                  {ganttTimelines.map(gProj => (
-                    <div key={gProj.projectId} className="p-4 bg-slate-900/90 rounded-2xl border border-slate-800/90 space-y-3">
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <span className="font-mono font-bold text-indigo-300 text-xs">{gProj.projectCode}</span>
-                            <span className="text-xs font-bold text-white">{gProj.projectName}</span>
-                          </div>
-                          <div className="text-[11px] text-slate-400">{gProj.clientName}</div>
-                        </div>
-                        <div className="flex items-center gap-3 text-xs font-mono">
-                          <span className="text-slate-400">Delivery: <strong className="text-amber-300">{gProj.deliveryDate}</strong></span>
-                          <span className="font-bold text-emerald-400">{gProj.progressPercentage}% Complete</span>
-                        </div>
-                      </div>
-
-                      {/* Phase Blocks */}
-                      <div className="grid grid-cols-1 sm:grid-cols-5 gap-2 pt-2 border-t border-slate-800/80 text-xs">
-                        {gProj.phases.map(ph => (
-                          <div
-                            key={ph.phaseId}
-                            className={`p-2.5 rounded-xl border flex flex-col justify-between ${
-                              ph.status === 'COMPLETED'
-                                ? 'bg-emerald-950/30 border-emerald-500/30 text-emerald-200'
-                                : ph.status === 'IN_PROGRESS'
-                                ? 'bg-indigo-950/50 border-indigo-500/50 text-indigo-200'
-                                : 'bg-slate-950/60 border-slate-800/60 text-slate-400'
-                            }`}
-                          >
-                            <div>
-                              <div className="flex items-center justify-between text-[10px] font-bold mb-1">
-                                <span>{ph.workstation}</span>
-                                <span>{ph.durationDays}d</span>
-                              </div>
-                              <div className="font-bold text-[11px] text-white line-clamp-1">{ph.phaseName}</div>
-                            </div>
-                            <div className="mt-2 text-[10px] font-mono text-slate-400">
-                              {ph.startDate} ➔ {ph.endDate}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
+              )}
             </div>
-          )}
+
+            {/* Class Deliverables Content */}
+            {activeClass ? (
+              <div className="space-y-4">
+                {/* Class Header & Progress Indicator */}
+                <div className="bg-slate-950/80 rounded-2xl p-4 border border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-base font-bold text-white flex items-center gap-2">
+                        <Layers className="w-4 h-4 text-indigo-400" /> {activeClass.name} Deliverables Checklist
+                      </h3>
+                      <span className="text-xs font-mono text-indigo-400 bg-indigo-500/10 px-2 py-0.5 rounded border border-indigo-500/20">
+                        {activeClass.batchMultiplier}x Batch Active
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-400">{activeClass.description || 'Deliverables, activity kits, models, charts, and materials needed for this class.'}</p>
+                  </div>
+
+                  <div className="flex items-center gap-3">
+                    <div className="text-right">
+                      <div className="text-xs font-bold text-white font-mono">{classStats.ready + classStats.packed} of {classStats.total} Ready</div>
+                      <div className="text-[10px] text-slate-400">{classStats.inPrep} In Prep • {classStats.pending} Pending</div>
+                    </div>
+                    <div className="w-24 bg-slate-900 h-2 rounded-full overflow-hidden border border-slate-800">
+                      <div
+                        className="h-full rounded-full transition-all bg-emerald-500"
+                        style={{ width: `${classStats.pctReady}%` }}
+                      />
+                    </div>
+                    <button
+                      onClick={handleOpenAddItem}
+                      className="inline-flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1.5 rounded-xl text-xs font-bold shadow-md shadow-emerald-600/20 transition-all cursor-pointer"
+                    >
+                      <Plus className="w-3.5 h-3.5" /> Add Deliverable
+                    </button>
+                  </div>
+                </div>
+
+                {/* Filter Pills for Categories and Sourcing */}
+                <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <span className="text-[11px] font-bold text-slate-500 uppercase mr-1">Category:</span>
+                    {[
+                      { id: 'ALL', label: 'All Items' },
+                      { id: 'ACTIVITY_KIT', label: 'Kits 🧪' },
+                      { id: 'WORKING_MODEL', label: 'Models ⚙️' },
+                      { id: 'EDUCATIONAL_CHART', label: 'Charts 📊' },
+                      { id: 'FABRICATION_LASER_3D', label: 'Laser/3D 🪵' },
+                      { id: 'CHEMICAL_REAGENT', label: 'Chemicals ⚗️' },
+                      { id: 'HARDWARE_SUPPLIES', label: 'Hardware 🛒' }
+                    ].map(c => (
+                      <button
+                        key={c.id}
+                        onClick={() => setSelectedItemCategory(c.id as any)}
+                        className={`text-[11px] px-2.5 py-1 rounded-lg font-medium transition-all cursor-pointer ${
+                          selectedItemCategory === c.id
+                            ? 'bg-indigo-600 text-white font-bold'
+                            : 'bg-slate-800/80 text-slate-400 hover:bg-slate-800 hover:text-slate-200'
+                        }`}
+                      >
+                        {c.label}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Search inside class items */}
+                  <div className="relative">
+                    <Search className="w-3 h-3 absolute left-2.5 top-2 text-slate-400" />
+                    <input
+                      type="text"
+                      value={itemSearchQuery}
+                      onChange={e => setItemSearchQuery(e.target.value)}
+                      placeholder="Filter items..."
+                      className="bg-slate-950 border border-slate-800 rounded-xl pl-7 pr-3 py-1 text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                    />
+                  </div>
+                </div>
+
+                {/* Work Items Table */}
+                <div className="bg-slate-950 rounded-2xl border border-slate-800 overflow-hidden">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs">
+                      <thead className="bg-slate-900/90 text-slate-400 font-bold border-b border-slate-800 uppercase text-[10px] tracking-wider">
+                        <tr>
+                          <th className="py-3 px-4">Deliverable / Material</th>
+                          <th className="py-3 px-4">Work Category</th>
+                          <th className="py-3 px-4">Sourcing Channel</th>
+                          <th className="py-3 px-4 text-center">Base Qty</th>
+                          <th className="py-3 px-4 text-center">Total Req ({activeClass.batchMultiplier}x)</th>
+                          <th className="py-3 px-4">Lead Assignee</th>
+                          <th className="py-3 px-4 text-center">Status</th>
+                          <th className="py-3 px-4 text-right">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-800/60">
+                        {filteredClassItems.length > 0 ? (
+                          filteredClassItems.map(item => (
+                            <tr key={item.id} className="hover:bg-slate-900/50 transition-colors">
+                              <td className="py-3 px-4">
+                                <div className="font-bold text-white text-xs">{item.name}</div>
+                                <div className="text-[11px] text-slate-400 line-clamp-1">{item.specification}</div>
+                                {item.sourceChapter && (
+                                  <div className="text-[10px] text-indigo-400 font-mono mt-0.5">{item.sourceChapter}</div>
+                                )}
+                              </td>
+                              <td className="py-3 px-4">
+                                {getItemCategoryBadge(item.category)}
+                              </td>
+                              <td className="py-3 px-4">
+                                {getSourcingBadge(item.sourcingChannel)}
+                              </td>
+                              <td className="py-3 px-4 text-center font-mono text-slate-300">
+                                {item.quantityPerBatchUnit} <span className="text-[10px] text-slate-500">{item.unit}</span>
+                              </td>
+                              <td className="py-3 px-4 text-center font-mono font-bold text-cyan-400">
+                                {item.totalQuantity} <span className="text-[10px] text-slate-400">{item.unit}</span>
+                              </td>
+                              <td className="py-3 px-4 text-slate-300">
+                                {item.leadAssignee || 'Unassigned'}
+                              </td>
+                              <td className="py-3 px-4 text-center">
+                                {getItemStatusButton(item.status, item.id)}
+                              </td>
+                              <td className="py-3 px-4 text-right">
+                                <div className="inline-flex items-center gap-1.5">
+                                  <button
+                                    onClick={() => handleOpenEditItem(item)}
+                                    title="Edit Item"
+                                    className="p-1 rounded text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
+                                  >
+                                    <Edit2 className="w-3.5 h-3.5" />
+                                  </button>
+                                  <button
+                                    onClick={() => handleDeleteItem(item.id, item.name)}
+                                    title="Delete Item"
+                                    className="p-1 rounded text-slate-400 hover:text-rose-400 hover:bg-slate-800 transition-colors cursor-pointer"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          ))
+                        ) : (
+                          <tr>
+                            <td colSpan={8} className="py-8 text-center text-slate-500 text-xs">
+                              No deliverables matching the selected filter. Click <strong>"+ Add Deliverable"</strong> to add items to {activeClass.name}.
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="py-12 text-center text-slate-500 text-xs bg-slate-950 rounded-2xl border border-slate-800">
+                No classes defined yet. Click <strong>"+ Add Class"</strong> to create a class tab (e.g. Class 6, Class 7, etc.).
+              </div>
+            )}
+          </div>
         </div>
       )}
 
-      {/* ===== 4. Modal: Create New Project ===== */}
-      {isCreateModalOpen && (
+      {/* ===== 5. Modal: Create New Project Wizard ===== */}
+      {isCreateProjectModalOpen && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-indigo-500/30 rounded-3xl max-w-lg w-full p-6 space-y-5 shadow-2xl animate-in fade-in">
-            <div className="flex items-center justify-between">
-              <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                <Plus className="w-5 h-5 text-indigo-400" /> Initiate New Educational Project
-              </h3>
-              <button onClick={() => setIsCreateModalOpen(false)} className="text-slate-400 hover:text-white">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-2xl w-full p-6 space-y-5 shadow-2xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+              <div className="flex items-center gap-2">
+                <Briefcase className="w-5 h-5 text-indigo-400" />
+                <h3 className="text-lg font-bold text-white">Create New Educational Project</h3>
+              </div>
+              <button
+                onClick={() => setIsCreateProjectModalOpen(false)}
+                className="text-slate-400 hover:text-white p-1 rounded-lg cursor-pointer"
+              >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <form onSubmit={handleCreateProject} className="space-y-4 text-xs">
-              <div className="grid grid-cols-2 gap-3">
+            <form onSubmit={handleCreateProjectSubmit} className="space-y-4 text-xs">
+              {/* Template Choice */}
+              <div className="space-y-1.5">
+                <label className="text-slate-300 font-bold">Starter Template</label>
+                <div className="grid grid-cols-3 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setTemplateType('CURRICULUM')}
+                    className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                      templateType === 'CURRICULUM'
+                        ? 'bg-indigo-600/20 border-indigo-500 text-white'
+                        : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700'
+                    }`}
+                  >
+                    <div className="font-bold text-xs">🎓 Curriculum Template</div>
+                    <div className="text-[10px] text-slate-400 mt-1">236 items (Class 8, 9, 10 & Common Crate)</div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setTemplateType('STANDARD_LAB')}
+                    className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                      templateType === 'STANDARD_LAB'
+                        ? 'bg-indigo-600/20 border-indigo-500 text-white'
+                        : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700'
+                    }`}
+                  >
+                    <div className="font-bold text-xs">🔬 Standard STEM Lab</div>
+                    <div className="text-[10px] text-slate-400 mt-1">Class 6–10 clean preset tabs</div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setTemplateType('BLANK')}
+                    className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                      templateType === 'BLANK'
+                        ? 'bg-indigo-600/20 border-indigo-500 text-white'
+                        : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700'
+                    }`}
+                  >
+                    <div className="font-bold text-xs">📄 Blank Custom Project</div>
+                    <div className="text-[10px] text-slate-400 mt-1">Empty blank canvas</div>
+                  </button>
+                </div>
+              </div>
+
+              {/* Basic Details */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-[11px] font-bold text-slate-300 mb-1">Project Code</label>
+                  <label className="text-slate-300 font-bold block mb-1">Project Name *</label>
                   <input
                     type="text"
-                    value={newCode}
-                    onChange={e => setNewCode(e.target.value)}
-                    placeholder="e.g. PRJ-HUBLI-006"
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-white font-mono"
+                    required
+                    value={projectFormName}
+                    onChange={e => setProjectFormName(e.target.value)}
+                    placeholder="e.g. Karwar STEM Deployment Batch"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:ring-1 focus:ring-indigo-500"
                   />
                 </div>
+
                 <div>
-                  <label className="block text-[11px] font-bold text-slate-300 mb-1">Category</label>
+                  <label className="text-slate-300 font-bold block mb-1">Project Code (Optional)</label>
+                  <input
+                    type="text"
+                    value={projectFormCode}
+                    onChange={e => setProjectFormCode(e.target.value)}
+                    placeholder="Auto-generated if blank (e.g. PRJ-EXP-006)"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:ring-1 focus:ring-indigo-500 font-mono"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="text-slate-300 font-bold block mb-1">Client / Institution Name</label>
+                  <input
+                    type="text"
+                    value={projectFormClient}
+                    onChange={e => setProjectFormClient(e.target.value)}
+                    placeholder="e.g. Karnataka State STEM Mission"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-slate-300 font-bold block mb-1">Category</label>
                   <select
-                    value={newCategory}
-                    onChange={e => setNewCategory(e.target.value as any)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-white"
+                    value={projectFormCategory}
+                    onChange={e => setProjectFormCategory(e.target.value as any)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:ring-1 focus:ring-indigo-500"
                   >
                     <option value="STEM_CURRICULUM">STEM Curriculum</option>
                     <option value="IOT_HARDWARE">IoT Hardware</option>
                     <option value="CUSTOM_INSTITUTIONAL">Custom B2B</option>
-                    <option value="R_AND_D_PROTOTYPE">R&D Prototype</option>
+                    <option value="R_AND_D_PROTOTYPE">Prototype</option>
                   </select>
                 </div>
               </div>
 
+              {/* Lead and Assignment */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="text-slate-300 font-bold block mb-1">Lead Engineer / Technician</label>
+                  <input
+                    type="text"
+                    value={projectFormLead}
+                    onChange={e => setProjectFormLead(e.target.value)}
+                    placeholder="e.g. Dr. Samartha HM or Ravi Kumar"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-slate-300 font-bold block mb-1">Assigned By</label>
+                  <input
+                    type="text"
+                    value={projectFormAssignedBy}
+                    onChange={e => setProjectFormAssignedBy(e.target.value)}
+                    placeholder="e.g. Operations Director"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  />
+                </div>
+              </div>
+
+              {/* Multiplier & Dates */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <label className="text-slate-300 font-bold block mb-1">Default Batch Multiplier</label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={projectFormBatchMultiplier}
+                    onChange={e => setProjectFormBatchMultiplier(Number(e.target.value))}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-slate-300 font-bold block mb-1">Start Date</label>
+                  <input
+                    type="date"
+                    value={projectFormStartDate}
+                    onChange={e => setProjectFormStartDate(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-slate-300 font-bold block mb-1">Target Delivery Date</label>
+                  <input
+                    type="date"
+                    value={projectFormDeliveryDate}
+                    onChange={e => setProjectFormDeliveryDate(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  />
+                </div>
+              </div>
+
+              {/* Optional Budget and Revenue */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-slate-950/60 p-3 rounded-2xl border border-slate-800/80">
+                <div>
+                  <label className="text-slate-400 font-bold block mb-1">Approved Budget (₹) — <span className="text-indigo-400">Optional</span></label>
+                  <input
+                    type="number"
+                    value={projectFormBudget}
+                    onChange={e => setProjectFormBudget(e.target.value)}
+                    placeholder="Leave blank if unbudgeted"
+                    className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-slate-400 font-bold block mb-1">Invoiced Revenue (₹) — <span className="text-indigo-400">Optional</span></label>
+                  <input
+                    type="number"
+                    value={projectFormRevenue}
+                    onChange={e => setProjectFormRevenue(e.target.value)}
+                    placeholder="Leave blank if not invoiced"
+                    className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  />
+                </div>
+              </div>
+
               <div>
-                <label className="block text-[11px] font-bold text-slate-300 mb-1">Project Name *</label>
-                <input
-                  type="text"
-                  value={newName}
-                  onChange={e => setNewName(e.target.value)}
-                  placeholder="e.g. Hubli ATL Tinkering Lab Deployment"
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-white"
-                  required
+                <label className="text-slate-300 font-bold block mb-1">Project Description</label>
+                <textarea
+                  rows={2}
+                  value={projectFormDesc}
+                  onChange={e => setProjectFormDesc(e.target.value)}
+                  placeholder="Describe scope, objectives, packaging specifications..."
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white focus:outline-none focus:ring-1 focus:ring-indigo-500"
                 />
               </div>
 
-              <div>
-                <label className="block text-[11px] font-bold text-slate-300 mb-1">Client / School</label>
-                <input
-                  type="text"
-                  value={newClient}
-                  onChange={e => setNewClient(e.target.value)}
-                  placeholder="e.g. Hubli Public School Cluster"
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-white"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-300 mb-1">Approved Budget (₹)</label>
-                  <input
-                    type="number"
-                    value={newBudget}
-                    onChange={e => setNewBudget(parseInt(e.target.value, 10) || 0)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-white font-mono"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-300 mb-1">Invoiced Revenue (₹)</label>
-                  <input
-                    type="number"
-                    value={newRevenue}
-                    onChange={e => setNewRevenue(parseInt(e.target.value, 10) || 0)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-white font-mono"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-300 mb-1">Start Date</label>
-                  <input
-                    type="date"
-                    value={newStartDate}
-                    onChange={e => setNewStartDate(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-white font-mono"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-300 mb-1">Target Delivery</label>
-                  <input
-                    type="date"
-                    value={newDeliveryDate}
-                    onChange={e => setNewDeliveryDate(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-white font-mono"
-                  />
-                </div>
-              </div>
-
-              <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-800">
+              <div className="flex justify-end gap-2 pt-3 border-t border-slate-800">
                 <button
                   type="button"
-                  onClick={() => setIsCreateModalOpen(false)}
-                  className="px-4 py-2 rounded-xl text-slate-400 hover:text-white"
+                  onClick={() => setIsCreateProjectModalOpen(false)}
+                  className="px-4 py-2 rounded-xl text-slate-400 hover:text-white bg-slate-800/60 hover:bg-slate-800 cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 rounded-xl font-bold bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg shadow-indigo-600/30"
+                  className="px-5 py-2 rounded-xl text-white font-bold bg-indigo-600 hover:bg-indigo-500 shadow-lg shadow-indigo-600/25 cursor-pointer"
                 >
                   Create Project
                 </button>
@@ -916,206 +1348,176 @@ export default function ProjectPortfolioManagerTab() {
         </div>
       )}
 
-      {/* ===== 5. Modal: Log Expense ===== */}
-      {isExpenseModalOpen && (
+      {/* ===== 6. Modal: Edit Project Metadata ===== */}
+      {isEditProjectModalOpen && selectedProject && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-purple-500/30 rounded-3xl max-w-md w-full p-6 space-y-4 shadow-2xl animate-in fade-in">
-            <div className="flex items-center justify-between">
-              <h3 className="text-base font-bold text-white flex items-center gap-2">
-                <DollarSign className="w-5 h-5 text-purple-400" /> Log Project Cost / Expense
-              </h3>
-              <button onClick={() => setIsExpenseModalOpen(false)} className="text-slate-400 hover:text-white">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-2xl w-full p-6 space-y-5 shadow-2xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+              <div className="flex items-center gap-2">
+                <Edit2 className="w-5 h-5 text-indigo-400" />
+                <h3 className="text-lg font-bold text-white">Edit Project: {selectedProject.name}</h3>
+              </div>
+              <button
+                onClick={() => setIsEditProjectModalOpen(false)}
+                className="text-slate-400 hover:text-white p-1 rounded-lg cursor-pointer"
+              >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <form onSubmit={handleLogExpense} className="space-y-4 text-xs">
-              <div>
-                <label className="block text-[11px] font-bold text-slate-300 mb-1">Cost Center Category</label>
-                <select
-                  value={expCategory}
-                  onChange={e => setExpCategory(e.target.value as any)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-white"
-                >
-                  <option value="MATERIAL">Material / Inventory</option>
-                  <option value="LASER_MACHINE">Laser Cutting & Machine Time</option>
-                  <option value="CHEMICAL_PREP">Chemical Aliquoting & Dilutions</option>
-                  <option value="VENDOR_PO">Vendor Purchase Order</option>
-                  <option value="SHIPPING">Shipping & Logistics</option>
-                  <option value="LABOR">Direct Labor</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-[11px] font-bold text-slate-300 mb-1">Description *</label>
-                <input
-                  type="text"
-                  value={expDescription}
-                  onChange={e => setExpDescription(e.target.value)}
-                  placeholder="e.g. 50x Dropper Bottles + Dilute HCl transfer"
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-white"
-                  required
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
+            <form onSubmit={handleSaveEditProject} className="space-y-4 text-xs">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-[11px] font-bold text-slate-300 mb-1">Amount (₹) *</label>
+                  <label className="text-slate-300 font-bold block mb-1">Project Name *</label>
+                  <input
+                    type="text"
+                    required
+                    value={projectFormName}
+                    onChange={e => setProjectFormName(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-slate-300 font-bold block mb-1">Project Code</label>
+                  <input
+                    type="text"
+                    value={projectFormCode}
+                    onChange={e => setProjectFormCode(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="text-slate-300 font-bold block mb-1">Client / Institution Name</label>
+                  <input
+                    type="text"
+                    value={projectFormClient}
+                    onChange={e => setProjectFormClient(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-slate-300 font-bold block mb-1">Status</label>
+                  <select
+                    value={projectFormStatus}
+                    onChange={e => setProjectFormStatus(e.target.value as any)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  >
+                    <option value="PLANNING">Planning</option>
+                    <option value="PROCURING">Procuring</option>
+                    <option value="IN_PREP">In Preparation</option>
+                    <option value="ASSEMBLY_QC">Assembly & QC</option>
+                    <option value="COMPLETED">Completed</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="text-slate-300 font-bold block mb-1">Lead Engineer / Technician</label>
+                  <input
+                    type="text"
+                    value={projectFormLead}
+                    onChange={e => setProjectFormLead(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-slate-300 font-bold block mb-1">Assigned By</label>
+                  <input
+                    type="text"
+                    value={projectFormAssignedBy}
+                    onChange={e => setProjectFormAssignedBy(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <label className="text-slate-300 font-bold block mb-1">Default Batch Multiplier</label>
                   <input
                     type="number"
                     min="1"
-                    value={expAmount}
-                    onChange={e => setExpAmount(parseInt(e.target.value, 10) || 0)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-white font-mono"
-                    required
+                    value={projectFormBatchMultiplier}
+                    onChange={e => setProjectFormBatchMultiplier(Number(e.target.value))}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono focus:outline-none focus:ring-1 focus:ring-indigo-500"
                   />
                 </div>
+
                 <div>
-                  <label className="block text-[11px] font-bold text-slate-300 mb-1">Receipt / PO Ref</label>
+                  <label className="text-slate-300 font-bold block mb-1">Start Date</label>
                   <input
-                    type="text"
-                    value={expRef}
-                    onChange={e => setExpRef(e.target.value)}
-                    placeholder="e.g. PO-2026-101"
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-white font-mono"
+                    type="date"
+                    value={projectFormStartDate}
+                    onChange={e => setProjectFormStartDate(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-slate-300 font-bold block mb-1">Target Delivery Date</label>
+                  <input
+                    type="date"
+                    value={projectFormDeliveryDate}
+                    onChange={e => setProjectFormDeliveryDate(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:ring-1 focus:ring-indigo-500"
                   />
                 </div>
               </div>
 
-              <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-800">
-                <button
-                  type="button"
-                  onClick={() => setIsExpenseModalOpen(false)}
-                  className="px-4 py-2 rounded-xl text-slate-400 hover:text-white"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2 rounded-xl font-bold bg-purple-600 hover:bg-purple-500 text-white shadow-lg shadow-purple-600/30"
-                >
-                  Log Expense
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-slate-950/60 p-3 rounded-2xl border border-slate-800/80">
+                <div>
+                  <label className="text-slate-400 font-bold block mb-1">Approved Budget (₹) — <span className="text-indigo-400">Optional</span></label>
+                  <input
+                    type="number"
+                    value={projectFormBudget}
+                    onChange={e => setProjectFormBudget(e.target.value)}
+                    placeholder="Leave blank if unbudgeted"
+                    className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  />
+                </div>
 
-      {/* ===== 6. Modal: Cross-Project Inventory Conflict Analyzer ===== */}
-      {isConflictModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-rose-500/30 rounded-3xl max-w-3xl w-full p-6 space-y-5 shadow-2xl max-h-[85vh] overflow-y-auto">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-4">
-              <div>
-                <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                  <AlertTriangle className="w-5 h-5 text-rose-400" /> Cross-Project Inventory Conflict Analyzer
-                </h3>
-                <div className="text-xs text-slate-400">Components where total demand across all active concurrent projects exceeds warehouse stock.</div>
-              </div>
-              <button onClick={() => setIsConflictModalOpen(false)} className="text-slate-400 hover:text-white">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            {conflicts.length === 0 ? (
-              <div className="p-8 text-center text-xs text-slate-400">
-                <CheckCircle2 className="w-8 h-8 text-emerald-400 mx-auto mb-2" />
-                No stock contention detected! All active projects are fully supported by warehouse inventory.
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {conflicts.slice(0, 10).map((conf, idx) => (
-                  <div key={idx} className="bg-slate-950 p-4 rounded-2xl border border-slate-800 space-y-2">
-                    <div className="flex items-center justify-between text-xs">
-                      <div>
-                        <span className="font-mono text-rose-400 font-bold">{conf.activityCode}</span> • <strong className="text-white">{conf.materialName}</strong>
-                      </div>
-                      <span className="font-mono font-bold text-rose-400 bg-rose-500/10 px-2 py-0.5 rounded border border-rose-500/20">
-                        Deficit: {conf.globalDeficit} units (₹{conf.estimatedCostINR.toLocaleString('en-IN')})
-                      </span>
-                    </div>
-
-                    <div className="text-[11px] text-slate-400">
-                      Total Demand: <strong className="text-slate-200">{conf.totalRequiredAcrossProjects}</strong> | Available Stock: <strong className="text-slate-200">{conf.availableStock}</strong>
-                    </div>
-
-                    <div className="flex flex-wrap gap-2 pt-1">
-                      {conf.competingProjects.map((comp, j) => (
-                        <span key={j} className="text-[10px] bg-slate-900 text-slate-300 px-2 py-0.5 rounded border border-slate-800 font-mono">
-                          {comp.projectCode}: {comp.qtyRequired} units
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-
-                <button
-                  onClick={() => {
-                    showToast('Consolidated Purchase Order generated for all deficit items!', 'success');
-                    setIsConflictModalOpen(false);
-                  }}
-                  className="w-full py-3 rounded-2xl font-bold bg-gradient-to-r from-rose-600 to-amber-600 text-white shadow-lg shadow-rose-600/30 text-xs flex items-center justify-center gap-2"
-                >
-                  <Truck className="w-4 h-4" /> Generate Consolidated Vendor Purchase Order
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* ===== 7. Modal: 21 CFR Part 11 Electronic Signature QA Sign-Off ===== */}
-      {isSignOffModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-emerald-500/30 rounded-3xl max-w-lg w-full p-6 space-y-5 shadow-2xl animate-in fade-in">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-4">
-              <div>
-                <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                  <Lock className="w-5 h-5 text-emerald-400" /> 21 CFR Part 11 Electronic Signature Sign-Off
-                </h3>
-                <div className="text-xs text-slate-400">Final Quality Assurance verification and immutable sign-off.</div>
-              </div>
-              <button onClick={() => setIsSignOffModalOpen(false)} className="text-slate-400 hover:text-white">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <form onSubmit={handleExecuteSignOff} className="space-y-4 text-xs">
-              <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 space-y-2">
-                <div className="text-[11px] text-slate-400">Signing Operator: <strong className="text-white">{user?.name || 'Dr. Samartha HM'} ({user?.role || 'admin'})</strong></div>
-                <div className="text-[11px] text-slate-400">Project: <strong className="text-emerald-300">{selectedProject?.name} ({selectedProject?.code})</strong></div>
+                <div>
+                  <label className="text-slate-400 font-bold block mb-1">Invoiced Revenue (₹) — <span className="text-indigo-400">Optional</span></label>
+                  <input
+                    type="number"
+                    value={projectFormRevenue}
+                    onChange={e => setProjectFormRevenue(e.target.value)}
+                    placeholder="Leave blank if not invoiced"
+                    className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  />
+                </div>
               </div>
 
               <div>
-                <label className="block text-[11px] font-bold text-slate-300 mb-1">Inspector Verification Comments *</label>
+                <label className="text-slate-300 font-bold block mb-1">Project Description</label>
                 <textarea
-                  rows={3}
-                  value={signOffComments}
-                  onChange={e => setSignOffComments(e.target.value)}
-                  placeholder="e.g. Verified all 10 STEM sets for Karwar region. Lenses checked for clarity, chemicals leak-tested, and laser parts sanded."
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-white"
-                  required
+                  rows={2}
+                  value={projectFormDesc}
+                  onChange={e => setProjectFormDesc(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white focus:outline-none focus:ring-1 focus:ring-indigo-500"
                 />
               </div>
 
-              <div className="p-3 bg-emerald-950/20 border border-emerald-500/20 rounded-xl text-[11px] text-emerald-300">
-                By submitting, a SHA-256 cryptographic digest will be generated and bound to your user account profile, sealing the project as COMPLETED.
-              </div>
-
-              <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-800">
+              <div className="flex justify-end gap-2 pt-3 border-t border-slate-800">
                 <button
                   type="button"
-                  onClick={() => setIsSignOffModalOpen(false)}
-                  className="px-4 py-2 rounded-xl text-slate-400 hover:text-white"
+                  onClick={() => setIsEditProjectModalOpen(false)}
+                  className="px-4 py-2 rounded-xl text-slate-400 hover:text-white bg-slate-800/60 hover:bg-slate-800 cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 rounded-xl font-bold bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-600/30"
+                  className="px-5 py-2 rounded-xl text-white font-bold bg-indigo-600 hover:bg-indigo-500 shadow-lg shadow-indigo-600/25 cursor-pointer"
                 >
-                  Sign & Authorize Project
+                  Save Changes
                 </button>
               </div>
             </form>
@@ -1123,116 +1525,260 @@ export default function ProjectPortfolioManagerTab() {
         </div>
       )}
 
-      {/* ===== 8. Modal: GST B2B Tax Invoice & Delivery Challan Generator ===== */}
-      {isInvoiceModalOpen && selectedProject && (
-        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-indigo-500/40 rounded-3xl max-w-2xl w-full p-6 space-y-5 shadow-2xl animate-in fade-in max-h-[90vh] overflow-y-auto">
+      {/* ===== 7. Modal: Add Class ===== */}
+      {isAddClassModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-md w-full p-6 space-y-4 shadow-2xl">
             <div className="flex items-center justify-between border-b border-slate-800 pb-3">
               <div className="flex items-center gap-2">
-                <FileText className="w-5 h-5 text-indigo-400" />
-                <h3 className="text-base font-bold text-white">GST B2B Tax Invoice & E-Way Delivery Challan</h3>
+                <Layers className="w-5 h-5 text-indigo-400" />
+                <h3 className="text-base font-bold text-white">Add Class or Module Tab</h3>
               </div>
-              <button onClick={() => setIsInvoiceModalOpen(false)} className="text-slate-400 hover:text-white">
+              <button
+                onClick={() => setIsAddClassModalOpen(false)}
+                className="text-slate-400 hover:text-white p-1 rounded-lg cursor-pointer"
+              >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            {/* Simulated Official Tax Invoice Sheet */}
-            <div className="bg-white text-slate-950 p-6 rounded-2xl shadow-xl font-sans text-xs space-y-4 border border-slate-300">
-              <div className="flex justify-between items-start border-b-2 border-slate-900 pb-3">
-                <div>
-                  <h4 className="text-lg font-black text-indigo-900">EXPERIMIND LABS PRIVATE LIMITED</h4>
-                  <div className="text-[10px] text-slate-600">Educational STEM Kits & Digital Fabrication Hub</div>
-                  <div className="text-[10px] text-slate-600">GSTIN: 29AAACE8273F1ZX • State Code: 29 (Karnataka)</div>
-                </div>
-                <div className="text-right">
-                  <span className="px-2.5 py-1 rounded bg-slate-900 text-white font-black text-xs uppercase">TAX INVOICE</span>
-                  <div className="text-[10px] font-mono mt-1 font-bold">INV-2026-{selectedProject.code}</div>
-                  <div className="text-[10px] text-slate-600">Date: {new Date().toLocaleDateString('en-IN')}</div>
-                </div>
+            <form onSubmit={handleAddClassSubmit} className="space-y-3 text-xs">
+              <div>
+                <label className="text-slate-300 font-bold block mb-1">Class / Grade Name *</label>
+                <input
+                  type="text"
+                  required
+                  value={newClassName}
+                  onChange={e => setNewClassName(e.target.value)}
+                  placeholder="e.g. Class 6, Class 7, Robotics Set..."
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                />
               </div>
 
-              {/* Billed To */}
-              <div className="grid grid-cols-2 gap-4 bg-slate-50 p-3 rounded-xl border border-slate-200">
-                <div>
-                  <div className="text-[9px] font-bold text-slate-500 uppercase">Billed To (Client / Institution):</div>
-                  <div className="font-bold text-slate-900 text-xs">{selectedProject.clientName}</div>
-                  <div className="text-[10px] text-slate-600">Project Code: {selectedProject.code}</div>
-                  <div className="text-[10px] text-slate-600">State: Karnataka (Code: 29)</div>
-                </div>
-                <div>
-                  <div className="text-[9px] font-bold text-slate-500 uppercase">Dispatch / Place of Supply:</div>
-                  <div className="font-bold text-slate-900 text-xs">Karwar / Sirsi STEM Distribution Center</div>
-                  <div className="text-[10px] text-slate-600">Transport: Surface Express Cargo</div>
-                  <div className="text-[10px] text-slate-600">Payment Terms: 30 Days Net</div>
-                </div>
+              <div>
+                <label className="text-slate-300 font-bold block mb-1">Batch Multiplier for this Class</label>
+                <input
+                  type="number"
+                  min="1"
+                  value={newClassBatchMultiplier}
+                  onChange={e => setNewClassBatchMultiplier(Number(e.target.value))}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                />
               </div>
 
-              {/* Line Items Table */}
-              <table className="w-full text-left text-[11px]">
-                <thead>
-                  <tr className="border-b-2 border-slate-300 font-bold text-slate-700">
-                    <th className="py-1.5">Description</th>
-                    <th className="py-1.5">HSN/SAC</th>
-                    <th className="py-1.5 text-right">Qty</th>
-                    <th className="py-1.5 text-right">Unit Rate (₹)</th>
-                    <th className="py-1.5 text-right">Taxable Value (₹)</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-200">
-                  <tr>
-                    <td className="py-2">
-                      <div className="font-bold text-slate-900">{selectedProject.name}</div>
-                      <div className="text-[9px] text-slate-500">STEM Science & Math Curriculum Kits (Grades 8, 9, 10)</div>
-                    </td>
-                    <td className="py-2 font-mono">90230000</td>
-                    <td className="py-2 text-right font-mono font-bold">10 Sets</td>
-                    <td className="py-2 text-right font-mono">₹{Math.round(selectedProject.budgetINR / 10).toLocaleString('en-IN')}</td>
-                    <td className="py-2 text-right font-mono font-bold">₹{selectedProject.budgetINR.toLocaleString('en-IN')}</td>
-                  </tr>
-                </tbody>
-              </table>
-
-              {/* Tax Summary Calculation */}
-              <div className="border-t-2 border-slate-900 pt-3 flex justify-end">
-                <div className="w-64 space-y-1.5 text-[11px]">
-                  <div className="flex justify-between text-slate-600">
-                    <span>Taxable Subtotal:</span>
-                    <span className="font-mono font-bold text-slate-900">₹{selectedProject.budgetINR.toLocaleString('en-IN')}</span>
-                  </div>
-                  <div className="flex justify-between text-slate-600">
-                    <span>CGST (9.0%):</span>
-                    <span className="font-mono font-bold text-slate-900">₹{Math.round(selectedProject.budgetINR * 0.09).toLocaleString('en-IN')}</span>
-                  </div>
-                  <div className="flex justify-between text-slate-600">
-                    <span>SGST (9.0%):</span>
-                    <span className="font-mono font-bold text-slate-900">₹{Math.round(selectedProject.budgetINR * 0.09).toLocaleString('en-IN')}</span>
-                  </div>
-                  <div className="flex justify-between text-base font-black text-slate-950 pt-2 border-t border-slate-300">
-                    <span>Total Invoice Value:</span>
-                    <span className="font-mono text-indigo-900">₹{Math.round(selectedProject.budgetINR * 1.18).toLocaleString('en-IN')}</span>
-                  </div>
-                </div>
+              <div>
+                <label className="text-slate-300 font-bold block mb-1">Description / Notes</label>
+                <input
+                  type="text"
+                  value={newClassDesc}
+                  onChange={e => setNewClassDesc(e.target.value)}
+                  placeholder="e.g. Hands-on optics, electricity and mechanics"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                />
               </div>
-            </div>
 
-            <div className="flex justify-end gap-3 pt-2 border-t border-slate-800">
+              <div className="flex justify-end gap-2 pt-3 border-t border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setIsAddClassModalOpen(false)}
+                  className="px-4 py-2 rounded-xl text-slate-400 hover:text-white bg-slate-800/60 hover:bg-slate-800 cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 rounded-xl text-white font-bold bg-indigo-600 hover:bg-indigo-500 cursor-pointer"
+                >
+                  Add Class
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ===== 8. Modal: Add / Edit Deliverable Item ===== */}
+      {isAddEditItemModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-xl w-full p-6 space-y-4 shadow-2xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div className="flex items-center gap-2">
+                <Package className="w-5 h-5 text-emerald-400" />
+                <h3 className="text-base font-bold text-white">
+                  {editingItem ? 'Edit Deliverable Item' : `Add Deliverable to ${activeClass?.name}`}
+                </h3>
+              </div>
               <button
-                onClick={() => setIsInvoiceModalOpen(false)}
-                className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold"
+                onClick={() => setIsAddEditItemModalOpen(false)}
+                className="text-slate-400 hover:text-white p-1 rounded-lg cursor-pointer"
               >
-                Close
-              </button>
-              <button
-                onClick={() => {
-                  showToast('Generated GST Tax Invoice PDF & E-Way Delivery Challan', 'success');
-                  setIsInvoiceModalOpen(false);
-                }}
-                className="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold flex items-center gap-2 shadow-lg shadow-indigo-600/30"
-              >
-                <Download className="w-4 h-4" /> Download Official GST Invoice PDF
+                <X className="w-5 h-5" />
               </button>
             </div>
+
+            <form onSubmit={handleSaveWorkItem} className="space-y-3 text-xs">
+              <div>
+                <label className="text-slate-300 font-bold block mb-1">Deliverable / Component Name *</label>
+                <input
+                  type="text"
+                  required
+                  value={itemFormName}
+                  onChange={e => setItemFormName(e.target.value)}
+                  placeholder="e.g. Electric Motor Demo Rig, 3mm MDF Optical Bench, 0.1M HCl Dropper..."
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="text-slate-300 font-bold block mb-1">Category</label>
+                  <select
+                    value={itemFormCategory}
+                    onChange={e => setItemFormCategory(e.target.value as any)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  >
+                    <option value="ACTIVITY_KIT">🧪 Activity Kit / Experiment Pouch</option>
+                    <option value="WORKING_MODEL">⚙️ Physical Demonstration Model</option>
+                    <option value="EDUCATIONAL_CHART">📊 Educational Chart / Wall Display</option>
+                    <option value="FABRICATION_LASER_3D">🪵 Laser Cut / 3D Print / Foam Part</option>
+                    <option value="CHEMICAL_REAGENT">⚗️ Chemical Solution / Reagent</option>
+                    <option value="HARDWARE_SUPPLIES">🛒 Hardware, Glassware & Tools</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-slate-300 font-bold block mb-1">Sourcing Channel</label>
+                  <select
+                    value={itemFormSourcing}
+                    onChange={e => setItemFormSourcing(e.target.value as any)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  >
+                    <option value="BUY_LOCAL">🛒 Buy Local (Local City Market)</option>
+                    <option value="ORDER_ONLINE">📦 Order Online (Amazon/Vendor)</option>
+                    <option value="LASER_CUT">🪵 Laser Cut in FabLab</option>
+                    <option value="3D_PRINT">🖨️ 3D Print in FabLab</option>
+                    <option value="FOAM_CUT">✂️ Thermo Foam Cut</option>
+                    <option value="CHEMICAL_PREP">⚗️ Chemical Prep / Aliquoting</option>
+                    <option value="CHART_PRINT">📊 Large Format Chart Printing</option>
+                    <option value="MODEL_ASSEMBLY">⚙️ Physical Model Assembly</option>
+                    <option value="IN_STOCK">✅ Available in Warehouse Stock</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="text-slate-300 font-bold block mb-1">Specification / Details</label>
+                <input
+                  type="text"
+                  value={itemFormSpec}
+                  onChange={e => setItemFormSpec(e.target.value)}
+                  placeholder="e.g. 50mm dia, 10cm FL convex lens in 3D frame, sealed with sticker"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <label className="text-slate-300 font-bold block mb-1">Base Qty (per 1 kit)</label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={itemFormQty}
+                    onChange={e => setItemFormQty(Number(e.target.value))}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-slate-300 font-bold block mb-1">Unit</label>
+                  <input
+                    type="text"
+                    value={itemFormUnit}
+                    onChange={e => setItemFormUnit(e.target.value)}
+                    placeholder="pcs, ml, sets, bottles..."
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-slate-300 font-bold block mb-1">Unit Cost (₹) — <span className="text-slate-400">Optional</span></label>
+                  <input
+                    type="number"
+                    value={itemFormCost}
+                    onChange={e => setItemFormCost(e.target.value)}
+                    placeholder="e.g. 45"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="text-slate-300 font-bold block mb-1">Lead Assignee (Technician / Person)</label>
+                  <input
+                    type="text"
+                    value={itemFormAssignee}
+                    onChange={e => setItemFormAssignee(e.target.value)}
+                    placeholder="e.g. Ravi Kumar or Priya Sharma"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-slate-300 font-bold block mb-1">Status</label>
+                  <select
+                    value={itemFormStatus}
+                    onChange={e => setItemFormStatus(e.target.value as any)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  >
+                    <option value="PENDING">⏳ Pending</option>
+                    <option value="IN_PREP">⚙️ In Preparation</option>
+                    <option value="READY">✅ Ready</option>
+                    <option value="PACKED">📦 Packed</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="text-slate-300 font-bold block mb-1">Chapter / Activity Ref (Optional)</label>
+                  <input
+                    type="text"
+                    value={itemFormChapter}
+                    onChange={e => setItemFormChapter(e.target.value)}
+                    placeholder="e.g. Chapter 3.2 (Electric Current)"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-slate-300 font-bold block mb-1">Notes / QA Instruction</label>
+                  <input
+                    type="text"
+                    value={itemFormNotes}
+                    onChange={e => setItemFormNotes(e.target.value)}
+                    placeholder="e.g. Double bag liquid bottles"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  />
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-3 border-t border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setIsAddEditItemModalOpen(false)}
+                  className="px-4 py-2 rounded-xl text-slate-400 hover:text-white bg-slate-800/60 hover:bg-slate-800 cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 rounded-xl text-white font-bold bg-emerald-600 hover:bg-emerald-500 cursor-pointer"
+                >
+                  {editingItem ? 'Save Changes' : 'Add Item'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

@@ -81,6 +81,7 @@ function MainApp() {
   const [isCreateKitModalOpen, setIsCreateKitModalOpen] = useState(false);
   const [isBarcodeStudioOpen, setIsBarcodeStudioOpen] = useState(false);
   const [isBarcodeScannerOpen, setIsBarcodeScannerOpen] = useState(false);
+  const [projectNavParams, setProjectNavParams] = useState<{ projectId?: string; grade?: string }>({});
 
   const kittingAnalysis = useMemo(() => {
     const targetKitId = selectedKitId === 'all' ? (kits[0]?.id || '') : selectedKitId;
@@ -359,11 +360,19 @@ function MainApp() {
               )}
 
               {activeTab === 'projects_hub' && (
-                <ProjectPortfolioManagerTab />
+                <ProjectPortfolioManagerTab
+                  onNavigateToTab={(tabId, params) => {
+                    if (params) setProjectNavParams(params);
+                    setActiveTab(tabId);
+                  }}
+                />
               )}
 
               {activeTab === 'production_command' && (
-                <ProductionCommandCenterTab />
+                <ProductionCommandCenterTab
+                  initialProjectId={projectNavParams.projectId}
+                  initialGrade={projectNavParams.grade}
+                />
               )}
 
               {activeTab === 'sticker_hub' && (
