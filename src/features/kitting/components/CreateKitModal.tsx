@@ -1,11 +1,12 @@
 import React, { useState, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Upload, Image as ImageIcon, Sparkles, Palette, Link as LinkIcon } from 'lucide-react';
+import { X, Upload, Image as ImageIcon, Sparkles, Palette, Link as LinkIcon, Crop } from 'lucide-react';
 import { KitBOM } from '@/src/types';
 import { uploadImage } from '@/src/utils/storage';
 import { useData } from '@/src/DataContext';
 import { STEM_PRESET_IMAGES } from '@/src/utils/itemThumbnailHelper';
 import ImagePreviewModal from '@/src/shared/components/ImagePreviewModal';
+import ImageCropStudioModal from '@/src/shared/components/ImageCropStudioModal';
 
 interface CreateKitModalProps {
   isOpen: boolean;
@@ -37,6 +38,7 @@ export default function CreateKitModal({ isOpen, onClose, onCreateKit }: CreateK
   const [showUrlInput, setShowUrlInput] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [zoomPreview, setZoomPreview] = useState(false);
+  const [showCropStudio, setShowCropStudio] = useState(false);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -180,6 +182,16 @@ export default function CreateKitModal({ isOpen, onClose, onCreateKit }: CreateK
                    >
                      <Upload className="w-3 h-3" /> Upload
                    </button>
+                   {previewUrl && (
+                     <button
+                       type="button"
+                       onClick={() => setShowCropStudio(true)}
+                       className="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-700 dark:text-slate-300 text-[10px] font-bold flex items-center gap-1 cursor-pointer transition-colors border border-slate-300 dark:border-slate-700"
+                       title="Crop & Tune Kit Photo"
+                     >
+                       <Crop className="w-3 h-3 text-indigo-500" /> Crop
+                     </button>
+                   )}
                    <button
                      type="button"
                      onClick={() => {
@@ -283,6 +295,27 @@ export default function CreateKitModal({ isOpen, onClose, onCreateKit }: CreateK
           title={name || 'Composite Kit Preview'}
           subtitle={description}
           category="Composite Kit Profile"
+          editable={true}
+          onSaveImage={(newImg) => {
+            setPreviewUrl(newImg);
+            setImageFile(null);
+          }}
+        />
+      )}
+
+      {showCropStudio && previewUrl && (
+        <ImageCropStudioModal
+          isOpen={showCropStudio}
+          onClose={() => setShowCropStudio(false)}
+          imageSrc={previewUrl}
+          itemName={name || 'Composite Kit Preview'}
+          itemCategory="Composite Kit Profile"
+          initialAspect={16 / 9}
+          onSave={(croppedUrl) => {
+            setPreviewUrl(croppedUrl);
+            setImageFile(null);
+            setShowCropStudio(false);
+          }}
         />
       )}
     </div>,

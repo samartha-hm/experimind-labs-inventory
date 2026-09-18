@@ -1,12 +1,13 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Upload, Image as ImageIcon, Package, Clock, Settings, MapPin, Cpu, Sparkles, ZoomIn, Link as LinkIcon, Check } from 'lucide-react';
+import { X, Upload, Image as ImageIcon, Package, Clock, Settings, MapPin, Cpu, Sparkles, ZoomIn, Link as LinkIcon, Check, Crop } from 'lucide-react';
 import { InventoryItem, KitBOM } from '@/src/types';
 import { uploadImage } from '@/src/utils/storage';
 import { useData } from '@/src/DataContext';
 import DiffViewer from '@/src/components/DiffViewer';
 import ItemImage from '@/src/shared/components/ItemImage';
 import ImagePreviewModal from '@/src/shared/components/ImagePreviewModal';
+import ImageCropStudioModal from '@/src/shared/components/ImageCropStudioModal';
 import { STEM_PRESET_IMAGES, getItemThumbnailUrl } from '@/src/utils/itemThumbnailHelper';
 import { MASTER_PRODUCTION_ITEMS } from '@/src/data/productionDataset';
 
@@ -49,6 +50,7 @@ export default function EditPartModal({
   const [isSaving, setIsSaving] = useState(false);
   const [showPresets, setShowPresets] = useState(false);
   const [isZoomOpen, setIsZoomOpen] = useState(false);
+  const [showCropStudio, setShowCropStudio] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -87,7 +89,7 @@ export default function EditPartModal({
     if (sug.unitCost) setUnitCost(sug.unitCost.toString());
     if (sug.bin && !binLocation) setBinLocation(sug.bin);
     if (!imageUrl && !imageFile) {
-      setImageUrl(getItemThumbnailUrl(sug.name, sug.category));
+      setImageUrl(getItemThumbnailUrl({ name: sug.name, category: sug.category }));
     }
   };
 
@@ -242,15 +244,26 @@ export default function EditPartModal({
                     />
                   </div>
 
-                  <div className="flex items-center gap-1.5 w-full">
+                  <div className="flex flex-wrap items-center gap-1.5 w-full">
                     <button
                       type="button"
                       onClick={() => setShowPresets(!showPresets)}
-                      className="flex-1 py-1 px-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg text-[10px] font-bold flex items-center justify-center gap-1 transition-all cursor-pointer border border-indigo-200"
+                      className="flex-1 py-1 px-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg text-[10px] font-bold flex items-center justify-center gap-1 transition-all cursor-pointer border border-indigo-200"
                     >
                       <Sparkles className="w-3 h-3 text-indigo-500" />
                       Presets
                     </button>
+                    {(imageUrl || imageFile || item.imageUrl) && (
+                      <button
+                        type="button"
+                        onClick={() => setShowCropStudio(true)}
+                        className="py-1 px-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-[10px] font-bold flex items-center gap-1 transition-all cursor-pointer border border-slate-300"
+                        title="Crop and tune component photo"
+                      >
+                        <Crop className="w-3 h-3 text-indigo-600" />
+                        Crop
+                      </button>
+                    )}
                     {(imageUrl || imageFile) && (
                       <button
                         type="button"
@@ -258,7 +271,7 @@ export default function EditPartModal({
                           setImageFile(null);
                           setImageUrl('');
                         }}
-                        className="py-1 px-2 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-lg text-[10px] font-bold transition-all cursor-pointer border border-rose-200"
+                        className="py-1 px-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-lg text-[10px] font-bold transition-all cursor-pointer border border-rose-200"
                         title="Reset to default auto-thumbnail"
                       >
                         Clear
@@ -682,6 +695,26 @@ export default function EditPartModal({
           stockQty={parseInt(stock) || item.stockQty}
           unit={unit || item.unit}
           binLocation={binLocation || item.binLocation}
+          editable={true}
+          onSaveImage={(newImg) => {
+            setImageUrl(newImg);
+            setImageFile(null);
+          }}
+        />
+      )}
+
+      {showCropStudio && (
+        <ImageCropStudioModal
+          isOpen={showCropStudio}
+          onClose={() => setShowCropStudio(false)}
+          imageSrc={imageFile ? URL.createObjectURL(imageFile) : imageUrl || item.imageUrl || ''}
+          itemName={name || item.name}
+          itemCategory={category || item.category}
+          onSave={(croppedUrl) => {
+            setImageUrl(croppedUrl);
+            setImageFile(null);
+            setShowCropStudio(false);
+          }}
         />
       )}
     </div>,

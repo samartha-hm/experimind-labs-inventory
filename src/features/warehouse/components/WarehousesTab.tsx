@@ -35,6 +35,7 @@ import { useToast } from '@/src/contexts/ToastContext';
 import { InventoryItem } from '@/src/types';
 import BarcodeSvg from '@/src/shared/components/BarcodeSvg';
 import ItemImage from '@/src/shared/components/ItemImage';
+import ImagePreviewModal from '@/src/shared/components/ImagePreviewModal';
 import VisualStockRoom from './VisualStockRoom';
 import FloorPlanDesignerTab from './FloorPlanDesignerTab';
 import SmartSelect from '@/src/shared/components/SmartSelect';
@@ -91,6 +92,16 @@ export default function WarehousesTab({ role }: WarehousesTabProps) {
 
   // Print Shelf Sticker Modal
   const [printingBin, setPrintingBin] = useState<any | null>(null);
+
+  // Zoom Lightbox Modal
+  const [zoomItem, setZoomItem] = useState<{
+    imageUrl?: string;
+    title: string;
+    category?: string;
+    stockQty?: number;
+    unit?: string;
+    binLocation?: string;
+  } | null>(null);
 
   // Expanded Bins accordion state
   const [expandedBinIds, setExpandedBinIds] = useState<Record<string, boolean>>({});
@@ -719,7 +730,20 @@ export default function WarehousesTab({ role }: WarehousesTabProps) {
                         {/* Item Details */}
                         <td className="py-3 px-4">
                           <div className="flex items-center gap-3">
-                            <div className="w-9 h-9 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 overflow-hidden shrink-0 flex items-center justify-center">
+                            <div
+                              onClick={() => {
+                                setZoomItem({
+                                  imageUrl: item.imageUrl,
+                                  title: item.name,
+                                  category: item.category,
+                                  stockQty: item.stockQty,
+                                  unit: item.unit,
+                                  binLocation: item.binLocation || '-'
+                                });
+                              }}
+                              className="w-9 h-9 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 overflow-hidden shrink-0 flex items-center justify-center cursor-pointer hover:ring-2 hover:ring-indigo-500/40 hover:scale-105 transition-all"
+                              title="Click to zoom high-res photo"
+                            >
                               {item.imageUrl ? (
                                 <ItemImage src={item.imageUrl} alt={item.name} className="w-full h-full object-cover" />
                               ) : (
@@ -1290,6 +1314,19 @@ export default function WarehousesTab({ role }: WarehousesTabProps) {
           </div>
         </div>,
         document.body
+      )}
+
+      {zoomItem && (
+        <ImagePreviewModal
+          isOpen={!!zoomItem}
+          onClose={() => setZoomItem(null)}
+          imageUrl={zoomItem.imageUrl}
+          title={zoomItem.title}
+          category={zoomItem.category}
+          stockQty={zoomItem.stockQty}
+          unit={zoomItem.unit}
+          binLocation={zoomItem.binLocation}
+        />
       )}
 
     </div>

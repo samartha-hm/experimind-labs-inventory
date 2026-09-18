@@ -36,7 +36,8 @@ import {
   FileText,
   Sparkles,
   ZoomIn,
-  Link as LinkIcon
+  Link as LinkIcon,
+  Crop
 } from 'lucide-react';
 import { InventoryItem, KitBOM } from '@/src/types';
 import EditPartModal from '@/src/features/inventory/components/EditPartModal';
@@ -44,6 +45,7 @@ import SerialNumbersModal from '@/src/features/inventory/components/SerialNumber
 import { BulkImportModal } from '@/src/features/inventory/components/BulkImportModal';
 import ItemImage from '@/src/shared/components/ItemImage';
 import ImagePreviewModal from '@/src/shared/components/ImagePreviewModal';
+import ImageCropStudioModal from '@/src/shared/components/ImageCropStudioModal';
 import { uploadImage } from '@/src/utils/storage';
 import { useData } from '@/src/DataContext';
 import { useToast } from '@/src/contexts/ToastContext';
@@ -124,6 +126,14 @@ export default function InventoryTab({
     binLocation?: string;
   } | null>(null);
 
+  // Standalone Crop Studio Modal State
+  const [showCropStudioItem, setShowCropStudioItem] = useState<{
+    imageSrc: string;
+    title: string;
+    category?: string;
+    onSave: (newUrl: string) => void;
+  } | null>(null);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
   const [isSerialModalOpen, setIsSerialModalOpen] = useState(false);
@@ -177,7 +187,7 @@ export default function InventoryTab({
     if (sug.bin) setNewBinLocation(sug.bin);
     if (sug.threshold) setNewThreshold(sug.threshold.toString());
     if (!newImageUrl && !newImageFile) {
-      setNewImageUrl(getItemThumbnailUrl(sug.name, sug.category));
+      setNewImageUrl(getItemThumbnailUrl({ name: sug.name, category: sug.category }));
     }
   };
 
@@ -617,11 +627,11 @@ export default function InventoryTab({
                 />
               </div>
 
-              <div className="flex items-center gap-1.5 w-full">
+              <div className="flex flex-wrap items-center gap-1.5 w-full">
                 <button
                   type="button"
                   onClick={() => setShowAddPresets(!showAddPresets)}
-                  className="flex-1 py-1 px-2 bg-indigo-50 dark:bg-indigo-950/60 hover:bg-indigo-100 text-indigo-700 dark:text-indigo-300 rounded-lg text-[10px] font-bold flex items-center justify-center gap-1 transition-all cursor-pointer border border-indigo-200 dark:border-indigo-800"
+                  className="flex-1 py-1 px-1.5 bg-indigo-50 dark:bg-indigo-950/60 hover:bg-indigo-100 text-indigo-700 dark:text-indigo-300 rounded-lg text-[10px] font-bold flex items-center justify-center gap-1 transition-all cursor-pointer border border-indigo-200 dark:border-indigo-800"
                 >
                   <Sparkles className="w-3 h-3 text-indigo-500" />
                   Presets
@@ -630,10 +640,32 @@ export default function InventoryTab({
                   <button
                     type="button"
                     onClick={() => {
+                      const src = newImageFile ? URL.createObjectURL(newImageFile) : newImageUrl;
+                      setShowCropStudioItem({
+                        imageSrc: src,
+                        title: newName || 'New Component Preview',
+                        category: newCategory,
+                        onSave: (cropped) => {
+                          setNewImageUrl(cropped);
+                          setNewImageFile(null);
+                        }
+                      });
+                    }}
+                    className="py-1 px-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-lg text-[10px] font-bold transition-all cursor-pointer border border-slate-300 dark:border-slate-700 flex items-center gap-1"
+                    title="Crop and tune component photo"
+                  >
+                    <Crop className="w-3 h-3 text-indigo-500" />
+                    Crop
+                  </button>
+                )}
+                {(newImageUrl || newImageFile) && (
+                  <button
+                    type="button"
+                    onClick={() => {
                       setNewImageFile(null);
                       setNewImageUrl('');
                     }}
-                    className="py-1 px-2 bg-rose-50 dark:bg-rose-950/50 hover:bg-rose-100 text-rose-600 rounded-lg text-[10px] font-bold transition-all cursor-pointer border border-rose-200"
+                    className="py-1 px-1.5 bg-rose-50 dark:bg-rose-950/50 hover:bg-rose-100 text-rose-600 rounded-lg text-[10px] font-bold transition-all cursor-pointer border border-rose-200"
                     title="Clear selected image"
                   >
                     Clear
@@ -1345,6 +1377,33 @@ export default function InventoryTab({
           stockQty={zoomItem.stockQty}
           unit={zoomItem.unit}
           binLocation={zoomItem.binLocation}
+          editable={true}
+          onSaveImage={async (newUrl) => {
+            const foundItem = inventory.find(i => i.name === zoomItem.title || i.imageUrl === zoomItem.imageUrl);
+            if (foundItem) {
+              await onUpdateComponent(foundItem.id, { imageUrl: newUrl });
+              setZoomItem(prev => prev ? { ...prev, imageUrl: newUrl } : null);
+              if (drawerItem && drawerItem.id === foundItem.id) {
+                setDrawerItem(prev => prev ? { ...prev, imageUrl: newUrl } : null);
+              }
+              showToast('success', 'Image Updated', `New photo saved for "${foundItem.name}"`);
+            }
+          }}
+        />
+      )}
+
+      {/* Standalone Crop Studio Modal */}
+      {showCropStudioItem && (
+        <ImageCropStudioModal
+          isOpen={!!showCropStudioItem}
+          onClose={() => setShowCropStudioItem(null)}
+          imageSrc={showCropStudioItem.imageSrc}
+          itemName={showCropStudioItem.title}
+          itemCategory={showCropStudioItem.category}
+          onSave={(croppedDataUrl) => {
+            showCropStudioItem.onSave(croppedDataUrl);
+            setShowCropStudioItem(null);
+          }}
         />
       )}
     </div>

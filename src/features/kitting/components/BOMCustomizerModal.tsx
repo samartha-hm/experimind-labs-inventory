@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Plus, Trash2, Save, Sparkles, Upload, Image as ImageIcon, Search, Settings, Clock, Palette, Link as LinkIcon, ZoomIn } from 'lucide-react';
+import { X, Plus, Trash2, Save, Sparkles, Upload, Image as ImageIcon, Search, Settings, Clock, Palette, Link as LinkIcon, ZoomIn, Crop } from 'lucide-react';
 import { InventoryItem, KitBOM, BOMRequirement } from '@/src/types';
 import { uploadImage } from '@/src/utils/storage';
 import { useData } from '@/src/DataContext';
@@ -8,6 +8,7 @@ import DiffViewer from '@/src/components/DiffViewer';
 import SmartSelect from '@/src/shared/components/SmartSelect';
 import ItemImage from '@/src/shared/components/ItemImage';
 import ImagePreviewModal from '@/src/shared/components/ImagePreviewModal';
+import ImageCropStudioModal from '@/src/shared/components/ImageCropStudioModal';
 import { STEM_PRESET_IMAGES } from '@/src/utils/itemThumbnailHelper';
 import { MASTER_PRODUCTION_ITEMS } from '@/src/data/productionDataset';
 
@@ -41,6 +42,7 @@ export default function BOMCustomizerModal({
   const [customUrlInput, setCustomUrlInput] = useState('');
   const [showPresetGallery, setShowPresetGallery] = useState(false);
   const [showUrlInput, setShowUrlInput] = useState(false);
+  const [showCropStudio, setShowCropStudio] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Search and Category Filter States
@@ -102,13 +104,13 @@ export default function BOMCustomizerModal({
     const existsInInv = inventory.some(i => i.id === partId);
 
     if (!existsInInv && partId.startsWith('master_')) {
-      const masterCode = partId.replace('master_', '');
-      const masterItem = MASTER_PRODUCTION_ITEMS.find(m => m.code === masterCode);
+      const masterId = partId.replace('master_', '');
+      const masterItem = MASTER_PRODUCTION_ITEMS.find(m => m.id === masterId);
       if (masterItem) {
         // Auto-provision or register in inventory
         const newId = await addInventoryItem({
-          name: masterItem.name,
-          category: masterItem.category || 'General Components',
+          name: masterItem.materialName,
+          category: masterItem.pouchCategory || 'General Components',
           stockQty: 50,
           unit: masterItem.unit || 'pcs',
           threshold: 10,
@@ -208,12 +210,12 @@ export default function BOMCustomizerModal({
     });
 
     (MASTER_PRODUCTION_ITEMS || []).forEach(m => {
-      const alreadyInInv = inventory.some(i => i.name.toLowerCase() === m.name.toLowerCase());
-      if (!alreadyInInv && !requirements.some(r => r.componentId === `master_${m.code}`)) {
+      const alreadyInInv = inventory.some(i => i.name.toLowerCase() === m.materialName.toLowerCase());
+      if (!alreadyInInv && !requirements.some(r => r.componentId === `master_${m.id}`)) {
         list.push({
-          id: `master_${m.code}`,
-          name: m.name,
-          category: m.category,
+          id: `master_${m.id}`,
+          name: m.materialName,
+          category: m.pouchCategory,
           stockQty: 0,
           unit: m.unit || 'pcs',
           isMaster: true
@@ -322,6 +324,16 @@ export default function BOMCustomizerModal({
                     >
                       <Upload className="w-3 h-3" /> Upload
                     </button>
+                    {previewUrl && (
+                      <button
+                        type="button"
+                        onClick={() => setShowCropStudio(true)}
+                        className="flex items-center gap-1 text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950 px-2 py-1 rounded-lg transition-colors cursor-pointer hover:bg-emerald-100"
+                        title="Crop, rotate, and enhance kit photo"
+                      >
+                        <Crop className="w-3 h-3" /> Crop
+                      </button>
+                    )}
                     <button
                       type="button"
                       onClick={() => {
@@ -686,6 +698,27 @@ export default function BOMCustomizerModal({
           category={zoomItem.category}
           stockQty={zoomItem.stockQty}
           unit={zoomItem.unit}
+          editable={true}
+          onSaveImage={(newUrl) => {
+            setPreviewUrl(newUrl);
+            setNewImageFile(null);
+          }}
+        />
+      )}
+
+      {showCropStudio && previewUrl && (
+        <ImageCropStudioModal
+          isOpen={showCropStudio}
+          onClose={() => setShowCropStudio(false)}
+          imageSrc={previewUrl}
+          itemName={name || kit.name || 'Kit Profile Photo'}
+          itemCategory="STEM Composite Kit"
+          initialAspect={16 / 9}
+          onSave={(croppedUrl) => {
+            setPreviewUrl(croppedUrl);
+            setNewImageFile(null);
+            setShowCropStudio(false);
+          }}
         />
       )}
     </div>,
