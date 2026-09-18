@@ -48,7 +48,7 @@ export const STEM_PRESET_IMAGES: StemPresetImage[] = [
     id: 'fab-3d-bracket',
     name: '3D Printed Mechanical Bracket',
     category: 'FABRICATION_LASER_3D',
-    url: 'https://images.unsplash.com/photo-1631553127988-34825d194553?w=600&auto=format&fit=crop&q=80',
+    url: 'https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=600&auto=format&fit=crop&q=80',
     emoji: '🖨️'
   },
   {

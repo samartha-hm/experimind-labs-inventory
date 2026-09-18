@@ -75,8 +75,12 @@ export class RealTimeEventService {
 
   private static sendEventToResponse(res: Response, payload: RealTimeEventPayload) {
     try {
+      if (!res || res.writableEnded || res.destroyed) return;
       res.write(`event: ${payload.type}\n`);
       res.write(`data: ${JSON.stringify(payload)}\n\n`);
+      if (typeof (res as any).flush === "function") {
+        (res as any).flush();
+      }
     } catch {
       // Stream may have closed
     }

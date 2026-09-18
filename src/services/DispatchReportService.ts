@@ -331,6 +331,51 @@ export class DispatchReportService {
   }
 
   /**
+   * Clones and recalculates a summary for a specific subset of items (e.g. user selected items)
+   */
+  public static filterSummaryToItems(summary: DispatchReportSummary, itemIds: Set<string> | string[]): DispatchReportSummary {
+    const idSet = itemIds instanceof Set ? itemIds : new Set(itemIds);
+    const selectedItems = summary.items.filter(i => idSet.has(i.id));
+    if (selectedItems.length === 0) return summary;
+
+    const totalItems = selectedItems.length;
+    const inStockCount = selectedItems.filter(i => i.actionChannel === 'IN_STOCK').length;
+    const localBuyCount = selectedItems.filter(i => i.actionChannel === 'LOCAL_BUY').length;
+    const toOrderCount = selectedItems.filter(i => i.actionChannel === 'TO_ORDER').length;
+    const fabricationCount = selectedItems.filter(i => i.actionChannel === 'IN_HOUSE_FABRICATION').length;
+    const stockReadinessPct = totalItems > 0 ? Math.round((inStockCount / totalItems) * 100) : 0;
+
+    const localPurchaseCashINR = selectedItems
+      .filter(i => i.actionChannel === 'LOCAL_BUY')
+      .reduce((sum, i) => sum + i.extendedCost, 0);
+
+    const vendorOrdersTotalINR = selectedItems
+      .filter(i => i.actionChannel === 'TO_ORDER')
+      .reduce((sum, i) => sum + i.extendedCost, 0);
+
+    const inStockValueINR = selectedItems
+      .filter(i => i.actionChannel === 'IN_STOCK')
+      .reduce((sum, i) => sum + i.extendedCost, 0);
+
+    const totalProcurementValueINR = localPurchaseCashINR + vendorOrdersTotalINR;
+
+    return {
+      ...summary,
+      totalItems,
+      inStockCount,
+      localBuyCount,
+      toOrderCount,
+      fabricationCount,
+      stockReadinessPct,
+      totalProcurementValueINR,
+      localPurchaseCashINR,
+      vendorOrdersTotalINR,
+      inStockValueINR,
+      items: selectedItems
+    };
+  }
+
+  /**
    * Exports an Excel (.xlsx) file with multiple categorized worksheets
    */
   public static generateExcelWorkbook(summary: DispatchReportSummary): any {

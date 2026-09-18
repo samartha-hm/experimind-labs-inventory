@@ -510,15 +510,15 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
           });
         });
 
-        sseSource.onerror = () => {
-          // Gracefully close on disconnection / auth failure to prevent browser reconnect spam
-          if (sseSource) {
+        sseSource.onerror = (e) => {
+          // If the connection is definitively closed, clean up reference
+          if (sseSource && sseSource.readyState === EventSource.CLOSED) {
             sseSource.close();
             sseSource = null;
           }
         };
       } catch (err) {
-        console.warn("SSE connection error:", err);
+        console.warn("SSE connection init notice:", err);
       }
     } else {
       setInventory([]);

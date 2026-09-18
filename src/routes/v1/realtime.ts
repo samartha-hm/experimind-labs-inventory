@@ -11,12 +11,22 @@ const router = Router();
  * Live Server-Sent Events (SSE) stream for real-time stock sync and notifications
  */
 router.get("/events", authenticateJwt, requireTenant, (req: any, res: Response) => {
+  if (req.socket) {
+    req.socket.setTimeout(0);
+    req.socket.setNoDelay(true);
+    req.socket.setKeepAlive(true);
+  }
+
   res.writeHead(200, {
     "Content-Type": "text/event-stream",
     "Cache-Control": "no-cache, no-transform",
     Connection: "keep-alive",
     "X-Accel-Buffering": "no", // Disables response buffering in Nginx
   });
+
+  if (typeof (res as any).flushHeaders === "function") {
+    (res as any).flushHeaders();
+  }
 
   const clientId = `sse-${Date.now()}-${crypto.randomBytes(4).toString("hex")}`;
   const orgId = req.user.orgId || "00000000-0000-0000-0000-000000000000";
