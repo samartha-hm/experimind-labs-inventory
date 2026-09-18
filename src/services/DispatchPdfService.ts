@@ -2,7 +2,7 @@ import jsPDF from 'jspdf';
 import JsBarcode from 'jsbarcode';
 import { DispatchReportSummary, DispatchItem } from './DispatchReportService';
 
-export type PdfDocumentType = 'FULL_DISPATCH' | 'SHORTAGE_CHECKLIST' | 'WAREHOUSE_PICKLIST' | 'SELECTED_ITEMS';
+export type PdfDocumentType = 'FULL_DISPATCH' | 'SHORTAGE_CHECKLIST' | 'WAREHOUSE_PICKLIST' | 'SELECTED_ITEMS' | 'LASER_CUTTING' | 'LAB_PREPARATION';
 export type PdfOrientation = 'landscape' | 'portrait';
 
 export interface PdfGeneratorOptions {
@@ -102,6 +102,29 @@ export class DispatchPdfService {
       itemsToRender = summary.items.filter(i => i.actionChannel === 'IN_STOCK' || i.actionChannel === 'IN_HOUSE_FABRICATION');
       reportTitle = titleOverride || 'WAREHOUSE STAGING & KITTING PICK LIST';
       reportSubtitle = 'Floor Order: Components to Pick from Storage Bins & Internal Fabrication Workshop';
+    } else if (documentType === 'LASER_CUTTING') {
+      itemsToRender = summary.items.filter(i => 
+        i.actionChannel === 'IN_HOUSE_FABRICATION' || 
+        i.category.toLowerCase().includes('laser') || 
+        i.category.toLowerCase().includes('fabricat') ||
+        i.name.toLowerCase().includes('laser') ||
+        i.name.toLowerCase().includes('cut') ||
+        i.technicalSpecification?.toLowerCase().includes('laser')
+      );
+      reportTitle = titleOverride || 'IN-HOUSE LASER CUTTING & FABRICATION JOB CARD';
+      reportSubtitle = 'Workshop Dispatch: Acrylic, MDF & Sheet Metal Parts to Fabricate / Cut';
+    } else if (documentType === 'LAB_PREPARATION') {
+      itemsToRender = summary.items.filter(i =>
+        i.category.toLowerCase().includes('chem') ||
+        i.category.toLowerCase().includes('reagent') ||
+        i.name.toLowerCase().includes('solution') ||
+        i.name.toLowerCase().includes('soln') ||
+        i.name.toLowerCase().includes('acid') ||
+        i.technicalSpecification?.toLowerCase().includes('soln') ||
+        i.technicalSpecification?.toLowerCase().includes('standardized')
+      );
+      reportTitle = titleOverride || 'CHEMICAL & REAGENT LAB PREPARATION DISPATCH SHEET';
+      reportSubtitle = 'Lab Production: Aqueous Solutions, Stains, and Chemical Formulations to Prepare';
     } else if (documentType === 'SELECTED_ITEMS') {
       reportTitle = titleOverride || 'CUSTOM SELECTED ITEMS DISPATCH CHECKLIST';
       reportSubtitle = 'Floor Verification & Dispatch Slip for Selected Materials';
@@ -543,7 +566,8 @@ export class DispatchPdfService {
       documentType: 'SHORTAGE_CHECKLIST',
       titleOverride: options.titleOverride || 'PROCUREMENT & SHORTAGE SHOPPING CHECKLIST'
     });
-    const filename = options.customFilename || `${summary.documentRef}_Shortage_Shopping_List.pdf`;
+    const rawFilename = options.customFilename || `${summary.documentRef}_Shortage_Shopping_List.pdf`;
+    const filename = rawFilename.replace(/[/\\?%*:|"<>]/g, '_');
     doc.save(filename);
   }
 
@@ -556,7 +580,36 @@ export class DispatchPdfService {
       documentType: 'WAREHOUSE_PICKLIST',
       titleOverride: options.titleOverride || 'WAREHOUSE STAGING & KITTING PICK LIST'
     });
-    const filename = options.customFilename || `${summary.documentRef}_Warehouse_PickList.pdf`;
+    const rawFilename = options.customFilename || `${summary.documentRef}_Warehouse_PickList.pdf`;
+    const filename = rawFilename.replace(/[/\\?%*:|"<>]/g, '_');
+    doc.save(filename);
+  }
+
+  /**
+   * Browser 1-click download: In-House Laser Cutting & Fabrication Job Card
+   */
+  public static downloadLaserCuttingDispatchPdf(summary: DispatchReportSummary, options: PdfGeneratorOptions = {}): void {
+    const doc = this.createDispatchPdf(summary, {
+      ...options,
+      documentType: 'LASER_CUTTING',
+      titleOverride: options.titleOverride || 'IN-HOUSE LASER CUTTING & FABRICATION JOB CARD'
+    });
+    const rawFilename = options.customFilename || `${summary.documentRef}_Laser_Cutting_JobCard.pdf`;
+    const filename = rawFilename.replace(/[/\\?%*:|"<>]/g, '_');
+    doc.save(filename);
+  }
+
+  /**
+   * Browser 1-click download: Chemical Formulation & Lab Reagent Preparation Sheet
+   */
+  public static downloadLabPreparationDispatchPdf(summary: DispatchReportSummary, options: PdfGeneratorOptions = {}): void {
+    const doc = this.createDispatchPdf(summary, {
+      ...options,
+      documentType: 'LAB_PREPARATION',
+      titleOverride: options.titleOverride || 'CHEMICAL & REAGENT LAB PREPARATION DISPATCH SHEET'
+    });
+    const rawFilename = options.customFilename || `${summary.documentRef}_Lab_Preparation_Sheet.pdf`;
+    const filename = rawFilename.replace(/[/\\?%*:|"<>]/g, '_');
     doc.save(filename);
   }
 
@@ -570,7 +623,8 @@ export class DispatchPdfService {
       orientation: options.orientation || 'landscape',
       titleOverride: options.titleOverride || 'EXECUTIVE DISPATCH & PRODUCTION READINESS REPORT'
     });
-    const filename = options.customFilename || `${summary.documentRef}_Executive_Dispatch_Sheet.pdf`;
+    const rawFilename = options.customFilename || `${summary.documentRef}_Executive_Dispatch_Sheet.pdf`;
+    const filename = rawFilename.replace(/[/\\?%*:|"<>]/g, '_');
     doc.save(filename);
   }
 
@@ -588,7 +642,8 @@ export class DispatchPdfService {
       documentType: 'SELECTED_ITEMS',
       titleOverride: options.titleOverride || 'SELECTED ITEMS DISPATCH CHECKLIST'
     });
-    const filename = options.customFilename || `${summary.documentRef}_Selected_Checklist.pdf`;
+    const rawFilename = options.customFilename || `${summary.documentRef}_Selected_Checklist.pdf`;
+    const filename = rawFilename.replace(/[/\\?%*:|"<>]/g, '_');
     doc.save(filename);
   }
 

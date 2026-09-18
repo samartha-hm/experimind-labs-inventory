@@ -16,10 +16,12 @@ import {
   Edit2,
   Trash2,
   X,
-  ZoomIn
+  ZoomIn,
+  FileSpreadsheet
 } from 'lucide-react';
 import { InventoryItem, KitBOM, TransactionRecord } from '@/src/types';
 import { analyzeKitting } from '@/src/utils/kitting';
+import { downloadStandardPrastutiTemplateXlsx } from '@/src/utils/prastutiTemplateEngine';
 import ItemImage from '@/src/shared/components/ItemImage';
 import ImagePreviewModal from '@/src/shared/components/ImagePreviewModal';
 
@@ -105,7 +107,17 @@ export default function KittingTab({
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-wrap">
+          <button
+            type="button"
+            onClick={() => downloadStandardPrastutiTemplateXlsx()}
+            className="bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 font-bold px-4 py-2.5 rounded-2xl text-xs active:scale-95 transition-all flex items-center gap-2 cursor-pointer touch-target shadow-sm"
+            title="Download official 6-column standard Excel template (8th, 9th, 10th grades)"
+          >
+            <FileSpreadsheet className="w-4 h-4 text-emerald-500" />
+            <span>Standard Template (.xlsx)</span>
+          </button>
+
           {onCreateKitClick && (
             <button
               onClick={onCreateKitClick}

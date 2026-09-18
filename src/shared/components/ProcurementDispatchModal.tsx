@@ -33,7 +33,13 @@ import {
   ChevronDown,
   Sparkles,
   Smartphone,
-  Monitor
+  Monitor,
+  Loader2,
+  Wrench,
+  FlaskConical,
+  Upload,
+  FileUp,
+  FolderPlus
 } from 'lucide-react';
 import {
   DispatchReportService,
@@ -45,6 +51,11 @@ import { DispatchPdfService, PdfOrientation, PdfDocumentType } from '../../servi
 import { ProjectManagementService } from '../../services/ProjectManagementService';
 import { ProductionWorkflowService } from '../../services/ProductionWorkflowService';
 import { Project } from '../../data/projectsDataset';
+import {
+  downloadStandardPrastutiTemplateXlsx,
+  parsePrastutiSpreadsheet,
+  ParsedPrastutiProject
+} from '../../utils/prastutiTemplateEngine';
 import ItemImage from './ItemImage';
 import ImagePreviewModal from './ImagePreviewModal';
 import { useToast } from '../../contexts/ToastContext';
@@ -69,6 +80,34 @@ type SortField =
   | 'extendedCost'
   | 'vendorOrLocation'
   | 'leadTimeDays';
+
+/**
+ * Bulletproof clipboard helper that works in both secure contexts and fallback legacy environments
+ */
+async function copyToClipboardSafe(text: string): Promise<boolean> {
+  try {
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+  } catch {}
+
+  try {
+    const textArea = document.createElement('textarea');
+    textArea.value = text;
+    textArea.style.position = 'fixed';
+    textArea.style.left = '-999999px';
+    textArea.style.top = '-999999px';
+    document.body.appendChild(textArea);
+    textArea.focus();
+    textArea.select();
+    const successful = document.execCommand('copy');
+    document.body.removeChild(textArea);
+    return successful;
+  } catch {
+    return false;
+  }
+}
 
 export default function ProcurementDispatchModal({
   isOpen,
@@ -115,8 +154,15 @@ export default function ProcurementDispatchModal({
   // Deep-Zoom Lightbox / Image Studio
   const [previewItem, setPreviewItem] = useState<DispatchItem | null>(null);
 
-  // Copy Feedback
+  // Loading / Feedback States
+  const [isGenerating, setIsGenerating] = useState<string | null>(null);
   const [copiedWhatsApp, setCopiedWhatsApp] = useState<boolean>(false);
+
+  // Import Spreadsheet Modal State
+  const [isImportModalOpen, setIsImportModalOpen] = useState<boolean>(false);
+  const [importedProjectsPreview, setImportedProjectsPreview] = useState<ParsedPrastutiProject[]>([]);
+  const [selectedImportIndex, setSelectedImportIndex] = useState<number>(0);
+  const [isImporting, setIsImporting] = useState<boolean>(false);
 
   useEffect(() => {
     if (projectId) {
@@ -136,6 +182,22 @@ export default function ProcurementDispatchModal({
     window.addEventListener('experimind_projects_updated', handleUpdate);
     return () => window.removeEventListener('experimind_projects_updated', handleUpdate);
   }, []);
+
+  // Keyboard Escape Handler
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (isImportModalOpen) {
+          setIsImportModalOpen(false);
+        } else {
+          onClose();
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, isImportModalOpen, onClose]);
 
   // Active Project Reference
   const activeProject = useMemo(() => {
@@ -242,7 +304,9 @@ export default function ProcurementDispatchModal({
   if (!isOpen) return null;
 
   // Selection Handlers
-  const handleToggleSelectAll = () => {
+  const handleToggleSelectAll = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
     if (isAllFilteredSelected) {
       setSelectedItemIds(prev => {
         const next = new Set(prev);
@@ -258,7 +322,10 @@ export default function ProcurementDispatchModal({
     }
   };
 
-  const handleToggleSelectItem = (id: string) => {
+  const handleToggleSelectItem = (id: string, e?: React.MouseEvent) => {
+    if (e) {
+      e.stopPropagation();
+    }
     setSelectedItemIds(prev => {
       const next = new Set(prev);
       if (next.has(id)) {
@@ -270,7 +337,9 @@ export default function ProcurementDispatchModal({
     });
   };
 
-  const handleClearSelection = () => {
+  const handleClearSelection = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
     setSelectedItemIds(new Set());
   };
 
@@ -284,8 +353,14 @@ export default function ProcurementDispatchModal({
   };
 
   // Dedicated PDF Downloads
-  const handleDownloadShortagePdf = () => {
+  const handleDownloadShortagePdf = async (e?: React.MouseEvent) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    setIsGenerating('shortage');
     try {
+      await new Promise(resolve => setTimeout(resolve, 50));
       DispatchPdfService.downloadShortageChecklistPdf(dispatchSummary, {
         orientation: pdfOrientation,
         includePrices,
@@ -293,15 +368,23 @@ export default function ProcurementDispatchModal({
         includeCheckboxes,
         includeSignatures
       });
-      showToast('Downloaded Procurement & Shortage Shopping Checklist PDF!', 'success');
-    } catch (err) {
+      showToast('success', 'PDF Downloaded', 'Procurement & Shortage Shopping Checklist PDF saved.');
+    } catch (err: any) {
       console.error(err);
-      showToast('Failed to generate Shortage PDF.', 'error');
+      showToast('error', 'Download Failed', err?.message || 'Failed to generate Shortage PDF.');
+    } finally {
+      setIsGenerating(null);
     }
   };
 
-  const handleDownloadPickListPdf = () => {
+  const handleDownloadPickListPdf = async (e?: React.MouseEvent) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    setIsGenerating('picklist');
     try {
+      await new Promise(resolve => setTimeout(resolve, 50));
       DispatchPdfService.downloadWarehousePickListPdf(dispatchSummary, {
         orientation: pdfOrientation,
         includePrices,
@@ -309,15 +392,84 @@ export default function ProcurementDispatchModal({
         includeCheckboxes,
         includeSignatures
       });
-      showToast('Downloaded Warehouse Staging & Pick-List PDF!', 'success');
-    } catch (err) {
+      showToast('success', 'PDF Downloaded', 'Warehouse Staging & Pick-List PDF saved.');
+    } catch (err: any) {
       console.error(err);
-      showToast('Failed to generate Pick-List PDF.', 'error');
+      showToast('error', 'Download Failed', err?.message || 'Failed to generate Pick-List PDF.');
+    } finally {
+      setIsGenerating(null);
     }
   };
 
-  const handleDownloadFullDispatchPdf = () => {
+  const handleDownloadLaserCuttingPdf = async (e?: React.MouseEvent) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    setIsGenerating('laser');
     try {
+      await new Promise(resolve => setTimeout(resolve, 50));
+      DispatchPdfService.downloadLaserCuttingDispatchPdf(dispatchSummary, {
+        orientation: pdfOrientation,
+        includePrices,
+        includeNotes,
+        includeCheckboxes,
+        includeSignatures
+      });
+      showToast('success', 'PDF Downloaded', 'In-House Laser Cutting & Fabrication Job Card PDF saved.');
+    } catch (err: any) {
+      console.error(err);
+      showToast('error', 'Download Failed', err?.message || 'Failed to generate Laser Cutting PDF.');
+    } finally {
+      setIsGenerating(null);
+    }
+  };
+
+  const handleDownloadLabPrepPdf = async (e?: React.MouseEvent) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    setIsGenerating('lab');
+    try {
+      await new Promise(resolve => setTimeout(resolve, 50));
+      DispatchPdfService.downloadLabPreparationDispatchPdf(dispatchSummary, {
+        orientation: pdfOrientation,
+        includePrices,
+        includeNotes,
+        includeCheckboxes,
+        includeSignatures
+      });
+      showToast('success', 'PDF Downloaded', 'Chemical & Lab Reagent Preparation Sheet PDF saved.');
+    } catch (err: any) {
+      console.error(err);
+      showToast('error', 'Download Failed', err?.message || 'Failed to generate Lab Prep PDF.');
+    } finally {
+      setIsGenerating(null);
+    }
+  };
+
+  const handleDownloadStandardTemplate = (e?: React.MouseEvent) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    try {
+      downloadStandardPrastutiTemplateXlsx();
+      showToast('success', 'Template Downloaded', 'Standard 6-Column Prastuti Excel Template (.xlsx) downloaded.');
+    } catch (err: any) {
+      showToast('error', 'Download Failed', err?.message || 'Failed to download standard template.');
+    }
+  };
+
+  const handleDownloadFullDispatchPdf = async (e?: React.MouseEvent) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    setIsGenerating('full');
+    try {
+      await new Promise(resolve => setTimeout(resolve, 50));
       DispatchPdfService.downloadFullDispatchPdf(dispatchSummary, {
         orientation: pdfOrientation,
         includePrices,
@@ -325,16 +477,132 @@ export default function ProcurementDispatchModal({
         includeCheckboxes,
         includeSignatures
       });
-      showToast('Downloaded Full Executive Dispatch Sheet PDF!', 'success');
-    } catch (err) {
+      showToast('success', 'PDF Downloaded', 'Full Executive Dispatch Sheet PDF saved.');
+    } catch (err: any) {
       console.error(err);
-      showToast('Failed to generate Dispatch Sheet PDF.', 'error');
+      showToast('error', 'Download Failed', err?.message || 'Failed to generate Dispatch Sheet PDF.');
+    } finally {
+      setIsGenerating(null);
     }
   };
 
-  const handleDownloadSelectedPdf = () => {
-    if (selectedItemIds.size === 0) return;
+  const handleDownloadCurrentPreviewPdf = async (e?: React.MouseEvent) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    if (activeDocumentType === 'SHORTAGE_CHECKLIST') {
+      await handleDownloadShortagePdf();
+    } else if (activeDocumentType === 'WAREHOUSE_PICKLIST') {
+      await handleDownloadPickListPdf();
+    } else if (activeDocumentType === 'LASER_CUTTING') {
+      await handleDownloadLaserCuttingPdf();
+    } else if (activeDocumentType === 'LAB_PREPARATION') {
+      await handleDownloadLabPrepPdf();
+    } else {
+      await handleDownloadFullDispatchPdf();
+    }
+  };
+
+  const handleFileUploadForImport = async (file: File) => {
     try {
+      const buffer = await file.arrayBuffer();
+      const parsed = parsePrastutiSpreadsheet(buffer);
+      if (parsed.length === 0) {
+        showToast('error', 'Import Empty', 'No valid sheets or rows found in the uploaded workbook.');
+        return;
+      }
+      setImportedProjectsPreview(parsed);
+      setSelectedImportIndex(0);
+      setIsImportModalOpen(true);
+      showToast('success', 'Spreadsheet Parsed', `Parsed ${parsed.length} project sheets with total ${parsed.reduce((s, p) => s + p.summary.totalItems, 0)} material items.`);
+    } catch (err: any) {
+      console.error(err);
+      showToast('error', 'Parse Error', err?.message || 'Failed to parse Excel/CSV file.');
+    }
+  };
+
+  const handleConfirmImportProject = async () => {
+    if (importedProjectsPreview.length === 0) return;
+    const selected = importedProjectsPreview[selectedImportIndex];
+    if (!selected) return;
+
+    setIsImporting(true);
+    try {
+      // Create Project from Parsed Rows
+      const newProjectId = `PRJ-${selected.grade.toUpperCase().replace(/[^A-Z0-9]/g, '')}-${Date.now().toString().slice(-4)}`;
+      const newProject: Project = {
+        id: newProjectId,
+        code: `PRJ-${selected.grade.toUpperCase()}`,
+        name: selected.name,
+        description: selected.description,
+        category: 'STEM_CURRICULUM',
+        clientName: 'Experimind Labs Standard Curriculum',
+        leadUserName: 'Dr. Samartha HM',
+        assignedUserIds: ['usr-admin-01', 'usr-op-02'],
+        assignedUserNames: ['Dr. Samartha HM', 'Ravi Kumar (Lead Tech)'],
+        status: 'IN_PREP',
+        priority: 'HIGH',
+        startDate: new Date().toISOString().slice(0, 10),
+        targetDeliveryDate: new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10),
+        defaultBatchMultiplier: 5,
+        budgetINR: selected.rows.reduce((sum, r) => sum + (r.unitCost || 50) * (r.qtyPerKit || 1) * 5, 0),
+        invoicedRevenueINR: selected.rows.reduce((sum, r) => sum + (r.unitCost || 50) * (r.qtyPerKit || 1) * 5 * 1.4, 0),
+        classes: [
+          {
+            id: `cls-${selected.grade.toLowerCase()}`,
+            name: `${selected.grade} Science Activities`,
+            batchMultiplier: 5,
+            description: `${selected.rows.length} materials across activities`,
+            items: selected.rows.map((r, idx) => ({
+              id: `ITM-imp-${idx + 1}`,
+              classId: `cls-${selected.grade.toLowerCase()}`,
+              name: r.materialDescription,
+              category: r.laserCutting ? 'FABRICATION_LASER_3D' : r.prepare ? 'CHEMICAL_REAGENT' : r.toOrder ? 'HARDWARE_SUPPLIES' : 'ACTIVITY_KIT',
+              specification: r.specification || r.activityName,
+              quantityPerBatchUnit: r.qtyPerKit || 1,
+              totalQuantity: (r.qtyPerKit || 1) * 5,
+              unit: r.unit || 'units',
+              sourcingChannel: r.laserCutting ? 'LASER_CUT' : r.prepare ? 'CHEMICAL_PREP' : r.toOrder ? 'ORDER_ONLINE' : 'IN_STOCK',
+              status: 'PENDING',
+              unitCost: r.unitCost || 50,
+              sourceChapter: r.activityName
+            }))
+          }
+        ],
+        batchConfigurations: [
+          { gradeOrKitId: selected.grade, kitName: selected.name, targetQuantity: 5 }
+        ],
+        expenses: [],
+        auditLogs: [],
+        qaSignOff: null,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+
+      ProjectManagementService.createProject(newProject);
+      setProjects(ProjectManagementService.getAllProjects());
+      setSelectedProjectId(newProjectId);
+      setSourceMode('PROJECT');
+      setIsImportModalOpen(false);
+      showToast('success', 'Project Imported', `Successfully created and loaded project: ${selected.name}`);
+    } catch (err: any) {
+      console.error(err);
+      showToast('error', 'Import Failed', err?.message || 'Failed to save project.');
+    } finally {
+      setIsImporting(false);
+    }
+  };
+
+  const handleDownloadSelectedPdf = async (e?: React.MouseEvent) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    if (selectedItemIds.size === 0) return;
+    setIsGenerating('selected');
+    try {
+      await new Promise(resolve => setTimeout(resolve, 50));
       DispatchPdfService.downloadSelectedItemsPdf(dispatchSummary, selectedItemIds, {
         orientation: pdfOrientation,
         includePrices,
@@ -342,34 +610,49 @@ export default function ProcurementDispatchModal({
         includeCheckboxes,
         includeSignatures
       });
-      showToast(`Downloaded Checklist PDF for ${selectedItemIds.size} Selected Items!`, 'success');
-    } catch (err) {
+      showToast('success', 'PDF Downloaded', `Checklist PDF for ${selectedItemIds.size} Selected Items downloaded.`);
+    } catch (err: any) {
       console.error(err);
-      showToast('Failed to generate Selected Items PDF.', 'error');
+      showToast('error', 'Download Failed', err?.message || 'Failed to generate Selected Items PDF.');
+    } finally {
+      setIsGenerating(null);
     }
   };
 
   // Excel, CSV & WhatsApp Handlers
-  const handleExportExcel = (onlySelected = false) => {
+  const handleExportExcel = async (onlySelected = false, e?: React.MouseEvent) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    setIsGenerating('excel');
     try {
+      await new Promise(resolve => setTimeout(resolve, 50));
       const targetSummary = onlySelected && selectedItemIds.size > 0
         ? DispatchReportService.filterSummaryToItems(dispatchSummary, selectedItemIds)
         : dispatchSummary;
 
       DispatchReportService.downloadExcel(targetSummary);
       showToast(
+        'success',
+        'Excel Exported',
         onlySelected
-          ? `Exported ${selectedItemIds.size} Selected Items to Excel (.xlsx)!`
-          : 'Exported Complete 5-Tab Excel Dispatch Spreadsheet (.xlsx)!',
-        'success'
+          ? `Exported ${selectedItemIds.size} selected items to Excel (.xlsx).`
+          : 'Exported complete 5-tab Excel Dispatch workbook (.xlsx).'
       );
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      showToast('Failed to export Excel file.', 'error');
+      showToast('error', 'Export Failed', err?.message || 'Failed to export Excel file.');
+    } finally {
+      setIsGenerating(null);
     }
   };
 
-  const handleExportCsv = (onlySelected = false) => {
+  const handleExportCsv = (onlySelected = false, e?: React.MouseEvent) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
     try {
       const targetSummary = onlySelected && selectedItemIds.size > 0
         ? DispatchReportService.filterSummaryToItems(dispatchSummary, selectedItemIds)
@@ -377,42 +660,60 @@ export default function ProcurementDispatchModal({
 
       DispatchReportService.downloadCsv(targetSummary);
       showToast(
+        'success',
+        'CSV Exported',
         onlySelected
-          ? `Exported ${selectedItemIds.size} Selected Items to CSV!`
-          : 'Exported Dispatch CSV Data File!',
-        'success'
+          ? `Exported ${selectedItemIds.size} selected items to CSV.`
+          : 'Exported Dispatch CSV Data File.'
       );
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      showToast('Failed to export CSV file.', 'error');
+      showToast('error', 'Export Failed', err?.message || 'Failed to export CSV file.');
     }
   };
 
-  const handleCopyWhatsApp = (onlySelected = false) => {
+  const handleCopyWhatsApp = async (onlySelected = false, e?: React.MouseEvent) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
     try {
       const targetSummary = onlySelected && selectedItemIds.size > 0
         ? DispatchReportService.filterSummaryToItems(dispatchSummary, selectedItemIds)
         : dispatchSummary;
 
       const text = DispatchReportService.generateWhatsAppSummaryText(targetSummary);
-      navigator.clipboard.writeText(text);
-      setCopiedWhatsApp(true);
-      showToast(
-        onlySelected
-          ? `Copied ${selectedItemIds.size} Selected Items summary to clipboard!`
-          : 'Copied Team Standup Dispatch Text to clipboard!',
-        'success'
-      );
-      setTimeout(() => setCopiedWhatsApp(false), 3000);
-    } catch (err) {
+      const success = await copyToClipboardSafe(text);
+      if (success) {
+        setCopiedWhatsApp(true);
+        showToast(
+          'success',
+          'Copied to Clipboard',
+          onlySelected
+            ? `Copied ${selectedItemIds.size} Selected Items standup text.`
+            : 'Copied Team Standup Dispatch text to clipboard.'
+        );
+        setTimeout(() => setCopiedWhatsApp(false), 3000);
+      } else {
+        throw new Error('Clipboard write operation was not permitted.');
+      }
+    } catch (err: any) {
       console.error(err);
-      showToast('Failed to copy to clipboard.', 'error');
+      showToast('error', 'Copy Failed', err?.message || 'Failed to copy to clipboard.');
     }
   };
 
   return createPortal(
-    <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-2 sm:p-4 overflow-y-auto">
-      <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-7xl max-h-[95vh] flex flex-col shadow-2xl overflow-hidden animate-in fade-in zoom-in-95">
+    <div
+      className="fixed inset-0 z-[9999] bg-black/85 backdrop-blur-md flex items-center justify-center p-2 sm:p-4 overflow-y-auto"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      <div
+        className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-7xl max-h-[95vh] flex flex-col shadow-2xl overflow-hidden animate-in fade-in zoom-in-95"
+        onClick={(e) => e.stopPropagation()}
+      >
         
         {/* ===== TOP CLEAN HEADER BAR ===== */}
         <div className="px-5 py-3.5 bg-slate-950 border-b border-slate-800 flex flex-col lg:flex-row lg:items-center justify-between gap-3 shrink-0">
@@ -431,58 +732,130 @@ export default function ProcurementDispatchModal({
             </h2>
           </div>
 
-          {/* Top Level PDF 1-Click Action Buttons */}
+          {/* Top Level PDF & Template Action Buttons */}
           <div className="flex items-center gap-2 flex-wrap">
             {/* 1-Click Shortage Shopping Checklist PDF */}
             <button
+              type="button"
               onClick={handleDownloadShortagePdf}
-              className="bg-rose-600 hover:bg-rose-500 text-white px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-md shadow-rose-600/20 transition-all cursor-pointer"
+              disabled={isGenerating === 'shortage'}
+              className="bg-rose-600 hover:bg-rose-500 text-white px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-md shadow-rose-600/20 active:scale-95 transition-all cursor-pointer min-h-[40px] disabled:opacity-50"
               title="Download Shortage & Local Market Shopping Checklist PDF"
             >
-              <ShoppingBag className="w-3.5 h-3.5" /> Shortage / Buy List (PDF)
+              {isGenerating === 'shortage' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ShoppingBag className="w-3.5 h-3.5" />}
+              <span>Shortage / Buy List</span>
             </button>
 
             {/* 1-Click Warehouse Pick List PDF */}
             <button
+              type="button"
               onClick={handleDownloadPickListPdf}
-              className="bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-md shadow-emerald-600/20 transition-all cursor-pointer"
+              disabled={isGenerating === 'picklist'}
+              className="bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-md shadow-emerald-600/20 active:scale-95 transition-all cursor-pointer min-h-[40px] disabled:opacity-50"
               title="Download Warehouse Staging & Kitting Pick List PDF"
             >
-              <Package className="w-3.5 h-3.5" /> Warehouse Pick List (PDF)
+              {isGenerating === 'picklist' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Package className="w-3.5 h-3.5" />}
+              <span>Warehouse Pick List</span>
+            </button>
+
+            {/* 1-Click In-House Laser Cutting Job Card PDF */}
+            <button
+              type="button"
+              onClick={handleDownloadLaserCuttingPdf}
+              disabled={isGenerating === 'laser'}
+              className="bg-amber-600 hover:bg-amber-500 text-white px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-md shadow-amber-600/20 active:scale-95 transition-all cursor-pointer min-h-[40px] disabled:opacity-50"
+              title="Download In-House Laser Cutting & Fabrication Job Card PDF"
+            >
+              {isGenerating === 'laser' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Wrench className="w-3.5 h-3.5" />}
+              <span>Laser & Fab</span>
+            </button>
+
+            {/* 1-Click Chemical Lab Preparation PDF */}
+            <button
+              type="button"
+              onClick={handleDownloadLabPrepPdf}
+              disabled={isGenerating === 'lab'}
+              className="bg-cyan-600 hover:bg-cyan-500 text-white px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-md shadow-cyan-600/20 active:scale-95 transition-all cursor-pointer min-h-[40px] disabled:opacity-50"
+              title="Download Chemical Formulation & Reagent Prep Sheet PDF"
+            >
+              {isGenerating === 'lab' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FlaskConical className="w-3.5 h-3.5" />}
+              <span>Lab Prep</span>
             </button>
 
             {/* 1-Click Full Executive Report PDF */}
             <button
+              type="button"
               onClick={handleDownloadFullDispatchPdf}
-              className="bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-md shadow-indigo-600/20 transition-all cursor-pointer"
+              disabled={isGenerating === 'full'}
+              className="bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-md shadow-indigo-600/20 active:scale-95 transition-all cursor-pointer min-h-[40px] disabled:opacity-50"
               title="Download Full Executive Dispatch & Readiness PDF"
             >
-              <Download className="w-3.5 h-3.5" /> Full Dispatch (PDF)
+              {isGenerating === 'full' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
+              <span>Full Dispatch</span>
             </button>
 
-            {/* Secondary Formats */}
+            {/* Standard Excel Template (.xlsx) */}
             <button
-              onClick={() => handleExportExcel(false)}
-              className="bg-slate-800 hover:bg-slate-700 text-slate-200 px-2.5 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1 transition-all cursor-pointer"
+              type="button"
+              onClick={handleDownloadStandardTemplate}
+              className="bg-emerald-950/70 border border-emerald-500/30 hover:bg-emerald-900/60 text-emerald-300 px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 active:scale-95 transition-all cursor-pointer min-h-[40px]"
+              title="Download official 6-column standard Excel template (8th, 9th, 10th grades)"
+            >
+              <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-400" />
+              <span>Standard Template (.xlsx)</span>
+            </button>
+
+            {/* Import Project Spreadsheet */}
+            <label
+              className="bg-indigo-950/70 border border-indigo-500/30 hover:bg-indigo-900/60 text-indigo-300 px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 active:scale-95 transition-all cursor-pointer min-h-[40px]"
+              title="Import .xlsx or .csv standard project spreadsheet"
+            >
+              <Upload className="w-3.5 h-3.5 text-indigo-400" />
+              <span>Import Excel</span>
+              <input
+                type="file"
+                accept=".xlsx,.xls,.csv"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) {
+                    handleFileUploadForImport(file);
+                    e.target.value = '';
+                  }
+                }}
+              />
+            </label>
+
+            {/* Export Full Excel */}
+            <button
+              type="button"
+              onClick={(e) => handleExportExcel(false, e)}
+              disabled={isGenerating === 'excel'}
+              className="bg-slate-800 hover:bg-slate-700 text-slate-200 px-2.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 active:scale-95 transition-all cursor-pointer min-h-[40px] disabled:opacity-50"
               title="Export 5-Tab Excel Spreadsheet (.xlsx)"
             >
-              <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-400" /> Excel
+              {isGenerating === 'excel' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-400" />}
+              <span>Export</span>
             </button>
 
             <button
-              onClick={() => handleCopyWhatsApp(false)}
-              className={`px-2.5 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1 transition-all cursor-pointer ${
+              type="button"
+              onClick={(e) => handleCopyWhatsApp(false, e)}
+              className={`px-2.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 active:scale-95 transition-all cursor-pointer min-h-[40px] ${
                 copiedWhatsApp ? 'bg-emerald-500 text-slate-950 font-black' : 'bg-slate-800 hover:bg-slate-700 text-slate-200'
               }`}
               title="Copy WhatsApp/Slack summary text"
             >
               {copiedWhatsApp ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5 text-sky-400" />}
-              {copiedWhatsApp ? 'Copied' : 'Text'}
+              <span>{copiedWhatsApp ? 'Copied' : 'Text'}</span>
             </button>
 
             <button
+              type="button"
               onClick={onClose}
-              className="p-1.5 rounded-xl text-slate-400 hover:text-white bg-slate-800/80 hover:bg-slate-700 transition-colors cursor-pointer ml-1"
+              className="p-2 rounded-xl text-slate-400 hover:text-white bg-slate-800/80 hover:bg-slate-700 transition-colors cursor-pointer ml-1 min-h-[40px] min-w-[40px] flex items-center justify-center"
+              title="Close Dispatch Hub (Esc)"
+              aria-label="Close"
             >
               <X className="w-5 h-5" />
             </button>
@@ -495,17 +868,19 @@ export default function ProcurementDispatchModal({
           <div className="flex items-center gap-2 flex-wrap">
             <span className="text-[11px] font-bold text-slate-400 uppercase">Scope:</span>
             <button
+              type="button"
               onClick={() => setSourceMode('PROJECT')}
-              className={`px-2.5 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                sourceMode === 'PROJECT' ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-slate-400 hover:text-white'
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                sourceMode === 'PROJECT' ? 'bg-indigo-600 text-white shadow-sm' : 'bg-slate-800 text-slate-400 hover:text-white'
               }`}
             >
               📁 Project
             </button>
             <button
+              type="button"
               onClick={() => setSourceMode('PRODUCTION_MATRIX')}
-              className={`px-2.5 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                sourceMode === 'PRODUCTION_MATRIX' ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-slate-400 hover:text-white'
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                sourceMode === 'PRODUCTION_MATRIX' ? 'bg-indigo-600 text-white shadow-sm' : 'bg-slate-800 text-slate-400 hover:text-white'
               }`}
             >
               🏭 Master Matrix
@@ -515,7 +890,7 @@ export default function ProcurementDispatchModal({
               <select
                 value={selectedProjectId}
                 onChange={e => setSelectedProjectId(e.target.value)}
-                className="bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-1 text-xs text-white font-medium focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                className="bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-1.5 text-xs text-white font-medium focus:outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer"
               >
                 {projects.map(p => (
                   <option key={p.id} value={p.id}>
@@ -529,7 +904,7 @@ export default function ProcurementDispatchModal({
               <select
                 value={selectedClassId}
                 onChange={e => setSelectedClassId(e.target.value)}
-                className="bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-1 text-xs text-indigo-300 font-medium focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                className="bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-1.5 text-xs text-indigo-300 font-medium focus:outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer"
               >
                 <option value="ALL">All Classes ({activeProject.classes.length})</option>
                 {activeProject.classes.map(c => (
@@ -545,16 +920,26 @@ export default function ProcurementDispatchModal({
               <span className="text-[10px] text-slate-400 font-bold px-1.5 uppercase">Batch:</span>
               <button
                 type="button"
-                onClick={() => setBatchMultiplier(prev => Math.max(1, prev - 1))}
-                className="px-1.5 py-0.5 text-xs text-slate-400 hover:text-white font-bold cursor-pointer"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setBatchMultiplier(prev => Math.max(1, prev - 1));
+                }}
+                className="px-2 py-0.5 text-xs text-slate-400 hover:text-white font-bold cursor-pointer rounded hover:bg-slate-800"
+                title="Decrease batch multiplier"
               >
                 -
               </button>
-              <span className="px-1 font-mono text-xs font-black text-indigo-400">{batchMultiplier}x</span>
+              <span className="px-1.5 font-mono text-xs font-black text-indigo-400 tabular-num">{batchMultiplier}x</span>
               <button
                 type="button"
-                onClick={() => setBatchMultiplier(prev => prev + 1)}
-                className="px-1.5 py-0.5 text-xs text-slate-400 hover:text-white font-bold cursor-pointer"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setBatchMultiplier(prev => prev + 1);
+                }}
+                className="px-2 py-0.5 text-xs text-slate-400 hover:text-white font-bold cursor-pointer rounded hover:bg-slate-800"
+                title="Increase batch multiplier"
               >
                 +
               </button>
@@ -564,16 +949,18 @@ export default function ProcurementDispatchModal({
           {/* View Mode Switcher */}
           <div className="flex items-center bg-slate-950 border border-slate-800 rounded-xl p-0.5">
             <button
+              type="button"
               onClick={() => setViewMode('DOCUMENT_PREVIEW')}
-              className={`px-3 py-1 text-xs font-bold rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${
+              className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${
                 viewMode === 'DOCUMENT_PREVIEW' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-400 hover:text-white'
               }`}
             >
               <FileText className="w-3.5 h-3.5" /> PDF Document Preview
             </button>
             <button
+              type="button"
               onClick={() => setViewMode('INTERACTIVE_GRID')}
-              className={`px-3 py-1 text-xs font-bold rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${
+              className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${
                 viewMode === 'INTERACTIVE_GRID' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-400 hover:text-white'
               }`}
             >
@@ -591,18 +978,20 @@ export default function ProcurementDispatchModal({
               <div className="flex items-center gap-1.5 flex-wrap">
                 <span className="text-[11px] font-bold text-slate-400 uppercase mr-1">Report Mode:</span>
                 <button
+                  type="button"
                   onClick={() => setActiveDocumentType('SHORTAGE_CHECKLIST')}
-                  className={`text-xs px-3 py-1 rounded-xl font-bold transition-all cursor-pointer ${
+                  className={`text-xs px-3 py-1.5 rounded-xl font-bold transition-all cursor-pointer ${
                     activeDocumentType === 'SHORTAGE_CHECKLIST'
                       ? 'bg-rose-600 text-white shadow'
                       : 'bg-slate-950 text-slate-400 hover:text-white'
                   }`}
                 >
-                  🛒 Shortage / Shopping List ({dispatchSummary.items.filter(i => i.deficitQuantity > 0).length})
+                  🛒 Shortage ({dispatchSummary.items.filter(i => i.deficitQuantity > 0).length})
                 </button>
                 <button
+                  type="button"
                   onClick={() => setActiveDocumentType('WAREHOUSE_PICKLIST')}
-                  className={`text-xs px-3 py-1 rounded-xl font-bold transition-all cursor-pointer ${
+                  className={`text-xs px-3 py-1.5 rounded-xl font-bold transition-all cursor-pointer ${
                     activeDocumentType === 'WAREHOUSE_PICKLIST'
                       ? 'bg-emerald-600 text-white shadow'
                       : 'bg-slate-950 text-slate-400 hover:text-white'
@@ -611,8 +1000,31 @@ export default function ProcurementDispatchModal({
                   📦 Warehouse Pick List ({dispatchSummary.inStockCount + dispatchSummary.fabricationCount})
                 </button>
                 <button
+                  type="button"
+                  onClick={() => setActiveDocumentType('LASER_CUTTING')}
+                  className={`text-xs px-3 py-1.5 rounded-xl font-bold transition-all cursor-pointer ${
+                    activeDocumentType === 'LASER_CUTTING'
+                      ? 'bg-amber-600 text-white shadow'
+                      : 'bg-slate-950 text-slate-400 hover:text-white'
+                  }`}
+                >
+                  🛠️ Laser & Fab Job Card
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveDocumentType('LAB_PREPARATION')}
+                  className={`text-xs px-3 py-1.5 rounded-xl font-bold transition-all cursor-pointer ${
+                    activeDocumentType === 'LAB_PREPARATION'
+                      ? 'bg-cyan-600 text-white shadow'
+                      : 'bg-slate-950 text-slate-400 hover:text-white'
+                  }`}
+                >
+                  🧪 Lab Reagents Prep
+                </button>
+                <button
+                  type="button"
                   onClick={() => setActiveDocumentType('FULL_DISPATCH')}
-                  className={`text-xs px-3 py-1 rounded-xl font-bold transition-all cursor-pointer ${
+                  className={`text-xs px-3 py-1.5 rounded-xl font-bold transition-all cursor-pointer ${
                     activeDocumentType === 'FULL_DISPATCH'
                       ? 'bg-indigo-600 text-white shadow'
                       : 'bg-slate-950 text-slate-400 hover:text-white'
@@ -622,20 +1034,22 @@ export default function ProcurementDispatchModal({
                 </button>
               </div>
 
-              {/* Orientation & Toggles */}
+              {/* Orientation, Options & Direct Download */}
               <div className="flex items-center gap-3 text-xs text-slate-300 font-medium flex-wrap">
                 <div className="flex items-center bg-slate-950 border border-slate-800 rounded-lg p-0.5">
                   <button
+                    type="button"
                     onClick={() => setPdfOrientation('landscape')}
-                    className={`px-2 py-0.5 rounded text-[11px] font-bold cursor-pointer ${
+                    className={`px-2.5 py-1 rounded text-[11px] font-bold cursor-pointer ${
                       pdfOrientation === 'landscape' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white'
                     }`}
                   >
                     Landscape
                   </button>
                   <button
+                    type="button"
                     onClick={() => setPdfOrientation('portrait')}
-                    className={`px-2 py-0.5 rounded text-[11px] font-bold cursor-pointer ${
+                    className={`px-2.5 py-1 rounded text-[11px] font-bold cursor-pointer ${
                       pdfOrientation === 'portrait' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white'
                     }`}
                   >
@@ -679,11 +1093,22 @@ export default function ProcurementDispatchModal({
                   />
                   <span>Signatures</span>
                 </label>
+
+                {/* Direct Download of Current Preview */}
+                <button
+                  type="button"
+                  onClick={handleDownloadCurrentPreviewPdf}
+                  className="bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1.5 rounded-xl font-bold text-xs flex items-center gap-1.5 shadow-md active:scale-95 transition-all cursor-pointer ml-auto"
+                  title="Download this exact preview as PDF"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  <span>Download This Preview (PDF)</span>
+                </button>
               </div>
             </div>
 
             {/* Realistic White Document Canvas Preview */}
-            <div className={`bg-white text-slate-900 rounded-xl shadow-2xl p-8 w-full border border-slate-200 font-sans space-y-5 ${
+            <div className={`bg-white text-slate-900 rounded-xl shadow-2xl p-6 sm:p-8 w-full border border-slate-200 font-sans space-y-5 ${
               pdfOrientation === 'landscape' ? 'max-w-6xl' : 'max-w-4xl'
             }`}>
               {/* Document Header */}
@@ -738,25 +1163,25 @@ export default function ProcurementDispatchModal({
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center text-xs">
                 <div className="border border-slate-200 p-2 rounded-lg bg-emerald-50/50">
                   <div className="text-[9px] font-bold text-emerald-800 uppercase">Readiness</div>
-                  <div className="text-base font-black text-emerald-700 font-mono">{dispatchSummary.stockReadinessPct}%</div>
+                  <div className="text-base font-black text-emerald-700 font-mono tabular-num">{dispatchSummary.stockReadinessPct}%</div>
                   <div className="text-[9px] text-slate-600">{dispatchSummary.inStockCount} / {dispatchSummary.totalItems} In Stock</div>
                 </div>
 
                 <div className="border border-slate-200 p-2 rounded-lg bg-sky-50/50">
                   <div className="text-[9px] font-bold text-sky-800 uppercase">Local Cash Buy</div>
-                  <div className="text-base font-black text-sky-700 font-mono">Rs. {dispatchSummary.localPurchaseCashINR.toLocaleString('en-IN')}</div>
+                  <div className="text-base font-black text-sky-700 font-mono tabular-num">Rs. {dispatchSummary.localPurchaseCashINR.toLocaleString('en-IN')}</div>
                   <div className="text-[9px] text-slate-600">{dispatchSummary.localBuyCount} Items</div>
                 </div>
 
                 <div className="border border-slate-200 p-2 rounded-lg bg-purple-50/50">
                   <div className="text-[9px] font-bold text-purple-800 uppercase">Vendor POs</div>
-                  <div className="text-base font-black text-purple-700 font-mono">Rs. {dispatchSummary.vendorOrdersTotalINR.toLocaleString('en-IN')}</div>
+                  <div className="text-base font-black text-purple-700 font-mono tabular-num">Rs. {dispatchSummary.vendorOrdersTotalINR.toLocaleString('en-IN')}</div>
                   <div className="text-[9px] text-slate-600">{dispatchSummary.toOrderCount} Items</div>
                 </div>
 
                 <div className="border border-slate-200 p-2 rounded-lg bg-amber-50/50">
                   <div className="text-[9px] font-bold text-amber-800 uppercase">Total Budget</div>
-                  <div className="text-base font-black text-amber-700 font-mono">Rs. {dispatchSummary.totalProcurementValueINR.toLocaleString('en-IN')}</div>
+                  <div className="text-base font-black text-amber-700 font-mono tabular-num">Rs. {dispatchSummary.totalProcurementValueINR.toLocaleString('en-IN')}</div>
                   <div className="text-[9px] text-slate-600">Cash + PO Total</div>
                 </div>
               </div>
@@ -798,105 +1223,95 @@ export default function ProcurementDispatchModal({
                       : activeDocumentType === 'WAREHOUSE_PICKLIST'
                       ? dispatchSummary.items.filter(i => i.actionChannel === 'IN_STOCK' || i.actionChannel === 'IN_HOUSE_FABRICATION')
                       : dispatchSummary.items
-                    ).slice(0, 50).map((item, idx) => (
-                      <tr key={item.id} className={idx % 2 === 1 ? 'bg-slate-50' : 'bg-white'}>
-                        <td className="py-1.5 px-2.5 font-mono text-[10px] text-indigo-700 font-bold whitespace-nowrap">{item.sku}</td>
-                        <td className="py-1.5 px-3">
-                          <div className="font-bold text-slate-900">{item.name}</div>
-                          <div className="text-[10px] text-slate-500 line-clamp-1">{item.specification}</div>
-                          {includeNotes && item.notes && (
-                            <div className="text-[9px] text-amber-800">📝 {item.notes}</div>
-                          )}
-                        </td>
-                        <td className="py-1.5 px-2 text-center font-bold text-[10px]">
-                          {item.actionChannel === 'IN_STOCK' && <span className="bg-emerald-100 text-emerald-800 border border-emerald-300 px-2 py-0.5 rounded-full">IN STOCK</span>}
-                          {item.actionChannel === 'LOCAL_BUY' && <span className="bg-sky-100 text-sky-800 border border-sky-300 px-2 py-0.5 rounded-full">LOCAL BUY</span>}
-                          {item.actionChannel === 'TO_ORDER' && <span className="bg-purple-100 text-purple-800 border border-purple-300 px-2 py-0.5 rounded-full">VENDOR PO</span>}
-                          {item.actionChannel === 'IN_HOUSE_FABRICATION' && <span className="bg-amber-100 text-amber-800 border border-amber-300 px-2 py-0.5 rounded-full">IN-HOUSE</span>}
-                        </td>
-                        <td className="py-1.5 px-2 text-center font-bold">
-                          {activeDocumentType === 'SHORTAGE_CHECKLIST' ? (
-                            <span className="text-rose-700">-{item.deficitQuantity} {item.unit}</span>
-                          ) : (
-                            <span>{item.requiredQuantity} {item.unit}</span>
-                          )}
-                        </td>
-                        {activeDocumentType !== 'SHORTAGE_CHECKLIST' && (
-                          <td className="py-1.5 px-2 text-center font-mono text-slate-600">{item.availableStock}</td>
-                        )}
-                        {activeDocumentType !== 'SHORTAGE_CHECKLIST' && (
-                          <td className="py-1.5 px-2 text-center font-bold">
-                            {item.deficitQuantity > 0 ? (
-                              <span className="text-rose-700 font-black">-{item.deficitQuantity} {item.unit}</span>
-                            ) : (
-                              <span className="text-emerald-700">Covered</span>
+                    ).slice(0, 15).map((item) => {
+                      const isDeficit = item.deficitQuantity > 0;
+                      return (
+                        <tr key={item.id} className="hover:bg-slate-50">
+                          <td className="py-1.5 px-2.5 font-mono font-bold text-indigo-700">{item.sku}</td>
+                          <td className="py-1.5 px-3">
+                            <span className="font-bold text-slate-900">{item.name}</span>
+                            {includeNotes && item.notes && (
+                              <span className="text-[10px] text-slate-500 block truncate max-w-xs">{item.notes}</span>
                             )}
                           </td>
-                        )}
-                        {includePrices && (
-                          <>
-                            <td className="py-1.5 px-2 text-right font-mono text-slate-600">Rs.{item.unitCost}</td>
-                            <td className="py-1.5 px-2 text-right font-mono font-bold text-slate-900">
-                              Rs.{item.extendedCost.toLocaleString('en-IN')}
-                            </td>
-                          </>
-                        )}
-                        <td className="py-1.5 px-3 text-[10px] text-slate-600">
-                          {activeDocumentType === 'WAREHOUSE_PICKLIST' ? (
-                            <span className="font-mono font-bold text-emerald-800">📍 {item.binLocation}</span>
-                          ) : (
-                            <span>{item.vendorOrLocation}</span>
-                          )}
-                        </td>
-                        {includeCheckboxes && (
                           <td className="py-1.5 px-2 text-center">
-                            <div className="w-3.5 h-3.5 border border-slate-400 rounded inline-block" />
+                            {item.actionChannel === 'IN_STOCK' && (
+                              <span className="font-bold text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded text-[9px]">IN STOCK</span>
+                            )}
+                            {item.actionChannel === 'LOCAL_BUY' && (
+                              <span className="font-bold text-sky-700 bg-sky-100 px-1.5 py-0.5 rounded text-[9px]">LOCAL BUY</span>
+                            )}
+                            {item.actionChannel === 'TO_ORDER' && (
+                              <span className="font-bold text-purple-700 bg-purple-100 px-1.5 py-0.5 rounded text-[9px]">VENDOR PO</span>
+                            )}
+                            {item.actionChannel === 'IN_HOUSE_FABRICATION' && (
+                              <span className="font-bold text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded text-[9px]">IN-HOUSE</span>
+                            )}
                           </td>
-                        )}
-                      </tr>
-                    ))}
+                          <td className="py-1.5 px-2 text-center font-bold font-mono">
+                            {activeDocumentType === 'SHORTAGE_CHECKLIST' ? item.deficitQuantity : item.requiredQuantity} {item.unit}
+                          </td>
+                          {activeDocumentType !== 'SHORTAGE_CHECKLIST' && (
+                            <td className="py-1.5 px-2 text-center font-mono">{item.availableStock}</td>
+                          )}
+                          {activeDocumentType !== 'SHORTAGE_CHECKLIST' && (
+                            <td className="py-1.5 px-2 text-center font-bold font-mono">
+                              {isDeficit ? (
+                                <span className="text-rose-600">-{item.deficitQuantity}</span>
+                              ) : (
+                                <span className="text-emerald-700">Covered</span>
+                              )}
+                            </td>
+                          )}
+                          {includePrices && (
+                            <>
+                              <td className="py-1.5 px-2 text-right font-mono text-slate-600">Rs.{item.unitCost}</td>
+                              <td className="py-1.5 px-2 text-right font-mono font-bold text-slate-900">Rs.{item.extendedCost.toLocaleString('en-IN')}</td>
+                            </>
+                          )}
+                          <td className="py-1.5 px-3 text-[10px] text-slate-600 truncate max-w-xs">
+                            {activeDocumentType === 'WAREHOUSE_PICKLIST' ? item.binLocation : item.vendorOrLocation}
+                          </td>
+                          {includeCheckboxes && (
+                            <td className="py-1.5 px-2 text-center">
+                              <div className="w-3.5 h-3.5 border border-slate-400 rounded-xs mx-auto" />
+                            </td>
+                          )}
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
+                <div className="text-[10px] text-slate-500 text-center italic pt-1">
+                  (Showing preview of first 15 line items — Full downloadable PDF includes all {dispatchSummary.totalItems} items across formatted pages)
+                </div>
               </div>
 
-              {/* 4 Signatures Authorization Box */}
+              {/* 4-Tier Verification Signatures (If Enabled) */}
               {includeSignatures && (
-                <div className="border border-slate-900 p-3 rounded space-y-3">
-                  <div className="text-[10px] font-black uppercase text-slate-900">
-                    OFFICIAL DISPATCH & QUALITY VERIFICATION SIGN-OFF
+                <div className="pt-4 border-t-2 border-slate-900 grid grid-cols-2 sm:grid-cols-4 gap-4 text-center">
+                  <div className="border-t border-slate-400 pt-1">
+                    <div className="text-[10px] font-black text-slate-900 uppercase">1. Material Planner</div>
+                    <div className="text-[9px] text-slate-500">BOM Verified & Scaled</div>
                   </div>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-[10px]">
-                    <div className="space-y-4">
-                      <span className="text-slate-500 font-bold uppercase block">1. Production Planner</span>
-                      <div className="border-b border-slate-400 pb-1 text-slate-800">Sig: __________________</div>
-                      <div className="text-slate-500">Date: ____/____/2026</div>
-                    </div>
-                    <div className="space-y-4">
-                      <span className="text-slate-500 font-bold uppercase block">2. Warehouse Dispatch</span>
-                      <div className="border-b border-slate-400 pb-1 text-slate-800">Sig: __________________</div>
-                      <div className="text-slate-500">Date: ____/____/2026</div>
-                    </div>
-                    <div className="space-y-4">
-                      <span className="text-slate-500 font-bold uppercase block">3. Quality Assurance</span>
-                      <div className="border-b border-slate-400 pb-1 text-slate-800">Sig: __________________</div>
-                      <div className="text-slate-500">Date: ____/____/2026</div>
-                    </div>
-                    <div className="space-y-4">
-                      <span className="text-slate-500 font-bold uppercase block">4. Management Approval</span>
-                      <div className="border-b border-slate-400 pb-1 text-slate-800">Sig: __________________</div>
-                      <div className="text-slate-500">Date: ____/____/2026</div>
-                    </div>
+                  <div className="border-t border-slate-400 pt-1">
+                    <div className="text-[10px] font-black text-slate-900 uppercase">2. Warehouse Dispatch</div>
+                    <div className="text-[9px] text-slate-500">Pick & Kitting Staged</div>
+                  </div>
+                  <div className="border-t border-slate-400 pt-1">
+                    <div className="text-[10px] font-black text-slate-900 uppercase">3. QA & Compliance</div>
+                    <div className="text-[9px] text-slate-500">ISO 9001 / 21 CFR Pass</div>
+                  </div>
+                  <div className="border-t border-slate-400 pt-1">
+                    <div className="text-[10px] font-black text-slate-900 uppercase">4. Lead Engineer</div>
+                    <div className="text-[9px] text-slate-500">Final Release Authorized</div>
                   </div>
                 </div>
               )}
-
-              <div className="text-center text-[9px] text-slate-400 border-t border-slate-200 pt-2">
-                Experimind Labs Private Limited • ISO 9001 / 21 CFR Compliant • Generated on {dispatchSummary.generatedAt}
-              </div>
             </div>
           </div>
         ) : (
-          /* ===== VIEW 2: INTERACTIVE DATA GRID WITH MULTI-SELECT & MOBILE ADAPTIVE CARDS ===== */
+          /* ===== VIEW 2: INTERACTIVE DATA GRID & FILTER SUITE ===== */
           <div className="flex-1 flex flex-col overflow-hidden">
             {/* Filter Bar */}
             <div className="px-5 py-2.5 bg-slate-950/90 border-b border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-3 shrink-0">
@@ -911,6 +1326,7 @@ export default function ProcurementDispatchModal({
                 ].map(tab => (
                   <button
                     key={tab.id}
+                    type="button"
                     onClick={() => setActiveChannelFilter(tab.id as any)}
                     className={`text-[11px] px-2.5 py-1 rounded-xl font-bold transition-all cursor-pointer ${
                       activeChannelFilter === tab.id
@@ -923,6 +1339,7 @@ export default function ProcurementDispatchModal({
                 ))}
 
                 <button
+                  type="button"
                   onClick={() => setDeficitOnly(prev => !prev)}
                   className={`text-[11px] px-2.5 py-1 rounded-xl font-bold transition-all cursor-pointer flex items-center gap-1 border ${
                     deficitOnly
@@ -939,7 +1356,7 @@ export default function ProcurementDispatchModal({
                   <select
                     value={selectedCategory}
                     onChange={e => setSelectedCategory(e.target.value)}
-                    className="bg-slate-900 border border-slate-800 rounded-xl px-2.5 py-1 text-[11px] text-slate-300 font-medium focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                    className="bg-slate-900 border border-slate-800 rounded-xl px-2.5 py-1 text-[11px] text-slate-300 font-medium focus:outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer"
                   >
                     <option value="ALL">All Categories ({availableCategories.length})</option>
                     {availableCategories.map(cat => (
@@ -963,6 +1380,7 @@ export default function ProcurementDispatchModal({
                 />
                 {searchQuery && (
                   <button
+                    type="button"
                     onClick={() => setSearchQuery('')}
                     className="absolute right-2 top-2 text-slate-400 hover:text-white p-0.5 rounded cursor-pointer"
                   >
@@ -980,7 +1398,7 @@ export default function ProcurementDispatchModal({
                     {selectedMetrics.count} Selected
                   </span>
                   <span className="text-xs text-indigo-200 font-mono">
-                    Total Value: <strong className="text-amber-300 font-bold">Rs. {selectedMetrics.totalCost.toLocaleString('en-IN')}</strong>
+                    Total Value: <strong className="text-amber-300 font-bold tabular-num">Rs. {selectedMetrics.totalCost.toLocaleString('en-IN')}</strong>
                   </span>
                   {selectedMetrics.deficitCount > 0 && (
                     <span className="text-[10px] text-rose-300 bg-rose-950/60 border border-rose-500/30 px-2 py-0.5 rounded font-bold">
@@ -991,24 +1409,33 @@ export default function ProcurementDispatchModal({
 
                 <div className="flex items-center gap-2 flex-wrap">
                   <button
+                    type="button"
                     onClick={handleDownloadSelectedPdf}
-                    className="bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1 rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-md cursor-pointer"
+                    disabled={isGenerating === 'selected'}
+                    className="bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-md active:scale-95 transition-all cursor-pointer disabled:opacity-50"
                   >
-                    <Download className="w-3 h-3" /> Download Selected (PDF)
+                    {isGenerating === 'selected' ? <Loader2 className="w-3 h-3 animate-spin" /> : <Download className="w-3 h-3" />}
+                    <span>Download Selected (PDF)</span>
                   </button>
                   <button
-                    onClick={() => handleExportExcel(true)}
-                    className="bg-emerald-600 hover:bg-emerald-500 text-white px-2.5 py-1 rounded-lg text-xs font-bold flex items-center gap-1 cursor-pointer"
+                    type="button"
+                    onClick={(e) => handleExportExcel(true, e)}
+                    disabled={isGenerating === 'excel'}
+                    className="bg-emerald-600 hover:bg-emerald-500 text-white px-2.5 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 active:scale-95 transition-all cursor-pointer disabled:opacity-50"
                   >
-                    <FileSpreadsheet className="w-3 h-3" /> Excel (.xlsx)
+                    {isGenerating === 'excel' ? <Loader2 className="w-3 h-3 animate-spin" /> : <FileSpreadsheet className="w-3 h-3" />}
+                    <span>Excel (.xlsx)</span>
                   </button>
                   <button
-                    onClick={() => handleCopyWhatsApp(true)}
-                    className="bg-slate-800 hover:bg-slate-700 text-slate-200 px-2.5 py-1 rounded-lg text-xs font-bold flex items-center gap-1 cursor-pointer"
+                    type="button"
+                    onClick={(e) => handleCopyWhatsApp(true, e)}
+                    className="bg-slate-800 hover:bg-slate-700 text-slate-200 px-2.5 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 active:scale-95 transition-all cursor-pointer"
                   >
-                    <Copy className="w-3 h-3" /> Copy Text
+                    <Copy className="w-3 h-3" />
+                    <span>Copy Text</span>
                   </button>
                   <button
+                    type="button"
                     onClick={handleClearSelection}
                     className="text-slate-400 hover:text-white text-xs px-2 py-1 font-bold underline cursor-pointer"
                   >
@@ -1112,7 +1539,7 @@ export default function ProcurementDispatchModal({
                           )}
                         </div>
                       </th>
-                      <th onClick={() => handleSort('extendedCost')} className="py-3 px-3 text-right cursor-pointer hover:text-white transition-colors">
+                      <th onClick={() => handleSort('extendedCost')} className="py-3 px-4 text-right cursor-pointer hover:text-white transition-colors">
                         <div className="flex items-center justify-end gap-1">
                           <span>Ext. Total</span>
                           {sortField === 'extendedCost' ? (
@@ -1122,19 +1549,10 @@ export default function ProcurementDispatchModal({
                           )}
                         </div>
                       </th>
-                      <th onClick={() => handleSort('vendorOrLocation')} className="py-3 px-4 cursor-pointer hover:text-white transition-colors">
-                        <div className="flex items-center gap-1">
-                          <span>Sourcing / Location</span>
-                          {sortField === 'vendorOrLocation' ? (
-                            sortDirection === 'asc' ? <ArrowUp className="w-3 h-3 text-indigo-400" /> : <ArrowDown className="w-3 h-3 text-indigo-400" />
-                          ) : (
-                            <ArrowUpDown className="w-3 h-3 text-slate-600" />
-                          )}
-                        </div>
-                      </th>
+                      <th className="py-3 px-4">Sourcing / Location</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-800/60">
+                  <tbody className="divide-y divide-slate-900 text-slate-300">
                     {filteredAndSortedItems.length > 0 ? (
                       filteredAndSortedItems.map(item => {
                         const isSelected = selectedItemIds.has(item.id);
@@ -1143,94 +1561,112 @@ export default function ProcurementDispatchModal({
                         return (
                           <tr
                             key={item.id}
-                            className={`transition-colors ${
-                              isSelected ? 'bg-indigo-950/30 hover:bg-indigo-950/50' : 'hover:bg-slate-900/50'
+                            onClick={() => handleToggleSelectItem(item.id)}
+                            className={`hover:bg-slate-900/80 transition-colors cursor-pointer ${
+                              isSelected ? 'bg-indigo-950/40' : ''
                             }`}
                           >
-                            <td className="py-2.5 px-3 text-center">
-                              <input
-                                type="checkbox"
-                                checked={isSelected}
-                                onChange={() => handleToggleSelectItem(item.id)}
-                                className="w-4 h-4 rounded border-slate-700 bg-slate-900 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
-                              />
-                            </td>
-                            <td className="py-2.5 px-2 text-center">
+                            <td className="py-3 px-3 text-center" onClick={(e) => e.stopPropagation()}>
                               <button
                                 type="button"
-                                onClick={() => setPreviewItem(item)}
-                                title="Open Deep-Zoom Lightbox & Image Studio"
-                                className="w-9 h-9 rounded-xl overflow-hidden border border-slate-700/80 bg-slate-900 hover:border-indigo-500 transition-all cursor-pointer group relative inline-block"
+                                onClick={(e) => handleToggleSelectItem(item.id, e)}
+                                className="text-slate-500 hover:text-indigo-400 cursor-pointer"
                               >
+                                {isSelected ? (
+                                  <CheckSquare className="w-4 h-4 text-indigo-400" />
+                                ) : (
+                                  <Square className="w-4 h-4" />
+                                )}
+                              </button>
+                            </td>
+
+                            <td className="py-2 px-2 text-center" onClick={(e) => {
+                              e.stopPropagation();
+                              setPreviewItem(item);
+                            }}>
+                              <div className="w-8 h-8 rounded-lg bg-slate-900 border border-slate-800 overflow-hidden mx-auto relative group">
                                 <ItemImage
                                   src={item.imageUrl}
                                   alt={item.name}
                                   category={item.category}
-                                  className="w-full h-full object-cover group-hover:scale-110 transition-transform"
+                                  className="w-full h-full object-contain p-0.5"
                                 />
-                                <div className="absolute inset-0 bg-indigo-950/60 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
-                                  <ZoomIn className="w-3 h-3 text-indigo-300" />
+                                <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white">
+                                  <ZoomIn className="w-3 h-3" />
                                 </div>
-                              </button>
+                              </div>
                             </td>
-                            <td className="py-2.5 px-3 font-mono font-bold text-indigo-400 text-[11px] whitespace-nowrap">
-                              {item.sku}
-                              <div className="text-[9px] text-slate-500 truncate">{item.targetClassOrProject}</div>
+
+                            <td className="py-3 px-3 font-mono font-bold text-indigo-400">
+                              <div>{item.sku}</div>
+                              <div className="text-[10px] text-slate-500 font-normal">{item.targetClassOrProject}</div>
                             </td>
-                            <td className="py-2.5 px-4 space-y-0.5">
-                              <div className="font-bold text-white text-xs">{item.name}</div>
-                              <div className="text-[11px] text-slate-400 line-clamp-1">{item.specification}</div>
-                              {item.notes && <div className="text-[10px] text-amber-400/80">📝 {item.notes}</div>}
+
+                            <td className="py-3 px-4">
+                              <div className="font-bold text-white leading-tight">{item.name}</div>
+                              <div className="text-[11px] text-slate-400 line-clamp-1 mt-0.5">{item.specification}</div>
+                              {item.notes && (
+                                <div className="text-[10px] text-amber-400/90 font-medium flex items-center gap-1 mt-0.5">
+                                  📄 {item.notes}
+                                </div>
+                              )}
                             </td>
-                            <td className="py-2.5 px-3 text-center">
+
+                            <td className="py-3 px-3 text-center">
                               {item.actionChannel === 'IN_STOCK' && (
-                                <span className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded-full text-[10px] font-bold inline-flex items-center gap-1">
-                                  <CheckCircle2 className="w-2.5 h-2.5" /> In-Stock
+                                <span className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded-full text-[10px] font-bold inline-block">
+                                  In Stock
                                 </span>
                               )}
                               {item.actionChannel === 'LOCAL_BUY' && (
-                                <span className="bg-sky-500/10 text-sky-400 border border-sky-500/20 px-2 py-0.5 rounded-full text-[10px] font-bold inline-flex items-center gap-1">
-                                  <ShoppingBag className="w-2.5 h-2.5" /> Local Buy
+                                <span className="bg-sky-500/10 text-sky-400 border border-sky-500/20 px-2 py-0.5 rounded-full text-[10px] font-bold inline-block">
+                                  Local Buy
                                 </span>
                               )}
                               {item.actionChannel === 'TO_ORDER' && (
-                                <span className="bg-purple-500/10 text-purple-400 border border-purple-500/20 px-2 py-0.5 rounded-full text-[10px] font-bold inline-flex items-center gap-1">
-                                  <Truck className="w-2.5 h-2.5" /> Vendor PO
+                                <span className="bg-purple-500/10 text-purple-400 border border-purple-500/20 px-2 py-0.5 rounded-full text-[10px] font-bold inline-block">
+                                  Vendor PO
                                 </span>
                               )}
                               {item.actionChannel === 'IN_HOUSE_FABRICATION' && (
-                                <span className="bg-amber-500/10 text-amber-400 border border-amber-500/20 px-2 py-0.5 rounded-full text-[10px] font-bold inline-flex items-center gap-1">
-                                  <Flame className="w-2.5 h-2.5" /> In-House
+                                <span className="bg-amber-500/10 text-amber-400 border border-amber-500/20 px-2 py-0.5 rounded-full text-[10px] font-bold inline-block">
+                                  In-House
                                 </span>
                               )}
                             </td>
-                            <td className="py-2.5 px-3 text-center font-mono font-bold text-slate-200">
+
+                            <td className="py-3 px-3 text-center font-mono font-bold text-white tabular-num">
                               {item.requiredQuantity} <span className="text-[10px] text-slate-500 font-normal">{item.unit}</span>
                             </td>
-                            <td className="py-2.5 px-3 text-center font-mono font-bold text-slate-400">
+
+                            <td className="py-3 px-3 text-center font-mono text-slate-300 tabular-num">
                               {item.availableStock}
                             </td>
-                            <td className="py-2.5 px-3 text-center font-mono font-bold">
+
+                            <td className="py-3 px-3 text-center font-mono font-bold tabular-num">
                               {isDeficit ? (
-                                <span className="text-rose-400 bg-rose-500/10 border border-rose-500/20 px-2 py-0.5 rounded font-black">
+                                <span className="text-rose-400 bg-rose-500/10 border border-rose-500/20 px-1.5 py-0.5 rounded text-[11px]">
                                   -{item.deficitQuantity} {item.unit}
                                 </span>
                               ) : (
-                                <span className="text-emerald-400 font-bold">Covered</span>
+                                <span className="text-emerald-400 text-[11px]">Covered</span>
                               )}
                             </td>
-                            <td className="py-2.5 px-3 text-right font-mono text-slate-300">
+
+                            <td className="py-3 px-3 text-right font-mono text-slate-400 tabular-num">
                               Rs.{item.unitCost}
                             </td>
-                            <td className="py-2.5 px-3 text-right font-mono font-bold text-amber-300">
+
+                            <td className="py-3 px-4 text-right font-mono font-bold text-amber-300 tabular-num">
                               Rs.{item.extendedCost.toLocaleString('en-IN')}
                             </td>
-                            <td className="py-2.5 px-4 text-[11px] text-slate-300">
-                              <div>{item.vendorOrLocation}</div>
-                              {item.actionChannel === 'IN_STOCK' ? (
-                                <div className="text-[10px] text-slate-500 font-mono">📍 {item.binLocation}</div>
-                              ) : (
-                                <div className="text-[10px] text-purple-400/80 font-mono">⏱️ Lead: {item.leadTimeDays}d</div>
+
+                            <td className="py-3 px-4 text-[11px]">
+                              <div className="text-slate-300 font-medium">{item.vendorOrLocation}</div>
+                              {item.leadTimeDays > 0 && (
+                                <div className="text-[10px] text-slate-500 flex items-center gap-1 mt-0.5">
+                                  ⏱ Lead: {item.leadTimeDays}d
+                                </div>
                               )}
                             </td>
                           </tr>
@@ -1239,7 +1675,7 @@ export default function ProcurementDispatchModal({
                     ) : (
                       <tr>
                         <td colSpan={11} className="py-12 text-center text-slate-400">
-                          No materials match the active search or filter criteria.
+                          No components match the active search or channel filters.
                         </td>
                       </tr>
                     )}
@@ -1247,7 +1683,7 @@ export default function ProcurementDispatchModal({
                 </table>
               </div>
 
-              {/* Mobile Adaptive Cards View (Visible on mobile < md) */}
+              {/* Mobile Adaptive Touch Card View (Shown on screens < md) */}
               <div className="md:hidden space-y-3">
                 {filteredAndSortedItems.length > 0 ? (
                   filteredAndSortedItems.map(item => {
@@ -1257,46 +1693,60 @@ export default function ProcurementDispatchModal({
                     return (
                       <div
                         key={item.id}
-                        className={`p-3.5 rounded-2xl border transition-all ${
+                        onClick={() => handleToggleSelectItem(item.id)}
+                        className={`p-4 rounded-2xl border transition-all cursor-pointer ${
                           isSelected
-                            ? 'bg-indigo-950/40 border-indigo-500'
+                            ? 'bg-indigo-950/60 border-indigo-500/50 shadow-md'
                             : 'bg-slate-950 border-slate-800'
                         }`}
                       >
                         <div className="flex items-start justify-between gap-3">
-                          <div className="flex items-center gap-2.5">
-                            <input
-                              type="checkbox"
-                              checked={isSelected}
-                              onChange={() => handleToggleSelectItem(item.id)}
-                              className="w-5 h-5 rounded border-slate-700 bg-slate-900 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
-                            />
-                            <div className="w-10 h-10 rounded-xl overflow-hidden border border-slate-800 bg-slate-900 shrink-0">
+                          <div className="flex items-center gap-3">
+                            <button
+                              type="button"
+                              onClick={(e) => handleToggleSelectItem(item.id, e)}
+                              className="text-slate-500 hover:text-indigo-400 p-1"
+                            >
+                              {isSelected ? (
+                                <CheckSquare className="w-5 h-5 text-indigo-400" />
+                              ) : (
+                                <Square className="w-5 h-5" />
+                              )}
+                            </button>
+
+                            <div
+                              className="w-12 h-12 rounded-xl bg-slate-900 border border-slate-800 overflow-hidden shrink-0 relative"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setPreviewItem(item);
+                              }}
+                            >
                               <ItemImage
                                 src={item.imageUrl}
                                 alt={item.name}
                                 category={item.category}
-                                className="w-full h-full object-cover"
+                                className="w-full h-full object-contain p-1"
                               />
                             </div>
+
                             <div>
-                              <div className="font-mono text-[10px] text-indigo-400 font-bold">{item.sku}</div>
-                              <div className="font-bold text-white text-xs leading-tight">{item.name}</div>
+                              <div className="font-bold text-white text-sm leading-tight">{item.name}</div>
+                              <div className="font-mono text-[10px] text-indigo-400 mt-0.5">{item.sku}</div>
                             </div>
                           </div>
 
-                          <div className="text-right shrink-0">
-                            <div className="font-mono font-bold text-amber-300 text-xs">Rs.{item.extendedCost.toLocaleString('en-IN')}</div>
-                            <div className="text-[10px] text-slate-500">Rs.{item.unitCost} / {item.unit}</div>
+                          <div className="text-right">
+                            <div className="font-mono font-bold text-amber-300 text-sm tabular-num">
+                              Rs.{item.extendedCost.toLocaleString('en-IN')}
+                            </div>
+                            <div className="text-[10px] text-slate-500">Rs.{item.unitCost}/unit</div>
                           </div>
                         </div>
 
-                        {/* Specification */}
-                        {item.specification && (
-                          <div className="text-[11px] text-slate-400 mt-2 bg-slate-900/60 p-2 rounded-lg border border-slate-800/60">
-                            {item.specification}
-                          </div>
-                        )}
+                        {/* Specification & Notes */}
+                        <div className="text-xs text-slate-400 mt-2 line-clamp-2">
+                          {item.specification}
+                        </div>
 
                         {/* Channel Badge & Quantities Strip */}
                         <div className="flex items-center justify-between gap-2 mt-3 pt-2.5 border-t border-slate-800/80 flex-wrap text-xs">
@@ -1324,10 +1774,10 @@ export default function ProcurementDispatchModal({
                           </div>
 
                           <div className="flex items-center gap-2 font-mono">
-                            <span className="text-slate-400 text-[11px]">Req: <strong className="text-white">{item.requiredQuantity}</strong></span>
-                            <span className="text-slate-400 text-[11px]">Stock: <strong className="text-slate-300">{item.availableStock}</strong></span>
+                            <span className="text-slate-400 text-[11px]">Req: <strong className="text-white tabular-num">{item.requiredQuantity}</strong></span>
+                            <span className="text-slate-400 text-[11px]">Stock: <strong className="text-slate-300 tabular-num">{item.availableStock}</strong></span>
                             {isDeficit ? (
-                              <span className="text-rose-400 bg-rose-500/10 px-1.5 py-0.5 rounded font-bold text-[10px]">
+                              <span className="text-rose-400 bg-rose-500/10 px-1.5 py-0.5 rounded font-bold text-[10px] tabular-num">
                                 -{item.deficitQuantity}
                               </span>
                             ) : (
@@ -1353,15 +1803,16 @@ export default function ProcurementDispatchModal({
           <div>
             <span>Delivery: <strong className="text-amber-300 font-mono">{dispatchSummary.targetDeliveryDate}</strong></span>
             <span className="mx-2">•</span>
-            <span>Total Items: <strong className="text-white font-mono">{dispatchSummary.totalItems}</strong></span>
+            <span>Total Items: <strong className="text-white font-mono tabular-num">{dispatchSummary.totalItems}</strong></span>
             <span className="mx-2">•</span>
-            <span>Procurement Budget: <strong className="text-amber-300 font-mono font-bold">Rs. {dispatchSummary.totalProcurementValueINR.toLocaleString('en-IN')}</strong></span>
+            <span>Procurement Budget: <strong className="text-amber-300 font-mono font-bold tabular-num">Rs. {dispatchSummary.totalProcurementValueINR.toLocaleString('en-IN')}</strong></span>
           </div>
 
           <div className="flex items-center gap-2">
             <button
+              type="button"
               onClick={onClose}
-              className="px-4 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold transition-colors cursor-pointer"
+              className="px-5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold transition-colors cursor-pointer min-h-[40px] flex items-center justify-center active:scale-95"
             >
               Close
             </button>
@@ -1400,9 +1851,169 @@ export default function ProcurementDispatchModal({
               ProductionWorkflowService.updateItemImage(previewItem.id, newUrl);
             }
             previewItem.imageUrl = newUrl;
-            showToast('Updated component image with Image Studio!', 'success');
+            showToast('success', 'Image Updated', 'Component image updated with Image Studio.');
           }}
         />
+      )}
+
+      {/* ===== IMPORT PROJECT SPREADSHEET MODAL ===== */}
+      {isImportModalOpen && importedProjectsPreview.length > 0 && (
+        <div
+          className="fixed inset-0 z-[10000] bg-black/90 backdrop-blur-lg flex items-center justify-center p-3 sm:p-6"
+          onClick={() => setIsImportModalOpen(false)}
+        >
+          <div
+            className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-5xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden animate-in fade-in zoom-in-95"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="px-6 py-4 bg-slate-950 border-b border-slate-800 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400">
+                  <FileSpreadsheet className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-white">Import Standard Project Spreadsheet</h3>
+                  <p className="text-xs text-slate-400">Preview and load curriculum activities & BOM into the production system</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsImportModalOpen(false)}
+                className="p-2 rounded-xl text-slate-400 hover:text-white bg-slate-800/80 hover:bg-slate-700 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Sheet Selector Tabs */}
+            {importedProjectsPreview.length > 1 && (
+              <div className="px-6 py-3 bg-slate-950/70 border-b border-slate-800 flex items-center gap-2 overflow-x-auto">
+                <span className="text-xs font-bold text-slate-400 uppercase">Workbook Sheets:</span>
+                {importedProjectsPreview.map((proj, idx) => (
+                  <button
+                    key={proj.id}
+                    type="button"
+                    onClick={() => setSelectedImportIndex(idx)}
+                    className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                      selectedImportIndex === idx
+                        ? 'bg-indigo-600 text-white shadow'
+                        : 'bg-slate-800 text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    <span>{proj.grade || `Sheet ${idx + 1}`}</span>
+                    <span className="px-1.5 py-0.2 text-[10px] rounded bg-black/30 font-mono">
+                      {proj.rows.length} items
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* Modal Body / Summary Cards & Table Preview */}
+            <div className="p-6 overflow-y-auto space-y-5 flex-1">
+              {(() => {
+                const current = importedProjectsPreview[selectedImportIndex];
+                if (!current) return null;
+                return (
+                  <>
+                    {/* Summary Metrics */}
+                    <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+                      <div className="bg-slate-950 border border-slate-800 rounded-2xl p-3">
+                        <div className="text-[10px] uppercase font-bold text-slate-400">Total Materials</div>
+                        <div className="text-lg font-black text-white font-mono mt-0.5">{current.summary.totalItems}</div>
+                      </div>
+                      <div className="bg-slate-950 border border-purple-500/20 rounded-2xl p-3">
+                        <div className="text-[10px] uppercase font-bold text-purple-400">Vendor PO / Buy</div>
+                        <div className="text-lg font-black text-purple-300 font-mono mt-0.5">{current.summary.toOrderCount}</div>
+                      </div>
+                      <div className="bg-slate-950 border border-amber-500/20 rounded-2xl p-3">
+                        <div className="text-[10px] uppercase font-bold text-amber-400">Laser Cutting</div>
+                        <div className="text-lg font-black text-amber-300 font-mono mt-0.5">{current.summary.laserCuttingCount}</div>
+                      </div>
+                      <div className="bg-slate-950 border border-cyan-500/20 rounded-2xl p-3">
+                        <div className="text-[10px] uppercase font-bold text-cyan-400">Chemical Prep</div>
+                        <div className="text-lg font-black text-cyan-300 font-mono mt-0.5">{current.summary.prepareCount}</div>
+                      </div>
+                      <div className="bg-slate-950 border border-emerald-500/20 rounded-2xl p-3">
+                        <div className="text-[10px] uppercase font-bold text-emerald-400">In-Stock Pick</div>
+                        <div className="text-lg font-black text-emerald-300 font-mono mt-0.5">{current.summary.inStockCount}</div>
+                      </div>
+                    </div>
+
+                    {/* Table Preview */}
+                    <div className="bg-slate-950 border border-slate-800 rounded-2xl overflow-hidden shadow-inner">
+                      <div className="max-h-[360px] overflow-y-auto">
+                        <table className="w-full text-left text-xs border-collapse">
+                          <thead className="bg-slate-900 border-b border-slate-800 sticky top-0 z-10 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                            <tr>
+                              <th className="p-3">#</th>
+                              <th className="p-3">Activity Name</th>
+                              <th className="p-3">Component / Material Description</th>
+                              <th className="p-3 text-center">To Order</th>
+                              <th className="p-3 text-center">Laser Cut</th>
+                              <th className="p-3 text-center">In Stock</th>
+                              <th className="p-3 text-center">Prepare</th>
+                              <th className="p-3 text-center">Channel</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-800/60">
+                            {current.rows.map((row, rIdx) => (
+                              <tr key={rIdx} className="hover:bg-slate-900/50 transition-colors">
+                                <td className="p-3 font-mono text-slate-500 text-[10px]">{rIdx + 1}</td>
+                                <td className="p-3 font-medium text-slate-300 max-w-[220px] truncate">{row.activityName}</td>
+                                <td className="p-3 font-bold text-white max-w-[260px] truncate">{row.materialDescription}</td>
+                                <td className="p-3 text-center">
+                                  {row.toOrder ? <span className="text-purple-400 font-bold bg-purple-500/10 px-1.5 py-0.5 rounded text-[10px]">YES</span> : <span className="text-slate-600">no</span>}
+                                </td>
+                                <td className="p-3 text-center">
+                                  {row.laserCutting ? <span className="text-amber-400 font-bold bg-amber-500/10 px-1.5 py-0.5 rounded text-[10px]">YES</span> : <span className="text-slate-600">no</span>}
+                                </td>
+                                <td className="p-3 text-center">
+                                  {row.inStock ? <span className="text-emerald-400 font-bold bg-emerald-500/10 px-1.5 py-0.5 rounded text-[10px]">YES</span> : <span className="text-slate-600">no</span>}
+                                </td>
+                                <td className="p-3 text-center">
+                                  {row.prepare ? <span className="text-cyan-400 font-bold bg-cyan-500/10 px-1.5 py-0.5 rounded text-[10px]">YES</span> : <span className="text-slate-600">no</span>}
+                                </td>
+                                <td className="p-3 text-center">
+                                  {row.channel === 'laser_cutting' && <span className="text-[10px] bg-amber-500/10 text-amber-400 px-2 py-0.5 rounded-full font-bold">Laser Lab</span>}
+                                  {row.channel === 'lab_prepare' && <span className="text-[10px] bg-cyan-500/10 text-cyan-400 px-2 py-0.5 rounded-full font-bold">Chemical Prep</span>}
+                                  {row.channel === 'vendor_po' && <span className="text-[10px] bg-purple-500/10 text-purple-400 px-2 py-0.5 rounded-full font-bold">Vendor PO</span>}
+                                  {row.channel === 'in_stock' && <span className="text-[10px] bg-emerald-500/10 text-emerald-400 px-2 py-0.5 rounded-full font-bold">Warehouse</span>}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </>
+                );
+              })()}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="px-6 py-4 bg-slate-950 border-t border-slate-800 flex items-center justify-between">
+              <button
+                type="button"
+                onClick={() => setIsImportModalOpen(false)}
+                className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold cursor-pointer"
+              >
+                Cancel
+              </button>
+
+              <button
+                type="button"
+                onClick={handleConfirmImportProject}
+                disabled={isImporting}
+                className="px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-lg shadow-indigo-600/30 flex items-center gap-2 cursor-pointer active:scale-95 disabled:opacity-50"
+              >
+                {isImporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <FolderPlus className="w-4 h-4" />}
+                <span>Create & Load Project ({importedProjectsPreview[selectedImportIndex]?.grade || 'Selected Sheet'})</span>
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>,
     document.body
