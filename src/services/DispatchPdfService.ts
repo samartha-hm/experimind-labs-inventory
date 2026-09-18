@@ -3,9 +3,11 @@ import JsBarcode from 'jsbarcode';
 import { DispatchReportSummary, DispatchItem } from './DispatchReportService';
 
 export type PdfDocumentType = 'FULL_DISPATCH' | 'SHORTAGE_CHECKLIST' | 'WAREHOUSE_PICKLIST' | 'SELECTED_ITEMS';
+export type PdfOrientation = 'landscape' | 'portrait';
 
 export interface PdfGeneratorOptions {
   documentType?: PdfDocumentType;
+  orientation?: PdfOrientation;
   includePrices?: boolean;
   includeNotes?: boolean;
   includeCheckboxes?: boolean;
@@ -14,17 +16,25 @@ export interface PdfGeneratorOptions {
   customFilename?: string;
 }
 
+interface ColumnLayout {
+  header: string;
+  width: number;
+  align: 'left' | 'center' | 'right';
+  x: number;
+}
+
 export class DispatchPdfService {
   /**
-   * Generates a Base64 data URL barcode for the document header
+   * Generates a clean 1D barcode image for the document header
    */
   private static generateBarcode(text: string): string {
     try {
+      if (typeof document === 'undefined') return '';
       const canvas = document.createElement('canvas');
       JsBarcode(canvas, text || 'DISP-001', {
         format: 'CODE128',
         width: 2,
-        height: 40,
+        height: 36,
         displayValue: false,
         margin: 0,
         background: '#ffffff',
@@ -37,7 +47,19 @@ export class DispatchPdfService {
   }
 
   /**
-   * Core multi-page PDF generation engine
+   * Safe text sanitizer: converts Unicode multi-byte symbols to safe WinAnsi strings
+   */
+  private static sanitizeText(str: string | number | undefined | null): string {
+    if (str === undefined || str === null) return '';
+    return String(str)
+      .replace(/₹/g, 'Rs.')
+      .replace(/✓/g, '[OK]')
+      .replace(/•/g, '-')
+      .replace(/[^\x00-\x7F]/g, ''); // strip any non-ascii that would crash default fonts
+  }
+
+  /**
+   * Master Vector PDF Generator with zero text overlap and rigorous coordinate mapping
    */
   public static createDispatchPdf(
     summary: DispatchReportSummary,
@@ -45,6 +67,7 @@ export class DispatchPdfService {
   ): jsPDF {
     const {
       documentType = 'FULL_DISPATCH',
+      orientation = documentType === 'FULL_DISPATCH' ? 'landscape' : 'portrait',
       includePrices = true,
       includeNotes = true,
       includeCheckboxes = true,
@@ -53,27 +76,28 @@ export class DispatchPdfService {
     } = options;
 
     const doc = new jsPDF({
-      orientation: 'portrait',
+      orientation,
       unit: 'mm',
       format: 'a4',
       compress: true,
     });
 
-    const pageWidth = 210;
-    const pageHeight = 297;
-    const margin = 12;
+    const isLandscape = orientation === 'landscape';
+    const pageWidth = isLandscape ? 297 : 210;
+    const pageHeight = isLandscape ? 210 : 297;
+    const margin = 10;
     const usableWidth = pageWidth - margin * 2;
     let y = margin;
 
-    // Filter items based on document type
+    // Filter Items by Report Mode
     let itemsToRender: DispatchItem[] = summary.items;
     let reportTitle = titleOverride || 'EXECUTIVE DISPATCH & PRODUCTION READINESS REPORT';
-    let reportSubtitle = 'Complete Bill of Materials • Readiness Breakdown • Sourcing Matrix';
+    let reportSubtitle = 'Official Master Bill of Materials • Readiness Breakdown • Sourcing Matrix';
 
     if (documentType === 'SHORTAGE_CHECKLIST') {
       itemsToRender = summary.items.filter(i => i.deficitQuantity > 0);
       reportTitle = titleOverride || 'PROCUREMENT & SHORTAGE SHOPPING CHECKLIST';
-      reportSubtitle = 'Action Required: Items Needing Local Market Purchase & Vendor Purchase Orders';
+      reportSubtitle = 'Action Required: Materials to Purchase from Local Markets & Vendor POs';
     } else if (documentType === 'WAREHOUSE_PICKLIST') {
       itemsToRender = summary.items.filter(i => i.actionChannel === 'IN_STOCK' || i.actionChannel === 'IN_HOUSE_FABRICATION');
       reportTitle = titleOverride || 'WAREHOUSE STAGING & KITTING PICK LIST';
@@ -83,205 +107,253 @@ export class DispatchPdfService {
       reportSubtitle = 'Floor Verification & Dispatch Slip for Selected Materials';
     }
 
-    // Helper: Draw Header & Brand
-    const drawHeader = (isFirstPage: boolean) => {
-      // Top Bar Background
-      doc.setFillColor(15, 23, 42); // slate-900
-      doc.rect(margin, y, usableWidth, isFirstPage ? 22 : 12, 'F');
+    // Build Deterministic Column Coordinate Grids
+    let columns: ColumnLayout[] = [];
 
-      // Company Title
+    if (isLandscape) {
+      // 277mm usable width (Landscape A4)
+      if (documentType === 'SHORTAGE_CHECKLIST') {
+        const defs = [
+          { header: 'SKU / Code', width: 34, align: 'left' as const },
+          { header: 'Item Name & Technical Specification', width: 95, align: 'left' as const },
+          { header: 'Channel', width: 28, align: 'center' as const },
+          { header: 'Deficit Qty', width: 24, align: 'center' as const },
+          ...(includePrices ? [
+            { header: 'Unit Cost', width: 22, align: 'right' as const },
+            { header: 'Ext Total', width: 24, align: 'right' as const },
+          ] : []),
+          { header: 'Sourcing / Vendor / Market', width: includePrices ? 38 : 74, align: 'left' as const },
+          ...(includeCheckboxes ? [{ header: '[ V ]', width: 12, align: 'center' as const }] : []),
+        ];
+        let currentX = margin;
+        columns = defs.map(d => {
+          const col = { ...d, x: currentX };
+          currentX += d.width;
+          return col;
+        });
+      } else if (documentType === 'WAREHOUSE_PICKLIST') {
+        const defs = [
+          { header: 'SKU / Code', width: 34, align: 'left' as const },
+          { header: 'Component & Model Name', width: 110, align: 'left' as const },
+          { header: 'Bin Location', width: 36, align: 'left' as const },
+          { header: 'Pick Qty', width: 26, align: 'center' as const },
+          { header: 'On Hand', width: 22, align: 'center' as const },
+          { header: 'Staging / Class', width: 35, align: 'left' as const },
+          ...(includeCheckboxes ? [{ header: 'Picked', width: 14, align: 'center' as const }] : []),
+        ];
+        let currentX = margin;
+        columns = defs.map(d => {
+          const col = { ...d, x: currentX };
+          currentX += d.width;
+          return col;
+        });
+      } else {
+        // Master Full Dispatch (Landscape)
+        const defs = [
+          { header: 'SKU / Code', width: 30, align: 'left' as const },
+          { header: 'Component & Specification', width: 78, align: 'left' as const },
+          { header: 'Channel', width: 24, align: 'center' as const },
+          { header: 'Req Qty', width: 20, align: 'center' as const },
+          { header: 'Stock', width: 16, align: 'center' as const },
+          { header: 'Deficit', width: 20, align: 'center' as const },
+          ...(includePrices ? [
+            { header: 'Unit Cost', width: 18, align: 'right' as const },
+            { header: 'Ext Total', width: 22, align: 'right' as const },
+          ] : []),
+          { header: 'Location / Vendor', width: includePrices ? 36 : 74, align: 'left' as const },
+          ...(includeCheckboxes ? [{ header: '[ V ]', width: 13, align: 'center' as const }] : []),
+        ];
+        let currentX = margin;
+        columns = defs.map(d => {
+          const col = { ...d, x: currentX };
+          currentX += d.width;
+          return col;
+        });
+      }
+    } else {
+      // 190mm usable width (Portrait A4)
+      if (documentType === 'SHORTAGE_CHECKLIST') {
+        const defs = [
+          { header: 'SKU / Code', width: 28, align: 'left' as const },
+          { header: 'Component & Specification', width: 66, align: 'left' as const },
+          { header: 'Channel', width: 20, align: 'center' as const },
+          { header: 'Deficit', width: 18, align: 'center' as const },
+          ...(includePrices ? [
+            { header: 'Unit', width: 14, align: 'right' as const },
+            { header: 'Total', width: 16, align: 'right' as const },
+          ] : []),
+          { header: 'Vendor / Market', width: includePrices ? 20 : 44, align: 'left' as const },
+          ...(includeCheckboxes ? [{ header: '[ V ]', width: 8, align: 'center' as const }] : []),
+        ];
+        let currentX = margin;
+        columns = defs.map(d => {
+          const col = { ...d, x: currentX };
+          currentX += d.width;
+          return col;
+        });
+      } else {
+        const defs = [
+          { header: 'SKU', width: 24, align: 'left' as const },
+          { header: 'Component Name & Spec', width: 64, align: 'left' as const },
+          { header: 'Channel', width: 20, align: 'center' as const },
+          { header: 'Req', width: 14, align: 'center' as const },
+          { header: 'Stock', width: 12, align: 'center' as const },
+          { header: 'Deficit', width: 16, align: 'center' as const },
+          ...(includePrices ? [
+            { header: 'Unit', width: 12, align: 'right' as const },
+            { header: 'Total', width: 14, align: 'right' as const },
+          ] : []),
+          { header: 'Location / Vendor', width: includePrices ? 10 : 26, align: 'left' as const },
+          ...(includeCheckboxes ? [{ header: '[V]', width: 8, align: 'center' as const }] : []),
+        ];
+        let currentX = margin;
+        columns = defs.map(d => {
+          const col = { ...d, x: currentX };
+          currentX += d.width;
+          return col;
+        });
+      }
+    }
+
+    // Function: Draw Corporate Header Banner
+    const drawHeader = (isFirstPage: boolean) => {
+      doc.setFillColor(15, 23, 42); // slate-900
+      doc.rect(margin, y, usableWidth, isFirstPage ? (isLandscape ? 20 : 22) : 10, 'F');
+
       doc.setFont('helvetica', 'bold');
-      doc.setFontSize(isFirstPage ? 13 : 9);
+      doc.setFontSize(isFirstPage ? 12 : 8.5);
       doc.setTextColor(255, 255, 255);
-      doc.text('EXPERIMIND LABS', margin + 4, y + (isFirstPage ? 7 : 7));
+      doc.text('EXPERIMIND LABS', margin + 4, y + (isFirstPage ? 6.5 : 6.5));
 
       doc.setFont('helvetica', 'normal');
-      doc.setFontSize(isFirstPage ? 7.5 : 7);
+      doc.setFontSize(isFirstPage ? 7 : 6.5);
       doc.setTextColor(203, 213, 225); // slate-300
-      doc.text('Inventory & Quality Control System • ISO 9001 / 21 CFR Compliant', margin + 4, y + (isFirstPage ? 13 : 7 + 3.5));
+      doc.text('Inventory & Quality Control System - ISO 9001 / 21 CFR Compliant', margin + 4, y + (isFirstPage ? 11.5 : 6.5 + 2.5));
 
       if (isFirstPage) {
         doc.setFont('helvetica', 'bold');
-        doc.setFontSize(8);
+        doc.setFontSize(7.5);
         doc.setTextColor(129, 140, 248); // indigo-400
-        doc.text(reportTitle, margin + 4, y + 19);
+        doc.text(this.sanitizeText(reportTitle), margin + 4, y + 17);
 
-        // Barcode on First Page
-        const barcodeData = this.generateBarcode(summary.documentRef);
-        if (barcodeData) {
-          doc.addImage(barcodeData, 'PNG', pageWidth - margin - 38, y + 2, 35, 11);
+        // Barcode
+        const barcodeImg = this.generateBarcode(summary.documentRef);
+        if (barcodeImg) {
+          doc.addImage(barcodeImg, 'PNG', pageWidth - margin - 36, y + 2, 32, 9);
         }
         doc.setFont('helvetica', 'bold');
-        doc.setFontSize(7.5);
+        doc.setFontSize(7);
         doc.setTextColor(255, 255, 255);
-        doc.text(summary.documentRef, pageWidth - margin - 38, y + 16);
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(6.5);
-        doc.setTextColor(148, 163, 184);
-        doc.text(`Date: ${summary.generatedAt}`, pageWidth - margin - 38, y + 19.5);
+        doc.text(summary.documentRef, pageWidth - margin - 36, y + 14.5);
 
-        y += 24;
-      } else {
-        // Subsequent pages header
         doc.setFont('helvetica', 'normal');
-        doc.setFontSize(7.5);
+        doc.setFontSize(6);
+        doc.setTextColor(148, 163, 184);
+        doc.text(`Date: ${this.sanitizeText(summary.generatedAt)}`, pageWidth - margin - 36, y + 18);
+
+        y += isLandscape ? 23 : 25;
+      } else {
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(7);
         doc.setTextColor(255, 255, 255);
-        doc.text(`${summary.documentRef} — ${summary.projectName}`, pageWidth - margin - 4, y + 7, { align: 'right' });
-        y += 14;
+        doc.text(`${summary.documentRef} - ${this.sanitizeText(summary.projectName)}`, pageWidth - margin - 4, y + 6.5, { align: 'right' });
+        y += 12;
       }
     };
 
-    // Draw initial header
+    // Draw First Page Header
     drawHeader(true);
 
-    // Metadata & Summary Card (First page only)
+    // Project & Metadata Strip (First Page Only)
     doc.setDrawColor(203, 213, 225); // slate-300
     doc.setFillColor(248, 250, 252); // slate-50
-    doc.roundedRect(margin, y, usableWidth, 22, 1.5, 1.5, 'FD');
+    doc.roundedRect(margin, y, usableWidth, 18, 1.5, 1.5, 'FD');
 
-    // Row 1
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(8);
-    doc.setTextColor(15, 23, 42);
-    doc.text('Project:', margin + 3, y + 5);
-    doc.setFont('helvetica', 'normal');
-    doc.text(`${summary.projectCode} — ${summary.projectName}`, margin + 18, y + 5);
-
-    doc.setFont('helvetica', 'bold');
-    doc.text('Client / Scope:', margin + 110, y + 5);
-    doc.setFont('helvetica', 'normal');
-    doc.text(summary.clientName || 'Experimind Labs Internal', margin + 133, y + 5);
-
-    // Row 2
-    doc.setFont('helvetica', 'bold');
-    doc.text('Lead Engineer:', margin + 3, y + 10);
-    doc.setFont('helvetica', 'normal');
-    doc.text(summary.leadUserName, margin + 25, y + 10);
-
-    doc.setFont('helvetica', 'bold');
-    doc.text('Target Delivery:', margin + 110, y + 10);
-    doc.setFont('helvetica', 'bold');
-    doc.setTextColor(180, 83, 9); // amber-700
-    doc.text(`${summary.targetDeliveryDate} (${summary.batchMultiplier}x Batch)`, margin + 133, y + 10);
-
-    // Row 3: Metrics Strip
+    // Row 1 Metadata
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(7.5);
     doc.setTextColor(15, 23, 42);
-    doc.text(`Total Items: ${summary.totalItems}`, margin + 3, y + 16);
-    doc.setTextColor(22, 101, 52); // green-800
-    doc.text(`• In-Stock: ${summary.inStockCount} (${summary.stockReadinessPct}%)`, margin + 35, y + 16);
+    doc.text('Project:', margin + 3, y + 4.5);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`${summary.projectCode} - ${this.sanitizeText(summary.projectName)}`, margin + 17, y + 4.5);
+
+    doc.setFont('helvetica', 'bold');
+    doc.text('Client / Scope:', margin + (isLandscape ? 140 : 100), y + 4.5);
+    doc.setFont('helvetica', 'normal');
+    doc.text(this.sanitizeText(summary.clientName || 'Experimind Labs Internal'), margin + (isLandscape ? 164 : 124), y + 4.5);
+
+    // Row 2 Metadata
+    doc.setFont('helvetica', 'bold');
+    doc.text('Lead Engineer:', margin + 3, y + 9);
+    doc.setFont('helvetica', 'normal');
+    doc.text(this.sanitizeText(summary.leadUserName), margin + 24, y + 9);
+
+    doc.setFont('helvetica', 'bold');
+    doc.text('Target Delivery:', margin + (isLandscape ? 140 : 100), y + 9);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(180, 83, 9); // amber-700
+    doc.text(`${summary.targetDeliveryDate} (${summary.batchMultiplier}x Batch)`, margin + (isLandscape ? 164 : 124), y + 9);
+
+    // Row 3: Financial & Readiness KPIs
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(7);
+    doc.setTextColor(15, 23, 42);
+    doc.text(`Total Items: ${summary.totalItems}`, margin + 3, y + 14.5);
+
+    doc.setTextColor(22, 101, 52); // emerald-800
+    doc.text(`- In-Stock: ${summary.inStockCount} (${summary.stockReadinessPct}%)`, margin + 32, y + 14.5);
+
     doc.setTextColor(3, 105, 161); // sky-700
-    doc.text(`• Local Buy: ${summary.localBuyCount} (~₹${summary.localPurchaseCashINR.toLocaleString('en-IN')})`, margin + 78, y + 16);
+    doc.text(`- Local Cash Buy: ${summary.localBuyCount} (~Rs. ${summary.localPurchaseCashINR.toLocaleString('en-IN')})`, margin + (isLandscape ? 75 : 68), y + 14.5);
+
     doc.setTextColor(126, 34, 206); // purple-700
-    doc.text(`• Vendor PO: ${summary.toOrderCount} (~₹${summary.vendorOrdersTotalINR.toLocaleString('en-IN')})`, margin + 128, y + 16);
+    doc.text(`- Vendor PO: ${summary.toOrderCount} (~Rs. ${summary.vendorOrdersTotalINR.toLocaleString('en-IN')})`, margin + (isLandscape ? 145 : 128), y + 14.5);
 
     if (includePrices) {
       doc.setTextColor(180, 83, 9); // amber-700
-      doc.text(`• Budget: ₹${summary.totalProcurementValueINR.toLocaleString('en-IN')}`, margin + 3, y + 20);
-    }
-    doc.setTextColor(180, 83, 9);
-    doc.text(`• In-House Fab: ${summary.fabricationCount} jobs`, margin + (includePrices ? 55 : 3), y + 20);
-
-    y += 26;
-
-    // Define Column Layouts
-    interface ColumnDef {
-      header: string;
-      width: number;
-      align?: 'left' | 'center' | 'right';
+      doc.text(`- Budget: Rs. ${summary.totalProcurementValueINR.toLocaleString('en-IN')}`, margin + (isLandscape ? 210 : 3), y + (isLandscape ? 14.5 : 17.5));
     }
 
-    let columns: ColumnDef[] = [];
-
-    if (documentType === 'SHORTAGE_CHECKLIST') {
-      columns = [
-        { header: 'SKU / Code', width: 24, align: 'left' },
-        { header: 'Item Name & Technical Spec', width: 62, align: 'left' },
-        { header: 'Channel', width: 22, align: 'center' },
-        { header: 'Deficit Qty', width: 22, align: 'center' },
-        ...(includePrices
-          ? [
-              { header: 'Unit (₹)', width: 16, align: 'right' as const },
-              { header: 'Total (₹)', width: 18, align: 'right' as const },
-            ]
-          : []),
-        { header: 'Vendor / Market Location', width: includePrices ? 32 : 46, align: 'left' },
-        ...(includeCheckboxes ? [{ header: '[✓]', width: 10, align: 'center' as const }] : []),
-      ];
-    } else if (documentType === 'WAREHOUSE_PICKLIST') {
-      columns = [
-        { header: 'SKU / Code', width: 26, align: 'left' },
-        { header: 'Component & Model Name', width: 72, align: 'left' },
-        { header: 'Bin Location', width: 28, align: 'left' },
-        { header: 'Pick Qty', width: 22, align: 'center' },
-        { header: 'On Hand', width: 18, align: 'center' },
-        ...(includeCheckboxes ? [{ header: 'Picked', width: 20, align: 'center' as const }] : []),
-      ];
-    } else {
-      // Full Dispatch Sheet
-      columns = [
-        { header: 'SKU', width: 22, align: 'left' },
-        { header: 'Component & Specification', width: 56, align: 'left' },
-        { header: 'Channel', width: 20, align: 'center' },
-        { header: 'Req Qty', width: 18, align: 'center' },
-        { header: 'Stock', width: 14, align: 'center' },
-        { header: 'Deficit', width: 16, align: 'center' },
-        ...(includePrices
-          ? [
-              { header: 'Cost (₹)', width: 14, align: 'right' as const },
-              { header: 'Ext (₹)', width: 16, align: 'right' as const },
-            ]
-          : []),
-        { header: 'Location / Vendor', width: includePrices ? 20 : 30, align: 'left' },
-        ...(includeCheckboxes ? [{ header: '[✓]', width: 10, align: 'center' as const }] : []),
-      ];
-    }
-
-    // Adjust total width to fill exactly usableWidth
-    const currentTotalWidth = columns.reduce((acc, c) => acc + c.width, 0);
-    const scale = usableWidth / currentTotalWidth;
-    columns = columns.map(c => ({ ...c, width: c.width * scale }));
+    y += 21;
 
     // Function: Render Table Header
     const drawTableHeader = () => {
       doc.setFillColor(30, 41, 59); // slate-800
-      doc.rect(margin, y, usableWidth, 7, 'F');
+      doc.rect(margin, y, usableWidth, 6.5, 'F');
 
-      let currentX = margin;
       doc.setFont('helvetica', 'bold');
-      doc.setFontSize(7);
+      doc.setFontSize(6.8);
       doc.setTextColor(255, 255, 255);
 
       columns.forEach(col => {
         const textX =
           col.align === 'right'
-            ? currentX + col.width - 2
+            ? col.x + col.width - 2
             : col.align === 'center'
-            ? currentX + col.width / 2
-            : currentX + 2;
+            ? col.x + col.width / 2
+            : col.x + 2;
 
-        doc.text(col.header, textX, y + 4.8, { align: col.align || 'left' });
-        currentX += col.width;
+        doc.text(col.header, textX, y + 4.5, { align: col.align });
       });
 
-      y += 7;
+      y += 6.5;
     };
 
     drawTableHeader();
 
-    // Render Table Rows
+    // Render Data Rows with Guaranteed Coordinates
     let rowIndex = 0;
     itemsToRender.forEach(item => {
-      // Estimate row height based on name & spec text length
-      const nameLines = doc.splitTextToSize(
-        `${item.name}${item.specification ? ' • ' + item.specification : ''}${includeNotes && item.notes ? ' [Note: ' + item.notes + ']' : ''}`,
-        columns[1].width - 4
-      );
-      const rowHeight = Math.max(7, nameLines.length * 3.4 + 3);
+      // Word wrap component name & spec
+      const nameColWidth = columns[1]?.width || 60;
+      const combinedText = `${this.sanitizeText(item.name)}${item.specification ? ' - ' + this.sanitizeText(item.specification) : ''}${
+        includeNotes && item.notes ? ' [Note: ' + this.sanitizeText(item.notes) + ']' : ''
+      }`;
+      const nameLines: string[] = doc.splitTextToSize(combinedText, nameColWidth - 4);
+      const rowHeight = Math.max(6.5, nameLines.length * 3.2 + 2.5);
 
-      // Check for Page Overflow
-      if (y + rowHeight > pageHeight - 25) {
+      // Page Overflow Check
+      if (y + rowHeight > pageHeight - 20) {
         doc.addPage();
         y = margin;
         drawHeader(false);
@@ -294,101 +366,118 @@ export class DispatchPdfService {
         doc.rect(margin, y, usableWidth, rowHeight, 'F');
       }
 
-      // Border line bottom
+      // Bottom border line
       doc.setDrawColor(226, 232, 240); // slate-200
-      doc.setLineWidth(0.15);
+      doc.setLineWidth(0.12);
       doc.line(margin, y + rowHeight, margin + usableWidth, y + rowHeight);
 
-      // Cell Data Printing
-      let currentX = margin;
-
+      // Render Individual Columns
       columns.forEach((col, cIdx) => {
-        doc.setFontSize(6.8);
+        doc.setFontSize(6.5);
         doc.setFont('helvetica', 'normal');
         doc.setTextColor(15, 23, 42);
 
-        const textY = y + 4;
+        const textY = y + 3.8;
 
         if (cIdx === 0) {
-          // SKU
+          // SKU Column
           doc.setFont('courier', 'bold');
-          doc.setFontSize(6.5);
+          doc.setFontSize(6.2);
           doc.setTextColor(79, 70, 229); // indigo-600
-          doc.text(item.sku, currentX + 2, textY);
+          doc.text(this.sanitizeText(item.sku), col.x + 2, textY);
         } else if (cIdx === 1) {
-          // Component Name & Specification
+          // Name & Spec
           doc.setFont('helvetica', 'bold');
-          doc.setFontSize(6.8);
+          doc.setFontSize(6.5);
           doc.setTextColor(15, 23, 42);
-          doc.text(nameLines[0] || '', currentX + 2, textY);
+          doc.text(nameLines[0] || '', col.x + 2, textY);
 
           if (nameLines.length > 1) {
             doc.setFont('helvetica', 'normal');
-            doc.setFontSize(6.2);
-            doc.setTextColor(71, 85, 105); // slate-600
+            doc.setFontSize(5.8);
+            doc.setTextColor(71, 85, 105);
             for (let l = 1; l < nameLines.length; l++) {
-              doc.text(nameLines[l], currentX + 2, textY + l * 3.2);
+              doc.text(nameLines[l], col.x + 2, textY + l * 3.0);
             }
           }
         } else if (col.header === 'Channel') {
+          // Channel Vector Badge Pill
+          const pillWidth = col.width - 4;
+          const pillHeight = 4.2;
+          const pillX = col.x + 2;
+          const pillY = y + (rowHeight - pillHeight) / 2;
+
+          doc.setFontSize(5.8);
           doc.setFont('helvetica', 'bold');
-          doc.setFontSize(6.2);
+
           if (item.actionChannel === 'IN_STOCK') {
-            doc.setTextColor(22, 101, 52);
-            doc.text('IN STOCK', currentX + col.width / 2, textY, { align: 'center' });
+            doc.setFillColor(236, 253, 245); // emerald-50
+            doc.setDrawColor(16, 185, 129); // emerald-500
+            doc.roundedRect(pillX, pillY, pillWidth, pillHeight, 1, 1, 'FD');
+            doc.setTextColor(6, 95, 70);
+            doc.text('IN STOCK', col.x + col.width / 2, pillY + 3.0, { align: 'center' });
           } else if (item.actionChannel === 'LOCAL_BUY') {
+            doc.setFillColor(240, 249, 255); // sky-50
+            doc.setDrawColor(14, 165, 233); // sky-500
+            doc.roundedRect(pillX, pillY, pillWidth, pillHeight, 1, 1, 'FD');
             doc.setTextColor(3, 105, 161);
-            doc.text('LOCAL BUY', currentX + col.width / 2, textY, { align: 'center' });
+            doc.text('LOCAL BUY', col.x + col.width / 2, pillY + 3.0, { align: 'center' });
           } else if (item.actionChannel === 'TO_ORDER') {
-            doc.setTextColor(126, 34, 206);
-            doc.text('VENDOR PO', currentX + col.width / 2, textY, { align: 'center' });
+            doc.setFillColor(250, 245, 255); // purple-50
+            doc.setDrawColor(168, 85, 247); // purple-500
+            doc.roundedRect(pillX, pillY, pillWidth, pillHeight, 1, 1, 'FD');
+            doc.setTextColor(107, 33, 168);
+            doc.text('VENDOR PO', col.x + col.width / 2, pillY + 3.0, { align: 'center' });
           } else {
-            doc.setTextColor(180, 83, 9);
-            doc.text('IN-HOUSE', currentX + col.width / 2, textY, { align: 'center' });
+            doc.setFillColor(254, 243, 199); // amber-50
+            doc.setDrawColor(245, 158, 11); // amber-500
+            doc.roundedRect(pillX, pillY, pillWidth, pillHeight, 1, 1, 'FD');
+            doc.setTextColor(146, 64, 14);
+            doc.text('IN-HOUSE', col.x + col.width / 2, pillY + 3.0, { align: 'center' });
           }
-        } else if (col.header === 'Req Qty' || col.header === 'Pick Qty') {
+        } else if (col.header === 'Req Qty' || col.header === 'Pick Qty' || col.header === 'Req') {
           doc.setFont('helvetica', 'bold');
-          doc.text(`${item.requiredQuantity} ${item.unit}`, currentX + col.width / 2, textY, { align: 'center' });
+          doc.text(`${item.requiredQuantity} ${item.unit}`, col.x + col.width / 2, textY, { align: 'center' });
         } else if (col.header === 'Stock' || col.header === 'On Hand') {
-          doc.text(`${item.availableStock}`, currentX + col.width / 2, textY, { align: 'center' });
+          doc.text(`${item.availableStock}`, col.x + col.width / 2, textY, { align: 'center' });
         } else if (col.header === 'Deficit' || col.header === 'Deficit Qty') {
           if (item.deficitQuantity > 0) {
             doc.setFont('helvetica', 'bold');
             doc.setTextColor(225, 29, 72); // rose-600
-            doc.text(`-${item.deficitQuantity} ${item.unit}`, currentX + col.width / 2, textY, { align: 'center' });
+            doc.text(`-${item.deficitQuantity} ${item.unit}`, col.x + col.width / 2, textY, { align: 'center' });
           } else {
-            doc.setTextColor(22, 101, 52);
-            doc.text('✓ Covered', currentX + col.width / 2, textY, { align: 'center' });
+            doc.setTextColor(22, 101, 52); // green-700
+            doc.text('Covered', col.x + col.width / 2, textY, { align: 'center' });
           }
-        } else if (col.header === 'Cost (₹)' || col.header === 'Unit (₹)') {
-          doc.text(`₹${item.unitCost}`, currentX + col.width - 2, textY, { align: 'right' });
-        } else if (col.header === 'Ext (₹)' || col.header === 'Total (₹)') {
+        } else if (col.header === 'Unit Cost' || col.header === 'Unit') {
+          doc.text(`Rs.${item.unitCost}`, col.x + col.width - 2, textY, { align: 'right' });
+        } else if (col.header === 'Ext Total' || col.header === 'Total') {
           doc.setFont('helvetica', 'bold');
-          doc.text(`₹${item.extendedCost.toLocaleString('en-IN')}`, currentX + col.width - 2, textY, { align: 'right' });
+          doc.text(`Rs.${item.extendedCost.toLocaleString('en-IN')}`, col.x + col.width - 2, textY, { align: 'right' });
         } else if (col.header === 'Bin Location') {
           doc.setFont('courier', 'bold');
           doc.setTextColor(30, 41, 59);
-          doc.text(item.binLocation || 'Rack Shelf', currentX + 2, textY);
-        } else if (col.header === 'Vendor / Market Location' || col.header === 'Location / Vendor') {
-          doc.setFontSize(6.2);
-          doc.text(doc.splitTextToSize(item.vendorOrLocation || '', col.width - 4)[0] || '', currentX + 2, textY);
-        } else if (col.header === '[✓]' || col.header === 'Picked') {
-          // Draw Physical Checklist Square Box
+          doc.text(this.sanitizeText(item.binLocation || 'Rack A-01'), col.x + 2, textY);
+        } else if (col.header.includes('Location') || col.header.includes('Vendor') || col.header.includes('Staging')) {
+          const locText = item.actionChannel === 'IN_STOCK' ? (item.binLocation || 'Rack A-01') : (item.vendorOrLocation || 'Local Vendor');
+          const locLines = doc.splitTextToSize(this.sanitizeText(locText), col.width - 4);
+          doc.setFontSize(5.8);
+          doc.text(locLines[0] || '', col.x + 2, textY);
+        } else if (col.header === '[ V ]' || col.header === 'Picked' || col.header === '[V]') {
+          // Crisp vector checkbox
           doc.setDrawColor(71, 85, 105);
-          doc.setLineWidth(0.3);
-          doc.rect(currentX + col.width / 2 - 2, y + rowHeight / 2 - 2, 4, 4);
+          doc.setLineWidth(0.25);
+          doc.rect(col.x + col.width / 2 - 2, y + (rowHeight - 4) / 2, 4, 4);
         }
-
-        currentX += col.width;
       });
 
       y += rowHeight;
       rowIndex++;
     });
 
-    // Check if Signatures Block fits on current page
+    // Verification & Sign-Off Authorization Grid (Final Page)
     if (includeSignatures) {
-      if (y + 35 > pageHeight - 15) {
+      if (y + 30 > pageHeight - 15) {
         doc.addPage();
         y = margin;
         drawHeader(false);
@@ -396,13 +485,13 @@ export class DispatchPdfService {
 
       y += 4;
       doc.setDrawColor(15, 23, 42);
-      doc.setLineWidth(0.4);
-      doc.rect(margin, y, usableWidth, 26);
+      doc.setLineWidth(0.35);
+      doc.rect(margin, y, usableWidth, 22);
 
       doc.setFont('helvetica', 'bold');
-      doc.setFontSize(7);
+      doc.setFontSize(6.8);
       doc.setTextColor(15, 23, 42);
-      doc.text('OFFICIAL VERIFICATION & DISPATCH AUTHORIZATION SIGN-OFF', margin + 3, y + 4.5);
+      doc.text('OFFICIAL VERIFICATION & DISPATCH AUTHORIZATION SIGN-OFF', margin + 3, y + 4.2);
 
       const signColWidth = usableWidth / 4;
       const roles = ['1. Production Planner', '2. Warehouse Dispatch', '3. Quality Assurance', '4. Management Approval'];
@@ -410,34 +499,34 @@ export class DispatchPdfService {
       roles.forEach((role, idx) => {
         const signX = margin + idx * signColWidth + 3;
         doc.setFont('helvetica', 'bold');
-        doc.setFontSize(6.5);
+        doc.setFontSize(6.2);
         doc.setTextColor(71, 85, 105);
-        doc.text(role, signX, y + 9);
+        doc.text(role, signX, y + 8.5);
 
         doc.setFont('helvetica', 'normal');
-        doc.setFontSize(6);
+        doc.setFontSize(5.8);
         doc.setTextColor(148, 163, 184);
-        doc.text('Signature: ________________', signX, y + 18);
-        doc.text('Date: _____/_____/2026', signX, y + 23);
+        doc.text('Signature: ________________', signX, y + 15);
+        doc.text('Date: _____/_____/2026', signX, y + 19.5);
       });
     }
 
-    // Add Page Numbering on all pages
+    // Page Numbering Footer on All Pages
     const totalPages = doc.getNumberOfPages();
     for (let p = 1; p <= totalPages; p++) {
       doc.setPage(p);
       doc.setFont('helvetica', 'normal');
-      doc.setFontSize(6.5);
-      doc.setTextColor(100, 116, 139); // slate-500
+      doc.setFontSize(6);
+      doc.setTextColor(100, 116, 139);
       doc.text(
-        `Experimind Labs Inventory & Production Dispatch • Document Ref: ${summary.documentRef}`,
+        `Experimind Labs Inventory System - Document Ref: ${summary.documentRef} - Confidential Internal Document`,
         margin,
-        pageHeight - 6
+        pageHeight - 4.5
       );
       doc.text(
         `Page ${p} of ${totalPages}`,
         pageWidth - margin,
-        pageHeight - 6,
+        pageHeight - 4.5,
         { align: 'right' }
       );
     }
@@ -446,7 +535,7 @@ export class DispatchPdfService {
   }
 
   /**
-   * Browser 1-click download helper for Shortage / To Buy checklist
+   * Browser 1-click download: Shortage Shopping List (Portrait / Landscape)
    */
   public static downloadShortageChecklistPdf(summary: DispatchReportSummary, options: PdfGeneratorOptions = {}): void {
     const doc = this.createDispatchPdf(summary, {
@@ -459,7 +548,7 @@ export class DispatchPdfService {
   }
 
   /**
-   * Browser 1-click download helper for Warehouse Pick List
+   * Browser 1-click download: Warehouse Pick List
    */
   public static downloadWarehousePickListPdf(summary: DispatchReportSummary, options: PdfGeneratorOptions = {}): void {
     const doc = this.createDispatchPdf(summary, {
@@ -472,12 +561,13 @@ export class DispatchPdfService {
   }
 
   /**
-   * Browser 1-click download helper for Full Executive Dispatch Report
+   * Browser 1-click download: Full Executive Dispatch Sheet (Landscape by default)
    */
   public static downloadFullDispatchPdf(summary: DispatchReportSummary, options: PdfGeneratorOptions = {}): void {
     const doc = this.createDispatchPdf(summary, {
       ...options,
       documentType: 'FULL_DISPATCH',
+      orientation: options.orientation || 'landscape',
       titleOverride: options.titleOverride || 'EXECUTIVE DISPATCH & PRODUCTION READINESS REPORT'
     });
     const filename = options.customFilename || `${summary.documentRef}_Executive_Dispatch_Sheet.pdf`;
@@ -485,7 +575,7 @@ export class DispatchPdfService {
   }
 
   /**
-   * Browser 1-click download helper for Custom Selected Items
+   * Browser 1-click download: Custom Selected Items Checklist
    */
   public static downloadSelectedItemsPdf(
     summary: DispatchReportSummary,
@@ -502,9 +592,6 @@ export class DispatchPdfService {
     doc.save(filename);
   }
 
-  /**
-   * Helper to slice summary to selected items
-   */
   private static filterSummaryToSelected(summary: DispatchReportSummary, selectedIds: Set<string> | string[]): DispatchReportSummary {
     const idSet = selectedIds instanceof Set ? selectedIds : new Set(selectedIds);
     const selectedItems = summary.items.filter(i => idSet.has(i.id));

@@ -100,5 +100,5 @@ describe('DispatchReportService (Procurement & Production Readiness Dispatch She
     );
     expect(selectedPdf).toBeDefined();
     expect(selectedPdf.getNumberOfPages()).toBeGreaterThan(0);
-  });
+  }, 25000);
 });

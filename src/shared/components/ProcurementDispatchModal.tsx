@@ -24,14 +24,16 @@ import {
   ArrowUpDown,
   ArrowUp,
   ArrowDown,
-  Eye,
   CheckSquare,
   Square,
   MinusSquare,
   SlidersHorizontal,
   DollarSign,
   Printer,
-  ChevronDown
+  ChevronDown,
+  Sparkles,
+  Smartphone,
+  Monitor
 } from 'lucide-react';
 import {
   DispatchReportService,
@@ -39,7 +41,7 @@ import {
   DispatchItem,
   ActionChannel
 } from '../../services/DispatchReportService';
-import { DispatchPdfService, PdfGeneratorOptions } from '../../services/DispatchPdfService';
+import { DispatchPdfService, PdfOrientation, PdfDocumentType } from '../../services/DispatchPdfService';
 import { ProjectManagementService } from '../../services/ProjectManagementService';
 import { ProductionWorkflowService } from '../../services/ProductionWorkflowService';
 import { Project } from '../../data/projectsDataset';
@@ -88,7 +90,8 @@ export default function ProcurementDispatchModal({
 
   // View Mode: Live PDF Document Preview vs Interactive Table Grid
   const [viewMode, setViewMode] = useState<'DOCUMENT_PREVIEW' | 'INTERACTIVE_GRID'>('DOCUMENT_PREVIEW');
-  const [activeDocumentType, setActiveDocumentType] = useState<'SHORTAGE_CHECKLIST' | 'WAREHOUSE_PICKLIST' | 'FULL_DISPATCH'>('SHORTAGE_CHECKLIST');
+  const [activeDocumentType, setActiveDocumentType] = useState<PdfDocumentType>('FULL_DISPATCH');
+  const [pdfOrientation, setPdfOrientation] = useState<PdfOrientation>('landscape');
 
   // PDF Document Options
   const [includePrices, setIncludePrices] = useState<boolean>(true);
@@ -96,7 +99,7 @@ export default function ProcurementDispatchModal({
   const [includeCheckboxes, setIncludeCheckboxes] = useState<boolean>(true);
   const [includeSignatures, setIncludeSignatures] = useState<boolean>(true);
 
-  // Smart Search & Filters for Interactive Grid
+  // Smart Search & Filters
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [activeChannelFilter, setActiveChannelFilter] = useState<ActionChannel | 'ALL'>('ALL');
   const [deficitOnly, setDeficitOnly] = useState<boolean>(false);
@@ -271,7 +274,6 @@ export default function ProcurementDispatchModal({
     setSelectedItemIds(new Set());
   };
 
-  // Sort Handler
   const handleSort = (field: SortField) => {
     if (sortField === field) {
       setSortDirection(prev => (prev === 'asc' ? 'desc' : 'asc'));
@@ -281,10 +283,11 @@ export default function ProcurementDispatchModal({
     }
   };
 
-  // Dedicated PDF Download Handlers (Zero print dialog hassle)
+  // Dedicated PDF Downloads
   const handleDownloadShortagePdf = () => {
     try {
       DispatchPdfService.downloadShortageChecklistPdf(dispatchSummary, {
+        orientation: pdfOrientation,
         includePrices,
         includeNotes,
         includeCheckboxes,
@@ -300,6 +303,7 @@ export default function ProcurementDispatchModal({
   const handleDownloadPickListPdf = () => {
     try {
       DispatchPdfService.downloadWarehousePickListPdf(dispatchSummary, {
+        orientation: pdfOrientation,
         includePrices,
         includeNotes,
         includeCheckboxes,
@@ -315,12 +319,13 @@ export default function ProcurementDispatchModal({
   const handleDownloadFullDispatchPdf = () => {
     try {
       DispatchPdfService.downloadFullDispatchPdf(dispatchSummary, {
+        orientation: pdfOrientation,
         includePrices,
         includeNotes,
         includeCheckboxes,
         includeSignatures
       });
-      showToast('Downloaded Complete Executive Dispatch Sheet PDF!', 'success');
+      showToast('Downloaded Full Executive Dispatch Sheet PDF!', 'success');
     } catch (err) {
       console.error(err);
       showToast('Failed to generate Dispatch Sheet PDF.', 'error');
@@ -331,6 +336,7 @@ export default function ProcurementDispatchModal({
     if (selectedItemIds.size === 0) return;
     try {
       DispatchPdfService.downloadSelectedItemsPdf(dispatchSummary, selectedItemIds, {
+        orientation: pdfOrientation,
         includePrices,
         includeNotes,
         includeCheckboxes,
@@ -580,7 +586,7 @@ export default function ProcurementDispatchModal({
         {viewMode === 'DOCUMENT_PREVIEW' ? (
           <div className="flex-1 overflow-y-auto bg-slate-950 flex flex-col items-center p-4 sm:p-6 space-y-4">
             {/* Document Customizer Bar */}
-            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-3 max-w-4xl w-full flex flex-wrap items-center justify-between gap-3 shadow-md">
+            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-3 max-w-5xl w-full flex flex-wrap items-center justify-between gap-3 shadow-md">
               {/* Document Type Selector Tabs */}
               <div className="flex items-center gap-1.5 flex-wrap">
                 <span className="text-[11px] font-bold text-slate-400 uppercase mr-1">Report Mode:</span>
@@ -616,8 +622,27 @@ export default function ProcurementDispatchModal({
                 </button>
               </div>
 
-              {/* Toggles */}
-              <div className="flex items-center gap-3 text-xs text-slate-300 font-medium">
+              {/* Orientation & Toggles */}
+              <div className="flex items-center gap-3 text-xs text-slate-300 font-medium flex-wrap">
+                <div className="flex items-center bg-slate-950 border border-slate-800 rounded-lg p-0.5">
+                  <button
+                    onClick={() => setPdfOrientation('landscape')}
+                    className={`px-2 py-0.5 rounded text-[11px] font-bold cursor-pointer ${
+                      pdfOrientation === 'landscape' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    Landscape
+                  </button>
+                  <button
+                    onClick={() => setPdfOrientation('portrait')}
+                    className={`px-2 py-0.5 rounded text-[11px] font-bold cursor-pointer ${
+                      pdfOrientation === 'portrait' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    Portrait
+                  </button>
+                </div>
+
                 <label className="flex items-center gap-1.5 cursor-pointer">
                   <input
                     type="checkbox"
@@ -625,7 +650,7 @@ export default function ProcurementDispatchModal({
                     onChange={e => setIncludePrices(e.target.checked)}
                     className="w-3.5 h-3.5 rounded border-slate-700 bg-slate-950 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
                   />
-                  <span>Include Prices</span>
+                  <span>Prices</span>
                 </label>
                 <label className="flex items-center gap-1.5 cursor-pointer">
                   <input
@@ -634,7 +659,7 @@ export default function ProcurementDispatchModal({
                     onChange={e => setIncludeNotes(e.target.checked)}
                     className="w-3.5 h-3.5 rounded border-slate-700 bg-slate-950 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
                   />
-                  <span>Include Notes</span>
+                  <span>Notes</span>
                 </label>
                 <label className="flex items-center gap-1.5 cursor-pointer">
                   <input
@@ -643,7 +668,7 @@ export default function ProcurementDispatchModal({
                     onChange={e => setIncludeCheckboxes(e.target.checked)}
                     className="w-3.5 h-3.5 rounded border-slate-700 bg-slate-950 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
                   />
-                  <span>Checkboxes [ ]</span>
+                  <span>Boxes [ ]</span>
                 </label>
                 <label className="flex items-center gap-1.5 cursor-pointer">
                   <input
@@ -657,8 +682,10 @@ export default function ProcurementDispatchModal({
               </div>
             </div>
 
-            {/* Realistic A4 White Document Preview */}
-            <div className="bg-white text-slate-900 rounded-xl shadow-2xl p-8 max-w-4xl w-full border border-slate-200 font-sans space-y-5">
+            {/* Realistic White Document Canvas Preview */}
+            <div className={`bg-white text-slate-900 rounded-xl shadow-2xl p-8 w-full border border-slate-200 font-sans space-y-5 ${
+              pdfOrientation === 'landscape' ? 'max-w-6xl' : 'max-w-4xl'
+            }`}>
               {/* Document Header */}
               <div className="border-b-2 border-slate-900 pb-3 flex items-start justify-between gap-4">
                 <div className="space-y-1">
@@ -717,45 +744,48 @@ export default function ProcurementDispatchModal({
 
                 <div className="border border-slate-200 p-2 rounded-lg bg-sky-50/50">
                   <div className="text-[9px] font-bold text-sky-800 uppercase">Local Cash Buy</div>
-                  <div className="text-base font-black text-sky-700 font-mono">₹{dispatchSummary.localPurchaseCashINR.toLocaleString('en-IN')}</div>
+                  <div className="text-base font-black text-sky-700 font-mono">Rs. {dispatchSummary.localPurchaseCashINR.toLocaleString('en-IN')}</div>
                   <div className="text-[9px] text-slate-600">{dispatchSummary.localBuyCount} Items</div>
                 </div>
 
                 <div className="border border-slate-200 p-2 rounded-lg bg-purple-50/50">
                   <div className="text-[9px] font-bold text-purple-800 uppercase">Vendor POs</div>
-                  <div className="text-base font-black text-purple-700 font-mono">₹{dispatchSummary.vendorOrdersTotalINR.toLocaleString('en-IN')}</div>
+                  <div className="text-base font-black text-purple-700 font-mono">Rs. {dispatchSummary.vendorOrdersTotalINR.toLocaleString('en-IN')}</div>
                   <div className="text-[9px] text-slate-600">{dispatchSummary.toOrderCount} Items</div>
                 </div>
 
                 <div className="border border-slate-200 p-2 rounded-lg bg-amber-50/50">
                   <div className="text-[9px] font-bold text-amber-800 uppercase">Total Budget</div>
-                  <div className="text-base font-black text-amber-700 font-mono">₹{dispatchSummary.totalProcurementValueINR.toLocaleString('en-IN')}</div>
+                  <div className="text-base font-black text-amber-700 font-mono">Rs. {dispatchSummary.totalProcurementValueINR.toLocaleString('en-IN')}</div>
                   <div className="text-[9px] text-slate-600">Cash + PO Total</div>
                 </div>
               </div>
 
               {/* Document Items Table */}
-              <div className="space-y-1">
+              <div className="space-y-1 overflow-x-auto">
                 <table className="w-full text-left text-xs border border-slate-300">
                   <thead className="bg-slate-900 text-white font-bold text-[9px] uppercase tracking-wider">
                     <tr>
-                      <th className="py-2 px-2 w-20">SKU</th>
-                      <th className="py-2 px-3">Item Name & Specification</th>
-                      <th className="py-2 px-2 text-center w-20">Channel</th>
+                      <th className="py-2 px-2.5 w-24">SKU / Code</th>
+                      <th className="py-2 px-3">Component & Specification</th>
+                      <th className="py-2 px-2 text-center w-24">Channel</th>
                       <th className="py-2 px-2 text-center w-20">
                         {activeDocumentType === 'SHORTAGE_CHECKLIST' ? 'Deficit Qty' : 'Req Qty'}
                       </th>
                       {activeDocumentType !== 'SHORTAGE_CHECKLIST' && (
                         <th className="py-2 px-2 text-center w-16">Stock</th>
                       )}
+                      {activeDocumentType !== 'SHORTAGE_CHECKLIST' && (
+                        <th className="py-2 px-2 text-center w-20">Deficit</th>
+                      )}
                       {includePrices && (
                         <>
-                          <th className="py-2 px-2 text-right w-16">Unit (₹)</th>
-                          <th className="py-2 px-2 text-right w-20">Total (₹)</th>
+                          <th className="py-2 px-2 text-right w-20">Unit Cost</th>
+                          <th className="py-2 px-2 text-right w-22">Ext Total</th>
                         </>
                       )}
                       <th className="py-2 px-3">
-                        {activeDocumentType === 'WAREHOUSE_PICKLIST' ? 'Bin Location' : 'Sourcing / Vendor'}
+                        {activeDocumentType === 'WAREHOUSE_PICKLIST' ? 'Bin Location' : 'Location / Vendor'}
                       </th>
                       {includeCheckboxes && (
                         <th className="py-2 px-2 text-center w-12">[✓]</th>
@@ -768,23 +798,23 @@ export default function ProcurementDispatchModal({
                       : activeDocumentType === 'WAREHOUSE_PICKLIST'
                       ? dispatchSummary.items.filter(i => i.actionChannel === 'IN_STOCK' || i.actionChannel === 'IN_HOUSE_FABRICATION')
                       : dispatchSummary.items
-                    ).slice(0, 40).map((item, idx) => (
+                    ).slice(0, 50).map((item, idx) => (
                       <tr key={item.id} className={idx % 2 === 1 ? 'bg-slate-50' : 'bg-white'}>
-                        <td className="py-1 px-2 font-mono text-[10px] text-indigo-700 font-bold">{item.sku}</td>
-                        <td className="py-1 px-3">
+                        <td className="py-1.5 px-2.5 font-mono text-[10px] text-indigo-700 font-bold whitespace-nowrap">{item.sku}</td>
+                        <td className="py-1.5 px-3">
                           <div className="font-bold text-slate-900">{item.name}</div>
                           <div className="text-[10px] text-slate-500 line-clamp-1">{item.specification}</div>
                           {includeNotes && item.notes && (
                             <div className="text-[9px] text-amber-800">📝 {item.notes}</div>
                           )}
                         </td>
-                        <td className="py-1 px-2 text-center font-bold text-[10px]">
-                          {item.actionChannel === 'IN_STOCK' && <span className="text-emerald-700">IN STOCK</span>}
-                          {item.actionChannel === 'LOCAL_BUY' && <span className="text-sky-700">LOCAL BUY</span>}
-                          {item.actionChannel === 'TO_ORDER' && <span className="text-purple-700">VENDOR PO</span>}
-                          {item.actionChannel === 'IN_HOUSE_FABRICATION' && <span className="text-amber-700">IN-HOUSE</span>}
+                        <td className="py-1.5 px-2 text-center font-bold text-[10px]">
+                          {item.actionChannel === 'IN_STOCK' && <span className="bg-emerald-100 text-emerald-800 border border-emerald-300 px-2 py-0.5 rounded-full">IN STOCK</span>}
+                          {item.actionChannel === 'LOCAL_BUY' && <span className="bg-sky-100 text-sky-800 border border-sky-300 px-2 py-0.5 rounded-full">LOCAL BUY</span>}
+                          {item.actionChannel === 'TO_ORDER' && <span className="bg-purple-100 text-purple-800 border border-purple-300 px-2 py-0.5 rounded-full">VENDOR PO</span>}
+                          {item.actionChannel === 'IN_HOUSE_FABRICATION' && <span className="bg-amber-100 text-amber-800 border border-amber-300 px-2 py-0.5 rounded-full">IN-HOUSE</span>}
                         </td>
-                        <td className="py-1 px-2 text-center font-bold">
+                        <td className="py-1.5 px-2 text-center font-bold">
                           {activeDocumentType === 'SHORTAGE_CHECKLIST' ? (
                             <span className="text-rose-700">-{item.deficitQuantity} {item.unit}</span>
                           ) : (
@@ -792,17 +822,26 @@ export default function ProcurementDispatchModal({
                           )}
                         </td>
                         {activeDocumentType !== 'SHORTAGE_CHECKLIST' && (
-                          <td className="py-1 px-2 text-center font-mono text-slate-600">{item.availableStock}</td>
+                          <td className="py-1.5 px-2 text-center font-mono text-slate-600">{item.availableStock}</td>
+                        )}
+                        {activeDocumentType !== 'SHORTAGE_CHECKLIST' && (
+                          <td className="py-1.5 px-2 text-center font-bold">
+                            {item.deficitQuantity > 0 ? (
+                              <span className="text-rose-700 font-black">-{item.deficitQuantity} {item.unit}</span>
+                            ) : (
+                              <span className="text-emerald-700">Covered</span>
+                            )}
+                          </td>
                         )}
                         {includePrices && (
                           <>
-                            <td className="py-1 px-2 text-right font-mono text-slate-600">₹{item.unitCost}</td>
-                            <td className="py-1 px-2 text-right font-mono font-bold text-slate-900">
-                              ₹{item.extendedCost.toLocaleString('en-IN')}
+                            <td className="py-1.5 px-2 text-right font-mono text-slate-600">Rs.{item.unitCost}</td>
+                            <td className="py-1.5 px-2 text-right font-mono font-bold text-slate-900">
+                              Rs.{item.extendedCost.toLocaleString('en-IN')}
                             </td>
                           </>
                         )}
-                        <td className="py-1 px-3 text-[10px] text-slate-600">
+                        <td className="py-1.5 px-3 text-[10px] text-slate-600">
                           {activeDocumentType === 'WAREHOUSE_PICKLIST' ? (
                             <span className="font-mono font-bold text-emerald-800">📍 {item.binLocation}</span>
                           ) : (
@@ -810,7 +849,7 @@ export default function ProcurementDispatchModal({
                           )}
                         </td>
                         {includeCheckboxes && (
-                          <td className="py-1 px-2 text-center">
+                          <td className="py-1.5 px-2 text-center">
                             <div className="w-3.5 h-3.5 border border-slate-400 rounded inline-block" />
                           </td>
                         )}
@@ -857,7 +896,7 @@ export default function ProcurementDispatchModal({
             </div>
           </div>
         ) : (
-          /* ===== VIEW 2: INTERACTIVE DATA GRID WITH MULTI-SELECT & SORTING ===== */
+          /* ===== VIEW 2: INTERACTIVE DATA GRID WITH MULTI-SELECT & MOBILE ADAPTIVE CARDS ===== */
           <div className="flex-1 flex flex-col overflow-hidden">
             {/* Filter Bar */}
             <div className="px-5 py-2.5 bg-slate-950/90 border-b border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-3 shrink-0">
@@ -941,7 +980,7 @@ export default function ProcurementDispatchModal({
                     {selectedMetrics.count} Selected
                   </span>
                   <span className="text-xs text-indigo-200 font-mono">
-                    Total Value: <strong className="text-amber-300 font-bold">₹{selectedMetrics.totalCost.toLocaleString('en-IN')}</strong>
+                    Total Value: <strong className="text-amber-300 font-bold">Rs. {selectedMetrics.totalCost.toLocaleString('en-IN')}</strong>
                   </span>
                   {selectedMetrics.deficitCount > 0 && (
                     <span className="text-[10px] text-rose-300 bg-rose-950/60 border border-rose-500/30 px-2 py-0.5 rounded font-bold">
@@ -979,9 +1018,10 @@ export default function ProcurementDispatchModal({
               </div>
             )}
 
-            {/* Table Area */}
+            {/* Desktop Table & Mobile Card Views */}
             <div className="flex-1 overflow-y-auto p-4">
-              <div className="bg-slate-950 rounded-2xl border border-slate-800 overflow-hidden shadow-inner">
+              {/* Desktop Table View (Hidden on mobile < md) */}
+              <div className="hidden md:block bg-slate-950 rounded-2xl border border-slate-800 overflow-hidden shadow-inner">
                 <table className="w-full text-left text-xs">
                   <thead className="bg-slate-900 text-slate-400 font-bold border-b border-slate-800 uppercase text-[10px] tracking-wider sticky top-0 z-10 shadow-sm">
                     <tr>
@@ -1002,7 +1042,7 @@ export default function ProcurementDispatchModal({
                         </button>
                       </th>
                       <th className="py-3 px-2 w-12 text-center">Image</th>
-                      <th onClick={() => handleSort('sku')} className="py-3 px-3 w-28 cursor-pointer hover:text-white transition-colors">
+                      <th onClick={() => handleSort('sku')} className="py-3 px-3 w-32 cursor-pointer hover:text-white transition-colors">
                         <div className="flex items-center gap-1">
                           <span>SKU / Code</span>
                           {sortField === 'sku' ? (
@@ -1133,7 +1173,7 @@ export default function ProcurementDispatchModal({
                                 </div>
                               </button>
                             </td>
-                            <td className="py-2.5 px-3 font-mono font-bold text-indigo-400 text-[11px]">
+                            <td className="py-2.5 px-3 font-mono font-bold text-indigo-400 text-[11px] whitespace-nowrap">
                               {item.sku}
                               <div className="text-[9px] text-slate-500 truncate">{item.targetClassOrProject}</div>
                             </td>
@@ -1176,14 +1216,14 @@ export default function ProcurementDispatchModal({
                                   -{item.deficitQuantity} {item.unit}
                                 </span>
                               ) : (
-                                <span className="text-emerald-400 font-bold">✓ Covered</span>
+                                <span className="text-emerald-400 font-bold">Covered</span>
                               )}
                             </td>
                             <td className="py-2.5 px-3 text-right font-mono text-slate-300">
-                              ₹{item.unitCost}
+                              Rs.{item.unitCost}
                             </td>
                             <td className="py-2.5 px-3 text-right font-mono font-bold text-amber-300">
-                              ₹{item.extendedCost.toLocaleString('en-IN')}
+                              Rs.{item.extendedCost.toLocaleString('en-IN')}
                             </td>
                             <td className="py-2.5 px-4 text-[11px] text-slate-300">
                               <div>{item.vendorOrLocation}</div>
@@ -1206,6 +1246,104 @@ export default function ProcurementDispatchModal({
                   </tbody>
                 </table>
               </div>
+
+              {/* Mobile Adaptive Cards View (Visible on mobile < md) */}
+              <div className="md:hidden space-y-3">
+                {filteredAndSortedItems.length > 0 ? (
+                  filteredAndSortedItems.map(item => {
+                    const isSelected = selectedItemIds.has(item.id);
+                    const isDeficit = item.deficitQuantity > 0;
+
+                    return (
+                      <div
+                        key={item.id}
+                        className={`p-3.5 rounded-2xl border transition-all ${
+                          isSelected
+                            ? 'bg-indigo-950/40 border-indigo-500'
+                            : 'bg-slate-950 border-slate-800'
+                        }`}
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex items-center gap-2.5">
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              onChange={() => handleToggleSelectItem(item.id)}
+                              className="w-5 h-5 rounded border-slate-700 bg-slate-900 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                            />
+                            <div className="w-10 h-10 rounded-xl overflow-hidden border border-slate-800 bg-slate-900 shrink-0">
+                              <ItemImage
+                                src={item.imageUrl}
+                                alt={item.name}
+                                category={item.category}
+                                className="w-full h-full object-cover"
+                              />
+                            </div>
+                            <div>
+                              <div className="font-mono text-[10px] text-indigo-400 font-bold">{item.sku}</div>
+                              <div className="font-bold text-white text-xs leading-tight">{item.name}</div>
+                            </div>
+                          </div>
+
+                          <div className="text-right shrink-0">
+                            <div className="font-mono font-bold text-amber-300 text-xs">Rs.{item.extendedCost.toLocaleString('en-IN')}</div>
+                            <div className="text-[10px] text-slate-500">Rs.{item.unitCost} / {item.unit}</div>
+                          </div>
+                        </div>
+
+                        {/* Specification */}
+                        {item.specification && (
+                          <div className="text-[11px] text-slate-400 mt-2 bg-slate-900/60 p-2 rounded-lg border border-slate-800/60">
+                            {item.specification}
+                          </div>
+                        )}
+
+                        {/* Channel Badge & Quantities Strip */}
+                        <div className="flex items-center justify-between gap-2 mt-3 pt-2.5 border-t border-slate-800/80 flex-wrap text-xs">
+                          <div>
+                            {item.actionChannel === 'IN_STOCK' && (
+                              <span className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded-full text-[10px] font-bold">
+                                🟢 In-Stock ({item.binLocation})
+                              </span>
+                            )}
+                            {item.actionChannel === 'LOCAL_BUY' && (
+                              <span className="bg-sky-500/10 text-sky-400 border border-sky-500/20 px-2 py-0.5 rounded-full text-[10px] font-bold">
+                                🔵 Local Buy
+                              </span>
+                            )}
+                            {item.actionChannel === 'TO_ORDER' && (
+                              <span className="bg-purple-500/10 text-purple-400 border border-purple-500/20 px-2 py-0.5 rounded-full text-[10px] font-bold">
+                                🟣 Vendor PO
+                              </span>
+                            )}
+                            {item.actionChannel === 'IN_HOUSE_FABRICATION' && (
+                              <span className="bg-amber-500/10 text-amber-400 border border-amber-500/20 px-2 py-0.5 rounded-full text-[10px] font-bold">
+                                🟠 In-House Fab
+                              </span>
+                            )}
+                          </div>
+
+                          <div className="flex items-center gap-2 font-mono">
+                            <span className="text-slate-400 text-[11px]">Req: <strong className="text-white">{item.requiredQuantity}</strong></span>
+                            <span className="text-slate-400 text-[11px]">Stock: <strong className="text-slate-300">{item.availableStock}</strong></span>
+                            {isDeficit ? (
+                              <span className="text-rose-400 bg-rose-500/10 px-1.5 py-0.5 rounded font-bold text-[10px]">
+                                -{item.deficitQuantity}
+                              </span>
+                            ) : (
+                              <span className="text-emerald-400 font-bold text-[10px]">Covered</span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })
+                ) : (
+                  <div className="py-12 text-center text-slate-400 bg-slate-950 rounded-2xl border border-slate-800">
+                    No materials match the active filters.
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         )}
@@ -1217,7 +1355,7 @@ export default function ProcurementDispatchModal({
             <span className="mx-2">•</span>
             <span>Total Items: <strong className="text-white font-mono">{dispatchSummary.totalItems}</strong></span>
             <span className="mx-2">•</span>
-            <span>Procurement Budget: <strong className="text-amber-300 font-mono font-bold">₹{dispatchSummary.totalProcurementValueINR.toLocaleString('en-IN')}</strong></span>
+            <span>Procurement Budget: <strong className="text-amber-300 font-mono font-bold">Rs. {dispatchSummary.totalProcurementValueINR.toLocaleString('en-IN')}</strong></span>
           </div>
 
           <div className="flex items-center gap-2">
@@ -1249,8 +1387,8 @@ export default function ProcurementDispatchModal({
             { label: 'Action Channel', value: previewItem.actionChannel },
             { label: 'Required Quantity', value: `${previewItem.requiredQuantity} ${previewItem.unit}` },
             { label: 'Deficit to Buy', value: `${previewItem.deficitQuantity} ${previewItem.unit}` },
-            { label: 'Estimated Unit Cost', value: `₹${previewItem.unitCost}` },
-            { label: 'Extended Total', value: `₹${previewItem.extendedCost}` },
+            { label: 'Estimated Unit Cost', value: `Rs. ${previewItem.unitCost}` },
+            { label: 'Extended Total', value: `Rs. ${previewItem.extendedCost}` },
             { label: 'Vendor / Market', value: previewItem.vendorOrLocation },
             { label: 'Target Scope', value: previewItem.targetClassOrProject }
           ]}
