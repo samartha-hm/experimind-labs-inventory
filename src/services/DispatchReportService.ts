@@ -611,4 +611,40 @@ export class DispatchReportService {
     lines.push(`_Generated automatically by Experimind Labs Inventory System on ${summary.generatedAt}_`);
     return lines.join('\n');
   }
+
+  /**
+   * Browser PDF download for Shortage / To Buy checklist
+   */
+  public static downloadShortagePdf(summary: DispatchReportSummary, options?: any): void {
+    import('./DispatchPdfService').then(({ DispatchPdfService }) => {
+      DispatchPdfService.downloadShortageChecklistPdf(summary, options);
+    });
+  }
+
+  /**
+   * Browser PDF download for Warehouse Pick List
+   */
+  public static downloadPickListPdf(summary: DispatchReportSummary, options?: any): void {
+    import('./DispatchPdfService').then(({ DispatchPdfService }) => {
+      DispatchPdfService.downloadWarehousePickListPdf(summary, options);
+    });
+  }
+
+  /**
+   * Browser PDF download for Full Executive Dispatch Report
+   */
+  public static downloadFullDispatchPdf(summary: DispatchReportSummary, options?: any): void {
+    import('./DispatchPdfService').then(({ DispatchPdfService }) => {
+      DispatchPdfService.downloadFullDispatchPdf(summary, options);
+    });
+  }
+
+  /**
+   * Browser PDF download for Selected Items Checklist
+   */
+  public static downloadSelectedPdf(summary: DispatchReportSummary, selectedIds: Set<string> | string[], options?: any): void {
+    import('./DispatchPdfService').then(({ DispatchPdfService }) => {
+      DispatchPdfService.downloadSelectedItemsPdf(summary, selectedIds, options);
+    });
+  }
 }

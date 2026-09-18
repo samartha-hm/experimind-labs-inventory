@@ -70,4 +70,35 @@ describe('DispatchReportService (Procurement & Production Readiness Dispatch She
     expect(text).toContain('READINESS & FINANCIAL SUMMARY');
     expect(text).toContain('Ref:');
   });
+
+  it('should generate professional multi-page vector PDFs using DispatchPdfService', async () => {
+    const { DispatchPdfService } = await import('../DispatchPdfService');
+    const report = DispatchReportService.buildProductionMatrixDispatchReport(5, 'ALL');
+
+    // 1. Full Dispatch PDF
+    const fullPdf = DispatchPdfService.createDispatchPdf(report, { documentType: 'FULL_DISPATCH' });
+    expect(fullPdf).toBeDefined();
+    expect(fullPdf.getNumberOfPages()).toBeGreaterThan(0);
+    const fullBlob = fullPdf.output('arraybuffer');
+    expect(fullBlob.byteLength).toBeGreaterThan(5000);
+
+    // 2. Shortage Shopping Checklist PDF
+    const shortagePdf = DispatchPdfService.createDispatchPdf(report, { documentType: 'SHORTAGE_CHECKLIST' });
+    expect(shortagePdf).toBeDefined();
+    expect(shortagePdf.getNumberOfPages()).toBeGreaterThan(0);
+
+    // 3. Warehouse Pick List PDF
+    const pickPdf = DispatchPdfService.createDispatchPdf(report, { documentType: 'WAREHOUSE_PICKLIST' });
+    expect(pickPdf).toBeDefined();
+    expect(pickPdf.getNumberOfPages()).toBeGreaterThan(0);
+
+    // 4. Custom Selected Items PDF
+    const selectedIds = new Set(report.items.slice(0, 3).map(i => i.id));
+    const selectedPdf = DispatchPdfService.createDispatchPdf(
+      DispatchReportService.filterSummaryToItems(report, selectedIds),
+      { documentType: 'SELECTED_ITEMS' }
+    );
+    expect(selectedPdf).toBeDefined();
+    expect(selectedPdf.getNumberOfPages()).toBeGreaterThan(0);
+  });
 });
