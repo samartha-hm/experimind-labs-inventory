@@ -39,6 +39,7 @@ export interface ProductionItem {
   laserSpecs?: LaserCutSpecification | null;
   chemicalSpecs?: ChemicalSpecification | null;
   qaNotes?: string;
+  imageUrl?: string;
 }
 
 export interface ProductionDoubt {

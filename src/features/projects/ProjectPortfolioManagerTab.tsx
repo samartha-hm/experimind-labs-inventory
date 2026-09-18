@@ -41,7 +41,8 @@ import {
   Coins,
   FileCheck,
   ShieldCheck,
-  DollarSign
+  DollarSign,
+  Download
 } from 'lucide-react';
 import {
   Project,
@@ -68,6 +69,9 @@ import { useUndoRedo } from '../../contexts/UndoRedoContext';
 import { getItemThumbnailUrl, STEM_PRESET_IMAGES, StemPresetImage } from '../../utils/itemThumbnailHelper';
 import ProductionCommandCenterTab from '../production/ProductionCommandCenterTab';
 import StickerMonitoringHubTab from '../stickers/StickerMonitoringHubTab';
+import ItemImage from '../../shared/components/ItemImage';
+import ImagePreviewModal from '../../shared/components/ImagePreviewModal';
+import ProcurementDispatchModal from '../../shared/components/ProcurementDispatchModal';
 
 interface ProjectPortfolioManagerTabProps {
   onNavigateToTab?: (tabId: string, params?: any) => void;
@@ -112,6 +116,7 @@ export default function ProjectPortfolioManagerTab({ onNavigateToTab }: ProjectP
   const [isEditProjectModalOpen, setIsEditProjectModalOpen] = useState<boolean>(false);
   const [isAddClassModalOpen, setIsAddClassModalOpen] = useState<boolean>(false);
   const [isAddEditItemModalOpen, setIsAddEditItemModalOpen] = useState<boolean>(false);
+  const [isProjectDispatchModalOpen, setIsProjectDispatchModalOpen] = useState<boolean>(false);
   const [editingItem, setEditingItem] = useState<ProjectWorkItem | null>(null);
 
   // High-Res Image Preview Modal
@@ -1359,8 +1364,15 @@ export default function ProjectPortfolioManagerTab({ onNavigateToTab }: ProjectP
                 </button>
               </div>
 
-              {/* Edit & CSV Buttons */}
-              <div className="flex items-center gap-2">
+              {/* Edit, Dispatch & CSV Buttons */}
+              <div className="flex items-center gap-2 flex-wrap">
+                <button
+                  onClick={() => setIsProjectDispatchModalOpen(true)}
+                  className="inline-flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-2 rounded-xl text-xs font-bold transition-all shadow-md shadow-emerald-600/20 cursor-pointer"
+                  title="Export Executive Team Procurement & Production Readiness Dispatch Sheet (Excel / PDF / WhatsApp)"
+                >
+                  <FileSpreadsheet className="w-3.5 h-3.5" /> Team Dispatch Sheet
+                </button>
                 <button
                   onClick={handleOpenEditProject}
                   className="inline-flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 px-3 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer"
@@ -1371,7 +1383,7 @@ export default function ProjectPortfolioManagerTab({ onNavigateToTab }: ProjectP
                   onClick={handleExportCSV}
                   className="inline-flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 px-3 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer"
                 >
-                  <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-400" /> Export CSV
+                  <Download className="w-3.5 h-3.5 text-slate-400" /> Export CSV
                 </button>
               </div>
             </div>
@@ -2699,73 +2711,50 @@ export default function ProjectPortfolioManagerTab({ onNavigateToTab }: ProjectP
         </div>
       )}
 
-      {/* ===== 9. Modal: High-Res Visual Zoom Preview ===== */}
+      {/* ===== 9. Executive Project Procurement & Production Dispatch Modal ===== */}
+      {isProjectDispatchModalOpen && selectedProject && (
+        <ProcurementDispatchModal
+          isOpen={isProjectDispatchModalOpen}
+          onClose={() => setIsProjectDispatchModalOpen(false)}
+          projectId={selectedProject.id}
+          initialMultiplier={selectedProject.defaultBatchMultiplier || 1}
+          initialSource="PROJECT"
+        />
+      )}
+
+      {/* ===== 10. Universal Deep-Zoom Lightbox & Image Crop Studio Modal ===== */}
       {previewImageItem && (
-        <div className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-lg w-full p-6 space-y-4 shadow-2xl animate-in fade-in zoom-in-95">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-              <div className="flex items-center gap-2">
-                <ZoomIn className="w-5 h-5 text-indigo-400" />
-                <h3 className="text-base font-bold text-white truncate max-w-sm">{previewImageItem.name}</h3>
-              </div>
-              <button
-                onClick={() => setPreviewImageItem(null)}
-                className="text-slate-400 hover:text-white p-1 rounded-lg cursor-pointer"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="space-y-3">
-              <div className="w-full h-64 rounded-2xl overflow-hidden border border-slate-700 bg-slate-950">
-                <img
-                  src={getItemThumbnailUrl(previewImageItem)}
-                  alt={previewImageItem.name}
-                  className="w-full h-full object-cover"
-                />
-              </div>
-
-              <div className="space-y-2 bg-slate-950 p-3.5 rounded-2xl border border-slate-800 text-xs">
-                <div className="flex items-center justify-between">
-                  <span className="text-slate-400">Category:</span>
-                  <span>{getItemCategoryBadge(previewImageItem.category)}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-slate-400">Sourcing:</span>
-                  <span>{getSourcingBadge(previewImageItem.sourcingChannel)}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-slate-400">Specification:</span>
-                  <span className="text-white font-medium text-right max-w-xs">{previewImageItem.specification}</span>
-                </div>
-                {previewImageItem.sourceChapter && (
-                  <div className="flex items-center justify-between">
-                    <span className="text-slate-400">Chapter / Ref:</span>
-                    <span className="font-mono text-indigo-400">{previewImageItem.sourceChapter}</span>
-                  </div>
-                )}
-                <div className="flex items-center justify-between">
-                  <span className="text-slate-400">Status:</span>
-                  <span>{getItemStatusButton(previewImageItem.status, previewImageItem.id, previewImageItem.name)}</span>
-                </div>
-              </div>
-
-              <div className="flex justify-end gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    const itemToEdit = previewImageItem;
-                    setPreviewImageItem(null);
-                    handleOpenEditItem(itemToEdit);
-                  }}
-                  className="px-4 py-2 rounded-xl text-white font-bold bg-indigo-600 hover:bg-indigo-500 cursor-pointer flex items-center gap-1.5"
-                >
-                  <Edit2 className="w-3.5 h-3.5" /> Edit Item Details
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
+        <ImagePreviewModal
+          isOpen={!!previewImageItem}
+          onClose={() => setPreviewImageItem(null)}
+          imageUrl={previewImageItem.imageUrl || getItemThumbnailUrl(previewImageItem)}
+          title={previewImageItem.name}
+          subtitle={previewImageItem.specification}
+          category={previewImageItem.category}
+          badge={previewImageItem.sourcingChannel}
+          sku={`ITM-${previewImageItem.id}`}
+          stockQty={previewImageItem.totalQuantity}
+          unit={previewImageItem.unit}
+          details={[
+            { label: 'Work Category', value: previewImageItem.category },
+            { label: 'Sourcing Channel', value: previewImageItem.sourcingChannel },
+            { label: 'Base Unit Qty', value: `${previewImageItem.quantityPerBatchUnit} ${previewImageItem.unit}` },
+            { label: 'Total Scaled Qty', value: `${previewImageItem.totalQuantity} ${previewImageItem.unit}` },
+            { label: 'Lead Assignee', value: previewImageItem.leadAssignee || 'Unassigned' },
+            { label: 'Status', value: previewImageItem.status },
+            { label: 'Specification', value: previewImageItem.specification || 'N/A' },
+            { label: 'Chapter Ref', value: previewImageItem.sourceChapter || 'N/A' }
+          ]}
+          editable={true}
+          onSaveImage={(newUrl) => {
+            if (selectedProject && activeClass) {
+              ProjectManagementService.updateDeliverableImage(selectedProject.id, activeClass.id, previewImageItem.id, newUrl);
+              previewImageItem.imageUrl = newUrl;
+              setProjects([...ProjectManagementService.getAllProjects()]);
+              showToast(`Saved component artwork for "${previewImageItem.name}"!`, 'success');
+            }
+          }}
+        />
       )}
     </div>
   );

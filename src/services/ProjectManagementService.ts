@@ -389,6 +389,16 @@ export class ProjectManagementService {
     return item;
   }
 
+  public static updateDeliverableImage(
+    projectId: string,
+    classId: string,
+    itemId: string,
+    imageUrl: string
+  ): boolean {
+    const updated = this.updateWorkItem(projectId, classId, itemId, { imageUrl });
+    return updated !== null;
+  }
+
   public static deleteWorkItem(projectId: string, classId: string, itemId: string): boolean {
     const project = this.getProjectById(projectId);
     if (!project) return false;
@@ -428,20 +438,22 @@ export class ProjectManagementService {
     return item;
   }
 
-  public static setProjectDefaultBatchMultiplier(projectId: string, multiplier: number): Project | null {
+  public static setProjectDefaultBatchMultiplier(projectId: string, multiplier: number, applyToClasses = true): Project | null {
     const project = this.getProjectById(projectId);
     if (!project) return null;
 
     const mult = Math.max(1, Number(multiplier) || 1);
     project.defaultBatchMultiplier = mult;
 
-    // Update all classes and recalculate totals
-    project.classes.forEach(c => {
-      c.batchMultiplier = mult;
-      c.items.forEach(i => {
-        i.totalQuantity = i.quantityPerBatchUnit * mult;
+    // Update all classes and recalculate totals if requested
+    if (applyToClasses) {
+      project.classes.forEach(c => {
+        c.batchMultiplier = mult;
+        c.items.forEach(i => {
+          i.totalQuantity = i.quantityPerBatchUnit * mult;
+        });
       });
-    });
+    }
 
     project.updatedAt = new Date().toISOString();
     this.saveProjects();

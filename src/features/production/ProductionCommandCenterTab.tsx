@@ -29,7 +29,9 @@ import {
   Info,
   Sliders,
   Eye,
-  X
+  X,
+  ZoomIn,
+  FileSpreadsheet
 } from 'lucide-react';
 import {
   MASTER_PRODUCTION_ITEMS,
@@ -56,6 +58,9 @@ import {
   SolutionPrepOutput,
   GhsSafetyProfile
 } from '../../services/ChemicalSafetyService';
+import ItemImage from '../../shared/components/ItemImage';
+import ImagePreviewModal from '../../shared/components/ImagePreviewModal';
+import ProcurementDispatchModal from '../../shared/components/ProcurementDispatchModal';
 import { useToast } from '../../contexts/ToastContext';
 
 interface ProductionCommandCenterTabProps {
@@ -133,6 +138,8 @@ export default function ProductionCommandCenterTab({
   // Modals
   const [isAddModalOpen, setIsAddModalOpen] = useState<boolean>(false);
   const [isPrintModalOpen, setIsPrintModalOpen] = useState<boolean>(false);
+  const [isDispatchModalOpen, setIsDispatchModalOpen] = useState<boolean>(false);
+  const [previewProductionItem, setPreviewProductionItem] = useState<ProductionItem | null>(null);
 
   // New Item Form State
   const [newItemGrade, setNewItemGrade] = useState<string>('Grade 10');
@@ -633,20 +640,27 @@ export default function ProductionCommandCenterTab({
         {/* Global Action Buttons */}
         <div className="flex items-center gap-2">
           <button
+            onClick={() => setIsDispatchModalOpen(true)}
+            className="px-3.5 py-2 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white transition-all flex items-center gap-1.5 shadow-md shadow-emerald-600/20 cursor-pointer"
+            title="Export Executive Team Procurement & Production Readiness Dispatch Sheet (Excel / PDF / WhatsApp)"
+          >
+            <FileSpreadsheet className="w-4 h-4" /> Team Dispatch Sheet
+          </button>
+          <button
             onClick={() => setIsAddModalOpen(true)}
-            className="px-3.5 py-2 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white transition-all flex items-center gap-1.5 shadow-md shadow-indigo-600/20"
+            className="px-3.5 py-2 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white transition-all flex items-center gap-1.5 shadow-md shadow-indigo-600/20 cursor-pointer"
           >
             <Plus className="w-4 h-4" /> Add Component
           </button>
           <button
             onClick={handleExportCSV}
-            className="px-3.5 py-2 rounded-xl text-xs font-bold bg-slate-800 hover:bg-slate-700 text-slate-200 transition-all flex items-center gap-1.5"
+            className="px-3.5 py-2 rounded-xl text-xs font-bold bg-slate-800 hover:bg-slate-700 text-slate-200 transition-all flex items-center gap-1.5 cursor-pointer"
           >
             <Download className="w-4 h-4" /> Export CSV
           </button>
           <button
             onClick={() => setIsPrintModalOpen(true)}
-            className="px-3.5 py-2 rounded-xl text-xs font-bold bg-slate-800 hover:bg-slate-700 text-slate-200 transition-all flex items-center gap-1.5"
+            className="px-3.5 py-2 rounded-xl text-xs font-bold bg-slate-800 hover:bg-slate-700 text-slate-200 transition-all flex items-center gap-1.5 cursor-pointer"
           >
             <Printer className="w-4 h-4" /> Job Cards
           </button>
@@ -783,6 +797,7 @@ export default function ProductionCommandCenterTab({
                         )}
                       </button>
                     </th>
+                    <th className="p-3 w-12 text-center">Image</th>
                     <th className="p-3">Activity / Code</th>
                     <th className="p-3">Material & Prep Spec</th>
                     <th className="p-3">Sourcing Channel</th>
@@ -813,6 +828,26 @@ export default function ProductionCommandCenterTab({
                             ) : (
                               <Square className="w-4 h-4 text-slate-500" />
                             )}
+                          </button>
+                        </td>
+
+                        {/* Image Thumbnail & Studio Lightbox Trigger */}
+                        <td className="p-2 text-center">
+                          <button
+                            type="button"
+                            onClick={() => setPreviewProductionItem(item)}
+                            title="Click to zoom preview & launch Image Studio"
+                            className="w-10 h-10 rounded-xl overflow-hidden border border-slate-700/80 bg-slate-950 hover:border-indigo-500 transition-all cursor-pointer group relative inline-block"
+                          >
+                            <ItemImage
+                              src={item.imageUrl}
+                              alt={item.materialName}
+                              category={item.pouchCategory}
+                              className="w-full h-full object-cover group-hover:scale-110 transition-transform"
+                            />
+                            <div className="absolute inset-0 bg-indigo-950/60 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                              <ZoomIn className="w-3.5 h-3.5 text-indigo-300" />
+                            </div>
                           </button>
                         </td>
 
@@ -1729,6 +1764,50 @@ export default function ProductionCommandCenterTab({
             </div>
           </div>
         </div>
+      )}
+
+      {/* ===== 10. Executive Procurement & Production Readiness Dispatch Modal ===== */}
+      {isDispatchModalOpen && (
+        <ProcurementDispatchModal
+          isOpen={isDispatchModalOpen}
+          onClose={() => setIsDispatchModalOpen(false)}
+          projectId={activeProjectId !== 'ALL' ? activeProjectId : undefined}
+          initialMultiplier={batchMultiplier}
+          initialSource={activeProjectId !== 'ALL' ? 'PROJECT' : 'PRODUCTION_MATRIX'}
+        />
+      )}
+
+      {/* ===== 11. Universal Deep-Zoom Lightbox & Image Crop Studio Modal ===== */}
+      {previewProductionItem && (
+        <ImagePreviewModal
+          isOpen={!!previewProductionItem}
+          onClose={() => setPreviewProductionItem(null)}
+          imageUrl={previewProductionItem.imageUrl}
+          title={previewProductionItem.materialName}
+          subtitle={`${previewProductionItem.activityName} (${previewProductionItem.prepSpecification})`}
+          category={previewProductionItem.pouchCategory}
+          badge={previewProductionItem.sourcingType}
+          sku={previewProductionItem.activityCode}
+          binLocation={previewProductionItem.warehouseBin}
+          stockQty={previewProductionItem.currentStock}
+          unit={previewProductionItem.unit}
+          details={[
+            { label: 'Grade Scope', value: previewProductionItem.grade },
+            { label: 'Activity Code', value: previewProductionItem.activityCode },
+            { label: 'Quantity per Kit', value: `${previewProductionItem.quantityPerKit} ${previewProductionItem.unit}` },
+            { label: `Batch Required (${batchMultiplier}x)`, value: `${previewProductionItem.quantityPerKit * batchMultiplier} ${previewProductionItem.unit}` },
+            { label: 'Unit Cost', value: `₹${previewProductionItem.unitCost}` },
+            { label: 'Crate Level', value: previewProductionItem.crateLevel },
+            { label: 'Branch / Sourcing', value: previewProductionItem.branchOrigin }
+          ]}
+          editable={true}
+          onSaveImage={(newUrl) => {
+            ProductionWorkflowService.updateItemImage(previewProductionItem.id, newUrl);
+            previewProductionItem.imageUrl = newUrl;
+            setItems([...ProductionWorkflowService.getItems()]);
+            showToast(`Saved component image for ${previewProductionItem.materialName}!`, 'success');
+          }}
+        />
       )}
     </div>
   );

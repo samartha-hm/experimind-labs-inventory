@@ -61,8 +61,45 @@ export interface BatchCalculationResult {
 }
 
 export class ProductionWorkflowService {
-  private static items: ProductionItem[] = [...MASTER_PRODUCTION_ITEMS];
+  private static STORAGE_KEY = 'experimind_production_items_v2';
+  private static items: ProductionItem[] = ProductionWorkflowService.loadItems();
   private static doubts: ProductionDoubt[] = [...MASTER_PRODUCTION_DOUBTS];
+
+  public static loadItems(): ProductionItem[] {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      try {
+        const saved = window.localStorage.getItem(this.STORAGE_KEY);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            return parsed;
+          }
+        }
+      } catch (err) {
+        console.warn('Failed to load production items from localStorage:', err);
+      }
+    }
+    return [...MASTER_PRODUCTION_ITEMS];
+  }
+
+  public static saveItems(): void {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      try {
+        window.localStorage.setItem(this.STORAGE_KEY, JSON.stringify(this.items));
+        window.dispatchEvent(new CustomEvent('experimind_production_items_updated', { detail: { items: this.items } }));
+      } catch (err) {
+        console.warn('Failed to save production items to localStorage:', err);
+      }
+    }
+  }
+
+  public static updateItemImage(id: string, imageUrl: string): boolean {
+    const it = this.items.find(i => i.id === id);
+    if (!it) return false;
+    it.imageUrl = imageUrl;
+    this.saveItems();
+    return true;
+  }
 
   public static getItems(filters?: {
     grade?: string;
@@ -263,6 +300,7 @@ export class ProductionWorkflowService {
       if (updates.qaNotes !== undefined) item.qaNotes = updates.qaNotes;
       if (updates.currentStock !== undefined) item.currentStock = updates.currentStock;
     }
+    this.saveItems();
     return item;
   }
 
@@ -277,6 +315,7 @@ export class ProductionWorkflowService {
         count++;
       }
     }
+    if (count > 0) this.saveItems();
     return count;
   }
 
@@ -304,9 +343,11 @@ export class ProductionWorkflowService {
       status: 'PENDING',
       laserSpecs: data.laserSpecs || null,
       chemicalSpecs: data.chemicalSpecs || null,
-      qaNotes: data.qaNotes || 'Custom component added by user'
+      qaNotes: data.qaNotes || 'Custom component added by user',
+      imageUrl: data.imageUrl
     };
     this.items.unshift(newItem);
+    this.saveItems();
     return newItem;
   }
 
