@@ -1,89 +1,146 @@
 ---
 name: world-class-ui-ux-design
-description: Enterprise-grade World Top 1% UI/UX Design System framework for web, desktop, and mobile applications. Enforces rigorous standards for typography, color theory, layout density, fluid animations, touch targets, and publication-grade document generation.
+description: Enterprise-grade World Top 0.1% UI/UX Design System & Ergonomics Framework for web, desktop, tablet, and mobile platforms. Enforces rigorous standards for perceptual physics, typography math, fluid responsiveness, touch targets, micro-interactions, accessibility, and publication-grade document generation.
 ---
 
-# World Top 1% UI/UX Design System Framework
+# World Top 0.1% UI/UX Design System & Ergonomics Framework
 
-This skill establishes the universal design intelligence, visual hierarchy, ergonomics, and engineering standards for enterprise web, desktop, tablet, and mobile platforms.
-
----
-
-## 1. Core Visual Hierarchy & Color Theory (The 60-30-10 Rule)
-
-### A. Dominant Canvas (60%)
-- **Dark Mode**: Deep midnight foundation (`#070b14` canvas, `#0f172a` cards, `#1e293b` elevated surfaces). Never use flat `#000000` except for OLED modal backdrops.
-- **Light Mode**: Crisp, warm alabaster (`#f8fafc` canvas, `#ffffff` cards, `#f1f5f9` subtle borders).
-
-### B. Structural Contrast & Typography (30%)
-- **Primary Text**: High-contrast, clean slate (`#f8fafc` dark / `#0f172a` light).
-- **Secondary Text**: Supporting metadata (`#94a3b8` dark / `#64748b` light).
-- **Muted / Borders**: Hairline structural guides (`rgba(255, 255, 255, 0.08)` / `#e2e8f0`).
-
-### C. Semantic Accent Tokens (10%)
-- **Indigo / Violet (Primary Action)**: `#6366f1` / `#4f46e5`
-- **Emerald (Success / In-Stock / Safe)**: `#10b981` / `#059669`
-- **Sky (Informational / Local Sourcing)**: `#0ea5e9` / `#0284c7`
-- **Amber (Warning / In-House Workshop / Lead Times)**: `#f59e0b` / `#d97706`
-- **Rose (Deficit / Critical Shortage / Action Needed)**: `#f43f5e` / `#e11d48`
+This master skill establishes the global top-tier design intelligence, cognitive ergonomics, spatial rhythm, and engineering standards for enterprise platforms across Desktop, Laptop, Tablet, and Mobile devices.
 
 ---
 
-## 2. Typography & Spatial Rhythm
+## 1. Perceptual Physics & Cognitive Ergonomics
 
-1. **Font Hierarchy**:
-   - `Display / Page Title`: 20px – 24px, Bold/Black, letter-spacing `-0.025em`
-   - `Section Header / Modal Title`: 16px – 18px, Bold, letter-spacing `-0.02em`
-   - `Card Header / Metric Value`: 14px – 16px, Semi-Bold / Extra-Bold Mono
-   - `Body / Standard Text`: 12px – 13px, Regular, line-height `1.5`
-   - `Badges / SKU / Micro-labels`: 10px – 11px, Bold / Mono uppercase, tracking `+0.05em`
+### A. The 60-30-10 Chromatic Harmony Rule
+Every screen and viewport must strictly balance visual weight according to the 60-30-10 distribution:
+1. **60% Dominant Canvas Surface**:
+   - **Dark Theme**: Tinted deep midnight canvas (`#070b14` canvas, `#0f172a` primary cards, `#1e293b` elevated surfaces). Never use flat `#000000` (causes OLED black-smear and harsh contrast fatigue).
+   - **Light Theme**: Warm alabaster canvas (`#f8fafc` canvas, `#ffffff` cards, `#f1f5f9` subtle surface dividers).
+2. **30% Structural Hierarchy & High-Contrast Typography**:
+   - **Primary Text**: High-contrast, crisp slate (`#f8fafc` dark / `#0f172a` light) — minimum 7:1 contrast ratio (WCAG AAA).
+   - **Secondary Text**: Supporting metadata (`#94a3b8` dark / `#64748b` light) — minimum 4.5:1 contrast ratio.
+   - **Muted / Hairline Borders**: Structural boundaries (`rgba(255, 255, 255, 0.08)` dark / `#e2e8f0` light).
+3. **10% High-Intent Semantic Accent Tokens**:
+   - **Indigo / Violet (Primary Action & Brand)**: `#6366f1` / `#4f46e5`
+   - **Emerald (Success / In-Stock / Safe / Verified)**: `#10b981` / `#059669`
+   - **Rose (Deficit / Critical Shortage / Error / Destructive)**: `#f43f5e` / `#e11d48`
+   - **Amber (Warning / In-House Workshop / Lead Time / Attention)**: `#f59e0b` / `#d97706`
+   - **Sky (Local Sourcing / Informational / Transit)**: `#0ea5e9` / `#0284c7`
+   - **Purple (Quality Assurance / Certifications / 21 CFR Compliance)**: `#a855f7` / `#9333ea`
 
-2. **Spacing Grid**:
-   - Standard 4px / 8px incremental scale (`p-2`, `p-3`, `p-4`, `p-6`).
-   - Generous cell padding: table rows minimum 36px – 44px height for touch/click ergonomics.
-
----
-
-## 3. Responsive Dual-Platform Mastery (Desktop vs Mobile)
-
-### Desktop / Laptop Ergonomics
-- **Information Density**: High-throughput multi-column tables with fixed sticky headers, column sorting indicators, instant fuzzy search, and keyboard navigation.
-- **Modal Viewports**: Wide modal overlays (max-width `7xl` or `95vw`), bounded vertical height (`90vh` – `95vh`) with dedicated internal scroll areas to prevent outer page scrollbar jitter.
-- **Multi-Tab Architecture**: Seamless switching between Overview, High-Density Data Grid, Live Document Preview, and Filtered Checklists.
-
-### Mobile & Tablet Ergonomics
-- **Touch Target Minimum**: Every interactive element (button, checkbox, toggle) must have at least `44x44px` touch bounding box.
-- **Adaptive Card Views**: On mobile screens (`< 768px`), dense data tables must automatically transform into touch-friendly cards with expandable action drawers.
-- **Bottom Action Drawers**: Primary actions pinned to fixed bottom sheets within thumb zone reach.
+### B. Cognitive Load Laws
+- **Fitts's Law**: Frequently used action targets (Save, Scan, Export, Filter) must be appropriately sized and placed within effortless reach (bottom thumb-zone on mobile, sticky top/bottom bars on desktop).
+- **Hick's Law**: Minimize decision time by breaking complex forms and long tables into distinct tabs, progressive disclosure drawers, and 1-click preset filters.
+- **Miller's Rule ($7 \pm 2$)**: Group large datasets into chunks with visual badges, category groupings, and clear metric cards.
+- **Jakob's Law**: Maintain standard intuitive affordances (search bar top-left/center, user profile top-right, navigation persistent on left or bottom).
 
 ---
 
-## 4. Publication-Grade Document & Vector PDF Standards
+## 2. Typographic Scale & Spatial Mathematics
 
-When generating downloadable PDFs (via `jsPDF` or canvas):
+### A. Modular Scale & Font Stacks
+- **Primary Body Font**: `'Inter', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif`
+- **Monospace / Numerical Font**: `'JetBrains Mono', 'SF Mono', Menlo, Monaco, Consolas, monospace`
+- **Tabular Numerals**: Every monetary figure, percentage, stock count, and serial number MUST enable `font-variant-numeric: tabular-nums` or Tailwind `tabular-nums` to ensure exact vertical alignment across rows.
 
+| Token | Size | Line Height | Letter Spacing | Font Weight | Typical Use Case |
+|---|---|---|---|---|---|
+| `display-xl` | 28px – 32px | 1.2 | -0.03em | 800 (Extra Bold) | Landing / Main Cockpit Hero Metric |
+| `title-lg` | 20px – 24px | 1.25 | -0.025em | 700 (Bold) | Page / Modal Title |
+| `heading-md` | 16px – 18px | 1.35 | -0.02em | 600 (Semi-Bold) | Section Header / Card Header |
+| `body-md` | 13px – 14px | 1.5 | -0.01em | 400 / 500 | Standard Table Cell / Form Input |
+| `caption-sm` | 11px – 12px | 1.4 | 0em | 500 (Medium) | Metadata / Timestamps / Table Headers |
+| `badge-xs` | 10px – 11px | 1.2 | +0.05em | 700 (Bold / Mono) | SKU / Channel Pills / Status Tags |
+
+### B. Spatial Rhythm & Padding Scale
+- Base 4px / 8px grid scale:
+  - `p-1` (4px), `p-2` (8px), `p-3` (12px), `p-4` (16px), `p-6` (24px), `p-8` (32px).
+- Table rows: Minimum 38px–44px height for ergonomic clickability.
+
+---
+
+## 3. Dual-Platform Ergonomics (Desktop vs Mobile)
+
+### A. Desktop & Laptop High-Density Mastery
+1. **Information Density without Fatigue**:
+   - Sticky table headers with subtle blur (`backdrop-blur-md bg-slate-900/90`) so users never lose context when scrolling through 500+ items.
+   - Pinned action columns (Edit, Delete, History) on the right edge.
+   - Instant live search with `Ctrl+K` / `Cmd+K` global palette.
+   - Clear multi-key sorting indicators (`▲` / `▼`) on sortable columns.
+2. **Viewport Containment**:
+   - Prevent horizontal page-body scrollbars. Internal data grids must use isolated overflow containers (`overflow-x-auto custom-scrollbar`).
+   - Modals must be bounded to `max-h-[92vh]` with internal scrollable bodies and fixed headers/footers.
+
+### B. Mobile & Tablet Touch-First Ergonomics
+1. **The 44px Touch Rule (Apple HIG & WCAG)**:
+   - Every interactive control (button, icon button, checkbox, toggle switch, dropdown trigger) must have a minimum interactive bounding box of **$44 \times 44\text{px}$** (`min-h-[44px] min-w-[44px]`).
+2. **Thumb-Zone Navigation**:
+   - Fixed bottom navigation bar with elevated center floating action button (e.g. Barcode Scanner).
+   - Bottom drawers and action sheets (`slideInUp` animation) for filters, edits, and confirmations.
+   - Safe-area inset compensation (`padding-bottom: max(0.5rem, env(safe-area-inset-bottom))`) for notched and gesture-bar devices (iPhone, iPad, modern Android).
+3. **Adaptive Card Transformation**:
+   - On screens `< 768px` (Mobile), complex 8+ column data tables must automatically transform into high-contrast, touch-friendly cards with expandable detail sections.
+4. **Tactile Touch Feedback**:
+   - Buttons must provide tactile spring depression on tap: `active:scale-[0.97]` or `active:scale-95`.
+
+---
+
+## 4. Depth Architecture & Glassmorphism
+
+### A. Layered Elevation Scale
+- **Level 0 (Canvas)**: Background foundation (`bg-slate-100 dark:bg-slate-950`).
+- **Level 1 (Cards & Panels)**: Elevated surface with hairline border (`bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm`).
+- **Level 2 (Dropdowns & Popovers)**: Higher elevation (`bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border border-slate-200 dark:border-slate-700 shadow-xl`).
+- **Level 3 (Modals & Bottom Sheets)**: High-z-index overlay with frosted backdrop (`backdrop-blur-md bg-black/60`).
+
+### B. Glassmorphism Math
+- Blur radius: `backdrop-filter: blur(16px);`
+- Background opacity: `rgba(255, 255, 255, 0.75)` in light mode, `rgba(15, 23, 42, 0.80)` in dark mode.
+- Subtle specular top highlight: `box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.1);`
+
+---
+
+## 5. Motion Physics & Micro-Interactions
+
+### A. Spring Curves & Durations
+- **Fast Micro-interactions (hover, press, toggle)**: `150ms cubic-bezier(0.16, 1, 0.3, 1)`
+- **Modal / Drawer Transitions**: `250ms – 300ms cubic-bezier(0.16, 1, 0.3, 1)`
+- **Exit / Dismissal Transitions**: `150ms – 200ms cubic-bezier(0.7, 0, 0.84, 0)`
+
+### B. Layout Stability & Zero Cumulative Layout Shift (CLS = 0)
+- Always allocate fixed dimensions (`width`, `height`, or aspect ratio) to images, badges, charts, and icons.
+- Use shimmer skeleton placeholders that exactly match the typography and bounding boxes of the incoming loaded content.
+
+---
+
+## 6. Publication-Grade Vector PDF & Document Standards
+
+When rendering downloadable PDF documents (via `jsPDF` or canvas):
 1. **Character Encoding Safety**:
-   - Standard 14 PDF fonts (Helvetica, Times, Courier) use `WinAnsiEncoding`.
-   - **NEVER** print raw multi-byte Unicode characters (e.g. `₹` or `✓`) into standard text streams; they cause character collision and corruption (`~`, `1`, `[']`).
-   - Use `Rs.` or `INR` for currency, and clean ASCII (`[X]`, `Covered`) or draw vector shapes (`doc.rect`, `doc.circle`, `doc.line`) for checkmarks and status pills.
-2. **Column Width & Collision Prevention**:
-   - Calculate absolute column coordinates (`xOffsets`) explicitly.
-   - Set minimum widths: SKU column minimum 28mm, Component name minimum 60mm.
-   - Text must be clipped or wrapped using `doc.splitTextToSize(text, colWidth - padding)`.
+   - PDF standard fonts (Helvetica, Times) use 8-bit `WinAnsiEncoding`.
+   - **NEVER** write raw multi-byte Unicode glyphs (`₹`, `✓`, `•`) directly to text streams.
+   - Use `Rs.` for currency, clean ASCII (`Covered`, `-`), and render checkmarks and status badges as crisp vector shapes (`doc.roundedRect`, `doc.circle`).
+2. **Coordinate Grid & Minimum Widths**:
+   - Enforce minimum column widths (`SKU: 30mm`, `Component Name: 75–95mm`, `Channel: 25mm`).
+   - Text must be wrapped using `doc.splitTextToSize(text, colWidth - padding)`.
    - Ensure `colX + colWidth <= nextColX` with zero coordinate overlap.
-3. **Landscape vs Portrait Dynamic Layout**:
-   - Provide Landscape A4 (297mm x 210mm, 273mm usable width) for dense multi-column reports (8+ columns) so data has generous breathing space.
-   - Provide Portrait A4 for simple checklists (5-6 columns).
-4. **Visual Polish**:
-   - Running header with corporate brand, Document Ref ID, and 128 barcode on every page.
-   - Running footer: "Page X of Y", confidential notice, and generation timestamp.
-   - Alternating row background (`#f8fafc` / `#ffffff`) with hairline borders (`#e2e8f0`).
-   - Official 4-tier signature blocks (Planner, Warehouse Dispatch, Quality Assurance, Management Approval).
+3. **Landscape vs Portrait Dynamic Layouts**:
+   - Multi-column master dispatch sheets (8+ columns) must render in **Landscape A4 (297mm × 210mm)** with 277mm usable width.
+   - Simple checklists (5-6 columns) render in **Portrait A4 (210mm × 297mm)**.
+4. **Official Finishing**:
+   - Running header with corporate brand, Document Ref ID, and Code 128 barcode on every page.
+   - Running footer: "Page X of Y", confidentiality notice, and ISO 9001 / 21 CFR verification block.
 
 ---
 
-## 5. Micro-Interactions & State Feedback
+## 7. Quality Checklist for Every Screen & Component
 
-- **Instant Visual Feedback**: Every click, copy, or export must display immediate toast notifications or state transitions (`Copied!`, `Downloaded`).
-- **Loading & Empty States**: Never leave blank tables; render informative empty states with actionable icons and reset buttons.
-- **Zero Layout Shift (CLS)**: Always allocate fixed dimensions for images, icons, and dynamic metric badges.
+Before declaring any UI task complete, verify against these 8 gates:
+1. [ ] **Dual-Theme Fidelity**: Does it look stunning in both Dark Mode (`#070b14`) and Light Mode (`#f8fafc`)?
+2. [ ] **Contrast Verification**: Does all text pass WCAG AAA (7:1 for headings, 4.5:1 for body)?
+3. [ ] **Mobile Ergonomics**: Are all touch targets $\ge 44\text{px}$? Does the layout reflow cleanly on screens $< 768\text{px}$?
+4. [ ] **Tabular Numerics**: Are all currency, quantities, and numeric metrics using monospace/tabular numerals?
+5. [ ] **Zero Overlap**: Are all table columns, badges, and headers free from collisions or truncated ellipsis clipping?
+6. [ ] **Immediate Feedback**: Do buttons, inputs, and toggles provide active feedback (`active:scale-95`, toast alert, spin state)?
+7. [ ] **Empty & Error States**: Are there helpful empty states with icons and 1-click action buttons instead of blank voids?
+8. [ ] **Safe-Area Insets**: Are bottom bars and drawers offset by `env(safe-area-inset-bottom)`?
