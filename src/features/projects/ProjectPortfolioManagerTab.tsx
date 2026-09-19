@@ -34,6 +34,7 @@ import {
   Check,
   CheckCircle2,
   CheckCheck,
+  CheckSquare,
   SlidersHorizontal,
   FolderKanban,
   Factory,
@@ -153,6 +154,21 @@ export default function ProjectPortfolioManagerTab({ onNavigateToTab }: ProjectP
     chapter: true
   });
   const autocompleteRef = useRef<HTMLDivElement>(null);
+
+  // Checkbox toggle state for every field entry in the Add/Edit Deliverable form
+  const [enabledFormFields, setEnabledFormFields] = useState<Record<string, boolean>>({
+    name: true,
+    category: true,
+    sourcing: true,
+    specification: true,
+    quantity: true,
+    unitCost: true,
+    imageUrl: true,
+    assignee: true,
+    status: true,
+    chapter: true,
+    notes: true
+  });
 
   // New Project Form State
   const [templateType, setTemplateType] = useState<'CURRICULUM' | 'STANDARD_LAB' | 'BLANK'>('CURRICULUM');
@@ -422,7 +438,7 @@ export default function ProjectPortfolioManagerTab({ onNavigateToTab }: ProjectP
     setIsAutocompleteOpen(false);
   };
 
-  // Apply only the fields the user checked
+  // Apply only the fields the user checked (with any custom edits made in the catalog card)
   const handleApplySelectedCatalogFields = () => {
     if (!pendingCatalogItem) return;
     if (selectedFieldsToApply.name) setItemFormName(pendingCatalogItem.name);
@@ -430,9 +446,23 @@ export default function ProjectPortfolioManagerTab({ onNavigateToTab }: ProjectP
     if (selectedFieldsToApply.category) setItemFormCategory(pendingCatalogItem.category);
     if (selectedFieldsToApply.sourcing) setItemFormSourcing(pendingCatalogItem.sourcing);
     if (selectedFieldsToApply.unit) setItemFormUnit(pendingCatalogItem.unit);
-    if (selectedFieldsToApply.unitCost && pendingCatalogItem.unitCost > 0) setItemFormCost(String(pendingCatalogItem.unitCost));
+    if (selectedFieldsToApply.unitCost && pendingCatalogItem.unitCost >= 0) setItemFormCost(String(pendingCatalogItem.unitCost));
     if (selectedFieldsToApply.imageUrl && pendingCatalogItem.imageUrl) setItemFormImageUrl(pendingCatalogItem.imageUrl);
     if (selectedFieldsToApply.chapter && pendingCatalogItem.chapter) setItemFormChapter(pendingCatalogItem.chapter);
+
+    // Also activate the corresponding form entry checkboxes in the main form
+    setEnabledFormFields(prev => ({
+      ...prev,
+      name: selectedFieldsToApply.name ? true : prev.name,
+      specification: selectedFieldsToApply.spec ? true : prev.specification,
+      category: selectedFieldsToApply.category ? true : prev.category,
+      sourcing: selectedFieldsToApply.sourcing ? true : prev.sourcing,
+      quantity: selectedFieldsToApply.unit ? true : prev.quantity,
+      unitCost: selectedFieldsToApply.unitCost ? true : prev.unitCost,
+      imageUrl: selectedFieldsToApply.imageUrl ? true : prev.imageUrl,
+      chapter: selectedFieldsToApply.chapter ? true : prev.chapter,
+    }));
+
     showToast('success', 'Catalog Applied', `Applied selected fields from "${pendingCatalogItem.name}"`);
     setPendingCatalogItem(null);
   };
@@ -769,6 +799,20 @@ export default function ProjectPortfolioManagerTab({ onNavigateToTab }: ProjectP
     setItemFormAssignee(selectedProject?.leadUserName || 'Ravi Kumar (Lead Tech)');
     setItemFormChapter('');
     setItemFormNotes('');
+    setEnabledFormFields({
+      name: true,
+      category: true,
+      sourcing: true,
+      specification: true,
+      quantity: true,
+      unitCost: true,
+      imageUrl: true,
+      assignee: true,
+      status: true,
+      chapter: true,
+      notes: true
+    });
+    setPendingCatalogItem(null);
     setIsAddEditItemModalOpen(true);
   };
 
@@ -787,6 +831,20 @@ export default function ProjectPortfolioManagerTab({ onNavigateToTab }: ProjectP
     setItemFormAssignee(item.leadAssignee || '');
     setItemFormChapter(item.sourceChapter || '');
     setItemFormNotes(item.notes || '');
+    setEnabledFormFields({
+      name: true,
+      category: true,
+      sourcing: true,
+      specification: !!item.specification,
+      quantity: true,
+      unitCost: item.unitCost !== undefined,
+      imageUrl: !!item.imageUrl,
+      assignee: !!item.leadAssignee,
+      status: true,
+      chapter: !!item.sourceChapter,
+      notes: !!item.notes
+    });
+    setPendingCatalogItem(null);
     setIsAddEditItemModalOpen(true);
   };
 
@@ -804,21 +862,33 @@ export default function ProjectPortfolioManagerTab({ onNavigateToTab }: ProjectP
       sourcingChannel: itemFormSourcing
     });
 
+    const finalSpecification = enabledFormFields.specification ? itemFormSpec.trim() : '';
+    const finalCost = enabledFormFields.unitCost && itemFormCost ? Number(itemFormCost) : undefined;
+    const finalImageUrl = enabledFormFields.imageUrl ? (itemFormImageUrl.trim() || currentThumbnail) : undefined;
+    const finalAssignee = enabledFormFields.assignee ? itemFormAssignee.trim() : '';
+    const finalChapter = enabledFormFields.chapter ? (itemFormChapter.trim() || undefined) : undefined;
+    const finalNotes = enabledFormFields.notes ? (itemFormNotes.trim() || undefined) : undefined;
+    const finalQty = enabledFormFields.quantity ? (Number(itemFormQty) || 1) : 1;
+    const finalUnit = enabledFormFields.quantity ? (itemFormUnit.trim() || 'pcs') : 'pcs';
+    const finalCategory = enabledFormFields.category ? itemFormCategory : 'ACTIVITY_KIT';
+    const finalSourcing = enabledFormFields.sourcing ? itemFormSourcing : 'BUY_LOCAL';
+    const finalStatus = enabledFormFields.status ? itemFormStatus : 'PENDING';
+
     if (editingItem) {
       const prevItem = { ...editingItem };
       const updated = ProjectManagementService.updateWorkItem(selectedProject.id, activeClass.id, editingItem.id, {
         name: itemFormName.trim(),
-        category: itemFormCategory,
-        specification: itemFormSpec.trim(),
-        quantityPerBatchUnit: Math.max(1, Number(itemFormQty) || 1),
-        unit: itemFormUnit.trim() || 'pcs',
-        sourcingChannel: itemFormSourcing,
-        status: itemFormStatus,
-        unitCost: itemFormCost ? Number(itemFormCost) : undefined,
-        imageUrl: currentThumbnail,
-        leadAssignee: itemFormAssignee.trim(),
-        sourceChapter: itemFormChapter.trim() || undefined,
-        notes: itemFormNotes.trim() || undefined
+        category: finalCategory,
+        specification: finalSpecification,
+        quantityPerBatchUnit: Math.max(0.001, finalQty),
+        unit: finalUnit,
+        sourcingChannel: finalSourcing,
+        status: finalStatus,
+        unitCost: finalCost,
+        imageUrl: finalImageUrl,
+        leadAssignee: finalAssignee,
+        sourceChapter: finalChapter,
+        notes: finalNotes
       });
 
       addAction({
@@ -849,17 +919,17 @@ export default function ProjectPortfolioManagerTab({ onNavigateToTab }: ProjectP
     } else {
       const added = ProjectManagementService.addWorkItem(selectedProject.id, activeClass.id, {
         name: itemFormName.trim(),
-        category: itemFormCategory,
-        specification: itemFormSpec.trim(),
-        quantityPerBatchUnit: Math.max(1, Number(itemFormQty) || 1),
-        unit: itemFormUnit.trim() || 'pcs',
-        sourcingChannel: itemFormSourcing,
-        status: itemFormStatus,
-        unitCost: itemFormCost ? Number(itemFormCost) : undefined,
-        imageUrl: currentThumbnail,
-        leadAssignee: itemFormAssignee.trim(),
-        sourceChapter: itemFormChapter.trim() || undefined,
-        notes: itemFormNotes.trim() || undefined
+        category: finalCategory,
+        specification: finalSpecification,
+        quantityPerBatchUnit: Math.max(0.001, finalQty),
+        unit: finalUnit,
+        sourcingChannel: finalSourcing,
+        status: finalStatus,
+        unitCost: finalCost,
+        imageUrl: finalImageUrl,
+        leadAssignee: finalAssignee,
+        sourceChapter: finalChapter,
+        notes: finalNotes
       });
 
       if (added) {
@@ -2538,16 +2608,25 @@ export default function ProjectPortfolioManagerTab({ onNavigateToTab }: ProjectP
             </div>
 
             <form onSubmit={handleSaveWorkItem} className="space-y-4 text-xs">
-              {/* Deliverable Name with Smart Autocomplete Combobox */}
+              {/* Deliverable Name with Smart Autocomplete Combobox & Entry Checkbox */}
               <div className="space-y-1 relative" ref={autocompleteRef}>
                 <div className="flex items-center justify-between">
-                  <label className="text-slate-200 font-bold block text-xs">Deliverable / Component Name *</label>
+                  <label className="flex items-center gap-2 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={enabledFormFields.name}
+                      onChange={e => setEnabledFormFields(p => ({ ...p, name: e.target.checked }))}
+                      className="rounded text-indigo-600 focus:ring-indigo-500 w-4 h-4 cursor-pointer"
+                    />
+                    <span className="text-slate-200 font-bold text-xs">Deliverable / Component Name *</span>
+                  </label>
                   <span className="text-[10px] text-indigo-400 font-medium">💡 Type to search 236+ curriculum & inventory items</span>
                 </div>
                 <div className="relative">
                   <input
                     type="text"
-                    required
+                    required={enabledFormFields.name}
+                    disabled={!enabledFormFields.name}
                     value={itemFormName}
                     onChange={e => {
                       setItemFormName(e.target.value);
@@ -2555,7 +2634,9 @@ export default function ProjectPortfolioManagerTab({ onNavigateToTab }: ProjectP
                     }}
                     onFocus={() => setIsAutocompleteOpen(true)}
                     placeholder="Search or enter name (e.g. Convex Lens, 0.1M HCl Dropper, MDF Base...)"
-                    className="w-full bg-slate-950 border border-slate-700 focus:border-indigo-500 rounded-xl px-3.5 py-2.5 text-slate-100 placeholder:text-slate-500 font-medium focus:outline-none focus:ring-1 focus:ring-indigo-500 transition-colors"
+                    className={`w-full bg-slate-950 border border-slate-700 focus:border-indigo-500 rounded-xl px-3.5 py-2.5 text-slate-100 placeholder:text-slate-500 font-medium focus:outline-none focus:ring-1 focus:ring-indigo-500 transition-colors ${
+                      !enabledFormFields.name ? 'opacity-40 select-none' : ''
+                    }`}
                   />
                   {catalogSuggestions.length > 0 && isAutocompleteOpen && (
                     <div className="absolute left-0 right-0 top-full mt-1 bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl max-h-52 overflow-y-auto z-50 divide-y divide-slate-800 custom-scrollbar">
@@ -2596,14 +2677,14 @@ export default function ProjectPortfolioManagerTab({ onNavigateToTab }: ProjectP
                 </div>
               </div>
 
-              {/* Matching Catalog Suggestion Review Card with Checkbox for Every Field */}
+              {/* Matching Catalog Suggestion Review Card with FULLY EDITABLE Fields & Checkboxes */}
               {pendingCatalogItem && (
-                <div className="bg-indigo-950/40 border border-indigo-500/40 rounded-2xl p-3.5 space-y-3 shadow-xl">
-                  <div className="flex items-center justify-between">
+                <div className="bg-indigo-950/50 border-2 border-indigo-500/50 rounded-2xl p-4 space-y-3 shadow-2xl animate-fadeIn">
+                  <div className="flex items-center justify-between pb-2 border-b border-indigo-500/20">
                     <div className="flex items-center gap-2">
-                      <Sparkles className="w-4 h-4 text-indigo-400" />
-                      <span className="font-bold text-white text-xs">Catalog Match: {pendingCatalogItem.name}</span>
-                      <span className="text-[10px] bg-indigo-500/20 text-indigo-300 px-2 py-0.5 rounded-full font-mono font-bold">
+                      <Sparkles className="w-4 h-4 text-indigo-400 animate-pulse" />
+                      <span className="font-black text-white text-xs">Catalog Match Found — Check & Edit Fields to Import:</span>
+                      <span className="text-[10px] bg-indigo-500/30 text-indigo-200 px-2 py-0.5 rounded-full font-mono font-bold border border-indigo-500/40">
                         {pendingCatalogItem.source}
                       </span>
                     </div>
@@ -2618,94 +2699,196 @@ export default function ProjectPortfolioManagerTab({ onNavigateToTab }: ProjectP
                   </div>
 
                   <p className="text-[11px] text-slate-300">
-                    Check the fields you want to import into this deliverable:
+                    Check the fields you want to import into this deliverable. You can <strong>edit any value</strong> directly before applying:
                   </p>
 
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
-                    <label className="flex items-center gap-2 bg-slate-900/90 p-2 rounded-xl border border-slate-800 hover:border-slate-700 cursor-pointer transition-all">
+                  <div className="space-y-2.5 max-h-64 overflow-y-auto pr-1 custom-scrollbar">
+                    {/* 1. Name */}
+                    <div className={`flex items-center gap-2.5 p-2 rounded-xl border transition-all ${
+                      selectedFieldsToApply.name ? 'bg-slate-900/90 border-indigo-500/40' : 'bg-slate-950/50 border-slate-800/80 opacity-50'
+                    }`}>
                       <input
                         type="checkbox"
                         checked={selectedFieldsToApply.name}
                         onChange={e => setSelectedFieldsToApply(p => ({ ...p, name: e.target.checked }))}
-                        className="rounded text-indigo-600 focus:ring-indigo-500"
+                        className="rounded text-indigo-600 focus:ring-indigo-500 w-4 h-4 cursor-pointer shrink-0"
                       />
-                      <span className="text-slate-200 truncate" title={pendingCatalogItem.name}>Name</span>
-                    </label>
+                      <span className="text-[11px] font-bold text-slate-300 w-28 shrink-0">Deliverable Name</span>
+                      <input
+                        type="text"
+                        value={pendingCatalogItem.name}
+                        disabled={!selectedFieldsToApply.name}
+                        onChange={e => setPendingCatalogItem(p => p ? ({ ...p, name: e.target.value }) : null)}
+                        className="flex-1 bg-slate-950 border border-slate-700 focus:border-indigo-500 rounded-lg px-2.5 py-1 text-xs text-slate-100 placeholder:text-slate-500 font-medium focus:outline-none"
+                      />
+                    </div>
 
-                    <label className="flex items-center gap-2 bg-slate-900/90 p-2 rounded-xl border border-slate-800 hover:border-slate-700 cursor-pointer transition-all">
+                    {/* 2. Specification */}
+                    <div className={`flex items-center gap-2.5 p-2 rounded-xl border transition-all ${
+                      selectedFieldsToApply.spec ? 'bg-slate-900/90 border-indigo-500/40' : 'bg-slate-950/50 border-slate-800/80 opacity-50'
+                    }`}>
                       <input
                         type="checkbox"
                         checked={selectedFieldsToApply.spec}
                         onChange={e => setSelectedFieldsToApply(p => ({ ...p, spec: e.target.checked }))}
-                        className="rounded text-indigo-600 focus:ring-indigo-500"
+                        className="rounded text-indigo-600 focus:ring-indigo-500 w-4 h-4 cursor-pointer shrink-0"
                       />
-                      <span className="text-slate-200 truncate" title={pendingCatalogItem.spec}>Specification</span>
-                    </label>
-
-                    <label className="flex items-center gap-2 bg-slate-900/90 p-2 rounded-xl border border-slate-800 hover:border-slate-700 cursor-pointer transition-all">
+                      <span className="text-[11px] font-bold text-slate-300 w-28 shrink-0">Specification</span>
                       <input
-                        type="checkbox"
-                        checked={selectedFieldsToApply.category}
-                        onChange={e => setSelectedFieldsToApply(p => ({ ...p, category: e.target.checked }))}
-                        className="rounded text-indigo-600 focus:ring-indigo-500"
+                        type="text"
+                        value={pendingCatalogItem.spec}
+                        disabled={!selectedFieldsToApply.spec}
+                        onChange={e => setPendingCatalogItem(p => p ? ({ ...p, spec: e.target.value }) : null)}
+                        className="flex-1 bg-slate-950 border border-slate-700 focus:border-indigo-500 rounded-lg px-2.5 py-1 text-xs text-slate-100 placeholder:text-slate-500 font-medium focus:outline-none"
                       />
-                      <span className="text-slate-200 truncate">Category</span>
-                    </label>
+                    </div>
 
-                    <label className="flex items-center gap-2 bg-slate-900/90 p-2 rounded-xl border border-slate-800 hover:border-slate-700 cursor-pointer transition-all">
-                      <input
-                        type="checkbox"
-                        checked={selectedFieldsToApply.sourcing}
-                        onChange={e => setSelectedFieldsToApply(p => ({ ...p, sourcing: e.target.checked }))}
-                        className="rounded text-indigo-600 focus:ring-indigo-500"
-                      />
-                      <span className="text-slate-200 truncate">Sourcing</span>
-                    </label>
+                    {/* 3. Category & Sourcing in row */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <div className={`flex items-center gap-2 p-2 rounded-xl border transition-all ${
+                        selectedFieldsToApply.category ? 'bg-slate-900/90 border-indigo-500/40' : 'bg-slate-950/50 border-slate-800/80 opacity-50'
+                      }`}>
+                        <input
+                          type="checkbox"
+                          checked={selectedFieldsToApply.category}
+                          onChange={e => setSelectedFieldsToApply(p => ({ ...p, category: e.target.checked }))}
+                          className="rounded text-indigo-600 focus:ring-indigo-500 w-4 h-4 cursor-pointer shrink-0"
+                        />
+                        <span className="text-[11px] font-bold text-slate-300 w-16 shrink-0">Category</span>
+                        <select
+                          value={pendingCatalogItem.category}
+                          disabled={!selectedFieldsToApply.category}
+                          onChange={e => setPendingCatalogItem(p => p ? ({ ...p, category: e.target.value as any }) : null)}
+                          className="flex-1 bg-slate-950 border border-slate-700 focus:border-indigo-500 rounded-lg px-2 py-1 text-xs text-slate-100 font-medium focus:outline-none"
+                        >
+                          <option value="ACTIVITY_KIT">🧪 Activity Kit</option>
+                          <option value="WORKING_MODEL">⚙️ Physical Model</option>
+                          <option value="EDUCATIONAL_CHART">📊 Wall Chart</option>
+                          <option value="FABRICATION_LASER_3D">🪵 Laser/3D/Foam</option>
+                          <option value="CHEMICAL_REAGENT">⚗️ Chemical Reagent</option>
+                          <option value="HARDWARE_SUPPLIES">🛒 Hardware Tools</option>
+                        </select>
+                      </div>
 
-                    <label className="flex items-center gap-2 bg-slate-900/90 p-2 rounded-xl border border-slate-800 hover:border-slate-700 cursor-pointer transition-all">
-                      <input
-                        type="checkbox"
-                        checked={selectedFieldsToApply.unit}
-                        onChange={e => setSelectedFieldsToApply(p => ({ ...p, unit: e.target.checked }))}
-                        className="rounded text-indigo-600 focus:ring-indigo-500"
-                      />
-                      <span className="text-slate-200 truncate">Unit ({pendingCatalogItem.unit})</span>
-                    </label>
+                      <div className={`flex items-center gap-2 p-2 rounded-xl border transition-all ${
+                        selectedFieldsToApply.sourcing ? 'bg-slate-900/90 border-indigo-500/40' : 'bg-slate-950/50 border-slate-800/80 opacity-50'
+                      }`}>
+                        <input
+                          type="checkbox"
+                          checked={selectedFieldsToApply.sourcing}
+                          onChange={e => setSelectedFieldsToApply(p => ({ ...p, sourcing: e.target.checked }))}
+                          className="rounded text-indigo-600 focus:ring-indigo-500 w-4 h-4 cursor-pointer shrink-0"
+                        />
+                        <span className="text-[11px] font-bold text-slate-300 w-16 shrink-0">Sourcing</span>
+                        <select
+                          value={pendingCatalogItem.sourcing}
+                          disabled={!selectedFieldsToApply.sourcing}
+                          onChange={e => setPendingCatalogItem(p => p ? ({ ...p, sourcing: e.target.value as any }) : null)}
+                          className="flex-1 bg-slate-950 border border-slate-700 focus:border-indigo-500 rounded-lg px-2 py-1 text-xs text-slate-100 font-medium focus:outline-none"
+                        >
+                          <option value="BUY_LOCAL">🛒 Buy Local</option>
+                          <option value="ORDER_ONLINE">📦 Order Online</option>
+                          <option value="LASER_CUT">🪵 Laser Cut</option>
+                          <option value="3D_PRINT">🖨️ 3D Print</option>
+                          <option value="FOAM_CUT">✂️ Foam Cut</option>
+                          <option value="CHEMICAL_PREP">⚗️ Chemical Prep</option>
+                          <option value="CHART_PRINT">📊 Chart Print</option>
+                          <option value="MODEL_ASSEMBLY">⚙️ Model Assembly</option>
+                          <option value="IN_STOCK">✅ In Stock</option>
+                        </select>
+                      </div>
+                    </div>
 
-                    <label className="flex items-center gap-2 bg-slate-900/90 p-2 rounded-xl border border-slate-800 hover:border-slate-700 cursor-pointer transition-all">
-                      <input
-                        type="checkbox"
-                        checked={selectedFieldsToApply.unitCost}
-                        onChange={e => setSelectedFieldsToApply(p => ({ ...p, unitCost: e.target.checked }))}
-                        className="rounded text-indigo-600 focus:ring-indigo-500"
-                      />
-                      <span className="text-slate-200 truncate">Cost (₹{pendingCatalogItem.unitCost})</span>
-                    </label>
+                    {/* 4. Unit & Unit Cost in row */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <div className={`flex items-center gap-2 p-2 rounded-xl border transition-all ${
+                        selectedFieldsToApply.unit ? 'bg-slate-900/90 border-indigo-500/40' : 'bg-slate-950/50 border-slate-800/80 opacity-50'
+                      }`}>
+                        <input
+                          type="checkbox"
+                          checked={selectedFieldsToApply.unit}
+                          onChange={e => setSelectedFieldsToApply(p => ({ ...p, unit: e.target.checked }))}
+                          className="rounded text-indigo-600 focus:ring-indigo-500 w-4 h-4 cursor-pointer shrink-0"
+                        />
+                        <span className="text-[11px] font-bold text-slate-300 w-16 shrink-0">Unit</span>
+                        <input
+                          type="text"
+                          value={pendingCatalogItem.unit}
+                          disabled={!selectedFieldsToApply.unit}
+                          onChange={e => setPendingCatalogItem(p => p ? ({ ...p, unit: e.target.value }) : null)}
+                          className="flex-1 bg-slate-950 border border-slate-700 focus:border-indigo-500 rounded-lg px-2 py-1 text-xs text-slate-100 font-medium focus:outline-none"
+                        />
+                      </div>
 
-                    <label className="flex items-center gap-2 bg-slate-900/90 p-2 rounded-xl border border-slate-800 hover:border-slate-700 cursor-pointer transition-all">
+                      <div className={`flex items-center gap-2 p-2 rounded-xl border transition-all ${
+                        selectedFieldsToApply.unitCost ? 'bg-slate-900/90 border-indigo-500/40' : 'bg-slate-950/50 border-slate-800/80 opacity-50'
+                      }`}>
+                        <input
+                          type="checkbox"
+                          checked={selectedFieldsToApply.unitCost}
+                          onChange={e => setSelectedFieldsToApply(p => ({ ...p, unitCost: e.target.checked }))}
+                          className="rounded text-indigo-600 focus:ring-indigo-500 w-4 h-4 cursor-pointer shrink-0"
+                        />
+                        <span className="text-[11px] font-bold text-slate-300 w-16 shrink-0">Cost (₹)</span>
+                        <input
+                          type="number"
+                          step="any"
+                          min="0"
+                          value={pendingCatalogItem.unitCost}
+                          disabled={!selectedFieldsToApply.unitCost}
+                          onChange={e => setPendingCatalogItem(p => p ? ({ ...p, unitCost: Number(e.target.value) || 0 }) : null)}
+                          className="flex-1 bg-slate-950 border border-slate-700 focus:border-indigo-500 rounded-lg px-2 py-1 text-xs text-slate-100 font-mono focus:outline-none"
+                        />
+                      </div>
+                    </div>
+
+                    {/* 5. Artwork URL & Chapter Ref */}
+                    <div className={`flex items-center gap-2.5 p-2 rounded-xl border transition-all ${
+                      selectedFieldsToApply.imageUrl ? 'bg-slate-900/90 border-indigo-500/40' : 'bg-slate-950/50 border-slate-800/80 opacity-50'
+                    }`}>
                       <input
                         type="checkbox"
                         checked={selectedFieldsToApply.imageUrl}
                         onChange={e => setSelectedFieldsToApply(p => ({ ...p, imageUrl: e.target.checked }))}
-                        className="rounded text-indigo-600 focus:ring-indigo-500"
+                        className="rounded text-indigo-600 focus:ring-indigo-500 w-4 h-4 cursor-pointer shrink-0"
                       />
-                      <span className="text-slate-200 truncate">Artwork Image</span>
-                    </label>
+                      <span className="text-[11px] font-bold text-slate-300 w-28 shrink-0">Artwork Image URL</span>
+                      {pendingCatalogItem.imageUrl && (
+                        <img src={pendingCatalogItem.imageUrl} alt="preview" className="w-6 h-6 rounded object-cover border border-slate-700 shrink-0" />
+                      )}
+                      <input
+                        type="text"
+                        value={pendingCatalogItem.imageUrl || ''}
+                        disabled={!selectedFieldsToApply.imageUrl}
+                        onChange={e => setPendingCatalogItem(p => p ? ({ ...p, imageUrl: e.target.value }) : null)}
+                        className="flex-1 bg-slate-950 border border-slate-700 focus:border-indigo-500 rounded-lg px-2.5 py-1 text-xs text-slate-100 placeholder:text-slate-500 font-medium focus:outline-none"
+                      />
+                    </div>
 
                     {pendingCatalogItem.chapter && (
-                      <label className="flex items-center gap-2 bg-slate-900/90 p-2 rounded-xl border border-slate-800 hover:border-slate-700 cursor-pointer transition-all">
+                      <div className={`flex items-center gap-2.5 p-2 rounded-xl border transition-all ${
+                        selectedFieldsToApply.chapter ? 'bg-slate-900/90 border-indigo-500/40' : 'bg-slate-950/50 border-slate-800/80 opacity-50'
+                      }`}>
                         <input
                           type="checkbox"
                           checked={selectedFieldsToApply.chapter}
                           onChange={e => setSelectedFieldsToApply(p => ({ ...p, chapter: e.target.checked }))}
-                          className="rounded text-indigo-600 focus:ring-indigo-500"
+                          className="rounded text-indigo-600 focus:ring-indigo-500 w-4 h-4 cursor-pointer shrink-0"
                         />
-                        <span className="text-slate-200 truncate">Chapter Ref</span>
-                      </label>
+                        <span className="text-[11px] font-bold text-slate-300 w-28 shrink-0">Chapter Reference</span>
+                        <input
+                          type="text"
+                          value={pendingCatalogItem.chapter}
+                          disabled={!selectedFieldsToApply.chapter}
+                          onChange={e => setPendingCatalogItem(p => p ? ({ ...p, chapter: e.target.value }) : null)}
+                          className="flex-1 bg-slate-950 border border-slate-700 focus:border-indigo-500 rounded-lg px-2.5 py-1 text-xs text-slate-100 placeholder:text-slate-500 font-medium focus:outline-none"
+                        />
+                      </div>
                     )}
                   </div>
 
-                  <div className="flex items-center justify-between pt-1 border-t border-indigo-500/20">
+                  {/* Footer Controls */}
+                  <div className="flex items-center justify-between pt-2 border-t border-indigo-500/30">
                     <div className="flex items-center gap-2 text-[11px]">
                       <button
                         type="button"
@@ -2744,14 +2927,55 @@ export default function ProjectPortfolioManagerTab({ onNavigateToTab }: ProjectP
                 </div>
               )}
 
-              {/* Category and Sourcing */}
+              {/* Master Control: Checkbox Status Bar for All Form Entries */}
+              <div className="flex items-center justify-between px-3.5 py-2 bg-slate-950/90 border border-slate-800 rounded-xl text-xs">
+                <span className="text-slate-300 font-bold flex items-center gap-2 text-xs">
+                  <CheckSquare className="w-4 h-4 text-indigo-400" />
+                  <span>Deliverable Field Controls:</span>
+                  <span className="text-[10px] bg-indigo-500/20 text-indigo-300 px-2 py-0.5 rounded-full font-mono font-bold">
+                    {Object.values(enabledFormFields).filter(Boolean).length}/11 Active
+                  </span>
+                </span>
+                <div className="flex items-center gap-2 text-[11px] font-semibold">
+                  <button
+                    type="button"
+                    onClick={() => setEnabledFormFields({
+                      name: true, category: true, sourcing: true, specification: true, quantity: true, unitCost: true, imageUrl: true, assignee: true, status: true, chapter: true, notes: true
+                    })}
+                    className="text-indigo-400 hover:text-indigo-300 underline cursor-pointer"
+                  >
+                    Select All
+                  </button>
+                  <span className="text-slate-600">•</span>
+                  <button
+                    type="button"
+                    onClick={() => setEnabledFormFields({
+                      name: true, category: true, sourcing: true, specification: false, quantity: true, unitCost: false, imageUrl: false, assignee: false, status: true, chapter: false, notes: false
+                    })}
+                    className="text-slate-400 hover:text-slate-300 underline cursor-pointer"
+                  >
+                    Core Only
+                  </button>
+                </div>
+              </div>
+
+              {/* Category and Sourcing with Checkboxes */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="text-slate-200 font-bold block mb-1 text-xs">Category</label>
+                <div className={!enabledFormFields.category ? 'opacity-40 transition-opacity' : ''}>
+                  <label className="flex items-center gap-2 cursor-pointer select-none mb-1">
+                    <input
+                      type="checkbox"
+                      checked={enabledFormFields.category}
+                      onChange={e => setEnabledFormFields(p => ({ ...p, category: e.target.checked }))}
+                      className="rounded text-indigo-600 focus:ring-indigo-500 w-3.5 h-3.5 cursor-pointer"
+                    />
+                    <span className="text-slate-200 font-bold text-xs">Category</span>
+                  </label>
                   <select
+                    disabled={!enabledFormFields.category}
                     value={itemFormCategory}
                     onChange={e => setItemFormCategory(e.target.value as any)}
-                    className="w-full bg-slate-950 border border-slate-700 focus:border-indigo-500 rounded-xl px-3.5 py-2.5 text-slate-100 font-medium focus:outline-none focus:ring-1 focus:ring-indigo-500 transition-colors"
+                    className="w-full bg-slate-950 border border-slate-700 focus:border-indigo-500 rounded-xl px-3.5 py-2.5 text-slate-100 font-medium focus:outline-none focus:ring-1 focus:ring-indigo-500 transition-colors disabled:bg-slate-900 disabled:cursor-not-allowed"
                   >
                     <option value="ACTIVITY_KIT">🧪 Activity Kit / Experiment Pouch</option>
                     <option value="WORKING_MODEL">⚙️ Physical Demonstration Model</option>
@@ -2762,12 +2986,21 @@ export default function ProjectPortfolioManagerTab({ onNavigateToTab }: ProjectP
                   </select>
                 </div>
 
-                <div>
-                  <label className="text-slate-200 font-bold block mb-1 text-xs">Sourcing Channel</label>
+                <div className={!enabledFormFields.sourcing ? 'opacity-40 transition-opacity' : ''}>
+                  <label className="flex items-center gap-2 cursor-pointer select-none mb-1">
+                    <input
+                      type="checkbox"
+                      checked={enabledFormFields.sourcing}
+                      onChange={e => setEnabledFormFields(p => ({ ...p, sourcing: e.target.checked }))}
+                      className="rounded text-indigo-600 focus:ring-indigo-500 w-3.5 h-3.5 cursor-pointer"
+                    />
+                    <span className="text-slate-200 font-bold text-xs">Sourcing Channel</span>
+                  </label>
                   <select
+                    disabled={!enabledFormFields.sourcing}
                     value={itemFormSourcing}
                     onChange={e => setItemFormSourcing(e.target.value as any)}
-                    className="w-full bg-slate-950 border border-slate-700 focus:border-indigo-500 rounded-xl px-3.5 py-2.5 text-slate-100 font-medium focus:outline-none focus:ring-1 focus:ring-indigo-500 transition-colors"
+                    className="w-full bg-slate-950 border border-slate-700 focus:border-indigo-500 rounded-xl px-3.5 py-2.5 text-slate-100 font-medium focus:outline-none focus:ring-1 focus:ring-indigo-500 transition-colors disabled:bg-slate-900 disabled:cursor-not-allowed"
                   >
                     <option value="BUY_LOCAL">🛒 Buy Local (Local City Market)</option>
                     <option value="ORDER_ONLINE">📦 Order Online (Amazon/Vendor)</option>
@@ -2782,31 +3015,50 @@ export default function ProjectPortfolioManagerTab({ onNavigateToTab }: ProjectP
                 </div>
               </div>
 
-              <div>
-                <label className="text-slate-200 font-bold block mb-1 text-xs">Specification / Details</label>
+              {/* Specification with Checkbox */}
+              <div className={!enabledFormFields.specification ? 'opacity-40 transition-opacity' : ''}>
+                <label className="flex items-center gap-2 cursor-pointer select-none mb-1">
+                  <input
+                    type="checkbox"
+                    checked={enabledFormFields.specification}
+                    onChange={e => setEnabledFormFields(p => ({ ...p, specification: e.target.checked }))}
+                    className="rounded text-indigo-600 focus:ring-indigo-500 w-3.5 h-3.5 cursor-pointer"
+                  />
+                  <span className="text-slate-200 font-bold text-xs">Specification / Details</span>
+                </label>
                 <input
                   type="text"
+                  disabled={!enabledFormFields.specification}
                   value={itemFormSpec}
                   onChange={e => setItemFormSpec(e.target.value)}
                   placeholder="e.g. 50mm dia, 10cm FL convex lens in 3D frame, sealed with sticker"
-                  className="w-full bg-slate-950 border border-slate-700 focus:border-indigo-500 rounded-xl px-3.5 py-2.5 text-slate-100 placeholder:text-slate-500 font-medium focus:outline-none focus:ring-1 focus:ring-indigo-500 transition-colors"
+                  className="w-full bg-slate-950 border border-slate-700 focus:border-indigo-500 rounded-xl px-3.5 py-2.5 text-slate-100 placeholder:text-slate-500 font-medium focus:outline-none focus:ring-1 focus:ring-indigo-500 transition-colors disabled:bg-slate-900 disabled:cursor-not-allowed"
                 />
               </div>
 
-              {/* Quantities & Pricing with Flexible Units & Unit Preset Pills */}
-              <div className="space-y-2">
+              {/* Quantities & Pricing with Flexible Units & Entry Checkbox */}
+              <div className={`space-y-2 ${!enabledFormFields.quantity ? 'opacity-40 transition-opacity' : ''}`}>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div>
-                    <label className="text-slate-200 font-bold block mb-1 text-xs">
-                      Base Qty (per 1 kit) <span className="text-slate-400 font-normal">(e.g. 75, 1.5, 500)</span>
+                    <label className="flex items-center gap-2 cursor-pointer select-none mb-1">
+                      <input
+                        type="checkbox"
+                        checked={enabledFormFields.quantity}
+                        onChange={e => setEnabledFormFields(p => ({ ...p, quantity: e.target.checked }))}
+                        className="rounded text-indigo-600 focus:ring-indigo-500 w-3.5 h-3.5 cursor-pointer"
+                      />
+                      <span className="text-slate-200 font-bold text-xs">
+                        Base Qty (per 1 kit) <span className="text-slate-400 font-normal">(75, 1.5, 500)</span>
+                      </span>
                     </label>
                     <input
                       type="number"
                       step="any"
                       min="0.001"
+                      disabled={!enabledFormFields.quantity}
                       value={itemFormQty}
                       onChange={e => setItemFormQty(Number(e.target.value) || 0)}
-                      className="w-full bg-slate-950 border border-slate-700 focus:border-indigo-500 rounded-xl px-3.5 py-2.5 text-slate-100 font-mono font-bold focus:outline-none focus:ring-1 focus:ring-indigo-500 transition-colors"
+                      className="w-full bg-slate-950 border border-slate-700 focus:border-indigo-500 rounded-xl px-3.5 py-2.5 text-slate-100 font-mono font-bold focus:outline-none focus:ring-1 focus:ring-indigo-500 transition-colors disabled:bg-slate-900 disabled:cursor-not-allowed"
                     />
                   </div>
 
@@ -2814,86 +3066,111 @@ export default function ProjectPortfolioManagerTab({ onNavigateToTab }: ProjectP
                     <label className="text-slate-200 font-bold block mb-1 text-xs">Unit</label>
                     <input
                       type="text"
+                      disabled={!enabledFormFields.quantity}
                       value={itemFormUnit}
                       onChange={e => setItemFormUnit(e.target.value)}
                       placeholder="g, kg, meter, ml, pcs..."
-                      className="w-full bg-slate-950 border border-slate-700 focus:border-indigo-500 rounded-xl px-3.5 py-2.5 text-slate-100 font-medium focus:outline-none focus:ring-1 focus:ring-indigo-500 transition-colors"
+                      className="w-full bg-slate-950 border border-slate-700 focus:border-indigo-500 rounded-xl px-3.5 py-2.5 text-slate-100 font-medium focus:outline-none focus:ring-1 focus:ring-indigo-500 transition-colors disabled:bg-slate-900 disabled:cursor-not-allowed"
                     />
                   </div>
 
-                  <div>
-                    <label className="text-slate-200 font-bold block mb-1 text-xs">
-                      Unit Cost (₹) — <span className="text-slate-400 font-normal">Optional</span>
+                  <div className={!enabledFormFields.unitCost ? 'opacity-40 transition-opacity' : ''}>
+                    <label className="flex items-center gap-2 cursor-pointer select-none mb-1">
+                      <input
+                        type="checkbox"
+                        checked={enabledFormFields.unitCost}
+                        onChange={e => setEnabledFormFields(p => ({ ...p, unitCost: e.target.checked }))}
+                        className="rounded text-indigo-600 focus:ring-indigo-500 w-3.5 h-3.5 cursor-pointer"
+                      />
+                      <span className="text-slate-200 font-bold text-xs">
+                        Unit Cost (₹) — <span className="text-slate-400 font-normal">Optional</span>
+                      </span>
                     </label>
                     <input
                       type="number"
                       step="any"
+                      disabled={!enabledFormFields.unitCost}
                       value={itemFormCost}
                       onChange={e => setItemFormCost(e.target.value)}
                       placeholder="e.g. 45"
-                      className="w-full bg-slate-950 border border-slate-700 focus:border-indigo-500 rounded-xl px-3.5 py-2.5 text-slate-100 font-mono focus:outline-none focus:ring-1 focus:ring-indigo-500 transition-colors"
+                      className="w-full bg-slate-950 border border-slate-700 focus:border-indigo-500 rounded-xl px-3.5 py-2.5 text-slate-100 font-mono focus:outline-none focus:ring-1 focus:ring-indigo-500 transition-colors disabled:bg-slate-900 disabled:cursor-not-allowed"
                     />
                   </div>
                 </div>
 
                 {/* Quick Unit Presets Pills */}
-                <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
-                  <span className="text-[10px] text-slate-400 font-semibold mr-1">Quick Units:</span>
-                  {[
-                    { label: 'g', title: 'Grams (Weight)' },
-                    { label: 'kg', title: 'Kilograms (Weight)' },
-                    { label: 'meter', title: 'Meter (Length)' },
-                    { label: 'cm', title: 'Centimeter (Length)' },
-                    { label: 'ml', title: 'Milliliters (Volume)' },
-                    { label: 'L', title: 'Liters (Volume)' },
-                    { label: 'pcs', title: 'Pieces (Count)' },
-                    { label: 'sets', title: 'Sets (Count)' },
-                    { label: 'sheets', title: 'Sheets (Paper/MDF)' },
-                    { label: 'pairs', title: 'Pairs' },
-                    { label: 'bottles', title: 'Bottles / Vials' },
-                    { label: 'rolls', title: 'Rolls (Tape/Wire)' }
-                  ].map(u => (
-                    <button
-                      key={u.label}
-                      type="button"
-                      onClick={() => setItemFormUnit(u.label)}
-                      title={u.title}
-                      className={`px-2 py-0.5 rounded-lg text-[10px] font-mono font-bold transition-all cursor-pointer ${
-                        itemFormUnit === u.label
-                          ? 'bg-indigo-600 text-white font-black shadow-sm'
-                          : 'bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700/60'
-                      }`}
-                    >
-                      {u.label}
-                    </button>
-                  ))}
-                </div>
+                {enabledFormFields.quantity && (
+                  <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+                    <span className="text-[10px] text-slate-400 font-semibold mr-1">Quick Units:</span>
+                    {[
+                      { label: 'g', title: 'Grams (Weight)' },
+                      { label: 'kg', title: 'Kilograms (Weight)' },
+                      { label: 'meter', title: 'Meter (Length)' },
+                      { label: 'cm', title: 'Centimeter (Length)' },
+                      { label: 'ml', title: 'Milliliters (Volume)' },
+                      { label: 'L', title: 'Liters (Volume)' },
+                      { label: 'pcs', title: 'Pieces (Count)' },
+                      { label: 'sets', title: 'Sets (Count)' },
+                      { label: 'sheets', title: 'Sheets (Raw Material)' },
+                      { label: 'pairs', title: 'Pairs (e.g. magnets)' },
+                      { label: 'bottles', title: 'Bottles (Dropper/Reagent)' },
+                      { label: 'rolls', title: 'Rolls (Tape/Wire)' }
+                    ].map(u => (
+                      <button
+                        key={u.label}
+                        type="button"
+                        title={u.title}
+                        onClick={() => setItemFormUnit(u.label)}
+                        className={`px-2 py-0.5 rounded-lg text-[10px] font-mono font-bold transition-all cursor-pointer ${
+                          itemFormUnit === u.label
+                            ? 'bg-indigo-600 text-white font-black shadow-sm'
+                            : 'bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700/60'
+                        }`}
+                      >
+                        {u.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
 
                 {/* Real-time Calculated Batch Scaling Indicator */}
-                <div className="bg-indigo-950/30 border border-indigo-500/30 rounded-xl px-3.5 py-2 flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-xs">
-                  <span className="text-slate-300 font-semibold flex items-center gap-1.5">
-                    <Sparkles className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
-                    <span>Scaled Batch Requirement ({activeClass?.name || 'Current Class'}, <strong className="text-indigo-300 font-mono">{activeClass?.batchMultiplier || 1}x</strong> sets):</span>
-                  </span>
-                  <span className="font-mono font-bold text-emerald-400 text-xs">
-                    Base: {itemFormQty} {itemFormUnit || 'pcs'} × {activeClass?.batchMultiplier || 1} = {Number(((Number(itemFormQty) || 0) * (activeClass?.batchMultiplier || 1)).toFixed(3))} {itemFormUnit || 'pcs'} Total
-                  </span>
-                </div>
+                {enabledFormFields.quantity && (
+                  <div className="bg-indigo-950/30 border border-indigo-500/30 rounded-xl px-3.5 py-2 flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-xs">
+                    <span className="text-slate-300 font-semibold flex items-center gap-1.5">
+                      <Sparkles className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
+                      <span>Scaled Batch Requirement ({activeClass?.name || 'Current Class'}, <strong className="text-indigo-300 font-mono">{activeClass?.batchMultiplier || 1}x</strong> sets):</span>
+                    </span>
+                    <span className="font-mono font-bold text-emerald-400 text-xs">
+                      Base: {itemFormQty} {itemFormUnit || 'pcs'} × {activeClass?.batchMultiplier || 1} = {Number(((Number(itemFormQty) || 0) * (activeClass?.batchMultiplier || 1)).toFixed(3))} {itemFormUnit || 'pcs'} Total
+                    </span>
+                  </div>
+                )}
               </div>
 
-              {/* Universal Image Upload Component with Local File Browse, Drag & Drop, Paste, and Preset Gallery */}
-              <div className="space-y-2">
+              {/* Universal Image Upload with Checkbox */}
+              <div className={`space-y-2 ${!enabledFormFields.imageUrl ? 'opacity-40 transition-opacity pointer-events-none' : ''}`}>
+                <div className="flex items-center justify-between">
+                  <label className="flex items-center gap-2 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={enabledFormFields.imageUrl}
+                      onChange={e => setEnabledFormFields(p => ({ ...p, imageUrl: e.target.checked }))}
+                      className="rounded text-indigo-600 focus:ring-indigo-500 w-3.5 h-3.5 cursor-pointer pointer-events-auto"
+                    />
+                    <span className="text-slate-200 font-bold text-xs">Deliverable Artwork / Thumbnail Image</span>
+                  </label>
+                </div>
                 <ImageUploadInput
                   value={itemFormImageUrl}
                   onChange={setItemFormImageUrl}
                   onOpenPresetGallery={() => setIsPresetPickerOpen(!isPresetPickerOpen)}
                   fallbackUrl={getItemThumbnailUrl({ name: itemFormName, category: itemFormCategory, sourcingChannel: itemFormSourcing })}
-                  label="Deliverable Artwork / Thumbnail Image"
+                  label="Upload / Choose Artwork"
                 />
 
                 {/* Preset Gallery Picker Grid (Collapsible) */}
                 {isPresetPickerOpen && (
-                  <div className="grid grid-cols-4 sm:grid-cols-6 gap-2 p-3 bg-slate-950 border border-slate-800 rounded-2xl max-h-40 overflow-y-auto custom-scrollbar">
+                  <div className="grid grid-cols-4 sm:grid-cols-6 gap-2 p-3 bg-slate-950 border border-slate-800 rounded-2xl max-h-40 overflow-y-auto custom-scrollbar pointer-events-auto">
                     {STEM_PRESET_IMAGES.map(p => (
                       <button
                         key={p.id}
@@ -2909,25 +3186,43 @@ export default function ProjectPortfolioManagerTab({ onNavigateToTab }: ProjectP
                 )}
               </div>
 
-              {/* Assignee & Status */}
+              {/* Assignee & Status with Checkboxes */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="text-slate-200 font-bold block mb-1 text-xs">Lead Assignee (Technician / Person)</label>
+                <div className={!enabledFormFields.assignee ? 'opacity-40 transition-opacity' : ''}>
+                  <label className="flex items-center gap-2 cursor-pointer select-none mb-1">
+                    <input
+                      type="checkbox"
+                      checked={enabledFormFields.assignee}
+                      onChange={e => setEnabledFormFields(p => ({ ...p, assignee: e.target.checked }))}
+                      className="rounded text-indigo-600 focus:ring-indigo-500 w-3.5 h-3.5 cursor-pointer"
+                    />
+                    <span className="text-slate-200 font-bold text-xs">Lead Assignee (Technician / Person)</span>
+                  </label>
                   <input
                     type="text"
+                    disabled={!enabledFormFields.assignee}
                     value={itemFormAssignee}
                     onChange={e => setItemFormAssignee(e.target.value)}
                     placeholder="e.g. Ravi Kumar or Priya Sharma"
-                    className="w-full bg-slate-950 border border-slate-700 focus:border-indigo-500 rounded-xl px-3.5 py-2.5 text-slate-100 placeholder:text-slate-500 font-medium focus:outline-none focus:ring-1 focus:ring-indigo-500 transition-colors"
+                    className="w-full bg-slate-950 border border-slate-700 focus:border-indigo-500 rounded-xl px-3.5 py-2.5 text-slate-100 placeholder:text-slate-500 font-medium focus:outline-none focus:ring-1 focus:ring-indigo-500 transition-colors disabled:bg-slate-900 disabled:cursor-not-allowed"
                   />
                 </div>
 
-                <div>
-                  <label className="text-slate-200 font-bold block mb-1 text-xs">Status</label>
+                <div className={!enabledFormFields.status ? 'opacity-40 transition-opacity' : ''}>
+                  <label className="flex items-center gap-2 cursor-pointer select-none mb-1">
+                    <input
+                      type="checkbox"
+                      checked={enabledFormFields.status}
+                      onChange={e => setEnabledFormFields(p => ({ ...p, status: e.target.checked }))}
+                      className="rounded text-indigo-600 focus:ring-indigo-500 w-3.5 h-3.5 cursor-pointer"
+                    />
+                    <span className="text-slate-200 font-bold text-xs">Status</span>
+                  </label>
                   <select
+                    disabled={!enabledFormFields.status}
                     value={itemFormStatus}
                     onChange={e => setItemFormStatus(e.target.value as any)}
-                    className="w-full bg-slate-950 border border-slate-700 focus:border-indigo-500 rounded-xl px-3.5 py-2.5 text-slate-100 font-medium focus:outline-none focus:ring-1 focus:ring-indigo-500 transition-colors"
+                    className="w-full bg-slate-950 border border-slate-700 focus:border-indigo-500 rounded-xl px-3.5 py-2.5 text-slate-100 font-medium focus:outline-none focus:ring-1 focus:ring-indigo-500 transition-colors disabled:bg-slate-900 disabled:cursor-not-allowed"
                   >
                     <option value="PENDING">⏳ Pending</option>
                     <option value="IN_PREP">⚙️ In Preparation</option>
@@ -2937,26 +3232,45 @@ export default function ProjectPortfolioManagerTab({ onNavigateToTab }: ProjectP
                 </div>
               </div>
 
+              {/* Chapter & Notes with Checkboxes */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="text-slate-200 font-bold block mb-1 text-xs">Chapter / Activity Ref (Optional)</label>
+                <div className={!enabledFormFields.chapter ? 'opacity-40 transition-opacity' : ''}>
+                  <label className="flex items-center gap-2 cursor-pointer select-none mb-1">
+                    <input
+                      type="checkbox"
+                      checked={enabledFormFields.chapter}
+                      onChange={e => setEnabledFormFields(p => ({ ...p, chapter: e.target.checked }))}
+                      className="rounded text-indigo-600 focus:ring-indigo-500 w-3.5 h-3.5 cursor-pointer"
+                    />
+                    <span className="text-slate-200 font-bold text-xs">Chapter / Activity Ref (Optional)</span>
+                  </label>
                   <input
                     type="text"
+                    disabled={!enabledFormFields.chapter}
                     value={itemFormChapter}
                     onChange={e => setItemFormChapter(e.target.value)}
                     placeholder="e.g. Chapter 3.2 (Electric Current)"
-                    className="w-full bg-slate-950 border border-slate-700 focus:border-indigo-500 rounded-xl px-3.5 py-2.5 text-slate-100 placeholder:text-slate-500 font-medium focus:outline-none focus:ring-1 focus:ring-indigo-500 transition-colors"
+                    className="w-full bg-slate-950 border border-slate-700 focus:border-indigo-500 rounded-xl px-3.5 py-2.5 text-slate-100 placeholder:text-slate-500 font-medium focus:outline-none focus:ring-1 focus:ring-indigo-500 transition-colors disabled:bg-slate-900 disabled:cursor-not-allowed"
                   />
                 </div>
 
-                <div>
-                  <label className="text-slate-200 font-bold block mb-1 text-xs">Notes / QA Instruction</label>
+                <div className={!enabledFormFields.notes ? 'opacity-40 transition-opacity' : ''}>
+                  <label className="flex items-center gap-2 cursor-pointer select-none mb-1">
+                    <input
+                      type="checkbox"
+                      checked={enabledFormFields.notes}
+                      onChange={e => setEnabledFormFields(p => ({ ...p, notes: e.target.checked }))}
+                      className="rounded text-indigo-600 focus:ring-indigo-500 w-3.5 h-3.5 cursor-pointer"
+                    />
+                    <span className="text-slate-200 font-bold text-xs">Notes / QA Instruction</span>
+                  </label>
                   <input
                     type="text"
+                    disabled={!enabledFormFields.notes}
                     value={itemFormNotes}
                     onChange={e => setItemFormNotes(e.target.value)}
                     placeholder="e.g. Double bag liquid bottles"
-                    className="w-full bg-slate-950 border border-slate-700 focus:border-indigo-500 rounded-xl px-3.5 py-2.5 text-slate-100 placeholder:text-slate-500 font-medium focus:outline-none focus:ring-1 focus:ring-indigo-500 transition-colors"
+                    className="w-full bg-slate-950 border border-slate-700 focus:border-indigo-500 rounded-xl px-3.5 py-2.5 text-slate-100 placeholder:text-slate-500 font-medium focus:outline-none focus:ring-1 focus:ring-indigo-500 transition-colors disabled:bg-slate-900 disabled:cursor-not-allowed"
                   />
                 </div>
               </div>
