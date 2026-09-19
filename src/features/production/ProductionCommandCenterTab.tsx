@@ -61,18 +61,21 @@ import {
 import ItemImage from '../../shared/components/ItemImage';
 import ImagePreviewModal from '../../shared/components/ImagePreviewModal';
 import ProcurementDispatchModal from '../../shared/components/ProcurementDispatchModal';
+import ProductionLifecycleRibbon from '../../shared/components/ProductionLifecycleRibbon';
 import { useToast } from '../../contexts/ToastContext';
 
 interface ProductionCommandCenterTabProps {
   initialProjectId?: string;
   initialGrade?: string;
   embeddedMode?: boolean;
+  onNavigateToTab?: (tabId: string, params?: any) => void;
 }
 
 export default function ProductionCommandCenterTab({
   initialProjectId,
   initialGrade,
-  embeddedMode = false
+  embeddedMode = false,
+  onNavigateToTab
 }: ProductionCommandCenterTabProps = {}) {
   const { showToast } = useToast();
 
@@ -429,6 +432,19 @@ export default function ProductionCommandCenterTab({
 
   return (
     <div className="space-y-6">
+      {/* 3-Stage STEM Production Lifecycle Stepper & Architecture Guide */}
+      <ProductionLifecycleRibbon
+        currentStage={2}
+        projectId={activeProjectId !== 'ALL' ? activeProjectId : undefined}
+        projectName={activeProjectId !== 'ALL' ? (projectsList.find(p => p.id === activeProjectId)?.name) : 'Master Curriculum Production'}
+        batchMultiplier={batchMultiplier}
+        totalDeliverables={items.length}
+        onNavigateStage={(stage) => {
+          if (stage === 1 && onNavigateToTab) onNavigateToTab('projects_hub');
+          else if (stage === 3 && onNavigateToTab) onNavigateToTab('sticker_hub');
+        }}
+      />
+
       {/* ===== 1. Command Center Top Header ===== */}
       <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-slate-900 via-indigo-950/80 to-slate-900 p-6 md:p-8 border border-indigo-500/20 shadow-2xl">
         <div className="absolute top-0 right-0 w-96 h-96 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />

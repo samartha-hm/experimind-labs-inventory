@@ -372,11 +372,20 @@ function MainApp() {
                 <ProductionCommandCenterTab
                   initialProjectId={projectNavParams.projectId}
                   initialGrade={projectNavParams.grade}
+                  onNavigateToTab={(tabId, params) => {
+                    if (params) setProjectNavParams(params);
+                    setActiveTab(tabId);
+                  }}
                 />
               )}
 
               {activeTab === 'sticker_hub' && (
-                <StickerMonitoringHubTab />
+                <StickerMonitoringHubTab
+                  onNavigateToTab={(tabId, params) => {
+                    if (params) setProjectNavParams(params);
+                    setActiveTab(tabId);
+                  }}
+                />
               )}
 
               {activeTab === 'kitting' && (

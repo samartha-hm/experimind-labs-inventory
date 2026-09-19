@@ -109,7 +109,7 @@ export class DispatchPdfService {
         i.category.toLowerCase().includes('fabricat') ||
         i.name.toLowerCase().includes('laser') ||
         i.name.toLowerCase().includes('cut') ||
-        i.technicalSpecification?.toLowerCase().includes('laser')
+        i.specification?.toLowerCase().includes('laser')
       );
       reportTitle = titleOverride || 'IN-HOUSE LASER CUTTING & FABRICATION JOB CARD';
       reportSubtitle = 'Workshop Dispatch: Acrylic, MDF & Sheet Metal Parts to Fabricate / Cut';
@@ -120,8 +120,8 @@ export class DispatchPdfService {
         i.name.toLowerCase().includes('solution') ||
         i.name.toLowerCase().includes('soln') ||
         i.name.toLowerCase().includes('acid') ||
-        i.technicalSpecification?.toLowerCase().includes('soln') ||
-        i.technicalSpecification?.toLowerCase().includes('standardized')
+        i.specification?.toLowerCase().includes('soln') ||
+        i.specification?.toLowerCase().includes('standardized')
       );
       reportTitle = titleOverride || 'CHEMICAL & REAGENT LAB PREPARATION DISPATCH SHEET';
       reportSubtitle = 'Lab Production: Aqueous Solutions, Stains, and Chemical Formulations to Prepare';

@@ -309,14 +309,30 @@
 input:not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not([type="button"]):not([type="file"]),
 textarea,
 select {
-  color: #0f172a;
   font-family: var(--font-sans);
+  color: inherit;
 }
 
+/* Light mode default when no color is set */
+html:not(.dark) input:not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not([type="button"]):not([type="file"]):not([class*="text-"]),
+html:not(.dark) textarea:not([class*="text-"]),
+html:not(.dark) select:not([class*="text-"]) {
+  color: #0f172a;
+}
+
+/* Dark mode and dark surface containers always get high-contrast text */
 .dark input:not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not([type="button"]):not([type="file"]),
 .dark textarea,
-.dark select {
-  color: #f8fafc;
+.dark select,
+:is([class*="bg-slate-900"], [class*="bg-slate-950"], [class*="bg-black"]) input:not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not([type="button"]):not([type="file"]),
+:is([class*="bg-slate-900"], [class*="bg-slate-950"], [class*="bg-black"]) textarea,
+:is([class*="bg-slate-900"], [class*="bg-slate-950"], [class*="bg-black"]) select {
+  color: #f8fafc !important;
+}
+
+:is([class*="bg-slate-900"], [class*="bg-slate-950"], [class*="bg-black"]) input::placeholder,
+:is([class*="bg-slate-900"], [class*="bg-slate-950"], [class*="bg-black"]) textarea::placeholder {
+  color: #64748b !important;
 }
 
 /* ══════════════════════════════════════════════════════

@@ -39,15 +39,18 @@ import { INITIAL_PROJECTS, Project } from '../../data/projectsDataset';
 import { ProjectManagementService } from '../../services/ProjectManagementService';
 import { useToast } from '../../contexts/ToastContext';
 import { useAuth } from '../../AuthContext';
+import ProductionLifecycleRibbon from '../../shared/components/ProductionLifecycleRibbon';
 
 interface StickerMonitoringHubTabProps {
   initialProjectId?: string;
   embeddedMode?: boolean;
+  onNavigateToTab?: (tabId: string, params?: any) => void;
 }
 
 export default function StickerMonitoringHubTab({
   initialProjectId,
-  embeddedMode = false
+  embeddedMode = false,
+  onNavigateToTab
 }: StickerMonitoringHubTabProps = {}) {
   const { showToast } = useToast();
   const { user } = useAuth();
@@ -213,6 +216,19 @@ export default function StickerMonitoringHubTab({
 
   return (
     <div className="space-y-6 pb-12 animate-fade-in text-slate-100">
+      {/* 3-Stage STEM Production Lifecycle Stepper & Architecture Guide */}
+      <ProductionLifecycleRibbon
+        currentStage={3}
+        projectId={activeProject?.code || activeProject?.id}
+        projectName={activeProject?.name}
+        batchMultiplier={activeProject?.defaultBatchMultiplier || 1}
+        totalDeliverables={stickers.length}
+        onNavigateStage={(stage) => {
+          if (stage === 1 && onNavigateToTab) onNavigateToTab('projects_hub');
+          else if (stage === 2 && onNavigateToTab) onNavigateToTab('production_command');
+        }}
+      />
+
       {/* Header Banner */}
       <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 border border-indigo-500/20 p-6 shadow-2xl">
         <div className="absolute -right-10 -top-10 w-72 h-72 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />

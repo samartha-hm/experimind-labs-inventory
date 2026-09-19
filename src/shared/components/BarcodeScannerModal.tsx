@@ -63,6 +63,7 @@ import { InventoryItem, KitBOM } from '@/src/types';
 import { playScanBeep, useBarcodeGunListener } from '@/src/utils/barcode';
 import { scanCanvasOrImage, decodeBarcodeFromImageFile } from '@/src/utils/barcodeEngine';
 import SmartCombobox, { ComboboxOption } from './SmartCombobox';
+import ImageUploadInput from './ImageUploadInput';
 
 export type ScanOperationMode = 'inspect' | 'inbound' | 'outbound' | 'batch' | 'relocate' | 'kit_picking';
 
@@ -163,6 +164,7 @@ export default function BarcodeScannerModal({
   const [editItemThreshold, setEditItemThreshold] = useState<number>(0);
   const [editItemBarcode, setEditItemBarcode] = useState('');
   const [editItemSku, setEditItemSku] = useState('');
+  const [editItemImageUrl, setEditItemImageUrl] = useState('');
 
   // 4. BATCH MULTI-SELECTION & BULK ACTIONS STATE
   const [selectedBatchIds, setSelectedBatchIds] = useState<Set<string>>(new Set());
@@ -1081,6 +1083,7 @@ function getVideoROICoordinates(
     setEditItemThreshold(scannedItem.threshold ?? (scannedItem as any).minSafetyStock ?? 0);
     setEditItemBarcode(scannedItem.barcode || `EL-${scannedItem.id}`);
     setEditItemSku(scannedItem.sku || scannedItem.id);
+    setEditItemImageUrl(scannedItem.imageUrl || '');
     setIsEditingItemModal(true);
   };
 
@@ -1098,6 +1101,7 @@ function getVideoROICoordinates(
       threshold: Number(editItemThreshold) || 0,
       barcode: editItemBarcode.trim() || undefined,
       sku: editItemSku.trim() || undefined,
+      imageUrl: editItemImageUrl.trim() || undefined,
     };
 
     await updateInventoryItem(scannedItem.id, updatedData);
@@ -2600,6 +2604,13 @@ function getVideoROICoordinates(
                   />
                 </div>
               </div>
+
+              {/* Component Photo Upload */}
+              <ImageUploadInput
+                value={editItemImageUrl}
+                onChange={setEditItemImageUrl}
+                label="Component Photo / Specification Image"
+              />
 
               <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex justify-end gap-2">
                 <button

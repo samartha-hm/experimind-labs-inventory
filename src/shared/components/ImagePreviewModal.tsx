@@ -16,7 +16,8 @@ import {
   Copy,
   Check,
   Barcode,
-  RotateCw
+  RotateCw,
+  Upload
 } from 'lucide-react';
 import ItemImage from './ItemImage';
 import ImageCropStudioModal from './ImageCropStudioModal';
@@ -63,6 +64,50 @@ export default function ImagePreviewModal({
   const [showCropStudio, setShowCropStudio] = useState<boolean>(false);
   const [showBarcodeOverlay, setShowBarcodeOverlay] = useState<boolean>(false);
   const [copied, setCopied] = useState<boolean>(false);
+  const [isUploading, setIsUploading] = useState<boolean>(false);
+  const uploadInputRef = useRef<HTMLInputElement>(null);
+
+  const handleUploadFile = async (file: File) => {
+    if (!file || !file.type.startsWith('image/')) return;
+    setIsUploading(true);
+    try {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          let { width, height } = img;
+          const maxDim = 1000;
+          if (width > height) {
+            if (width > maxDim) {
+              height = Math.round((height * maxDim) / width);
+              width = maxDim;
+            }
+          } else {
+            if (height > maxDim) {
+              width = Math.round((width * maxDim) / height);
+              height = maxDim;
+            }
+          }
+          const canvas = document.createElement('canvas');
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.drawImage(img, 0, 0, width, height);
+            const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+            if (onSaveImage) onSaveImage(dataUrl);
+          }
+          setIsUploading(false);
+        };
+        img.onerror = () => setIsUploading(false);
+        img.src = e.target?.result as string;
+      };
+      reader.onerror = () => setIsUploading(false);
+      reader.readAsDataURL(file);
+    } catch {
+      setIsUploading(false);
+    }
+  };
 
   // Reset zoom on open
   useEffect(() => {
@@ -122,6 +167,29 @@ export default function ImagePreviewModal({
     }
   };
 
+  const handlePaste = (e: React.ClipboardEvent) => {
+    if (!editable && !onSaveImage) return;
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].type.indexOf('image') !== -1) {
+        const file = items[i].getAsFile();
+        if (file) {
+          e.preventDefault();
+          handleUploadFile(file);
+          break;
+        }
+      }
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    if (!editable && !onSaveImage) return;
+    e.preventDefault();
+    const file = e.dataTransfer.files?.[0];
+    if (file) handleUploadFile(file);
+  };
+
   if (!isOpen) return null;
 
   return createPortal(
@@ -130,7 +198,11 @@ export default function ImagePreviewModal({
       onClick={onClose}
     >
       <div
-        className={`relative bg-slate-900 border border-slate-700/80 rounded-3xl w-full overflow-hidden shadow-2xl animate-scaleUp flex flex-col transition-all duration-300 ${
+        tabIndex={0}
+        onPaste={handlePaste}
+        onDragOver={(e) => { if (editable || onSaveImage) e.preventDefault(); }}
+        onDrop={handleDrop}
+        className={`relative bg-slate-900 border border-slate-700/80 rounded-3xl w-full overflow-hidden shadow-2xl animate-scaleUp flex flex-col transition-all duration-300 focus:outline-none ${
           isFullscreen ? 'fixed inset-2 sm:inset-4 max-w-none max-h-none h-[calc(100vh-1rem)] sm:h-[calc(100vh-2rem)]' : 'max-w-3xl max-h-[92vh]'
         }`}
         onClick={(e) => e.stopPropagation()}
@@ -150,6 +222,32 @@ export default function ImagePreviewModal({
           </div>
 
           <div className="flex items-center gap-1.5 sm:gap-2">
+            {/* Direct Upload / Replace Photo Button */}
+            {(editable || onSaveImage) && (
+              <>
+                <input
+                  ref={uploadInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) handleUploadFile(file);
+                  }}
+                  className="hidden"
+                />
+                <button
+                  type="button"
+                  onClick={() => uploadInputRef.current?.click()}
+                  disabled={isUploading}
+                  className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-md shadow-emerald-600/20"
+                  title="Upload or replace photo from device"
+                >
+                  <Upload className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">{isUploading ? 'Optimizing...' : 'Upload Photo'}</span>
+                </button>
+              </>
+            )}
+
             {/* Crop / Edit Studio Button */}
             {(editable || onSaveImage) && imageUrl && (
               <button
