@@ -10,7 +10,7 @@ import UndoRedoWidget from '@/src/components/UndoRedoWidget';
 import { useUndoRedo } from '@/src/contexts/UndoRedoContext';
 import Sidebar from '@/src/shared/components/Sidebar';
 import Header from '@/src/shared/components/Header';
-import OverviewTab from '@/src/features/dashboard/components/OverviewTab';
+import OperationsWorkspace from '@/src/features/core/OperationsWorkspace';
 import InventoryTab from '@/src/features/inventory/components/InventoryTab';
 import KittingTab from '@/src/features/kitting/components/KittingTab';
 import AICopilotTab from '@/src/features/copilot/components/AICopilotTab';
@@ -332,15 +332,11 @@ function MainApp() {
           <div className="p-3 sm:p-6 md:p-8 max-w-7xl mx-auto pb-24 md:pb-8">
             <main>
               {activeTab === 'overview' && (
-                <OverviewTab
+                <OperationsWorkspace
                   inventory={inventory}
                   kits={kits}
-                  selectedKitId={selectedKitId}
-                  setSelectedKitId={setSelectedKitId}
-                  onNavigateToTab={handleNavigateTab}
-                  onCreateKitClick={() => setIsCreateKitModalOpen(true)}
+                  onNavigate={handleNavigateTab}
                   onOpenBarcodeScanner={() => setIsBarcodeScannerOpen(true)}
-                  onOpenBarcodeStudio={() => setIsBarcodeStudioOpen(true)}
                 />
               )}
 
