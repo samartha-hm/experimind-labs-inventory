@@ -1,7 +1,7 @@
 # Experimind Labs Inventory Platform
 ## Current-State Assessment, Target Product Plan, and Readiness Roadmap
 
-**Document status:** Approved planning baseline
+**Document status:** Approved plan with verified production readiness update
 **Prepared:** 2026-09-23
 **Repository:** `samartha-hm/experimind-labs-inventory`
 **Production host:** AWS EC2 `13.233.142.180`
@@ -70,7 +70,7 @@ The current codebase is a monorepo-style application with:
 | Authentication | JWT access authentication, refresh/session support, tenant scoping |
 | Validation/security | `class-validator`, Helmet, CORS, rate limiting |
 | Real-time | Server-Sent Events |
-| Barcode | ZXing, `html5-qrcode`, JsBarcode, GS1-related utilities |
+| Barcode | `zxing-wasm`, `html5-qrcode`, JsBarcode, GS1-related utilities |
 | Deployment | PM2 and Nginx on AWS EC2 |
 | Testing | Vitest; TypeScript typecheck |
 
@@ -86,17 +86,36 @@ npm run db:migrate
 
 ### 2.2 Current production status
 
-The latest release is published to GitHub `main` and deployed to AWS. At the time this plan was prepared:
+The verified release is published to GitHub `main` at commit `e784fe6`
+(`chore(deps): remove unused zxing packages`) and is deployed to AWS.
 
-- GitHub `origin/main` points to the latest deployment commits.
+The following production checks passed on 2026-09-23:
+
 - `experimind-inventory` PM2 process is online.
 - `experimind-storefront` PM2 process is online.
 - Public `/health` returns HTTP 200.
 - Public `/` returns HTTP 200.
-- Database migrations and the real inventory seed completed during deployment.
-- The deployed environment contains the current platform, not yet the future simplified product.
+- Unauthenticated internal hard-lock checkout returns HTTP 401.
+- Database migrations report zero pending migrations.
+- Admin bootstrap and real inventory seeding complete successfully.
+- The unused `@zxing/browser` and `@zxing/library` packages are absent from
+  the deployed dependency tree and lockfile.
+- The verified PostgreSQL backup remains present on the server.
+- A restore rehearsal completed successfully in an isolated temporary database
+  with 50 public tables; the temporary database was removed afterward.
+- AWS root disk usage is approximately 88% with approximately 939 MB free.
 
-This means production delivery is functioning, but **product readiness for the replan is not complete**.
+Local verification for this release also passed:
+
+- 41 test files and 193 tests.
+- TypeScript typecheck.
+- Main production build.
+- Storefront production build.
+- Clean Git working tree after the release was pushed.
+
+The platform is operational and ready for current inventory workflows. The
+remaining readiness work is hardening and scope reduction rather than a
+deployment blocker.
 
 ### 2.3 Current visible product
 
@@ -113,9 +132,10 @@ The application currently has:
 - Purchase orders.
 - Sales and dispatches.
 - Suppliers and schools.
-- A large expandable “More tools” group.
+- Role-filtered navigation and a focused Operations workspace.
 
-The current `More tools` group still exposes many of the areas the new plan intends to remove or retire, including:
+Earlier versions exposed many of the areas the new plan intends to remove or
+retire, including:
 
 - Predictive analytics and AI assistant.
 - Hardware workbench and PCBA/CAD.
@@ -123,7 +143,10 @@ The current `More tools` group still exposes many of the areas the new plan inte
 - Quality suite, tax invoices, approvals, compliance, valuation, and audit screens.
 - Automations and other specialist features.
 
-Therefore, the previous navigation simplification was only a first UX pass. It reduced the immediate visual clutter but did not yet deliver the requested product replan.
+The generic `More tools` navigation has since been removed. Role-filtered
+navigation and the focused Operations workspace now expose the core workflows.
+Specialist backend routes and data structures remain in the repository until
+dependency mapping and production evidence support reversible retirement.
 
 ### 2.4 Current backend surface
 
@@ -158,7 +181,8 @@ The existing platform has valuable foundations that should not be discarded:
 - Immutable or ledger-oriented stock movement behavior.
 - Warehouse, bin, lot, serial, transfer, count, purchase, sales, kit, project, and sticker data.
 - Existing Prastuti kit definitions and project deliverable data.
-- Barcode scanning and label generation capabilities.
+- Barcode scanning and label generation capabilities using the retained
+  `zxing-wasm` implementation.
 - Deployment, health endpoint, PM2, Nginx, and AWS runbooks.
 - Existing tests for stock, RBAC, audit, barcode, and domain utilities.
 
@@ -193,7 +217,8 @@ These capabilities should be reused when they support the target workflows. “R
 - Deleting specialist code before dependency mapping could break shared services or routes.
 - Existing local-storage project behavior may not yet be equivalent to the production database lifecycle.
 - The current frontend bundle is large and may slow warehouse/mobile workflows.
-- Production dependencies currently report audit warnings and an engine mismatch for `@zxing/library`.
+- `npm audit` still reports nine vulnerabilities (six moderate and three high);
+  these require individual review rather than a broad automatic upgrade.
 - Existing deployment and environment secrets need a formal rotation and secret-management plan.
 - Database data migration must be reversible and backed up before schema changes.
 
@@ -667,19 +692,23 @@ The platform is ready for general use only when all of the following are true:
 
 ## 8. Immediate next work package
 
-The next implementation cycle should be **Phase 0: baseline and safety**, not feature deletion.
+The production baseline and restore rehearsal are complete. The next cycle is
+focused hardening and controlled scope reduction:
 
-The first tasks are:
+1. Add end-to-end workflow coverage for low stock, replenishment approval,
+   partial receipt/backorder, project readiness, reservation, and dispatch.
+2. Build the route/component/entity dependency inventory and classify specialist
+   surfaces as **retain**, **simplify**, **merge**, or **retire**.
+3. Review the nine npm audit findings individually and apply only safe,
+   tested upgrades.
+4. Reduce the main frontend bundle and resolve the mixed static/dynamic
+   `DispatchPdfService` import.
+5. Establish backup rotation, disk monitoring, and an AWS rollback rehearsal.
+6. Retire specialist user-facing routes in reversible batches after dependency
+   and acceptance evidence is recorded.
 
-1. Build a complete route/component/entity dependency inventory.
-2. Mark each current route as **retain**, **simplify**, **merge**, or **retire**.
-3. Map current database entities to the target operational model.
-4. Add role/workspace acceptance fixtures.
-5. Add end-to-end workflow skeletons for inventory, replenishment, fulfillment, and projects.
-6. Record a production backup and restore test before schema or deletion work.
-7. Produce the final deletion batches and migration sequence.
-
-No production data should be deleted during this phase. No specialist code should be removed until the dependency map and rollback evidence exist.
+No production data should be deleted during this phase. No specialist code
+should be removed until the dependency map and rollback evidence exist.
 
 ---
 
