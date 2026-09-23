@@ -2,7 +2,7 @@ import { Router } from "express";
 import { InventoryService } from "../../services/InventoryService";
 import { validate, IsString, IsOptional, IsInt, IsNumber, Min, IsUUID, IsBoolean, MaxLength, IsUrl } from "class-validator";
 import { plainToInstance } from "class-transformer";
-import { requireRole } from "../../middleware/requireRole.ts";
+import { requireCapability, requireRole } from "../../middleware/requireRole.ts";
 import { requireTenant } from "../../middleware/tenant.ts";
 import { MemoryCache } from "../../utils/cache.ts";
 
@@ -287,7 +287,7 @@ router.post("/", requireTenant, requireRole("staff", "admin"), async (req, res) 
 });
 
 // POST /api/v1/inventory/:id/adjust (Staff, Admins) - Concurrency-safe stock mutation
-router.post("/:id/adjust", requireTenant, requireRole("staff", "admin"), async (req, res) => {
+router.post("/:id/adjust", requireTenant, requireCapability("adjust_stock"), async (req, res) => {
   try {
     const { delta, reason } = req.body;
     if (typeof delta !== "number") {

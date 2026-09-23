@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import crypto from "crypto";
-import { requireRole } from "../../middleware/requireRole.ts";
+import { requireCapability, requireRole } from "../../middleware/requireRole.ts";
 
 describe("RBAC Authorization & Webhook Integration Tests", () => {
   it("allows admin user to access admin-restricted operations", () => {
@@ -37,6 +37,37 @@ describe("RBAC Authorization & Webhook Integration Tests", () => {
 
     expect(statusCode).toBe(403);
     expect(jsonPayload?.error).toContain("Forbidden");
+  });
+
+  it("allows Project Staff to create replenishment requests", () => {
+    let calledNext = false;
+    const req: any = { user: { id: "project-1", role: "viewer" } };
+    const res: any = {
+      status() { return this; },
+      json() { return this; },
+    };
+
+    requireCapability("replenishment_request")(req, res, () => {
+      calledNext = true;
+    });
+
+    expect(calledNext).toBe(true);
+  });
+
+  it("blocks Project Staff from stock mutation capabilities", () => {
+    let statusCode = 0;
+    const req: any = { user: { id: "project-1", role: "viewer" } };
+    const res: any = {
+      status(code: number) {
+        statusCode = code;
+        return this;
+      },
+      json() { return this; },
+    };
+
+    requireCapability("receive_stock")(req, res, () => {});
+
+    expect(statusCode).toBe(403);
   });
 
   it("verifies authentic Razorpay HMAC-SHA256 signature calculation", () => {

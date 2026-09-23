@@ -2,7 +2,7 @@ import { Router } from "express";
 import { SalesOrderService } from "../../services/SalesOrderService";
 import { validate, IsString, IsOptional, IsUUID, IsDateString, IsEnum, IsInt, Min, IsArray } from "class-validator";
 import { plainToInstance } from "class-transformer";
-import { requireRole } from "../../middleware/requireRole.ts";
+import { requireCapability, requireRole } from "../../middleware/requireRole.ts";
 import { requireTenant } from "../../middleware/tenant.ts";
 
 const router = Router();
@@ -155,7 +155,7 @@ router.delete("/:id", requireTenant, requireRole("admin"), async (req, res) => {
 });
 
 // POST /api/v1/sales-order/:id/ship (Staff+)
-router.post("/:id/ship", requireTenant, requireRole("staff", "manager", "admin"), async (req, res) => {
+router.post("/:id/ship", requireTenant, requireCapability("fulfill_orders"), async (req, res) => {
   try {
     const orgId = (req as any).orgId;
     const { shipments } = req.body;

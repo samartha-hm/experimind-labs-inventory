@@ -31,6 +31,36 @@ const ROLE_ALIASES: Record<string, string[]> = {
   observer: ["viewer", "observer", "guest", "employee", "member", "staff", "editor", "manager", "admin", "super_admin"],
 };
 
+export type CoreRole = "admin" | "inventory_staff" | "project_staff";
+export type CoreCapability =
+  | "replenishment_request"
+  | "receive_stock"
+  | "adjust_stock"
+  | "transfer_stock"
+  | "fulfill_orders"
+  | "manage_users";
+
+const CORE_ROLE_ALIASES: Record<CoreRole, Set<string>> = {
+  admin: new Set(["admin", "super_admin"]),
+  inventory_staff: new Set(["staff", "manager", "editor", "warehouse_staff", "procurement"]),
+  project_staff: new Set(["viewer", "observer", "guest", "employee", "member", "user", "intern"]),
+};
+
+const CAPABILITY_ROLES: Record<CoreCapability, CoreRole[]> = {
+  replenishment_request: ["admin", "inventory_staff", "project_staff"],
+  receive_stock: ["admin", "inventory_staff"],
+  adjust_stock: ["admin", "inventory_staff"],
+  transfer_stock: ["admin", "inventory_staff"],
+  fulfill_orders: ["admin", "inventory_staff"],
+  manage_users: ["admin"],
+};
+
+export function normalizeCoreRole(role: string | null | undefined): CoreRole | null {
+  const normalized = (role || "").toLowerCase().trim();
+  return (Object.keys(CORE_ROLE_ALIASES) as CoreRole[])
+    .find((coreRole) => CORE_ROLE_ALIASES[coreRole].has(normalized)) || null;
+}
+
 /**
  * Express middleware to restrict route access to users with specified role(s).
  * Supports role hierarchy and role aliases (e.g. editor/manager/staff, employee/member, viewer).
@@ -62,6 +92,27 @@ export const requireRole = (...allowedRoles: string[]) => {
     if (!hasRole) {
       return res.status(403).json({
         error: `Forbidden: Role '${req.user.role}' is not authorized to perform this operation. Required: ${allowedRoles.join(", ")}`,
+      });
+    }
+
+    next();
+  };
+};
+
+export const requireCapability = (...requiredCapabilities: CoreCapability[]) => {
+  return (req: Request, res: Response, next: NextFunction) => {
+    if (!req.user) {
+      return res.status(401).json({ error: "Unauthorized: Missing authentication context" });
+    }
+
+    const coreRole = normalizeCoreRole(req.user.role);
+    const allowed = requiredCapabilities.some((capability) => {
+      return coreRole !== null && CAPABILITY_ROLES[capability].includes(coreRole);
+    });
+
+    if (!allowed) {
+      return res.status(403).json({
+        error: `Forbidden: Core role '${coreRole || req.user.role}' lacks required capability: ${requiredCapabilities.join(", ")}`,
       });
     }
 
@@ -115,4 +166,3 @@ export const requirePermission = (...requiredPermissions: string[]) => {
     }
   };
 };
-

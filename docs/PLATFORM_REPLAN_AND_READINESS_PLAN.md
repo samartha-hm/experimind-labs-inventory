@@ -26,6 +26,17 @@ The approved target roles are:
 - **Inventory Staff:** items, locations, receiving, movements, replenishment, counts.
 - **Project Staff:** projects, kit/BOM readiness, shortages, preparation, labels, packing, dispatch status.
 
+Backend authorization now preserves existing user records through explicit aliases:
+
+| Canonical role | Supported legacy aliases | Operational boundary |
+|---|---|---|
+| Admin | `admin`, `super_admin` | Full operational and administration access |
+| Inventory Staff | `staff`, `manager`, `editor`, `warehouse_staff`, `procurement` | Receiving, stock adjustment, transfers, replenishment execution, and fulfillment |
+| Project Staff | `viewer`, `observer`, `guest`, `employee`, `member`, `user`, `intern` | Read operational data and create replenishment requests; cannot receive, adjust, transfer, pick, pack, or dispatch |
+
+The alias policy is intentionally reversible. It avoids rewriting historical role
+data until route-level authorization and production fixtures have been verified.
+
 Only the following product areas remain in scope:
 
 - Inventory

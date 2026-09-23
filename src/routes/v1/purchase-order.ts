@@ -2,7 +2,7 @@ import { Router } from "express";
 import { PurchaseOrderService } from "../../services/PurchaseOrderService";
 import { validate, IsString, IsOptional, IsUUID, IsDateString, IsEnum, IsInt, Min, IsArray } from "class-validator";
 import { plainToInstance } from "class-transformer";
-import { requireRole } from "../../middleware/requireRole.ts";
+import { requireCapability, requireRole } from "../../middleware/requireRole.ts";
 import { requireTenant } from "../../middleware/tenant.ts";
 
 const router = Router();
@@ -114,7 +114,7 @@ router.get("/:id", requireTenant, requireRole("viewer", "staff", "admin"), async
 });
 
 // POST /api/v1/purchase-order
-router.post("/", requireTenant, requireRole("staff", "admin"), async (req, res) => {
+router.post("/", requireTenant, requireCapability("replenishment_request"), async (req, res) => {
   try {
     const orgId = (req as any).orgId;
     await validateDto(req.body, CreatePurchaseOrderDto);
@@ -168,7 +168,7 @@ router.delete("/:id", requireTenant, requireRole("admin"), async (req, res) => {
 });
 
 // POST /api/v1/purchase-order/:id/receive
-router.post("/:id/receive", requireTenant, requireRole("staff", "admin"), async (req, res) => {
+router.post("/:id/receive", requireTenant, requireCapability("receive_stock"), async (req, res) => {
   try {
     const orgId = (req as any).orgId;
     const { receptions } = req.body;

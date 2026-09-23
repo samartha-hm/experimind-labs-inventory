@@ -1,7 +1,7 @@
 import { Router, Request, Response } from "express";
 import { WmsOperationService } from "../../services/WmsOperationService.ts";
 import { authenticateJwt } from "../../middleware/auth.ts";
-import { requireRole } from "../../middleware/requireRole.ts";
+import { requireCapability, requireRole } from "../../middleware/requireRole.ts";
 
 export const wmsOperationsRouter = Router();
 
@@ -11,7 +11,7 @@ export const wmsOperationsRouter = Router();
 wmsOperationsRouter.post(
   "/receive-po/:poId",
   authenticateJwt,
-  requireRole("admin", "staff"),
+  requireCapability("receive_stock"),
   async (req: Request, res: Response) => {
     try {
       const { poId } = req.params;
@@ -47,7 +47,7 @@ wmsOperationsRouter.post(
 wmsOperationsRouter.post(
   "/fulfill-so/:soId",
   authenticateJwt,
-  requireRole("admin", "staff"),
+  requireCapability("fulfill_orders"),
   async (req: Request, res: Response) => {
     try {
       const { soId } = req.params;
@@ -96,7 +96,7 @@ wmsOperationsRouter.get("/transfers", authenticateJwt, async (req: Request, res:
 wmsOperationsRouter.post(
   "/transfers",
   authenticateJwt,
-  requireRole("admin", "staff"),
+  requireCapability("transfer_stock"),
   async (req: Request, res: Response) => {
     try {
       const orgId = req.user?.orgId || "00000000-0000-0000-0000-000000000000";
@@ -118,7 +118,7 @@ wmsOperationsRouter.post(
 wmsOperationsRouter.post(
   "/transfers/:transferId/dispatch",
   authenticateJwt,
-  requireRole("admin", "staff"),
+  requireCapability("transfer_stock"),
   async (req: Request, res: Response) => {
     try {
       const { transferId } = req.params;
@@ -142,7 +142,7 @@ wmsOperationsRouter.post(
 wmsOperationsRouter.post(
   "/transfers/:transferId/receive",
   authenticateJwt,
-  requireRole("admin", "staff"),
+  requireCapability("receive_stock"),
   async (req: Request, res: Response) => {
     try {
       const { transferId } = req.params;
@@ -172,7 +172,7 @@ wmsOperationsRouter.get("/cycle-counts", authenticateJwt, async (req: Request, r
 wmsOperationsRouter.post(
   "/cycle-counts",
   authenticateJwt,
-  requireRole("admin", "staff"),
+  requireCapability("adjust_stock"),
   async (req: Request, res: Response) => {
     try {
       const orgId = req.user?.orgId || "00000000-0000-0000-0000-000000000000";
@@ -194,7 +194,7 @@ wmsOperationsRouter.post(
 wmsOperationsRouter.post(
   "/cycle-counts/:auditId/submit",
   authenticateJwt,
-  requireRole("admin", "staff"),
+  requireCapability("adjust_stock"),
   async (req: Request, res: Response) => {
     try {
       const { auditId } = req.params;
@@ -256,4 +256,3 @@ wmsOperationsRouter.post(
     }
   }
 );
-

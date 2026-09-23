@@ -1,7 +1,7 @@
 import { Router, Request, Response } from "express";
 import { StockLedgerService } from "../../services/StockLedgerService.ts";
 import { authenticateJwt } from "../../middleware/auth.ts";
-import { requireRole } from "../../middleware/requireRole.ts";
+import { requireCapability, requireRole } from "../../middleware/requireRole.ts";
 
 export const stockLedgerRouter = Router();
 
@@ -39,7 +39,7 @@ stockLedgerRouter.get("/valuation", authenticateJwt, async (req: Request, res: R
 });
 
 // 3. Post Manual Adjustment Entry
-stockLedgerRouter.post("/adjust", authenticateJwt, requireRole("admin", "staff"), async (req: Request, res: Response) => {
+stockLedgerRouter.post("/adjust", authenticateJwt, requireCapability("adjust_stock"), async (req: Request, res: Response) => {
   try {
     const { itemId, qtyDelta, binLocation, reasonCode, notes } = req.body;
     if (!itemId || qtyDelta === undefined || !reasonCode) {
