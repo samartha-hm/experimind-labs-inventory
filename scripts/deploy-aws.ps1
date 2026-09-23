@@ -19,9 +19,13 @@ if (-not (Test-Path -LiteralPath $KeyFile -PathType Leaf)) {
 # 1. Run local build
 Write-Host "`n[1/5] Building frontend & server bundle locally..." -ForegroundColor Yellow
 npm run build
+if ($LASTEXITCODE -ne 0) { throw "Application build failed." }
 Write-Host "`n[1.5/5] Building Next.js Storefront..." -ForegroundColor Yellow
 Push-Location apps/storefront
+npm install --no-audit
+if ($LASTEXITCODE -ne 0) { Pop-Location; throw "Storefront dependency installation failed." }
 npm run build
+if ($LASTEXITCODE -ne 0) { Pop-Location; throw "Storefront build failed." }
 Pop-Location
 
 # 2. Package required deployment files
@@ -90,7 +94,13 @@ pm2 logs --nostream --lines 80
 exit 1
 '@
 
-ssh -o StrictHostKeyChecking=no -i $KeyFile "${User}@${ServerIP}" "$remoteScript"
+$remoteScriptBytes = [System.Text.Encoding]::UTF8.GetBytes($remoteScript)
+$remoteScriptBase64 = [Convert]::ToBase64String($remoteScriptBytes)
+ssh -o StrictHostKeyChecking=no -i $KeyFile "${User}@${ServerIP}" "echo $remoteScriptBase64 | base64 -d | bash"
+if ($LASTEXITCODE -ne 0) {
+    if (Test-Path $tarFile) { Remove-Item $tarFile -Force }
+    throw "AWS deployment failed during remote setup or health checks."
+}
 
 # Clean up local archive
 if (Test-Path $tarFile) { Remove-Item $tarFile -Force }
