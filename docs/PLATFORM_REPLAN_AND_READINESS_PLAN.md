@@ -1,11 +1,11 @@
 # Experimind Labs Inventory Platform
 ## Current-State Assessment, Target Product Plan, and Readiness Roadmap
 
-**Document status:** Approved planning baseline  
-**Prepared:** 2026-09-23  
-**Repository:** `samartha-hm/experimind-labs-inventory`  
-**Production host:** AWS EC2 `13.233.142.180`  
-**Scope:** Product simplification and operational core rebuild  
+**Document status:** Approved planning baseline
+**Prepared:** 2026-09-23
+**Repository:** `samartha-hm/experimind-labs-inventory`
+**Production host:** AWS EC2 `13.233.142.180`
+**Scope:** Product simplification and operational core rebuild
 
 ---
 
@@ -703,4 +703,3 @@ The goal is not to maximize feature count. The goal is to make the correct inven
 - The existing PostgreSQL/TypeScript foundation is retained.
 - A phased rebuild is preferred over a risky rewrite.
 - Production data is preserved and migrated safely.
-
