@@ -2,8 +2,9 @@ import { Router } from "express";
 import { PurchaseOrderService } from "../../services/PurchaseOrderService";
 import { validate, IsString, IsOptional, IsUUID, IsDateString, IsEnum, IsInt, Min, IsArray } from "class-validator";
 import { plainToInstance } from "class-transformer";
-import { requireCapability, requireRole } from "../../middleware/requireRole.ts";
+import { normalizeCoreRole, requireCapability, requireRole } from "../../middleware/requireRole.ts";
 import { requireTenant } from "../../middleware/tenant.ts";
+import { getReplenishmentRequestStatus } from "../../services/replenishmentRequestPolicy.ts";
 
 const router = Router();
 const service = new PurchaseOrderService();
@@ -122,6 +123,10 @@ router.post("/", requireTenant, requireCapability("replenishment_request"), asyn
 
     const processedData = {
       ...poData,
+      status: getReplenishmentRequestStatus(
+        normalizeCoreRole(req.user?.role),
+        poData.status,
+      ),
       order_date: new Date(poData.order_date),
       expected_date: poData.expected_date ? new Date(poData.expected_date) : undefined
     };

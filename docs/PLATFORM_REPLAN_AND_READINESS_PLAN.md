@@ -32,7 +32,7 @@ Backend authorization now preserves existing user records through explicit alias
 |---|---|---|
 | Admin | `admin`, `super_admin` | Full operational and administration access |
 | Inventory Staff | `staff`, `manager`, `editor`, `warehouse_staff`, `procurement` | Receiving, stock adjustment, transfers, replenishment execution, and fulfillment |
-| Project Staff | `viewer`, `observer`, `guest`, `employee`, `member`, `user`, `intern` | Read operational data and create replenishment requests; cannot receive, adjust, transfer, pick, pack, or dispatch |
+| Project Staff | `viewer`, `observer`, `guest`, `employee`, `member`, `user`, `intern` | Read operational data and create draft replenishment requests; cannot approve/send requests, receive, adjust, transfer, pick, pack, or dispatch |
 
 The alias policy is intentionally reversible. It avoids rewriting historical role
 data until route-level authorization and production fixtures have been verified.
