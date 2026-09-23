@@ -1,4 +1,5 @@
 import { InventoryItem, KitBOM } from '@/src/types';
+import { summarizeReplenishmentOrder, ReplenishmentOrder } from '../procurement/replenishmentStatus';
 
 export interface OperationsQueue {
   lowStock: number;
@@ -8,17 +9,20 @@ export interface OperationsQueue {
   total: number;
 }
 
-const openPurchaseStatuses = new Set(['DRAFT', 'ORDERED', 'PENDING', 'PENDING_APPROVAL', 'PARTIALLY_RECEIVED']);
 const openSalesStatuses = new Set(['DRAFT', 'CONFIRMED', 'PROCESSING', 'PACKED', 'BACKORDERED']);
 
 export function buildOperationsQueue(
   inventory: InventoryItem[],
-  purchaseOrders: Array<{ status?: string | null }>,
+  purchaseOrders: ReplenishmentOrder[],
   salesOrders: Array<{ status?: string | null }>,
   kits: KitBOM[],
+  today = new Date(),
 ): OperationsQueue {
   const lowStock = inventory.filter((item) => !item.isCommon && item.stockQty < item.threshold).length;
-  const replenishment = purchaseOrders.filter((order) => openPurchaseStatuses.has(order.status?.toUpperCase() ?? '')).length;
+  const replenishment = purchaseOrders.filter((order) => {
+    const status = summarizeReplenishmentOrder(order, today).status;
+    return status !== 'received' && status !== 'cancelled';
+  }).length;
   const fulfillment = salesOrders.filter((order) => openSalesStatuses.has(order.status?.toUpperCase() ?? '')).length;
   const projects = kits.length;
 

@@ -27,6 +27,7 @@ import SmartSelect from '@/src/shared/components/SmartSelect';
 import POReceivingModal from '@/src/features/procurement/components/POReceivingModal';
 import { useData } from '@/src/DataContext';
 import { useApproval } from '@/src/contexts/ApprovalContext';
+import { summarizeReplenishmentOrder } from '@/src/features/procurement/replenishmentStatus';
 
 interface PurchaseOrdersTabProps {
   role: string | null;
@@ -115,9 +116,20 @@ export default function PurchaseOrdersTab({ role }: PurchaseOrdersTabProps) {
     const matchesSearch =
       o.poNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
       o.vendorName.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = statusFilter === 'all' || o.status === statusFilter;
+    const matchesStatus = statusFilter === 'all' || summarizeReplenishmentOrder(o).status === statusFilter;
     return matchesSearch && matchesStatus;
   });
+
+  const getSummary = (po: any) => summarizeReplenishmentOrder(po);
+  const statusLabels: Record<string, string> = {
+    draft: 'Draft',
+    ordered: 'Ordered',
+    in_transit: 'In transit',
+    partially_received: 'Partial',
+    backordered: 'Backordered',
+    received: 'Received',
+    cancelled: 'Cancelled',
+  };
 
   return (
     <div className="space-y-6 w-full">
@@ -172,7 +184,7 @@ export default function PurchaseOrdersTab({ role }: PurchaseOrdersTabProps) {
       {/* Filter bar */}
       <div className="bg-white/80 backdrop-blur-md p-4 rounded-3xl border border-slate-200/60 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex items-center gap-2 overflow-x-auto pb-1">
-          {['all', 'draft', 'approved', 'received'].map((st) => (
+          {['all', 'draft', 'ordered', 'in_transit', 'partially_received', 'backordered', 'received'].map((st) => (
             <button
               key={st}
               onClick={() => setStatusFilter(st)}
@@ -182,7 +194,7 @@ export default function PurchaseOrdersTab({ role }: PurchaseOrdersTabProps) {
                   : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
               }`}
             >
-              {st} Orders
+              {st === 'all' ? 'All' : statusLabels[st]}
             </button>
           ))}
         </div>
@@ -247,23 +259,39 @@ export default function PurchaseOrdersTab({ role }: PurchaseOrdersTabProps) {
               <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
                 <span className="text-base font-black text-slate-900 font-mono">₹{po.totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
                 <div className="flex items-center gap-1.5">
-                  <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
-                    po.status === 'received' ? 'bg-emerald-100 text-emerald-800' : po.status === 'approved' ? 'bg-blue-100 text-blue-800' : 'bg-slate-100 text-slate-600'
-                  }`}>
-                    {po.status}
-                  </span>
-                  {po.status !== 'received' && (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setReceivingPo(po);
-                      }}
-                      className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-[10px] font-bold flex items-center gap-1 cursor-pointer shadow-xs"
-                      title="Dock Receive Goods"
-                    >
-                      <PackageCheck className="w-3 h-3" /> Receive
-                    </button>
-                  )}
+                  {(() => {
+                    const summary = getSummary(po);
+                    const statusClass = summary.status === 'received'
+                      ? 'bg-emerald-100 text-emerald-800'
+                      : summary.status === 'backordered'
+                        ? 'bg-rose-100 text-rose-800'
+                        : summary.status === 'partially_received'
+                          ? 'bg-amber-100 text-amber-800'
+                          : 'bg-slate-100 text-slate-600';
+
+                    return (
+                      <>
+                        <span className="text-[10px] text-slate-500 font-medium">
+                          {summary.receivedQty}/{summary.orderedQty} received
+                        </span>
+                        <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${statusClass}`}>
+                          {statusLabels[summary.status]}
+                        </span>
+                        {summary.status !== 'received' && summary.status !== 'cancelled' && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setReceivingPo(po);
+                            }}
+                            className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-[10px] font-bold flex items-center gap-1 cursor-pointer shadow-xs"
+                            title="Dock Receive Goods"
+                          >
+                            <PackageCheck className="w-3 h-3" /> Receive
+                          </button>
+                        )}
+                      </>
+                    );
+                  })()}
                 </div>
               </div>
             </div>
@@ -291,13 +319,18 @@ export default function PurchaseOrdersTab({ role }: PurchaseOrdersTabProps) {
                   <td className="p-4 text-slate-600">{po.orderDate}</td>
                   <td className="p-4 text-slate-600">{po.expectedDate}</td>
                   <td className="p-4">
-                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase bg-slate-100 text-slate-700">
-                      {po.status}
-                    </span>
+                    {(() => {
+                      const summary = getSummary(po);
+                      return (
+                        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase bg-slate-100 text-slate-700">
+                          {statusLabels[summary.status]} · {summary.receivedQty}/{summary.orderedQty}
+                        </span>
+                      );
+                    })()}
                   </td>
                   <td className="p-4 font-mono font-bold text-slate-900">₹{po.totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
                   <td className="p-4 text-right space-x-1.5 whitespace-nowrap">
-                    {po.status !== 'received' && (
+                    {getSummary(po).status !== 'received' && getSummary(po).status !== 'cancelled' && (
                       <button
                         onClick={() => setReceivingPo(po)}
                         className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-[10px] font-bold inline-flex items-center gap-1 cursor-pointer shadow-xs"

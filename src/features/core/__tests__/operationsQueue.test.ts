@@ -31,4 +31,20 @@ describe('buildOperationsQueue', () => {
       total: 0,
     });
   });
+
+  it('counts normalized in-transit replenishment as actionable work', () => {
+    const queue = buildOperationsQueue(
+      [],
+      [{
+        status: 'sent',
+        expectedDate: '2026-09-30',
+        items: [{ quantity: 10, receivedQty: 0 }],
+      }],
+      [],
+      [],
+      new Date('2026-09-23T00:00:00Z'),
+    );
+
+    expect(queue.replenishment).toBe(1);
+  });
 });
