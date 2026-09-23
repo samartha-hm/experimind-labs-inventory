@@ -12,6 +12,10 @@ Write-Host " 🚀 EXPERIMIND LABS - AWS PRODUCTION DEPLOYMENT PIPELINE " -Foregr
 Write-Host " Target Server: $User@$ServerIP" -ForegroundColor Cyan
 Write-Host "==========================================================" -ForegroundColor Cyan
 
+if (-not (Test-Path -LiteralPath $KeyFile -PathType Leaf)) {
+    throw "SSH key was not found: $KeyFile"
+}
+
 # 1. Run local build
 Write-Host "`n[1/5] Building frontend & server bundle locally..." -ForegroundColor Yellow
 npm run build
@@ -57,19 +61,33 @@ npm run build
 cd $APP_DIR
 
 echo "Running TypeORM database migrations..."
-npm run db:migrate || true
+npm run db:migrate
 
 echo "Seeding Admin user and Real Experimind Catalog..."
-npm run bootstrap:admin || true
-npm run db:seed:real || true
+npm run bootstrap:admin
+npm run db:seed:real
 
 echo "Starting / Reloading PM2 process..."
-pm2 delete all || true
-pm2 start ecosystem.config.cjs
+pm2 startOrReload ecosystem.config.cjs --update-env
 pm2 save
 
 echo "Checking running PM2 status..."
 pm2 status
+
+echo "Checking application health endpoints..."
+for attempt in 1 2 3 4 5 6 7 8 9 10; do
+  if curl --fail --silent --show-error http://127.0.0.1:3000/health >/dev/null &&
+     curl --fail --silent --show-error http://127.0.0.1:3001 >/dev/null; then
+    echo "Application health checks passed."
+    exit 0
+  fi
+  sleep 3
+done
+
+echo "Application health checks failed."
+pm2 status
+pm2 logs --nostream --lines 80
+exit 1
 '@
 
 ssh -o StrictHostKeyChecking=no -i $KeyFile "${User}@${ServerIP}" "$remoteScript"
