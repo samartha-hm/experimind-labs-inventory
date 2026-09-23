@@ -237,7 +237,8 @@ async function startServer() {
   // Hardware & Electronics Lab Extensions
   app.use(["/api/v1/bom", "/api/bom"], authenticateJwt, requireTenant, bomRoutes);
   app.use(["/api/v1/hardware", "/api/hardware"], authenticateJwt, requireTenant, hardwareRoutes);
-  app.use(["/api/v1/cart", "/api/public/cart"], cartReservationRoutes);
+  app.use("/api/v1/cart", authenticateJwt, requireTenant, cartReservationRoutes);
+  app.use("/api/public/cart", cartReservationRoutes);
   app.use(["/api/v1/qc", "/api/qc"], qcRouter);
   app.use(["/api/v1/traceability", "/api/traceability"], traceabilityRouter);
   app.use(["/api/v1/production", "/api/production"], productionRouter);

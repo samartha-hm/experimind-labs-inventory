@@ -2,6 +2,7 @@ import { AppDataSource } from "../db.ts";
 import { InventoryItem } from "../entity/InventoryItem.ts";
 import { StockLedger } from "../entity/StockLedger.ts";
 import { RealTimeEventService } from "./RealTimeEventService.ts";
+import { validateReservationQuantity, validateReservationTtl } from "./cartReservationPolicy.ts";
 
 export interface SoftLockReservation {
   id: string;
@@ -65,12 +66,13 @@ export class CartReservationService {
     ttlMinutes?: number;
   }): Promise<{ success: boolean; reservation: SoftLockReservation; availableStock: number }> {
     const orgId = params.organizationId || "00000000-0000-0000-0000-000000000000";
-    const ttl = params.ttlMinutes || this.DEFAULT_TTL_MINUTES;
+    const quantity = validateReservationQuantity(Number(params.quantity));
+    const ttl = validateReservationTtl(Number(params.ttlMinutes || this.DEFAULT_TTL_MINUTES));
 
     this.cleanupExpiredReservations();
 
     const itemRepo = AppDataSource.getRepository(InventoryItem);
-    const item = await itemRepo.findOne({ where: { id: params.itemId } });
+    const item = await itemRepo.findOne({ where: { id: params.itemId, organization_id: orgId } });
     if (!item) {
       throw new Error(`Item ${params.itemId} not found`);
     }
@@ -79,9 +81,9 @@ export class CartReservationService {
     const activeReservedQty = this.getActiveReservedQuantity(params.itemId, params.cartId);
     const availableStock = currentOnHand - activeReservedQty;
 
-    if (params.quantity > availableStock) {
+    if (quantity > availableStock) {
       throw new Error(
-        `Insufficient available stock for ${item.name} (${item.sku}). On-hand: ${currentOnHand}, Reserved in other carts: ${activeReservedQty}, Available: ${availableStock}, Requested: ${params.quantity}`
+        `Insufficient available stock for ${item.name} (${item.sku}). On-hand: ${currentOnHand}, Reserved in other carts: ${activeReservedQty}, Available: ${availableStock}, Requested: ${quantity}`
       );
     }
 
@@ -95,7 +97,7 @@ export class CartReservationService {
       cartId: params.cartId,
       itemId: params.itemId,
       itemSku: item.sku,
-      quantity: params.quantity,
+      quantity,
       reservedAt: now,
       expiresAt,
     };
@@ -103,12 +105,12 @@ export class CartReservationService {
     this.softLocks.set(lockKey, reservation);
 
     // Broadcast updated available balance via SSE
-    RealTimeEventService.broadcastStockUpdate(orgId, item.id, availableStock - params.quantity, item.bin_location);
+    RealTimeEventService.broadcastStockUpdate(orgId, item.id, availableStock - quantity, item.bin_location);
 
     return {
       success: true,
       reservation,
-      availableStock: availableStock - params.quantity,
+      availableStock: availableStock - quantity,
     };
   }
 
