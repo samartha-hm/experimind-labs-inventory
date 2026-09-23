@@ -45,6 +45,7 @@ Write-Host "`n[4/5] Running environment setup & deploying application on remote 
 $remoteScript = @'
 set -e
 chmod +x /home/admin/setup-aws.sh
+sed -i 's/\r$//' /home/admin/setup-aws.sh
 /home/admin/setup-aws.sh
 
 APP_DIR="/home/admin/experimind-inventory"
@@ -94,6 +95,7 @@ pm2 logs --nostream --lines 80
 exit 1
 '@
 
+$remoteScript = $remoteScript -replace "`r`n", "`n"
 $remoteScriptBytes = [System.Text.Encoding]::UTF8.GetBytes($remoteScript)
 $remoteScriptBase64 = [Convert]::ToBase64String($remoteScriptBytes)
 ssh -o StrictHostKeyChecking=no -i $KeyFile "${User}@${ServerIP}" "echo $remoteScriptBase64 | base64 -d | bash"
