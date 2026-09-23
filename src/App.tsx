@@ -337,7 +337,7 @@ function MainApp() {
                   kits={kits}
                   selectedKitId={selectedKitId}
                   setSelectedKitId={setSelectedKitId}
-                  onNavigateToTab={setActiveTab}
+                  onNavigateToTab={handleNavigateTab}
                   onCreateKitClick={() => setIsCreateKitModalOpen(true)}
                   onOpenBarcodeScanner={() => setIsBarcodeScannerOpen(true)}
                   onOpenBarcodeStudio={() => setIsBarcodeStudioOpen(true)}
@@ -367,7 +367,7 @@ function MainApp() {
                 <ProjectPortfolioManagerTab
                   onNavigateToTab={(tabId, params) => {
                     if (params) setProjectNavParams(params);
-                    setActiveTab(tabId);
+                    handleNavigateTab(tabId);
                   }}
                 />
               )}
@@ -378,7 +378,7 @@ function MainApp() {
                   initialGrade={projectNavParams.grade}
                   onNavigateToTab={(tabId, params) => {
                     if (params) setProjectNavParams(params);
-                    setActiveTab(tabId);
+                    handleNavigateTab(tabId);
                   }}
                 />
               )}
@@ -387,7 +387,7 @@ function MainApp() {
                 <StickerMonitoringHubTab
                   onNavigateToTab={(tabId, params) => {
                     if (params) setProjectNavParams(params);
-                    setActiveTab(tabId);
+                    handleNavigateTab(tabId);
                   }}
                 />
               )}
