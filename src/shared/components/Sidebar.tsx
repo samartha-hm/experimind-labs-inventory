@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
 import {
   LayoutDashboard,
+  Settings,
   Box,
   Package,
   ShoppingBag,
@@ -31,6 +32,7 @@ import {
   FolderKanban,
   QrCode,
   X,
+  TrendingUp,
 } from 'lucide-react';
 
 import { useApproval } from '@/src/contexts/ApprovalContext';
@@ -63,6 +65,7 @@ export default function Sidebar({
   const { user } = useAuth();
   const { pendingCount } = useApproval();
   const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [isMoreToolsOpen, setIsMoreToolsOpen] = useState(false);
   const touchStartX = useRef<number | null>(null);
 
   const handleTouchStart = (e: React.TouchEvent) => {
@@ -79,68 +82,68 @@ export default function Sidebar({
     touchStartX.current = null;
   };
 
-  const sections = [
+  const coreSections = [
     {
-      title: 'OPERATIONAL COMMAND',
+      title: 'OPERATIONS',
       items: [
-        { id: 'overview', label: 'Executive Cockpit', icon: <LayoutDashboard className="w-4 h-4" /> },
-        { id: 'projects_hub', label: 'Projects & Portfolio Hub', icon: <FolderKanban className="w-4 h-4" />, badge: 'P&L', badgeColor: 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30' },
-        { id: 'sales_orders', label: 'Sales & Dispatches', icon: <PackageCheck className="w-4 h-4" />, badge: openSoCount > 0 ? `${openSoCount}` : undefined, badgeColor: 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30' },
-        { id: 'shop', label: 'Storefront Channel Hub', icon: <ShoppingBag className="w-4 h-4" />, badge: 'Live', badgeColor: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' },
+        { id: 'overview', label: 'Operations overview', icon: <LayoutDashboard className="w-4 h-4" /> },
+        { id: 'projects_hub', label: 'Projects & Prastuti', icon: <FolderKanban className="w-4 h-4" /> },
+        { id: 'production_command', label: 'Preparation work queue', icon: <Factory className="w-4 h-4" /> },
+        { id: 'sticker_hub', label: 'Labels & verification', icon: <QrCode className="w-4 h-4" /> },
       ],
     },
     {
-      title: 'INVENTORY & TOPOLOGY',
+      title: 'INVENTORY & FULFILLMENT',
       items: [
         {
           id: 'inventory',
-          label: 'Items & Stock Catalog',
+          label: 'Items & stock',
           icon: <Box className="w-4 h-4" />,
           badge: lowStockCount > 0 ? `${lowStockCount} low` : undefined,
           badgeColor: 'bg-amber-500/20 text-amber-300 border-amber-500/30',
         },
-        { id: 'warehouses', label: 'Warehouses & Bins', icon: <Warehouse className="w-4 h-4" /> },
-        { id: 'stock_transfer', label: 'Stock Transfers (WMS)', icon: <ArrowRightLeft className="w-4 h-4" /> },
-        { id: 'cycle_counts', label: 'Physical Cycle Counts', icon: <FileCheck2 className="w-4 h-4" /> },
-        { id: 'serial_numbers', label: 'Serial Number Registry', icon: <Tag className="w-4 h-4" /> },
-        { id: 'batch_expiry', label: 'Batch & Expiry Manager', icon: <Clock className="w-4 h-4" /> },
+        { id: 'kitting', label: 'Kit assembly', icon: <Package className="w-4 h-4" /> },
+        { id: 'warehouses', label: 'Warehouses & bins', icon: <Warehouse className="w-4 h-4" /> },
+        { id: 'stock_transfer', label: 'Stock transfers', icon: <ArrowRightLeft className="w-4 h-4" /> },
+        { id: 'purchase_orders', label: 'Purchase orders', icon: <Building2 className="w-4 h-4" />, badge: openPoCount > 0 ? `${openPoCount}` : undefined, badgeColor: 'bg-blue-500/20 text-blue-300 border-blue-500/30' },
+        { id: 'sales_orders', label: 'Sales & dispatches', icon: <PackageCheck className="w-4 h-4" />, badge: openSoCount > 0 ? `${openSoCount}` : undefined, badgeColor: 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30' },
       ],
     },
     {
-      title: 'MANUFACTURING & KITTING (BOM)',
+      title: 'PEOPLE & PARTNERS',
       items: [
-        { id: 'production_command', label: 'Production & Sourcing Matrix', icon: <Factory className="w-4 h-4" />, badge: 'Top 1%', badgeColor: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' },
-        { id: 'sticker_hub', label: 'Sticker & Labeling Hub', icon: <QrCode className="w-4 h-4" />, badge: '3-Tier', badgeColor: 'bg-purple-500/20 text-purple-300 border-purple-500/30' },
-        { id: 'kitting', label: 'Composite Kits (STEM Packs)', icon: <Package className="w-4 h-4" />, badge: 'Kits', badgeColor: 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30' },
-        { id: 'pcba_bom', label: 'Recursive PCBA BOM & CAD', icon: <Layers className="w-4 h-4" />, badge: 'EDA', badgeColor: 'bg-purple-500/20 text-purple-300 border-purple-500/30' },
-        { id: 'hardware_workbench', label: 'Component Workbench (SMD/THT)', icon: <Cpu className="w-4 h-4" />, badge: 'SMT', badgeColor: 'bg-cyan-500/20 text-cyan-300 border-cyan-500/30' },
+        { id: 'vendors', label: 'Suppliers & schools', icon: <Users className="w-4 h-4" /> },
       ],
-    },
+    }
+  ];
+
+  const advancedSections = [
     {
-      title: 'PROCUREMENT & PARTNERS',
+      title: 'MORE TOOLS',
       items: [
-        { id: 'purchase_orders', label: 'Inbound POs', icon: <Building2 className="w-4 h-4" />, badge: openPoCount > 0 ? `${openPoCount}` : undefined, badgeColor: 'bg-blue-500/20 text-blue-300 border-blue-500/30' },
-        { id: 'vendors', label: 'Suppliers & Schools', icon: <Users className="w-4 h-4" /> },
+        { id: 'shop', label: 'Storefront channel', icon: <ShoppingBag className="w-4 h-4" />, badge: 'Live', badgeColor: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' },
+        { id: 'batch_expiry', label: 'Batch & expiry', icon: <Clock className="w-4 h-4" /> },
+        { id: 'serial_numbers', label: 'Serial numbers', icon: <Tag className="w-4 h-4" /> },
+        { id: 'stock_ledger', label: 'Stock ledger', icon: <History className="w-4 h-4" /> },
+        { id: 'valuation', label: 'Asset valuation', icon: <Coins className="w-4 h-4" /> },
+        { id: 'gst', label: 'Tax invoices', icon: <FileText className="w-4 h-4" /> },
+        { id: 'qms_suite', label: 'Quality suite', icon: <ShieldCheck className="w-4 h-4" /> },
+        { id: 'approval_center', label: 'Approval center', icon: <Shield className="w-4 h-4" />, badge: pendingCount > 0 ? `${pendingCount}` : undefined, badgeColor: 'bg-amber-500/30 text-amber-300 border-amber-500/40' },
+        { id: 'audit_verifier', label: 'Audit verification', icon: <Lock className="w-4 h-4" /> },
+        { id: 'user_directory', label: 'Team & permissions', icon: <Users className="w-4 h-4" /> },
+        { id: 'compliance', label: 'Security settings', icon: <ShieldCheck className="w-4 h-4" /> },
+        { id: 'analytics', label: 'Predictive analytics', icon: <TrendingUp className="w-4 h-4" /> },
+        { id: 'copilot', label: 'AI assistant', icon: <Sparkles className="w-4 h-4" /> },
+        { id: 'hardware_workbench', label: 'Component workbench', icon: <Cpu className="w-4 h-4" /> },
+        { id: 'pcba_bom', label: 'PCBA BOM & CAD', icon: <Layers className="w-4 h-4" /> },
+        { id: 'floor_plan', label: 'Floor plan designer', icon: <Warehouse className="w-4 h-4" /> },
+        { id: 'warehouse_heatmap', label: 'Warehouse heatmap', icon: <Warehouse className="w-4 h-4" /> },
+        { id: 'warehouse_3d', label: '3D warehouse view', icon: <Warehouse className="w-4 h-4" /> },
+        { id: 'warehouse_floor', label: 'Floor operator mode', icon: <Warehouse className="w-4 h-4" /> },
+        { id: 'history', label: 'Revision history', icon: <History className="w-4 h-4" /> },
+        { id: 'automations', label: 'Automations', icon: <Settings className="w-4 h-4" /> },
       ],
-    },
-    {
-      title: 'LEDGER & VALUATION',
-      items: [
-        { id: 'stock_ledger', label: 'Immutable Stock Ledger', icon: <History className="w-4 h-4" /> },
-        { id: 'valuation', label: 'FIFO Asset Valuation', icon: <Coins className="w-4 h-4" /> },
-        { id: 'gst', label: 'Tax Invoices & Challans', icon: <FileText className="w-4 h-4" />, badge: 'GST', badgeColor: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' },
-      ],
-    },
-    {
-      title: 'GOVERNANCE & AUDIT',
-      items: [
-        { id: 'qms_suite', label: 'QMS Quality Suite', icon: <ShieldCheck className="w-4 h-4" />, badge: 'ISO/GMP', badgeColor: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' },
-        { id: 'audit_verifier', label: '21 CFR Part 11 Audit', icon: <Lock className="w-4 h-4" />, badge: 'SHA-256', badgeColor: 'bg-cyan-500/20 text-cyan-300 border-cyan-500/30' },
-        { id: 'user_directory', label: 'Team Directory & RBAC', icon: <Users className="w-4 h-4" />, badge: 'Users', badgeColor: 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30' },
-        { id: 'approval_center', label: 'Approval Center', icon: <Shield className="w-4 h-4" />, badge: pendingCount > 0 ? `${pendingCount}` : undefined, badgeColor: 'bg-amber-500/30 text-amber-300 border-amber-500/40' },
-        { id: 'compliance', label: 'Legacy Audit Logs', icon: <History className="w-4 h-4" /> },
-      ],
-    },
+    }
   ];
 
   return (
@@ -189,7 +192,7 @@ export default function Sidebar({
 
         {/* Navigation Sections */}
         <div className="flex-1 overflow-y-auto px-3 py-4 space-y-6 overscroll-contain [scrollbar-width:none]">
-          {sections.map((sec, idx) => (
+          {coreSections.map((sec, idx) => (
             <div key={idx} className="space-y-1">
               <h4 className="px-3 text-[10px] font-extrabold tracking-wider text-slate-400 dark:text-slate-500 uppercase">
                 {sec.title}
@@ -224,6 +227,54 @@ export default function Sidebar({
                               : item.badgeColor || 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700'
                           }`}
                         >
+                          {item.badge}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+          <button
+            type="button"
+            onClick={() => setIsMoreToolsOpen((open) => !open)}
+            className="w-full flex items-center justify-between px-3 py-2.5 min-h-[44px] rounded-xl text-xs font-bold text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-900/80 hover:text-slate-800 dark:hover:text-slate-200 transition-colors"
+            aria-expanded={isMoreToolsOpen}
+          >
+            <span className="flex items-center gap-2">
+              <Settings className="w-4 h-4" />
+              More tools
+            </span>
+            <ChevronRight className={`w-4 h-4 transition-transform ${isMoreToolsOpen ? 'rotate-90' : ''}`} />
+          </button>
+          {isMoreToolsOpen && advancedSections.map((sec, idx) => (
+            <div key={`advanced-${idx}`} className="space-y-1 pt-1">
+              <h4 className="px-3 text-[10px] font-extrabold tracking-wider text-slate-400 dark:text-slate-500 uppercase">
+                {sec.title}
+              </h4>
+              <div className="space-y-0.5 pt-1">
+                {sec.items.map((item) => {
+                  const isActive = activeTab === item.id;
+                  return (
+                    <button
+                      key={item.id}
+                      onClick={() => {
+                        setActiveTab(item.id);
+                        if (onCloseMobile) onCloseMobile();
+                      }}
+                      className={`w-full flex items-center justify-between px-3 py-2.5 min-h-[44px] rounded-xl text-xs font-semibold transition-all duration-150 cursor-pointer ${
+                        isActive
+                          ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/25 font-bold'
+                          : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-900/80 hover:text-slate-900 dark:hover:text-slate-200'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <span className={isActive ? 'text-white' : 'text-slate-400 dark:text-slate-500'}>{item.icon}</span>
+                        <span>{item.label}</span>
+                      </div>
+                      {item.badge && (
+                        <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full border ${isActive ? 'bg-white/20 text-white border-white/30' : item.badgeColor}`}>
                           {item.badge}
                         </span>
                       )}

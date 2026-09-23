@@ -78,6 +78,7 @@ import ImagePreviewModal from '../../shared/components/ImagePreviewModal';
 import ProcurementDispatchModal from '../../shared/components/ProcurementDispatchModal';
 import ImageUploadInput from '../../shared/components/ImageUploadInput';
 import ProductionLifecycleRibbon, { ProductionStage } from '../../shared/components/ProductionLifecycleRibbon';
+import { getProjectReadinessSummary } from '../../utils/projectReadiness';
 
 interface ProjectPortfolioManagerTabProps {
   onNavigateToTab?: (tabId: string, params?: any) => void;
@@ -406,6 +407,10 @@ export default function ProjectPortfolioManagerTab({ onNavigateToTab }: ProjectP
     });
     const percent = total > 0 ? Math.round((done / total) * 100) : 0;
     return { totalItems: total, completedItems: done, percent };
+  }, [selectedProject]);
+
+  const readinessSummary = useMemo(() => {
+    return selectedProject ? getProjectReadinessSummary(selectedProject) : null;
   }, [selectedProject]);
 
   // Helper Functions
@@ -1218,13 +1223,13 @@ export default function ProjectPortfolioManagerTab({ onNavigateToTab }: ProjectP
               <FileSpreadsheet className="w-4 h-4 text-emerald-400" /> Standard Template (.xlsx)
             </button>
 
-            {/* 📊 Import Spreadsheet */}
+            {/* Import is available inside the dispatch workspace, next to the generated work orders. */}
             <button
               onClick={() => setIsProjectDispatchModalOpen(true)}
               className="inline-flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white border border-slate-700 px-3.5 py-2.5 rounded-xl font-semibold text-xs shadow-sm transition-all cursor-pointer"
-              title="Import custom Prastuti Excel spreadsheet into project deliverables"
+              title="Open dispatch workspace for import, purchase, preparation, and delivery work orders"
             >
-              <Upload className="w-4 h-4 text-cyan-400" /> Import Sheet
+              <Zap className="w-4 h-4 text-cyan-400" /> Dispatch workspace
             </button>
 
             {/* + New Project */}
@@ -1548,6 +1553,59 @@ export default function ProjectPortfolioManagerTab({ onNavigateToTab }: ProjectP
               else if (stage === 3) setActiveProjectSubView('stickers');
             }}
           />
+
+          {readinessSummary && (
+            <section className="rounded-2xl border border-indigo-500/20 bg-indigo-950/20 p-4 space-y-3" aria-label="Project readiness monitor">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div>
+                  <h3 className="text-sm font-bold text-white">Preparation monitor</h3>
+                  <p className="text-xs text-slate-400">One view of what is ready and what the team should do next.</p>
+                </div>
+                <span className="text-lg font-black text-emerald-400 tabular-nums">{readinessSummary.readinessPercent}% ready</span>
+              </div>
+              <div className="h-2 rounded-full bg-slate-950 overflow-hidden">
+                <div className="h-full rounded-full bg-emerald-500 transition-all" style={{ width: `${readinessSummary.readinessPercent}%` }} />
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                <div className="rounded-xl bg-slate-950/60 border border-slate-800 px-3 py-2">
+                  <div className="text-[10px] uppercase tracking-wide text-slate-500">Ready / packed</div>
+                  <div className="text-sm font-bold text-emerald-300">{readinessSummary.readyItems + readinessSummary.packedItems}</div>
+                </div>
+                <div className="rounded-xl bg-slate-950/60 border border-slate-800 px-3 py-2">
+                  <div className="text-[10px] uppercase tracking-wide text-slate-500">Needs prep</div>
+                  <div className="text-sm font-bold text-amber-300">{readinessSummary.inPrepItems + readinessSummary.pendingItems}</div>
+                </div>
+                <div className="rounded-xl bg-slate-950/60 border border-slate-800 px-3 py-2">
+                  <div className="text-[10px] uppercase tracking-wide text-slate-500">Total deliverables</div>
+                  <div className="text-sm font-bold text-white">{readinessSummary.totalItems}</div>
+                </div>
+                <div className="rounded-xl bg-slate-950/60 border border-slate-800 px-3 py-2">
+                  <div className="text-[10px] uppercase tracking-wide text-slate-500">Active queues</div>
+                  <div className="text-sm font-bold text-indigo-300">{readinessSummary.nextActions.length}</div>
+                </div>
+              </div>
+              {readinessSummary.nextActions.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {readinessSummary.nextActions.map((action) => (
+                    <button
+                      key={action.channel}
+                      type="button"
+                      onClick={() => {
+                        setActiveProjectSubView('deliverables');
+                        setSelectedItemSourcing(action.channel);
+                        setSelectedItemStatus('ALL');
+                        setActiveClassId(selectedProject.classes?.[0]?.id || '');
+                      }}
+                      className="inline-flex items-center gap-1.5 rounded-full border border-slate-700 bg-slate-950/70 px-3 py-1.5 text-[11px] font-semibold text-slate-200 hover:border-indigo-400 hover:text-white transition-colors"
+                    >
+                      <span>{action.label}</span>
+                      <span className="rounded-full bg-indigo-500/20 px-1.5 text-indigo-300">{action.count}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </section>
+          )}
 
           {/* ===== Integrated Navigation Sub-Tabs Bar ===== */}
           <div className="flex items-center gap-2 border-b border-slate-800 pb-3 overflow-x-auto">

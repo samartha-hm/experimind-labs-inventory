@@ -15,6 +15,20 @@
 
 ---
 
+## 🎯 Product Operating Model
+
+The platform supports the complete Experimind Labs operation. **Prastuti is one important project workflow inside the platform**, not a separate product or the replacement for inventory control:
+
+1. **Operate** — use the overview for stock health, open work, purchasing, dispatch, and alerts.
+2. **Manage projects** — plan Prastuti and other institutional, hardware, and R&D projects with class-wise deliverables, batch quantities, and readiness queues.
+3. **Control inventory** — maintain the item catalog, stock ledger, warehouses, bins, transfers, lots, serials, and cycle counts.
+4. **Fulfil demand** — receive purchase orders, prepare kits, pick/pack/dispatch sales orders, and verify labels.
+5. **Govern the operation** — use valuation, GST, quality, approvals, audit, roles, analytics, integrations, and specialist hardware tools when required.
+
+The navigation keeps the daily operational paths visible and groups specialist tools under **More tools** to reduce clutter without removing platform capabilities. The project preparation monitor is read-only: it summarizes work items and opens the relevant queue; stock mutations, purchase orders, generated documents, and label changes remain explicit operator actions.
+
+---
+
 ## 🌐 Production Deployments & Domains
 
 - 🏢 **Platform ERP & WMS Cockpit**: [https://inventory.experimindlabs.com/](https://inventory.experimindlabs.com/)
@@ -32,7 +46,7 @@
 - **Mobile Bottom Navigation Bar (`MobileBottomNav`)**: Ergonomic thumb-friendly navigation with live badges and floating barcode scanner trigger.
 - **Micro-Animations & Skeletons**: Pure CSS `@keyframes shimmer` skeleton components (`SkeletonCard`, `SkeletonTable`, `SkeletonChart`) for seamless loading states.
 - **Contextual Empty States (`EmptyState`)**: Visual illustration presets with direct CTA action buttons for zero-state inventories, empty searches, and healthy replenishment.
-- **Design Tokens & Typography**: Inter typography family, HSL color tokens, and 100% theme consistency in both light and dark modes (`@custom-variant dark`).
+- **Design Tokens & Typography**: Inter typography family, HSL color tokens, and shared light/dark theme foundations (`@custom-variant dark`).
 
 ### 2. 💰 Core Valuation & Inventory Cost Accounting (FIFO & Moving Average)
 - **FIFO Cost Layers**: Real-time lot-based cost tracking that exhausts oldest cost layers first for accurate Cost of Goods Sold (COGS).
@@ -90,7 +104,7 @@ npm --prefix apps/storefront install
 # 2. Verify TypeScript types (Zero errors across entire project)
 npm run typecheck
 
-# 3. Run complete automated test suite (77 tests across 16 suites)
+# 3. Run the complete automated test suite
 npm test
 
 # 4. Start local development server (SPA + API backend)
