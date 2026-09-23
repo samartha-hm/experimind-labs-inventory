@@ -4,6 +4,7 @@ import {
   WorkItemSourcingChannel,
   WorkItemStatus
 } from '../data/projectsDataset';
+import { InventoryItem } from '../types';
 
 export interface ProjectReadinessSummary {
   totalItems: number;
@@ -18,6 +19,16 @@ export interface ProjectReadinessSummary {
     label: string;
     count: number;
   }>;
+}
+
+export interface ProjectInventoryShortage {
+  workItemId: string;
+  inventoryItemId: string;
+  name: string;
+  unit: string;
+  required: number;
+  available: number;
+  shortage: number;
 }
 
 const CHANNEL_LABELS: Record<WorkItemSourcingChannel, string> = {
@@ -47,6 +58,45 @@ function flattenItems(project: Project): ProjectWorkItem[] {
 
 function countByStatus(items: ProjectWorkItem[], status: WorkItemStatus): number {
   return items.filter((item) => item.status === status).length;
+}
+
+function normalizeName(value: string): string {
+  return value.trim().toLocaleLowerCase();
+}
+
+export function getProjectInventoryShortages(
+  project: Project,
+  inventory: InventoryItem[],
+): ProjectInventoryShortage[] {
+  const inventoryByName = new Map(
+    inventory.map((item) => [normalizeName(item.name), item]),
+  );
+
+  return flattenItems(project)
+    .filter((workItem) =>
+      workItem.sourcingChannel === 'IN_STOCK' &&
+      workItem.status !== 'READY' &&
+      workItem.status !== 'PACKED',
+    )
+    .flatMap((workItem) => {
+      const inventoryItem = inventoryByName.get(normalizeName(workItem.name));
+      if (!inventoryItem || inventoryItem.isCommon) return [];
+
+      const required = Math.max(0, Number(workItem.totalQuantity) || 0);
+      const available = Math.max(0, Number(inventoryItem.stockQty) || 0);
+      const shortage = Math.max(0, required - available);
+      return shortage > 0
+        ? [{
+            workItemId: workItem.id,
+            inventoryItemId: inventoryItem.id,
+            name: inventoryItem.name,
+            unit: workItem.unit || inventoryItem.unit,
+            required,
+            available,
+            shortage,
+          }]
+        : [];
+    });
 }
 
 export function getProjectReadinessSummary(project: Project): ProjectReadinessSummary {

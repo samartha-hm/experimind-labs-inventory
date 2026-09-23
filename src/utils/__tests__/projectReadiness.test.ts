@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { getProjectReadinessSummary } from '../projectReadiness';
+import { getProjectInventoryShortages, getProjectReadinessSummary } from '../projectReadiness';
 import { Project } from '../../data/projectsDataset';
 
 const project = {
@@ -40,5 +40,60 @@ describe('project readiness summary', () => {
     expect(summary.totalItems).toBe(0);
     expect(summary.readinessPercent).toBe(0);
     expect(summary.nextActions).toEqual([]);
+  });
+
+  it('turns in-stock project requirements into replenishment shortages', () => {
+    const shortageSummary = getProjectInventoryShortages(
+      {
+        ...project,
+        classes: [{
+          ...project.classes[0],
+          items: [{
+            ...project.classes[0].items[0],
+            status: 'PENDING',
+            totalQuantity: 8,
+          }],
+        }],
+      },
+      [{
+        id: 'inventory-1',
+        name: 'Slides',
+        category: 'Lab',
+        stockQty: 3,
+        unit: 'pcs',
+        threshold: 1,
+      }],
+    );
+
+    expect(shortageSummary).toEqual([{
+      workItemId: '1',
+      inventoryItemId: 'inventory-1',
+      name: 'Slides',
+      unit: 'pcs',
+      required: 8,
+      available: 3,
+      shortage: 5,
+    }]);
+  });
+
+  it('does not report completed or common-stock requirements as shortages', () => {
+    const summary = getProjectInventoryShortages(
+      {
+        ...project,
+        classes: [{
+          ...project.classes[0],
+          items: [
+            { ...project.classes[0].items[0], status: 'READY', totalQuantity: 20 },
+            { ...project.classes[0].items[0], id: 'common', status: 'PENDING', name: 'Common screws', totalQuantity: 20 },
+          ],
+        }],
+      },
+      [
+        { id: 'inventory-1', name: 'Slides', category: 'Lab', stockQty: 0, unit: 'pcs', threshold: 1 },
+        { id: 'inventory-2', name: 'Common screws', category: 'Hardware', stockQty: 0, unit: 'pcs', threshold: 1, isCommon: true },
+      ],
+    );
+
+    expect(summary).toEqual([]);
   });
 });

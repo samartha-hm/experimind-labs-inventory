@@ -78,7 +78,7 @@ import ImagePreviewModal from '../../shared/components/ImagePreviewModal';
 import ProcurementDispatchModal from '../../shared/components/ProcurementDispatchModal';
 import ImageUploadInput from '../../shared/components/ImageUploadInput';
 import ProductionLifecycleRibbon, { ProductionStage } from '../../shared/components/ProductionLifecycleRibbon';
-import { getProjectReadinessSummary } from '../../utils/projectReadiness';
+import { getProjectInventoryShortages, getProjectReadinessSummary } from '../../utils/projectReadiness';
 
 interface ProjectPortfolioManagerTabProps {
   onNavigateToTab?: (tabId: string, params?: any) => void;
@@ -412,6 +412,10 @@ export default function ProjectPortfolioManagerTab({ onNavigateToTab }: ProjectP
   const readinessSummary = useMemo(() => {
     return selectedProject ? getProjectReadinessSummary(selectedProject) : null;
   }, [selectedProject]);
+
+  const inventoryShortages = useMemo(() => {
+    return selectedProject ? getProjectInventoryShortages(selectedProject, inventory) : [];
+  }, [inventory, selectedProject]);
 
   // Helper Functions
   const refreshProjectsList = (selectId?: string) => {
@@ -1602,6 +1606,35 @@ export default function ProjectPortfolioManagerTab({ onNavigateToTab }: ProjectP
                       <span className="rounded-full bg-indigo-500/20 px-1.5 text-indigo-300">{action.count}</span>
                     </button>
                   ))}
+                </div>
+              )}
+              {inventoryShortages.length > 0 && (
+                <div className="rounded-xl border border-rose-500/30 bg-rose-500/10 p-3 space-y-2">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <div>
+                      <h4 className="text-xs font-bold text-rose-200">Inventory shortages blocking preparation</h4>
+                      <p className="text-[11px] text-rose-100/70">These in-stock requirements need replenishment before the project can be completed.</p>
+                    </div>
+                    {onNavigateToTab && (
+                      <button
+                        type="button"
+                        onClick={() => onNavigateToTab('purchase_orders')}
+                        className="shrink-0 rounded-lg border border-rose-300/40 px-2.5 py-1.5 text-[11px] font-bold text-rose-100 hover:bg-rose-500/20 transition-colors"
+                      >
+                        Open replenishment
+                      </button>
+                    )}
+                  </div>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    {inventoryShortages.map((shortage) => (
+                      <div key={`${shortage.workItemId}-${shortage.inventoryItemId}`} className="flex items-center justify-between rounded-lg bg-slate-950/50 px-3 py-2 text-[11px]">
+                        <span className="min-w-0 truncate font-semibold text-slate-200">{shortage.name}</span>
+                        <span className="ml-3 shrink-0 font-mono text-rose-200">
+                          short {shortage.shortage} {shortage.unit}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
             </section>
