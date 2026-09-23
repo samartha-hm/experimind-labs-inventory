@@ -59,6 +59,7 @@ import ProjectPortfolioManagerTab from '@/src/features/projects/ProjectPortfolio
 import StickerMonitoringHubTab from '@/src/features/stickers/StickerMonitoringHubTab';
 import ToastContainer from '@/src/components/ToastContainer';
 import MobileBottomNav from '@/src/shared/components/MobileBottomNav';
+import { canAccessTab, getDefaultWorkspaceTab } from '@/src/features/core/workspacePolicy';
 
 function MainApp() {
   const { inventory, kits, transactions, loading, addInventoryItem, updateInventoryItem, deleteInventoryItem, updateKitBOM, addKitBOM, deleteKitBOM, logTransaction, salesOrders = [] } = useData();
@@ -72,9 +73,9 @@ function MainApp() {
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search);
       const tabParam = params.get('tab');
-      if (tabParam) return tabParam;
+      if (tabParam && canAccessTab(role, tabParam)) return tabParam;
     }
-    return 'overview';
+    return getDefaultWorkspaceTab(role);
   });
   const [selectedKitId, setSelectedKitId] = useState<string>('all');
   const [isBOMModalOpen, setIsBOMModalOpen] = useState(false);
@@ -294,6 +295,9 @@ function MainApp() {
   }
 
   const handleNavigateTab = (tab: string) => {
+    if (!canAccessTab(role, tab)) {
+      return;
+    }
     setActiveTab(tab);
     setIsMobileMenuOpen(false);
   };
