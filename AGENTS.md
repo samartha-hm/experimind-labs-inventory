@@ -13,3 +13,11 @@ This document establishes the universal governance and operational guidelines fo
 - **Implement**: Follow TDD where applicable. Keep functions pure and modular.
 - **Verify**: Run automated tests, check lint rules, and review git diffs.
 - **Document**: Update relevant documentation when APIs or behavior change.
+
+## Copilot configuration
+- `.github/copilot-instructions.md` — repo-wide Copilot guidance: overview, commands, standards, hard boundaries.
+- `.github/instructions/` — path-scoped instruction files (backend, frontend, tests) applied via `applyTo` globs.
+- `.github/agents/` — custom Copilot agents (`code-reviewer`, `test-engineer`); select with `/agents`.
+- `.github/skills/` — skills auto-discovered by Copilot (`verify-changes`).
+- `.github/prompts/` — reusable prompts (`investigate`); pick via the prompt picker.
+- `.github/workflows/copilot-setup-steps.yml` — environment setup for the Copilot coding agent (effective once merged to the default branch).
