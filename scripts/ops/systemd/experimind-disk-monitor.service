@@ -5,4 +5,6 @@ Description=Experimind Labs Inventory - root filesystem usage monitor
 Type=oneshot
 User=admin
 Group=admin
+# Exit 1 (warning) is an expected, logged state - only exit 2 (critical) is a failure.
+SuccessExitStatus=1
 ExecStart=/home/admin/experimind-inventory/scripts/ops/disk-monitor.sh

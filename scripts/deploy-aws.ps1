@@ -43,7 +43,7 @@ Write-Host "`n[2/5] Creating deployment archive..." -ForegroundColor Yellow
 $tarFile = "deploy_bundle.tar.gz"
 if (Test-Path $tarFile) { Remove-Item $tarFile -Force }
 
-tar --exclude="node_modules" --exclude="apps/storefront/node_modules" --exclude="apps/storefront/.next" -czf $tarFile dist apps public package.json package-lock.json ecosystem.config.cjs scripts src tsconfig.json
+tar --exclude="node_modules" --exclude="apps/storefront/node_modules" --exclude="apps/storefront/.next" -czf $tarFile dist apps public vendor package.json package-lock.json ecosystem.config.cjs scripts src tsconfig.json
 
 # 3. Transfer files to remote server
 Write-Host "`n[3/5] Uploading deployment package and setup scripts to AWS server..." -ForegroundColor Yellow
@@ -67,7 +67,7 @@ if [ -d "$APP_DIR/dist" ]; then
   mkdir -p /home/admin/releases
   STAMP=$(date -u +%Y%m%dT%H%M%SZ)
   echo "Snapshotting current release for rollback (release_${STAMP}.tar.gz)..."
-  tar --exclude=node_modules -czf "/home/admin/releases/release_${STAMP}.tar.gz" -C "$APP_DIR" dist src public package.json package-lock.json ecosystem.config.cjs tsconfig.json apps
+  tar --exclude=node_modules -czf "/home/admin/releases/release_${STAMP}.tar.gz" -C "$APP_DIR" dist src public vendor package.json package-lock.json ecosystem.config.cjs tsconfig.json apps
   ls -1t /home/admin/releases/release_*.tar.gz | tail -n +3 | xargs -r rm -f
 fi
 

@@ -108,5 +108,21 @@ ssh -i inventory.pem admin@13.233.142.180 \
 
 | Date (UTC) | Rehearsal | Result |
 | --- | --- | --- |
-| _pending_ | Backup rotation + restore rehearsal | _pending_ |
-| _pending_ | Deploy → rollback → roll-forward | _pending_ |
+| 2026-09-24 10:59 | Backup rotation: first `experimind-backup.service` run | OK — `experimind_inventory_20260924T105957Z.dump.gz` (192K), 2 backups retained, logged |
+| 2026-09-24 11:00 | Restore rehearsal: `restore-rehearsal.sh` | OK — 50 tables / 4 users identical in scratch restore, scratch db dropped |
+| 2026-09-24 11:00 | Disk monitor: first `experimind-disk-monitor.service` run | OK — correctly logged `WARNING disk 84%` (apt cache cleaned: 88% → 84%) |
+| 2026-09-24 11:08 | Deploy latest main (route retirement + ops toolkit) | OK — health checks passed, `HardwareWorkbench` marker absent from `dist/assets` (retired routes live) |
+| 2026-09-24 11:12 | Rollback: restored `release_20260924T110811Z.tar.gz` | OK — storefront `BUILD_ID` reverted `LQ4IPLsa…` → `T5sCfrb3…` (old build genuinely restored), health checks passed |
+| 2026-09-24 11:12 | Roll forward: restored `release_NEW_20260924T111500Z.tar.gz` | OK — `BUILD_ID` back to `LQ4IPLsa…`, health checks passed, production left on latest code |
+
+Notes from the rehearsal:
+- Two deploy-script gaps were found and fixed during the drill: the deploy bundle and
+  the release snapshot both omitted `vendor/` (needed by `xlsx: file:vendor/…` in
+  package.json), and ops scripts shipped by `scp`/tar needed `chmod +x` (now handled
+  by `install-ops-timers.sh`).
+- A `sudo install` of an ops script into the app directory made it root-owned and
+  broke the next bundle extract — everything under `/home/admin/experimind-inventory`
+  must stay owned by `admin`.
+- Release snapshots are ~180 MB each (they include the built storefront `.next`);
+  the deploy keeps the 2 newest and the disk monitor prunes them at 92% disk usage.
+

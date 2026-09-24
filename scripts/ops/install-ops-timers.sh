@@ -12,6 +12,9 @@ if [ "$(id -u)" -ne 0 ]; then
   exit 1
 fi
 
+# Ensure the ops scripts are executable regardless of how they were shipped.
+chmod +x "$APP_DIR"/scripts/ops/*.sh
+
 for unit in experimind-backup.service experimind-backup.timer \
             experimind-disk-monitor.service experimind-disk-monitor.timer; do
   install -m 0644 "$UNIT_SRC/$unit" "$UNIT_DST/$unit"
