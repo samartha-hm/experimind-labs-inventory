@@ -1,0 +1,8 @@
+[Unit]
+Description=Experimind Labs Inventory - root filesystem usage monitor
+
+[Service]
+Type=oneshot
+User=admin
+Group=admin
+ExecStart=/home/admin/experimind-inventory/scripts/ops/disk-monitor.sh

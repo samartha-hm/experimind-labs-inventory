@@ -1,0 +1,11 @@
+[Unit]
+Description=Experimind Labs Inventory - PostgreSQL backup with rotation
+Documentation=file:///home/admin/experimind-inventory/docs/OPS_RUNBOOK.md
+After=network.target postgresql.service
+Wants=postgresql.service
+
+[Service]
+Type=oneshot
+User=admin
+Group=admin
+ExecStart=/home/admin/experimind-inventory/scripts/ops/backup-rotate.sh

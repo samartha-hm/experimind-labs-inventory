@@ -16,6 +16,16 @@ if (-not (Test-Path -LiteralPath $KeyFile -PathType Leaf)) {
     throw "SSH key was not found: $KeyFile"
 }
 
+# 0. Verify remote disk headroom before shipping anything.
+Write-Host "`n[0/5] Checking remote disk headroom..." -ForegroundColor Yellow
+$diskCheck = ssh -o StrictHostKeyChecking=no -i $KeyFile "${User}@${ServerIP}" "df --output=pcent / | tail -1 | tr -dc '0-9'"
+if ($LASTEXITCODE -ne 0) { throw "Could not read disk usage from the server." }
+$diskPct = [int]$diskCheck
+if ($diskPct -ge 90) {
+    throw "Remote disk is ${diskPct}% full (>= 90%). Free space first: sudo apt-get clean, prune /home/admin/releases and /home/admin/backups."
+}
+Write-Host "Remote disk at ${diskPct}% - OK." -ForegroundColor Green
+
 # 1. Run local build
 Write-Host "`n[1/5] Building frontend & server bundle locally..." -ForegroundColor Yellow
 npm run build
@@ -51,8 +61,23 @@ sed -i 's/\r$//' /home/admin/setup-aws.sh
 APP_DIR="/home/admin/experimind-inventory"
 mkdir -p $APP_DIR
 chmod -R u+w $APP_DIR 2>/dev/null || true
+
+# Snapshot the current release so scripts/rollback-aws.ps1 can restore it.
+if [ -d "$APP_DIR/dist" ]; then
+  mkdir -p /home/admin/releases
+  STAMP=$(date -u +%Y%m%dT%H%M%SZ)
+  echo "Snapshotting current release for rollback (release_${STAMP}.tar.gz)..."
+  tar --exclude=node_modules -czf "/home/admin/releases/release_${STAMP}.tar.gz" -C "$APP_DIR" dist src public package.json package-lock.json ecosystem.config.cjs tsconfig.json apps
+  ls -1t /home/admin/releases/release_*.tar.gz | tail -n +3 | xargs -r rm -f
+fi
+
 tar --overwrite -xzf /home/admin/deploy_bundle.tar.gz -C $APP_DIR
 chmod -R u+w $APP_DIR 2>/dev/null || true
+
+# Normalize line endings for ops scripts shipped from Windows checkouts.
+find "$APP_DIR/scripts/ops" -type f \( -name '*.sh' -o -name '*.service' -o -name '*.timer' \) -exec sed -i 's/\r$//' {} + 2>/dev/null || true
+# Refresh backup/disk-monitor systemd timers (idempotent, non-fatal).
+sudo bash "$APP_DIR/scripts/ops/install-ops-timers.sh" 2>/dev/null || echo "WARN: ops timer refresh skipped"
 
 cd $APP_DIR
 echo "Installing production dependencies..."

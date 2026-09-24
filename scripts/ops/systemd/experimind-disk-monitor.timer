@@ -1,0 +1,9 @@
+[Unit]
+Description=Six-hourly disk usage check for Experimind Labs Inventory
+
+[Timer]
+OnBootSec=10min
+OnUnitActiveSec=6h
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,4 @@
+# Force LF for files executed on the Linux server (bash and systemd choke on CRLF).
+*.sh text eol=lf
+*.service text eol=lf
+*.timer text eol=lf
