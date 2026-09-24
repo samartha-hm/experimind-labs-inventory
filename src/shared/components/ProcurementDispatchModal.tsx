@@ -47,7 +47,7 @@ import {
   DispatchItem,
   ActionChannel
 } from '../../services/DispatchReportService';
-import { DispatchPdfService, PdfOrientation, PdfDocumentType } from '../../services/DispatchPdfService';
+import type { PdfOrientation, PdfDocumentType } from '../../services/DispatchPdfService';
 import { ProjectManagementService } from '../../services/ProjectManagementService';
 import { ProductionWorkflowService } from '../../services/ProductionWorkflowService';
 import { Project } from '../../data/projectsDataset';
@@ -353,6 +353,11 @@ export default function ProcurementDispatchModal({
   };
 
   // Dedicated PDF Downloads
+  const loadDispatchPdfService = async () => {
+    const { DispatchPdfService } = await import('../../services/DispatchPdfService');
+    return DispatchPdfService;
+  };
+
   const handleDownloadShortagePdf = async (e?: React.MouseEvent) => {
     if (e) {
       e.preventDefault();
@@ -361,6 +366,7 @@ export default function ProcurementDispatchModal({
     setIsGenerating('shortage');
     try {
       await new Promise(resolve => setTimeout(resolve, 50));
+      const DispatchPdfService = await loadDispatchPdfService();
       DispatchPdfService.downloadShortageChecklistPdf(dispatchSummary, {
         orientation: pdfOrientation,
         includePrices,
@@ -385,6 +391,7 @@ export default function ProcurementDispatchModal({
     setIsGenerating('picklist');
     try {
       await new Promise(resolve => setTimeout(resolve, 50));
+      const DispatchPdfService = await loadDispatchPdfService();
       DispatchPdfService.downloadWarehousePickListPdf(dispatchSummary, {
         orientation: pdfOrientation,
         includePrices,
@@ -409,6 +416,7 @@ export default function ProcurementDispatchModal({
     setIsGenerating('laser');
     try {
       await new Promise(resolve => setTimeout(resolve, 50));
+      const DispatchPdfService = await loadDispatchPdfService();
       DispatchPdfService.downloadLaserCuttingDispatchPdf(dispatchSummary, {
         orientation: pdfOrientation,
         includePrices,
@@ -433,6 +441,7 @@ export default function ProcurementDispatchModal({
     setIsGenerating('lab');
     try {
       await new Promise(resolve => setTimeout(resolve, 50));
+      const DispatchPdfService = await loadDispatchPdfService();
       DispatchPdfService.downloadLabPreparationDispatchPdf(dispatchSummary, {
         orientation: pdfOrientation,
         includePrices,
@@ -470,6 +479,7 @@ export default function ProcurementDispatchModal({
     setIsGenerating('full');
     try {
       await new Promise(resolve => setTimeout(resolve, 50));
+      const DispatchPdfService = await loadDispatchPdfService();
       DispatchPdfService.downloadFullDispatchPdf(dispatchSummary, {
         orientation: pdfOrientation,
         includePrices,
@@ -603,6 +613,7 @@ export default function ProcurementDispatchModal({
     setIsGenerating('selected');
     try {
       await new Promise(resolve => setTimeout(resolve, 50));
+      const DispatchPdfService = await loadDispatchPdfService();
       DispatchPdfService.downloadSelectedItemsPdf(dispatchSummary, selectedItemIds, {
         orientation: pdfOrientation,
         includePrices,

@@ -24,7 +24,7 @@ import { useToast } from '@/src/contexts/ToastContext';
 import BarcodeSvg from './BarcodeSvg';
 import SmartCombobox, { ComboboxOption } from './SmartCombobox';
 import SmartSelect from '@/src/shared/components/SmartSelect';
-import { generatePdfLabelSheet, LabelSheetFormat } from '@/src/utils/pdfLabelGenerator';
+import type { LabelSheetFormat } from '@/src/utils/pdfLabelGenerator';
 
 interface BarcodeStudioModalProps {
   isOpen: boolean;
@@ -111,6 +111,7 @@ export default function BarcodeStudioModal({ isOpen, onClose, inventory }: Barco
 
     setIsGeneratingPdf(true);
     try {
+      const { generatePdfLabelSheet } = await import('@/src/utils/pdfLabelGenerator');
       await generatePdfLabelSheet(itemsToPrint, sheetFormat, copiesPerItem);
       showToast('success', 'PDF Label Sheet Generated', `Exported ${itemsToPrint.length * copiesPerItem} label(s)`);
     } catch (err) {
