@@ -224,13 +224,10 @@ export default function OverviewTab({
               </span>
 
               {pendingCount > 0 && (
-                <button
-                  onClick={() => onNavigateToTab('approval_center')}
-                  className="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-500/20 text-amber-300 rounded-full border border-amber-500/30 text-[11px] font-black uppercase tracking-wider hover:bg-amber-500/30 cursor-pointer transition-all"
-                >
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-500/20 text-amber-300 rounded-full border border-amber-500/30 text-[11px] font-black uppercase tracking-wider">
                   <ShieldCheck className="w-3.5 h-3.5 text-amber-400" />
                   {pendingCount} Pending Approvals
-                </button>
+                </span>
               )}
 
               <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-indigo-500/20 text-indigo-300 rounded-full border border-indigo-500/30 text-[11px] font-mono font-bold">
@@ -290,8 +287,7 @@ export default function OverviewTab({
         
         {/* Metric 1: Total Asset Valuation */}
         <div
-          onClick={() => onNavigateToTab('valuation')}
-          className="bg-white dark:bg-slate-900 p-5 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-md hover:-translate-y-1 transition-all cursor-pointer group space-y-2"
+          className="bg-white dark:bg-slate-900 p-5 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-md transition-all group space-y-2"
         >
           <div className="flex items-center justify-between text-slate-400">
             <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">

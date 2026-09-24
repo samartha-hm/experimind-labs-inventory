@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Search, Command, Box, Boxes, ShoppingBag, ShoppingCart, Building2, Zap, History, XCircle, ArrowRight } from 'lucide-react';
+import { Search, Command, Box, Boxes, ShoppingBag, ShoppingCart, Building2, XCircle, ArrowRight } from 'lucide-react';
 import { InventoryItem, KitBOM } from '@/src/types';
 
 interface CommandPaletteModalProps {
@@ -54,12 +54,10 @@ export default function CommandPaletteModal({ isOpen, onClose, inventory, kits, 
 
   const QUICK_ACTIONS = [
     { label: 'Go to Inventory & Catalog', tab: 'inventory', icon: <Box className="w-4 h-4 text-indigo-500" /> },
-    { label: 'Go to Composite Kits (BOM)', tab: 'kits', icon: <Boxes className="w-4 h-4 text-purple-500" /> },
+    { label: 'Go to Composite Kits (BOM)', tab: 'kitting', icon: <Boxes className="w-4 h-4 text-purple-500" /> },
     { label: 'Go to Vendors Directory', tab: 'vendors', icon: <Building2 className="w-4 h-4 text-emerald-500" /> },
     { label: 'Go to Sales Orders', tab: 'sales_orders', icon: <ShoppingBag className="w-4 h-4 text-emerald-500" /> },
     { label: 'Go to Purchase Orders', tab: 'purchase_orders', icon: <ShoppingCart className="w-4 h-4 text-blue-500" /> },
-    { label: 'View Automations & Webhooks', tab: 'automations', icon: <Zap className="w-4 h-4 text-amber-500" /> },
-    { label: 'View Revision History Logs', tab: 'history', icon: <History className="w-4 h-4 text-indigo-400" /> },
   ];
 
   const handleAction = (tab: string) => {

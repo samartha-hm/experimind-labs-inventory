@@ -13,7 +13,6 @@ import Header from '@/src/shared/components/Header';
 import OperationsWorkspace from '@/src/features/core/OperationsWorkspace';
 import InventoryTab from '@/src/features/inventory/components/InventoryTab';
 import KittingTab from '@/src/features/kitting/components/KittingTab';
-import AICopilotTab from '@/src/features/copilot/components/AICopilotTab';
 import PurchaseOrdersTab from '@/src/features/procurement/components/PurchaseOrdersTab';
 import SalesOrdersTab from '@/src/features/sales/components/SalesOrdersTab';
 import PartnersTab from '@/src/features/partners/components/PartnersTab';
@@ -21,39 +20,17 @@ import WarehousesTab from '@/src/features/warehouse/components/WarehousesTab';
 import BOMCustomizerModal from '@/src/features/kitting/components/BOMCustomizerModal';
 import CreateKitModal from '@/src/features/kitting/components/CreateKitModal';
 import StorefrontManagerTab from '@/src/features/storefront/components/StorefrontManagerTab';
-import RevisionHistoryTab from '@/src/features/history/RevisionHistoryTab';
-import AutomationTab from '@/src/features/automation/AutomationTab';
-import ValuationAnalyticsTab from '@/src/features/dashboard/components/ValuationAnalyticsTab';
-import AIAgentSuggestionBar from '@/src/shared/components/AIAgentSuggestionBar';
-import AIAgentResearchDrawer from '@/src/features/copilot/components/AIAgentResearchDrawer';
-import CommandPaletteModal from '@/src/shared/components/CommandPaletteModal';
-import GSTEngineTab from '@/src/features/gst/GSTEngineTab';
-import ZohoIntegrationTab from '@/src/features/integrations/ZohoIntegrationTab';
 import PredictiveAnalyticsTab from '@/src/features/analytics/PredictiveAnalyticsTab';
-import ComplianceSecurityTab from '@/src/features/compliance/ComplianceSecurityTab';
-import WarehouseHeatmapTab from '@/src/features/warehouse/components/WarehouseHeatmapTab';
 import StockTransferTab from '@/src/features/warehouse/components/StockTransferTab';
-import BatchExpiryTab from '@/src/features/inventory/components/BatchExpiryTab';
-import StockLedgerTab from '@/src/features/inventory/components/StockLedgerTab';
-import WarehouseFloorMode from '@/src/features/warehouse/components/WarehouseFloorMode';
-import CompAIVoiceAssistant from '@/src/features/copilot/components/CompAIVoiceAssistant';
-import Warehouse3DDigitalTwin from '@/src/features/warehouse/components/Warehouse3DDigitalTwin';
-import FloorPlanDesignerTab from '@/src/features/warehouse/components/FloorPlanDesignerTab';
-import ApprovalCenterTab from '@/src/features/compliance/components/ApprovalCenterTab';
-import { RolePermissionMatrixTab } from '@/src/features/compliance/components/RolePermissionMatrixTab';
-import { UserDirectoryTab } from '@/src/features/compliance/components/UserDirectoryTab';
-import { QmsDashboardTab } from '@/src/features/compliance/components/QmsDashboardTab';
-import { AuditTrailVerifierTab } from '@/src/features/compliance/components/AuditTrailVerifierTab';
 import CycleCountsTab from '@/src/features/warehouse/components/CycleCountsTab';
-import SerialNumbersTab from '@/src/features/inventory/components/SerialNumbersTab';
+import CommandPaletteModal from '@/src/shared/components/CommandPaletteModal';
 import BarcodeStudioModal from '@/src/shared/components/BarcodeStudioModal';
 import BarcodeScannerModal from '@/src/shared/components/BarcodeScannerModal';
 import OfflineStatusBar from '@/src/shared/components/OfflineStatusBar';
 import { TenantProvider } from '@/src/contexts/TenantContext';
 import { ToastProvider } from '@/src/contexts/ToastContext';
 import { ApprovalProvider } from '@/src/contexts/ApprovalContext';
-import HardwareWorkbenchTab from '@/src/features/hardware/HardwareWorkbenchTab';
-import BomTreeManagerTab from '@/src/features/hardware/BomTreeManagerTab';
+import { UserDirectoryTab } from '@/src/features/compliance/components/UserDirectoryTab';
 import ProductionCommandCenterTab from '@/src/features/production/ProductionCommandCenterTab';
 import ProjectPortfolioManagerTab from '@/src/features/projects/ProjectPortfolioManagerTab';
 import StickerMonitoringHubTab from '@/src/features/stickers/StickerMonitoringHubTab';
@@ -65,7 +42,6 @@ function MainApp() {
   const { inventory, kits, transactions, loading, addInventoryItem, updateInventoryItem, deleteInventoryItem, updateKitBOM, addKitBOM, deleteKitBOM, logTransaction, salesOrders = [] } = useData();
   const { user, role, signOut } = useAuth();
   const { addAction, isProcessing } = useUndoRedo();
-  const [isResearchDrawerOpen, setIsResearchDrawerOpen] = useState(false);
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   
@@ -404,40 +380,8 @@ function MainApp() {
                 />
               )}
 
-              {activeTab === 'hardware_workbench' && (
-                <HardwareWorkbenchTab />
-              )}
-
-              {activeTab === 'pcba_bom' && (
-                <BomTreeManagerTab />
-              )}
-
-              {activeTab === 'gst' && (
-                <GSTEngineTab />
-              )}
-
-              {activeTab === 'zoho' && (
-                <ZohoIntegrationTab />
-              )}
-
               {activeTab === 'analytics' && (
                 <PredictiveAnalyticsTab />
-              )}
-
-              {activeTab === 'compliance' && (
-                <ComplianceSecurityTab />
-              )}
-
-              {activeTab === 'qms_suite' && (
-                <QmsDashboardTab />
-              )}
-
-              {activeTab === 'audit_verifier' && (
-                <AuditTrailVerifierTab />
-              )}
-
-              {activeTab === 'roles_permissions' && (
-                <RolePermissionMatrixTab />
               )}
 
               {activeTab === 'user_directory' && (
@@ -452,32 +396,12 @@ function MainApp() {
                 <SalesOrdersTab role={role} />
               )}
 
-              {(activeTab === 'partners' || activeTab === 'vendors' || activeTab === 'customers') && (
+              {activeTab === 'vendors' && (
                 <PartnersTab role={role} />
-              )}
-
-              {activeTab === 'stock_ledger' && (
-                <StockLedgerTab />
-              )}
-
-              {activeTab === 'warehouse_floor' && (
-                <WarehouseFloorMode />
               )}
 
               {activeTab === 'warehouses' && (
                 <WarehousesTab role={role} />
-              )}
-
-              {activeTab === 'floor_plan' && (
-                <FloorPlanDesignerTab />
-              )}
-
-              {activeTab === 'warehouse_heatmap' && (
-                <WarehouseHeatmapTab />
-              )}
-
-              {activeTab === 'warehouse_3d' && (
-                <Warehouse3DDigitalTwin />
               )}
 
               {activeTab === 'stock_transfer' && (
@@ -486,38 +410,6 @@ function MainApp() {
 
               {activeTab === 'cycle_counts' && (
                 <CycleCountsTab role={role} />
-              )}
-
-              {activeTab === 'serial_numbers' && (
-                <SerialNumbersTab role={role} />
-              )}
-
-              {activeTab === 'batch_expiry' && (
-                <BatchExpiryTab />
-              )}
-
-              {activeTab === 'copilot' && (
-                <AICopilotTab
-                  inventory={inventory}
-                  kits={kits}
-                  selectedKitId={selectedKitId}
-                />
-              )}
-
-              {activeTab === 'approval_center' && (
-                <ApprovalCenterTab />
-              )}
-
-              {activeTab === 'history' && (
-                <RevisionHistoryTab />
-              )}
-
-              {activeTab === 'automations' && (
-                <AutomationTab />
-              )}
-
-              {activeTab === 'valuation' && (
-                <ValuationAnalyticsTab inventory={inventory} kits={kits} />
               )}
             </main>
           </div>
@@ -543,17 +435,12 @@ function MainApp() {
         onCreateKit={handleCreateKit}
       />
 
-      <AIAgentResearchDrawer
-        isOpen={isResearchDrawerOpen}
-        onClose={() => setIsResearchDrawerOpen(false)}
-      />
-
       <CommandPaletteModal
         isOpen={isCommandPaletteOpen}
         onClose={() => setIsCommandPaletteOpen(false)}
         inventory={inventory}
         kits={kits}
-        onNavigateTab={setActiveTab}
+        onNavigateTab={handleNavigateTab}
       />
 
       <BarcodeStudioModal
