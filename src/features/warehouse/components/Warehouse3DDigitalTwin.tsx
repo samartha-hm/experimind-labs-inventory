@@ -47,22 +47,27 @@ export default function Warehouse3DDigitalTwin() {
 
         {/* 3D View Angle Controls */}
         <div className="flex items-center gap-2 bg-slate-800/80 p-1.5 rounded-2xl border border-slate-700">
-          {(['ISOMETRIC', 'TOP', 'FRONT'] as const).map((angle) => (
-            <button
-              key={angle}
-              onClick={() => setViewAngle(angle)}
-              className={`px-3 py-1.5 rounded-xl font-bold text-xs transition-all cursor-pointer ${
-                viewAngle === angle ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              {angle} View
-            </button>
-          ))}
+          {(['ISOMETRIC', 'TOP', 'FRONT'] as const).map((angle) => {
+            const isActiveAngle = viewAngle === angle;
+            return (
+              <button
+                key={angle}
+                onClick={() => setViewAngle(angle)}
+                className={
+                  isActiveAngle
+                    ? 'px-3 py-1.5 rounded-xl font-bold text-xs transition-all cursor-pointer bg-indigo-600 text-white shadow-md'
+                    : 'px-3 py-1.5 rounded-xl font-bold text-xs transition-all cursor-pointer text-slate-300 hover:text-white hover:bg-slate-800'
+                }
+              >
+                {angle} View
+              </button>
+            );
+          })}
         </div>
       </div>
 
       {/* 3D Spatial Canvas Container */}
-      <div className="relative w-full h-[520px] bg-slate-950 rounded-3xl border border-slate-800 overflow-hidden shadow-2xl flex flex-col justify-between p-6 glow-card-indigo">
+      <div className="relative w-full h-[520px] bg-slate-950 rounded-3xl border border-slate-800 overflow-hidden shadow-2xl flex flex-col justify-between p-6">
         {/* Canvas Background Grid */}
         <div
           className="absolute inset-0 opacity-20 pointer-events-none"

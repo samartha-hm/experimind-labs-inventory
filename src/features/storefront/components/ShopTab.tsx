@@ -258,7 +258,7 @@ export default function ShopTab({ inventory, onPlaceOrder }: ShopTabProps) {
   return (
     <div className="space-y-6 w-full relative animate-fadeIn pb-12">
       {/* Premium Hero Storefront Banner */}
-      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 text-white p-6 md:p-8 shadow-2xl border border-slate-800 glow-card-indigo">
+      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 text-white p-6 md:p-8 shadow-2xl border border-slate-800">
         {/* Ambient Glow Effects */}
         <div className="absolute top-0 right-0 w-96 h-96 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
         <div className="absolute bottom-0 left-1/3 w-80 h-80 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
@@ -294,12 +294,12 @@ export default function ShopTab({ inventory, onPlaceOrder }: ShopTabProps) {
           <div className="flex items-center gap-3 shrink-0">
             <button
               onClick={() => setIsCartDrawerOpen(true)}
-              className="relative bg-gradient-to-r from-indigo-600 via-indigo-500 to-indigo-600 hover:from-indigo-500 hover:to-indigo-600 text-white font-bold px-6 py-3.5 rounded-2xl shadow-xl shadow-indigo-600/30 transition-all flex items-center gap-3 cursor-pointer text-xs group"
+              className="relative bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-6 py-3.5 rounded-2xl shadow-xl shadow-indigo-600/30 transition-all flex items-center gap-3 cursor-pointer text-xs group"
             >
               <div className="relative">
                 <ShoppingBag className="w-5 h-5 text-amber-300 group-hover:scale-110 transition-transform" />
                 {cartItemCount > 0 && (
-                  <span className="absolute -top-2 -right-2 bg-rose-500 text-white text-[9px] font-black w-4 h-4 rounded-full flex items-center justify-center animate-bounce">
+                  <span className="absolute -top-2 -right-2 bg-rose-500 text-white text-[9px] font-black w-4 h-4 rounded-full flex items-center justify-center">
                     {cartItemCount}
                   </span>
                 )}
@@ -451,7 +451,7 @@ export default function ShopTab({ inventory, onPlaceOrder }: ShopTabProps) {
             <button
               key={chip}
               onClick={() => setSelectedCategory(chip)}
-              className="px-2.5 py-1 bg-slate-100 dark:bg-slate-800 hover:bg-indigo-50 dark:hover:bg-indigo-950/60 text-slate-600 dark:text-slate-300 hover:text-indigo-600 rounded-lg font-medium transition-all"
+              className="px-2.5 py-1 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:text-indigo-600 rounded-lg font-medium transition-all"
             >
               {chip}
             </button>

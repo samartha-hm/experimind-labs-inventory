@@ -79,7 +79,7 @@ export default function CompAIVoiceAssistant({ onNavigateTab }: CompAIVoiceAssis
   };
 
   return (
-    <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-950 p-6 rounded-3xl border border-slate-800 text-white shadow-xl space-y-4 glow-card-indigo">
+    <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-950 p-6 rounded-3xl border border-slate-800 text-white shadow-xl space-y-4">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div className="space-y-1">
           <div className="flex items-center gap-2">
@@ -114,7 +114,7 @@ export default function CompAIVoiceAssistant({ onNavigateTab }: CompAIVoiceAssis
           {[40, 70, 30, 90, 60, 100, 50, 80, 40, 60].map((h, i) => (
             <div
               key={i}
-              className="w-1 bg-emerald-400 rounded-full animate-bounce"
+              className="w-1 bg-emerald-400 rounded-full animate-pulse"
               style={{ height: `${h}%`, animationDelay: `${i * 0.1}s` }}
             />
           ))}
@@ -150,7 +150,7 @@ export default function CompAIVoiceAssistant({ onNavigateTab }: CompAIVoiceAssis
           <button
             key={prompt}
             onClick={() => handleVoiceCommand(prompt)}
-            className="px-3 py-1.5 bg-slate-800/80 hover:bg-indigo-600 text-slate-300 hover:text-white rounded-xl font-medium border border-slate-700 transition-all cursor-pointer flex items-center gap-1.5"
+            className="px-3 py-1.5 bg-slate-800/80 text-slate-300 hover:text-white rounded-xl font-medium border border-slate-700 transition-all cursor-pointer flex items-center gap-1.5"
           >
             <Mic className="w-3.5 h-3.5 text-indigo-400" /> "{prompt}"
           </button>

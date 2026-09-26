@@ -39,7 +39,7 @@ export default function SalesOrdersTab({ role }: SalesOrdersTabProps) {
 
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
-  const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
+  const [viewMode, setViewMode] = useState<'grid' | 'table'>('table');
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [selectedSoForPreview, setSelectedSoForPreview] = useState<any | null>(null);
 
@@ -200,21 +200,21 @@ export default function SalesOrdersTab({ role }: SalesOrdersTabProps) {
                 <div className="flex items-center gap-1">
                   <button
                     onClick={() => setSelectedSoForPreview(so)}
-                    className="p-1.5 text-slate-400 hover:text-purple-600 hover:bg-purple-50 rounded-xl transition-colors cursor-pointer"
+                    className="p-1.5 text-slate-400 hover:text-purple-600 rounded-xl transition-colors cursor-pointer"
                     title="Preview Printable Invoice"
                   >
                     <Eye className="w-4 h-4" />
                   </button>
                   <button
                     onClick={() => setEditingSo(so)}
-                    className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-colors cursor-pointer"
+                    className="p-1.5 text-slate-400 hover:text-indigo-600 rounded-xl transition-colors cursor-pointer"
                     title="Edit Sales Order"
                   >
                     <Edit2 className="w-4 h-4" />
                   </button>
                   <button
                     onClick={() => handleDeleteSo(so.id)}
-                    className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-colors cursor-pointer"
+                    className="p-1.5 text-slate-400 hover:text-rose-600 rounded-xl transition-colors cursor-pointer"
                     title="Delete Sales Order"
                   >
                     <Trash2 className="w-4 h-4" />
@@ -254,7 +254,7 @@ export default function SalesOrdersTab({ role }: SalesOrdersTabProps) {
           ))}
         </div>
       ) : (
-        <div className="bg-white rounded-3xl border border-slate-200/80 shadow-xs overflow-hidden">
+        <div className="bg-white rounded-3xl border border-slate-200/80 shadow-xs table-responsive">
           <table className="w-full text-left text-xs">
             <thead className="bg-slate-50 border-b border-slate-200/80 text-slate-500 uppercase font-bold text-[10px]">
               <tr>

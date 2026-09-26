@@ -87,7 +87,7 @@ export default function InventoryTab({
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [selectedLocation, setSelectedLocation] = useState<string>('All');
   const [sortKey, setSortKey] = useState<string>('name-asc');
-  const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
+  const [viewMode, setViewMode] = useState<'grid' | 'table'>('table');
   const [drawerItem, setDrawerItem] = useState<InventoryItem | null>(null);
 
   // Component Inspector: Kits that depend on this component
@@ -460,7 +460,7 @@ export default function InventoryTab({
 
           <button
             onClick={() => setIsAdding(!isAdding)}
-            className="bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white font-bold px-4 sm:px-5 py-2.5 rounded-2xl shadow-md shadow-indigo-600/20 transition-all flex items-center gap-2 cursor-pointer text-xs shrink-0"
+            className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-4 sm:px-5 py-2.5 rounded-2xl shadow-md shadow-indigo-600/20 transition-all flex items-center gap-2 cursor-pointer text-xs shrink-0"
           >
             <Plus className="w-4 h-4" /> <span>{isAdding ? 'Close Form' : 'Add Item'}</span>
           </button>
@@ -1070,7 +1070,7 @@ export default function InventoryTab({
                       </button>
                       <button
                         onClick={() => setEditingItem(item)}
-                        className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-slate-800 rounded-lg ml-1 cursor-pointer"
+                        className="p-1.5 text-slate-400 hover:text-indigo-600 dark:hover:bg-slate-800 rounded-lg ml-1 cursor-pointer"
                         title="Edit Item Details"
                       >
                         <Edit2 className="w-4 h-4" />
