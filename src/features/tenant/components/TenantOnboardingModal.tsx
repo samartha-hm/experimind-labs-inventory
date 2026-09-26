@@ -41,7 +41,7 @@ export default function TenantOnboardingModal({ isOpen, onClose }: TenantOnboard
       workspaces: formData.workspaces.split(',').map(s => s.trim()),
     });
 
-    showToast('success', 'Organization Onboarded Successfully', `Switched active tenant to ${formData.name}`);
+    showToast('success', 'Organization Added', `Switched active organization to ${formData.name}`);
     onClose();
   };
 
@@ -55,8 +55,8 @@ export default function TenantOnboardingModal({ isOpen, onClose }: TenantOnboard
               <Building2 className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="font-bold text-slate-800 text-base">Onboard New Organization (SaaS Tenant)</h3>
-              <p className="text-xs text-slate-500 font-medium">Provision isolated tenant workspace & GST settings</p>
+              <h3 className="font-bold text-slate-800 text-base">Add New Organization</h3>
+              <p className="text-xs text-slate-500 font-medium">Create an isolated workspace with its own GST settings</p>
             </div>
           </div>
 
@@ -69,7 +69,7 @@ export default function TenantOnboardingModal({ isOpen, onClose }: TenantOnboard
         <form onSubmit={handleSubmit} className="space-y-3 text-xs">
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block font-bold text-slate-700 mb-1">Company / Tenant Name *</label>
+              <label className="block font-bold text-slate-700 mb-1">Company / Organization Name *</label>
               <input
                 type="text"
                 required
@@ -81,7 +81,7 @@ export default function TenantOnboardingModal({ isOpen, onClose }: TenantOnboard
             </div>
 
             <div>
-              <label className="block font-bold text-slate-700 mb-1">Tenant Code *</label>
+              <label className="block font-bold text-slate-700 mb-1">Organization Code *</label>
               <input
                 type="text"
                 required
@@ -168,7 +168,7 @@ export default function TenantOnboardingModal({ isOpen, onClose }: TenantOnboard
           <div className="bg-indigo-50 border border-indigo-100 rounded-2xl p-3 flex items-start gap-2.5 text-[11px] text-indigo-900 mt-2">
             <Sparkles className="w-4 h-4 text-indigo-600 shrink-0 mt-0.5" />
             <div>
-              <strong>Tenant Isolation Guarantee</strong>: Data created in this organization will be indexed with <code className="font-mono bg-indigo-100 px-1 py-0.5 rounded">tenant_id</code> and isolated at the API data layer.
+              <strong>Data Isolation</strong>: Data created in this organization is tagged with <code className="font-mono bg-indigo-100 px-1 py-0.5 rounded">tenant_id</code> and kept separate at the API data layer.
             </div>
           </div>
 
@@ -176,7 +176,7 @@ export default function TenantOnboardingModal({ isOpen, onClose }: TenantOnboard
             type="submit"
             className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer mt-2"
           >
-            <CheckCircle2 className="w-4 h-4" /> Provision Tenant & Switch Workspace
+            <CheckCircle2 className="w-4 h-4" /> Add Organization & Switch
           </button>
         </form>
       </div>

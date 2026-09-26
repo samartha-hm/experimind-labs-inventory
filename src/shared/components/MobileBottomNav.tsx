@@ -22,32 +22,6 @@ export default function MobileBottomNav({
   onToggleMobileMenu,
   openSoCount = 0,
 }: MobileBottomNavProps) {
-  const navItems = [
-    {
-      id: 'overview',
-      label: 'Cockpit',
-      icon: LayoutDashboard,
-    },
-    {
-      id: 'inventory',
-      label: 'Inventory',
-      icon: Box,
-    },
-    // Center scanner is handled separately
-    {
-      id: 'sales_orders',
-      label: 'Orders',
-      icon: PackageCheck,
-      badge: openSoCount > 0 ? openSoCount : undefined,
-    },
-    {
-      id: 'menu',
-      label: 'Menu',
-      icon: Menu,
-      isMenuToggle: true,
-    },
-  ];
-
   return (
     <nav
       className="md:hidden fixed bottom-0 left-0 right-0 z-30 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border-t border-slate-200/80 dark:border-slate-800 shadow-lg px-2 pt-1 pb-[max(0.375rem,env(safe-area-inset-bottom))] transition-colors"
@@ -63,10 +37,10 @@ export default function MobileBottomNav({
               ? 'text-indigo-600 dark:text-indigo-400 font-bold'
               : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
           }`}
-          aria-label="Executive Cockpit"
+          aria-label="Home"
         >
           <LayoutDashboard className={`w-5 h-5 transition-transform ${activeTab === 'overview' ? 'scale-110' : ''}`} />
-          <span className="text-[10px] mt-0.5 tracking-tight font-medium">Cockpit</span>
+              <span className="text-[10px] mt-0.5 tracking-tight font-medium">Home</span>
         </button>
 
         {/* Item 1: Inventory */}
@@ -78,7 +52,7 @@ export default function MobileBottomNav({
               ? 'text-indigo-600 dark:text-indigo-400 font-bold'
               : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
           }`}
-          aria-label="Inventory Catalog"
+          aria-label="Inventory"
         >
           <Box className={`w-5 h-5 transition-transform ${activeTab === 'inventory' ? 'scale-110' : ''}`} />
           <span className="text-[10px] mt-0.5 tracking-tight font-medium">Items</span>
@@ -89,8 +63,8 @@ export default function MobileBottomNav({
           <button
             type="button"
             onClick={onOpenScanner}
-            className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-indigo-600 via-indigo-500 to-purple-600 text-white flex items-center justify-center shadow-lg shadow-indigo-600/30 active:scale-90 transition-all cursor-pointer border-2 border-white dark:border-slate-900"
-            aria-label="Scan GS1 Barcode / QR Code"
+            className="w-12 h-12 rounded-2xl bg-indigo-600 text-white flex items-center justify-center shadow-lg active:scale-95 transition-transform cursor-pointer border-2 border-white dark:border-slate-900"
+            aria-label="Scan Barcode / QR Code"
             title="Scan Barcode"
           >
             <QrCode className="w-6 h-6" />

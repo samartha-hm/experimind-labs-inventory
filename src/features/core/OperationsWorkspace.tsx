@@ -69,8 +69,7 @@ export default function OperationsWorkspace({
       <section className="rounded-3xl bg-slate-950 p-6 text-white shadow-xl md:p-8">
         <div className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
           <div>
-            <p className="text-xs font-bold uppercase tracking-[0.2em] text-indigo-300">Operations</p>
-            <h1 className="mt-2 text-2xl font-black tracking-tight md:text-3xl">What needs attention today?</h1>
+            <h1 className="text-2xl font-black tracking-tight md:text-3xl">What needs attention today?</h1>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-300">
               One working view for stock, incoming replenishment, fulfillment, and project preparation.
             </p>

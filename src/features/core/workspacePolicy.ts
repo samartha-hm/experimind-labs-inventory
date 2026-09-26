@@ -16,7 +16,6 @@ const sharedTabs = new Set(['overview', 'inventory', 'projects_hub', 'sales_orde
 const roleTabs: Record<PlatformRole, Set<string>> = {
   admin: new Set([
     ...sharedTabs,
-    'replenishment',
     'purchase_orders',
     'production_command',
     'sticker_hub',
@@ -31,7 +30,6 @@ const roleTabs: Record<PlatformRole, Set<string>> = {
   ]),
   inventory_staff: new Set([
     ...sharedTabs,
-    'replenishment',
     'purchase_orders',
     'warehouses',
     'stock_transfer',

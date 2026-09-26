@@ -133,8 +133,10 @@ export default function Header({
               <div
                 className="absolute left-0 mt-2 w-64 bg-white dark:bg-slate-900 rounded-2xl shadow-xl border border-slate-100 dark:border-slate-800 p-2 space-y-1 z-50 animate-in fade-in slide-in-from-top-2"
               >
-                <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 px-3 py-1">Select SaaS Tenant</div>
-                {tenants.map(t => (
+                <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 px-3 py-1">Organizations</div>
+                {tenants.map((t) => {
+                  const isActiveTenant = t.id === activeTenant.id;
+                  return (
                   <button
                     key={t.id}
                     onClick={() => {
@@ -142,13 +144,24 @@ export default function Header({
                       setIsTenantMenuOpen(false);
                     }}
                     className={`w-full flex items-center justify-between px-3 py-2 text-xs font-bold rounded-xl transition-colors cursor-pointer ${
-                      t.id === activeTenant.id ? 'bg-indigo-50 dark:bg-indigo-950/50 text-indigo-700 dark:text-indigo-300' : 'text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'
+                      isActiveTenant
+                        ? 'bg-indigo-50 dark:bg-indigo-950/50 text-indigo-700 dark:text-indigo-300'
+                        : 'text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'
                     }`}
                   >
                     <span>{t.name}</span>
-                    <span className="font-mono text-[10px] text-slate-400">{t.code}</span>
+                    <span
+                      className={`font-mono text-[10px] ${
+                        isActiveTenant
+                          ? 'text-indigo-600/80 dark:text-indigo-400/80'
+                          : 'text-slate-400'
+                      }`}
+                    >
+                      {t.code}
+                    </span>
                   </button>
-                ))}
+                  );
+                })}
 
                 <button
                   onClick={() => {
@@ -157,7 +170,7 @@ export default function Header({
                   }}
                   className="w-full flex items-center gap-2 px-3 py-2 text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 rounded-xl transition-colors cursor-pointer border-t border-slate-100 dark:border-slate-800 mt-1"
                 >
-                  <Plus className="w-3.5 h-3.5" /> + Onboard New Tenant
+                  <Plus className="w-3.5 h-3.5" /> + Add Organization
                 </button>
               </div>
             )}
@@ -336,7 +349,7 @@ export default function Header({
               className="flex items-center gap-2 p-1.5 pl-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 text-xs font-bold transition-all cursor-pointer"
               title="Open Account Profile & Security Settings"
             >
-              <div className="w-7 h-7 rounded-lg bg-gradient-to-tr from-indigo-600 to-purple-600 flex items-center justify-center text-white text-xs font-black shadow-xs">
+              <div className="w-7 h-7 rounded-lg bg-indigo-600 flex items-center justify-center text-white text-xs font-black">
                 {(user?.name || user?.email || 'A').charAt(0).toUpperCase()}
               </div>
               <span className="hidden md:inline text-slate-800 dark:text-slate-200 font-bold max-w-[120px] truncate">

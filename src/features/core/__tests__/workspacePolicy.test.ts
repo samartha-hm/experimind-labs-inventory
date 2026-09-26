@@ -28,7 +28,8 @@ describe('workspace policy', () => {
 
   it('keeps the visible surface within the operational product boundary', () => {
     const visibleTabs = getVisibleWorkspaceTabs('admin');
-    expect(visibleTabs).toContain('replenishment');
+    expect(visibleTabs).toContain('purchase_orders');
+    expect(visibleTabs).not.toContain('replenishment');
     expect(visibleTabs).not.toContain('copilot');
     expect(visibleTabs).not.toContain('hardware_workbench');
     expect(visibleTabs).not.toContain('automations');
