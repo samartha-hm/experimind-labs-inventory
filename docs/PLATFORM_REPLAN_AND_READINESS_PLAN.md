@@ -692,20 +692,45 @@ The platform is ready for general use only when all of the following are true:
 
 ## 8. Immediate next work package
 
-The production baseline and restore rehearsal are complete. The next cycle is
-focused hardening and controlled scope reduction:
+The production baseline, restore rehearsal, and the UI/UX professionalization
+cycle are complete. The professionalization cycle (all stages verified:
+typecheck clean, 228/228 tests, production build green) delivered:
 
-1. Add end-to-end workflow coverage for low stock, replenishment approval,
-   partial receipt/backorder, project readiness, reservation, and dispatch.
-2. Build the route/component/entity dependency inventory and classify specialist
-   surfaces as **retain**, **simplify**, **merge**, or **retire**.
-3. Review the nine npm audit findings individually and apply only safe,
-   tested upgrades.
-4. Reduce the main frontend bundle and resolve the mixed static/dynamic
-   `DispatchPdfService` import.
-5. Establish backup rotation, disk monitoring, and an AWS rollback rehearsal.
-6. Retire specialist user-facing routes in reversible batches after dependency
-   and acceptance evidence is recorded.
+1. **Six-workspace navigation model** — grouped, role-filtered navigation
+   (Operations, Inventory, Fulfillment, Production, Warehouse, Admin) with
+   policy-driven tab access; mobile bottom nav distilled to Home, Items,
+   Scan, Orders, Menu.
+2. **Professional vocabulary** — tenant/"SaaS" jargon replaced with
+   "organization" language in header and onboarding copy; kicker/eyebrow
+   labels removed.
+3. **Real purchase-order workflow** — mock PO fixtures removed; PO totals,
+   numbering (`PO-<year>-seq`), threshold-based approval routing, and draft
+   validation extracted into tested pure helpers
+   (`src/features/procurement/poCreation.ts`); pending-approval POs surfaced
+   as a distinct status with inline admin approve/reject and correct
+   receive-gating; approval reviewers now resolve to the signed-in user.
+4. **Table-first professional defaults** — Inventory, Purchase Orders, and
+   Sales Orders tabs open in dense table view on desktop (cards remain the
+   mobile default via ResponsiveDataView).
+5. **Visual distill** — dead decorative CSS removed (glass-panel, glow-card-*,
+   tap-bounce, glass-specular, elevated-surface); functional utilities
+   retained (custom-scrollbar, laserSweep, tap-subtle, skeletons); gradient
+   CTAs replaced with solid primary; bounce easing removed in favor of
+   smooth pulses; dark-hero contrast issues fixed.
+6. **Orphan deletion** — unrouted components removed (hardware workbench,
+   BOM tree manager, QMS/approval-center/role-matrix/audit-trailer tabs,
+   compliance-security tab, overview/supply-chain/valuation dashboard
+   panels): ~5,200 lines deleted with zero live imports.
+
+The next cycle should focus on:
+
+1. Live-deploy verification of the professionalized UI on AWS (PM2 health,
+   auth gate, role-based navigation smoke test).
+2. End-user acceptance walkthrough of the PO approval flow with a real
+   threshold configuration.
+3. Continued bundle-size reduction on the main frontend chunk.
+4. Data-entry throughput polish: keyboard-first flows for stock transfer
+   and cycle counts.
 
 No production data should be deleted during this phase. No specialist code
 should be removed until the dependency map and rollback evidence exist.
