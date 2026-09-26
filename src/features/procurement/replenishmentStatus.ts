@@ -1,5 +1,6 @@
 export type ReplenishmentStatus =
   | 'draft'
+  | 'pending_approval'
   | 'ordered'
   | 'in_transit'
   | 'partially_received'
@@ -50,6 +51,8 @@ export function summarizeReplenishmentOrder(
   let status: ReplenishmentStatus;
   if (cancelledStatuses.has(rawStatus)) {
     status = 'cancelled';
+  } else if (rawStatus === 'pending_approval') {
+    status = 'pending_approval';
   } else if ((orderedQty > 0 && receivedQty >= orderedQty) || receivedStatuses.has(rawStatus)) {
     status = 'received';
   } else if (receivedQty > 0) {

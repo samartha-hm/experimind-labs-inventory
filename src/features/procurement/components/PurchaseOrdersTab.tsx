@@ -27,7 +27,15 @@ import SmartSelect from '@/src/shared/components/SmartSelect';
 import POReceivingModal from '@/src/features/procurement/components/POReceivingModal';
 import { useData } from '@/src/DataContext';
 import { useApproval } from '@/src/contexts/ApprovalContext';
+import { useAuth } from '@/src/AuthContext';
 import { summarizeReplenishmentOrder } from '@/src/features/procurement/replenishmentStatus';
+import {
+  computePoTotal,
+  generatePoNumber,
+  resolvePoApproval,
+  validatePoDraft,
+  type POLineItemDraft,
+} from '@/src/features/procurement/poCreation';
 
 interface PurchaseOrdersTabProps {
   role: string | null;
@@ -39,63 +47,122 @@ export default function PurchaseOrdersTab({ role }: PurchaseOrdersTabProps) {
     addPurchaseOrder,
     updatePurchaseOrder,
     deletePurchaseOrder,
+    inventory,
   } = useData();
 
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
-  const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
+  const [viewMode, setViewMode] = useState<'grid' | 'table'>('table');
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [selectedPoForPreview, setSelectedPoForPreview] = useState<any | null>(null);
   const [editingPo, setEditingPo] = useState<any | null>(null);
   const [receivingPo, setReceivingPo] = useState<any | null>(null);
 
-  const { createApprovalRequest, thresholds } = useApproval();
+  const { createApprovalRequest, approveRequest, rejectRequest, requests, thresholds } = useApproval();
+  const { user } = useAuth();
 
-  const [newPo, setNewPo] = useState({
-    vendorName: '',
-    expectedDate: '',
-    totalAmount: '',
-    status: 'draft',
-  });
+  const emptyPoDraft = { vendorName: '', expectedDate: '', lineItems: [] as POLineItemDraft[] };
+  const [newPo, setNewPo] = useState(emptyPoDraft);
+  const [poFormErrors, setPoFormErrors] = useState<string[]>([]);
+
+  const addPoLine = () =>
+    setNewPo((prev) => ({
+      ...prev,
+      lineItems: [...prev.lineItems, { itemId: '', name: '', quantity: 1, unitPrice: 0 }],
+    }));
+
+  const updatePoLine = (index: number, patch: Partial<POLineItemDraft>) =>
+    setNewPo((prev) => ({
+      ...prev,
+      lineItems: prev.lineItems.map((line, i) => (i === index ? { ...line, ...patch } : line)),
+    }));
+
+  const removePoLine = (index: number) =>
+    setNewPo((prev) => ({ ...prev, lineItems: prev.lineItems.filter((_, i) => i !== index) }));
+
+  const selectPoItem = (index: number, itemId: string) => {
+    const item = inventory.find((i) => i.id === itemId);
+    updatePoLine(index, {
+      itemId,
+      name: item?.name ?? '',
+      unitPrice: item?.unitCost ?? item?.basePrice ?? 0,
+    });
+  };
+
+  const newPoTotal = computePoTotal(newPo.lineItems);
 
   const handleCreatePo = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newPo.vendorName) return;
+    const errors = validatePoDraft({
+      vendorName: newPo.vendorName,
+      expectedDate: newPo.expectedDate,
+      lineItems: newPo.lineItems,
+    });
+    if (errors.length > 0) {
+      setPoFormErrors(errors);
+      return;
+    }
 
-    const amount = parseFloat(newPo.totalAmount) || 2500.0;
-    const poNumber = `PO-2026-0${orders.length + 100}`;
-    const requiresApproval = amount >= thresholds.poTier1Threshold;
+    const total = computePoTotal(newPo.lineItems);
+    const poNumber = generatePoNumber(orders.map((o) => o.poNumber ?? ''));
+    const approval = resolvePoApproval(total, thresholds);
 
     const po = {
       poNumber,
       vendorName: newPo.vendorName,
       orderDate: new Date().toISOString().split('T')[0],
-      expectedDate: newPo.expectedDate || '2026-08-10',
-      status: requiresApproval ? 'pending_approval' : (newPo.status || 'draft'),
-      totalAmount: amount,
-      itemCount: 5,
+      expectedDate: newPo.expectedDate,
+      status: approval.requiresApproval ? 'pending_approval' : 'draft',
+      totalAmount: total,
+      itemCount: newPo.lineItems.length,
+      items: newPo.lineItems,
     };
 
-    const newId = await addPurchaseOrder(po);
+    await addPurchaseOrder(po);
 
-    if (requiresApproval) {
+    if (approval.requiresApproval && approval.requiredTier && user) {
       await createApprovalRequest({
         type: 'purchase_order',
         targetId: poNumber,
-        title: `Procurement PO for ${newPo.vendorName} (Amount: ₹${amount.toLocaleString()})`,
-        submittedBy: { id: 'usr_staff', name: 'Procurement Specialist', role: 'Staff' },
-        requiredTier: amount >= thresholds.poTier2Threshold ? 'tier2_finance_admin' : 'tier1_procurement',
-        amount: amount,
+        title: `Purchase order ${poNumber} for ${newPo.vendorName} (₹${total.toLocaleString('en-IN')})`,
+        submittedBy: { id: user.id, name: user.name, role: user.role },
+        requiredTier: approval.requiredTier,
+        amount: total,
         payload: po,
         diffs: [
-          { field: 'Purchase Order Total', oldValue: '₹0 (New PO)', newValue: `₹${amount.toLocaleString()}` },
-          { field: 'Vendor', oldValue: 'None', newValue: newPo.vendorName }
-        ]
+          { field: 'Purchase Order Total', oldValue: '₹0 (New PO)', newValue: `₹${total.toLocaleString('en-IN')}` },
+          { field: 'Vendor', oldValue: 'None', newValue: newPo.vendorName },
+          { field: 'Line Items', oldValue: '0', newValue: String(newPo.lineItems.length) },
+        ],
       });
     }
 
     setIsCreateModalOpen(false);
-    setNewPo({ vendorName: '', expectedDate: '', totalAmount: '', status: 'draft' });
+    setNewPo(emptyPoDraft);
+    setPoFormErrors([]);
+  };
+
+  const pendingRequestForPo = (po: any) =>
+    requests.find(
+      (r) => r.type === 'purchase_order' && r.targetId === po.poNumber && r.status === 'PENDING',
+    );
+
+  const canReviewPos = role === 'admin';
+
+  const handleApprovePo = async (po: any) => {
+    const request = pendingRequestForPo(po);
+    if (!request) return;
+    await approveRequest(request.id);
+    await updatePurchaseOrder(po.id, { status: 'issued' });
+  };
+
+  const handleRejectPo = async (po: any) => {
+    const request = pendingRequestForPo(po);
+    if (!request) return;
+    const reason = window.prompt(`Reason for rejecting ${po.poNumber}:`, '');
+    if (reason === null) return;
+    await rejectRequest(request.id, reason.trim() || 'Rejected by reviewer');
+    await updatePurchaseOrder(po.id, { status: 'cancelled' });
   };
 
   const handleEditSavePo = async (e: React.FormEvent) => {
@@ -123,6 +190,7 @@ export default function PurchaseOrdersTab({ role }: PurchaseOrdersTabProps) {
   const getSummary = (po: any) => summarizeReplenishmentOrder(po);
   const statusLabels: Record<string, string> = {
     draft: 'Draft',
+    pending_approval: 'Pending approval',
     ordered: 'Ordered',
     in_transit: 'In transit',
     partially_received: 'Partial',
@@ -130,6 +198,7 @@ export default function PurchaseOrdersTab({ role }: PurchaseOrdersTabProps) {
     received: 'Received',
     cancelled: 'Cancelled',
   };
+  const receivableStatuses = new Set(['ordered', 'in_transit', 'partially_received', 'backordered']);
 
   return (
     <div className="space-y-6 w-full">
@@ -184,7 +253,7 @@ export default function PurchaseOrdersTab({ role }: PurchaseOrdersTabProps) {
       {/* Filter bar */}
       <div className="bg-white/80 backdrop-blur-md p-4 rounded-3xl border border-slate-200/60 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex items-center gap-2 overflow-x-auto pb-1">
-          {['all', 'draft', 'ordered', 'in_transit', 'partially_received', 'backordered', 'received'].map((st) => (
+          {['all', 'draft', 'pending_approval', 'ordered', 'in_transit', 'partially_received', 'backordered', 'received'].map((st) => (
             <button
               key={st}
               onClick={() => setStatusFilter(st)}
@@ -228,21 +297,21 @@ export default function PurchaseOrdersTab({ role }: PurchaseOrdersTabProps) {
                 <div className="flex items-center gap-1">
                   <button
                     onClick={() => setSelectedPoForPreview(po)}
-                    className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-colors cursor-pointer"
-                    title="Preview Printable Commercial Invoice"
+                    className="p-1.5 text-slate-400 hover:text-indigo-600 rounded-xl transition-colors cursor-pointer"
+                    title="Preview Purchase Order Document"
                   >
                     <Eye className="w-4 h-4" />
                   </button>
                   <button
                     onClick={() => setEditingPo(po)}
-                    className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-colors cursor-pointer"
+                    className="p-1.5 text-slate-400 hover:text-indigo-600 rounded-xl transition-colors cursor-pointer"
                     title="Edit Order"
                   >
                     <Edit2 className="w-4 h-4" />
                   </button>
                   <button
                     onClick={() => handleDeletePo(po.id)}
-                    className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-colors cursor-pointer"
+                    className="p-1.5 text-slate-400 hover:text-rose-600 rounded-xl transition-colors cursor-pointer"
                     title="Delete Order"
                   >
                     <Trash2 className="w-4 h-4" />
@@ -267,7 +336,9 @@ export default function PurchaseOrdersTab({ role }: PurchaseOrdersTabProps) {
                         ? 'bg-rose-100 text-rose-800'
                         : summary.status === 'partially_received'
                           ? 'bg-amber-100 text-amber-800'
-                          : 'bg-slate-100 text-slate-600';
+                          : summary.status === 'pending_approval'
+                            ? 'bg-indigo-100 text-indigo-800'
+                            : 'bg-slate-100 text-slate-600';
 
                     return (
                       <>
@@ -277,14 +348,38 @@ export default function PurchaseOrdersTab({ role }: PurchaseOrdersTabProps) {
                         <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${statusClass}`}>
                           {statusLabels[summary.status]}
                         </span>
-                        {summary.status !== 'received' && summary.status !== 'cancelled' && (
+                        {canReviewPos && summary.status === 'pending_approval' && pendingRequestForPo(po) && (
+                          <>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleApprovePo(po);
+                              }}
+                              className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-[10px] font-bold flex items-center gap-1 cursor-pointer shadow-xs"
+                              title="Approve and issue this purchase order"
+                            >
+                              <CheckCircle2 className="w-3 h-3" /> Approve
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleRejectPo(po);
+                              }}
+                              className="px-2.5 py-1 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-[10px] font-bold flex items-center gap-1 cursor-pointer shadow-xs"
+                              title="Reject this purchase order"
+                            >
+                              <X className="w-3 h-3" /> Reject
+                            </button>
+                          </>
+                        )}
+                        {receivableStatuses.has(summary.status) && (
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
                               setReceivingPo(po);
                             }}
                             className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-[10px] font-bold flex items-center gap-1 cursor-pointer shadow-xs"
-                            title="Dock Receive Goods"
+                            title="Receive Goods"
                           >
                             <PackageCheck className="w-3 h-3" /> Receive
                           </button>
@@ -298,7 +393,7 @@ export default function PurchaseOrdersTab({ role }: PurchaseOrdersTabProps) {
           ))}
         </div>
       ) : (
-        <div className="bg-white rounded-3xl border border-slate-200/80 shadow-xs overflow-hidden">
+        <div className="bg-white rounded-3xl border border-slate-200/80 shadow-xs table-responsive">
           <table className="w-full text-left text-xs">
             <thead className="bg-slate-50 border-b border-slate-200/80 text-slate-500 uppercase font-bold text-[10px]">
               <tr>
@@ -321,8 +416,15 @@ export default function PurchaseOrdersTab({ role }: PurchaseOrdersTabProps) {
                   <td className="p-4">
                     {(() => {
                       const summary = getSummary(po);
+                      const badgeClass = summary.status === 'pending_approval'
+                        ? 'bg-indigo-100 text-indigo-800'
+                        : summary.status === 'received'
+                          ? 'bg-emerald-100 text-emerald-800'
+                          : summary.status === 'backordered'
+                            ? 'bg-rose-100 text-rose-800'
+                            : 'bg-slate-100 text-slate-700';
                       return (
-                        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase bg-slate-100 text-slate-700">
+                        <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase ${badgeClass}`}>
                           {statusLabels[summary.status]} · {summary.receivedQty}/{summary.orderedQty}
                         </span>
                       );
@@ -330,14 +432,39 @@ export default function PurchaseOrdersTab({ role }: PurchaseOrdersTabProps) {
                   </td>
                   <td className="p-4 font-mono font-bold text-slate-900">₹{po.totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
                   <td className="p-4 text-right space-x-1.5 whitespace-nowrap">
-                    {getSummary(po).status !== 'received' && getSummary(po).status !== 'cancelled' && (
-                      <button
-                        onClick={() => setReceivingPo(po)}
-                        className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-[10px] font-bold inline-flex items-center gap-1 cursor-pointer shadow-xs"
-                      >
-                        <PackageCheck className="w-3 h-3" /> Receive
-                      </button>
-                    )}
+                    {(() => {
+                      const summary = getSummary(po);
+                      return (
+                        <>
+                          {canReviewPos && summary.status === 'pending_approval' && pendingRequestForPo(po) && (
+                            <>
+                              <button
+                                onClick={() => handleApprovePo(po)}
+                                className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-[10px] font-bold inline-flex items-center gap-1 cursor-pointer shadow-xs"
+                                title="Approve and issue this purchase order"
+                              >
+                                <CheckCircle2 className="w-3 h-3" /> Approve
+                              </button>
+                              <button
+                                onClick={() => handleRejectPo(po)}
+                                className="px-2.5 py-1 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-[10px] font-bold inline-flex items-center gap-1 cursor-pointer shadow-xs"
+                                title="Reject this purchase order"
+                              >
+                                <X className="w-3 h-3" /> Reject
+                              </button>
+                            </>
+                          )}
+                          {receivableStatuses.has(summary.status) && (
+                            <button
+                              onClick={() => setReceivingPo(po)}
+                              className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-[10px] font-bold inline-flex items-center gap-1 cursor-pointer shadow-xs"
+                            >
+                              <PackageCheck className="w-3 h-3" /> Receive
+                            </button>
+                          )}
+                        </>
+                      );
+                    })()}
                     <button onClick={() => setSelectedPoForPreview(po)} className="p-1 text-slate-400 hover:text-indigo-600">
                       <Eye className="w-4 h-4" />
                     </button>
@@ -377,11 +504,12 @@ export default function PurchaseOrdersTab({ role }: PurchaseOrdersTabProps) {
             dueDateOrExpected: selectedPoForPreview.expectedDate,
             status: selectedPoForPreview.status,
             totalAmount: selectedPoForPreview.totalAmount,
-            items: [
-              { name: 'OpAmp LM393 Logic IC Controller', qty: 200, unitPrice: 3.50, total: 700.00 },
-              { name: 'IR Signal Detector Sensor Board', qty: 50, unitPrice: 8.20, total: 410.00 },
-              { name: 'High-Temp Solder Wire (Roll)', qty: 10, unitPrice: 15.00, total: 150.00 },
-            ],
+            items: (selectedPoForPreview.items || []).map((item: any) => ({
+              name: item.name,
+              qty: item.quantity,
+              unitPrice: item.unitPrice,
+              total: (Number(item.quantity) || 0) * (Number(item.unitPrice) || 0),
+            })),
           }}
         />
       )}
@@ -417,8 +545,9 @@ export default function PurchaseOrdersTab({ role }: PurchaseOrdersTabProps) {
                     onChange={(val) => setEditingPo({ ...editingPo, status: val })}
                     options={[
                       { value: 'draft', label: 'Draft', badge: 'Draft' },
-                      { value: 'approved', label: 'Approved', badge: 'Approved' },
+                      { value: 'issued', label: 'Issued', badge: 'Issued' },
                       { value: 'received', label: 'Received', badge: 'Received' },
+                      { value: 'cancelled', label: 'Cancelled', badge: 'Cancelled' },
                     ]}
                     size="sm"
                     placeholder="Status"
@@ -474,47 +603,128 @@ export default function PurchaseOrdersTab({ role }: PurchaseOrdersTabProps) {
         <div className="fixed inset-0 w-screen h-screen z-[99999] bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto animate-fadeIn">
           <div className="relative my-auto bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl w-full max-w-lg p-6 space-y-4">
             <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
-              <h3 className="text-base font-bold text-slate-900 dark:text-white">Issue Purchase Order</h3>
+              <h3 className="text-base font-bold text-slate-900 dark:text-white">Create Purchase Order</h3>
               <button onClick={() => setIsCreateModalOpen(false)} className="p-1 text-slate-400 hover:text-slate-700 dark:hover:text-white cursor-pointer">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             <form onSubmit={handleCreatePo} className="space-y-3 text-xs">
-              <div>
-                <label className="block font-bold text-slate-500 uppercase text-[10px] mb-1">Vendor / Supplier Name *</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. Apex Semiconductor Supplies"
-                  value={newPo.vendorName}
-                  onChange={(e) => setNewPo({ ...newPo, vendorName: e.target.value })}
-                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs focus:outline-none text-slate-900 dark:text-white"
-                />
-              </div>
+              {poFormErrors.length > 0 && (
+                <div className="bg-rose-50 border border-rose-200 rounded-xl p-3 space-y-1">
+                  {poFormErrors.map((error) => (
+                    <p key={error} className="text-rose-700 font-bold flex items-center gap-1.5">
+                      <X className="w-3.5 h-3.5 shrink-0" /> {error}
+                    </p>
+                  ))}
+                </div>
+              )}
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-bold text-slate-500 uppercase text-[10px] mb-1">Expected Date</label>
+                  <label className="block font-bold text-slate-500 uppercase text-[10px] mb-1">Vendor / Supplier Name *</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Apex Semiconductor Supplies"
+                    value={newPo.vendorName}
+                    onChange={(e) => setNewPo({ ...newPo, vendorName: e.target.value })}
+                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs focus:outline-none text-slate-900 dark:text-white"
+                  />
+                </div>
+                <div>
+                  <label className="block font-bold text-slate-500 uppercase text-[10px] mb-1">Expected Date *</label>
                   <input
                     type="date"
+                    required
                     value={newPo.expectedDate}
                     onChange={(e) => setNewPo({ ...newPo, expectedDate: e.target.value })}
                     className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs focus:outline-none text-slate-900 dark:text-white"
                   />
                 </div>
-                <div>
-                  <label className="block font-bold text-slate-500 uppercase text-[10px] mb-1">Total Amount (₹ INR)</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    placeholder="2500.00"
-                    value={newPo.totalAmount}
-                    onChange={(e) => setNewPo({ ...newPo, totalAmount: e.target.value })}
-                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs focus:outline-none text-slate-900 dark:text-white"
-                  />
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block font-bold text-slate-500 uppercase text-[10px]">Line Items *</label>
+                  <button
+                    type="button"
+                    onClick={addPoLine}
+                    className="px-2.5 py-1 bg-indigo-50 dark:bg-indigo-950/50 text-indigo-700 dark:text-indigo-300 rounded-lg font-bold flex items-center gap-1 cursor-pointer hover:bg-indigo-100 dark:hover:bg-indigo-900/60"
+                  >
+                    <Plus className="w-3 h-3" /> Add Item
+                  </button>
+                </div>
+
+                {newPo.lineItems.length === 0 && (
+                  <p className="text-slate-500 dark:text-slate-400 border border-dashed border-slate-200 dark:border-slate-700 rounded-xl p-3 text-center">
+                    No line items yet. Add at least one item from inventory.
+                  </p>
+                )}
+
+                <div className="space-y-2">
+                  {newPo.lineItems.map((line, index) => (
+                    <div key={index} className="grid grid-cols-[1fr_70px_90px_90px_28px] gap-2 items-center">
+                      <SmartSelect
+                        value={line.itemId}
+                        onChange={(val) => selectPoItem(index, val)}
+                        options={inventory
+                          .filter((item) => !item.isHidden)
+                          .map((item) => ({ value: item.id, label: item.name }))}
+                        size="sm"
+                        placeholder="Select inventory item"
+                        aria-label={`Line item ${index + 1}`}
+                      />
+                      <input
+                        type="number"
+                        min={1}
+                        step="1"
+                        placeholder="Qty"
+                        value={line.quantity || ''}
+                        onChange={(e) => updatePoLine(index, { quantity: parseFloat(e.target.value) || 0 })}
+                        className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-2 py-2 font-mono focus:outline-none text-slate-900 dark:text-white"
+                        aria-label={`Quantity for line item ${index + 1}`}
+                      />
+                      <input
+                        type="number"
+                        min={0}
+                        step="0.01"
+                        placeholder="Unit ₹"
+                        value={line.unitPrice || ''}
+                        onChange={(e) => updatePoLine(index, { unitPrice: parseFloat(e.target.value) || 0 })}
+                        className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-2 py-2 font-mono focus:outline-none text-slate-900 dark:text-white"
+                        aria-label={`Unit price for line item ${index + 1}`}
+                      />
+                      <span className="font-mono font-bold text-slate-900 dark:text-white text-center">
+                        ₹{(line.quantity * line.unitPrice).toLocaleString('en-IN')}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => removePoLine(index)}
+                        className="p-1 text-slate-400 hover:text-rose-600 rounded-lg cursor-pointer"
+                        title="Remove line item"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  ))}
                 </div>
               </div>
+
+              <div className="flex items-center justify-between border-t border-slate-100 dark:border-slate-800 pt-3">
+                <span className="font-bold text-slate-500 uppercase text-[10px]">Total</span>
+                <span className="font-mono font-black text-slate-900 dark:text-white">
+                  ₹{newPoTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                </span>
+              </div>
+
+              {newPoTotal >= thresholds.poTier1Threshold && (
+                <p className="text-[11px] text-indigo-700 dark:text-indigo-300 font-bold flex items-center gap-1.5">
+                  <Clock className="w-3.5 h-3.5 shrink-0" />
+                  This order requires approval before it can be issued
+                  {newPoTotal >= thresholds.poTier2Threshold ? ' (finance review)' : ''}.
+                </p>
+              )}
 
               <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex justify-end gap-2">
                 <button
@@ -528,7 +738,7 @@ export default function PurchaseOrdersTab({ role }: PurchaseOrdersTabProps) {
                   type="submit"
                   className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-md cursor-pointer"
                 >
-                  Issue PO
+                  {newPoTotal >= thresholds.poTier1Threshold ? 'Submit for Approval' : 'Create PO'}
                 </button>
               </div>
             </form>

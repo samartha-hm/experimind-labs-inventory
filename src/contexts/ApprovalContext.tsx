@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { useToast } from './ToastContext';
+import { useAuth } from '../AuthContext';
 
 export interface CustomRoleDefinition {
   id: string;
@@ -202,67 +203,21 @@ const DEFAULT_ROLES: CustomRoleDefinition[] = [
   },
 ];
 
-const INITIAL_REQUESTS: ApprovalRequest[] = [
-  {
-    id: 'appr_01',
-    type: 'purchase_order',
-    targetId: 'PO-2026-0089',
-    title: 'High-Value Optical Sensor Bulk Order from Mouser Electronics',
-    submittedBy: { id: 'usr_02', name: 'Priya Sharma', role: 'Procurement Specialist', email: 'priya@experimindlabs.com' },
-    submittedAt: new Date(Date.now() - 3600000 * 3).toISOString(),
-    requiredTier: 'tier1_procurement',
-    status: 'PENDING',
-    amount: 68500,
-    payload: { vendor: 'Mouser Electronics', poNumber: 'PO-2026-0089', itemCount: 12 },
-    diffs: [
-      { field: 'Total Purchase Amount', oldValue: '₹0 (New PO)', newValue: '₹68,500.00' },
-      { field: 'Vendor Terms', oldValue: 'Standard', newValue: 'Net 30 Advance' },
-    ],
-  },
-  {
-    id: 'appr_02',
-    type: 'stock_adjustment',
-    targetId: 'item_esp32_wroom',
-    title: 'ESD Damaged ESP32-WROOM Controller Batch Scrap Write-Off',
-    submittedBy: { id: 'usr_03', name: 'Rahul Verma', role: 'Warehouse Operations Lead', email: 'rahul@experimindlabs.com' },
-    submittedAt: new Date(Date.now() - 3600000 * 8).toISOString(),
-    requiredTier: 'warehouse_supervisor',
-    status: 'PENDING',
-    amount: 14200,
-    payload: { componentId: 'comp_esp32', qty: 60, reason: 'ESD Static Discharge during soldering test' },
-    diffs: [
-      { field: 'Stock Quantity', oldValue: '240 Units', newValue: '180 Units (-60 Scrapped)' },
-      { field: 'Write-off Value', oldValue: '₹0', newValue: '₹14,200.00' },
-    ],
-  },
-  {
-    id: 'appr_03',
-    type: 'bom_change',
-    targetId: 'kit_iot_weather',
-    title: 'IoT Weather Station Kit: Upgrade to BME680 Environmental Sensor',
-    submittedBy: { id: 'usr_04', name: 'Ananya Roy', role: 'R&D Kit Design Engineer', email: 'ananya@experimindlabs.com' },
-    submittedAt: new Date(Date.now() - 3600000 * 24).toISOString(),
-    requiredTier: 'engineering_lead',
-    status: 'APPROVED',
-    payload: { kitId: 'kit_iot_weather', updatedReqsCount: 8 },
-    diffs: [
-      { field: 'Primary Sensor', oldValue: 'DHT22 Temperature/Humidity', newValue: 'BME680 Temp/Humidity/Pressure/Gas' },
-      { field: 'Kit Estimated Unit Cost', oldValue: '₹1,450.00', newValue: '₹1,680.00 (+₹230)' },
-    ],
-    reviewedBy: {
-      id: 'usr_01',
-      name: 'Samartha HM (Lead Admin)',
-      role: 'Super Admin / Director',
-      timestamp: new Date(Date.now() - 3600000 * 12).toISOString(),
-      note: 'Approved. Higher precision sensor is required for STEM curriculum validation.'
-    }
-  }
-];
+const INITIAL_REQUESTS: ApprovalRequest[] = [];
 
 const ApprovalContext = createContext<ApprovalContextType | undefined>(undefined);
 
 export const ApprovalProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const { showToast } = useToast();
+  const { user } = useAuth();
+
+  const buildReviewer = (note: string) => ({
+    id: user?.id ?? 'unknown',
+    name: user?.name ?? 'Unknown User',
+    role: user?.role ?? '',
+    timestamp: new Date().toISOString(),
+    note,
+  });
 
   const [roles, setRoles] = useState<CustomRoleDefinition[]>(() => {
     try {
@@ -336,13 +291,7 @@ export const ApprovalProvider: React.FC<{ children: ReactNode }> = ({ children }
         return {
           ...r,
           status: 'APPROVED' as const,
-          reviewedBy: {
-            id: 'usr_admin',
-            name: 'Lead Admin Reviewer',
-            role: 'Super Admin',
-            timestamp: new Date().toISOString(),
-            note: reviewerNote || 'Approved via Governance Console.'
-          }
+          reviewedBy: buildReviewer(reviewerNote || 'Approved in the operations workspace.')
         };
       }
       return r;
@@ -357,13 +306,7 @@ export const ApprovalProvider: React.FC<{ children: ReactNode }> = ({ children }
           ...r,
           status: 'REJECTED' as const,
           rejectionReason: reason,
-          reviewedBy: {
-            id: 'usr_admin',
-            name: 'Lead Admin Reviewer',
-            role: 'Super Admin',
-            timestamp: new Date().toISOString(),
-            note: reason
-          }
+          reviewedBy: buildReviewer(reason)
         };
       }
       return r;

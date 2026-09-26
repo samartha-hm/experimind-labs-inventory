@@ -38,4 +38,18 @@ describe('summarizeReplenishmentOrder', () => {
       items: [{ quantity: 10, receivedQty: 10 }],
     }, today).status).toBe('received');
   });
+
+  it('recognizes a pending-approval order as awaiting approval, not a draft', () => {
+    expect(summarizeReplenishmentOrder({
+      status: 'pending_approval',
+      expectedDate: '2026-09-30',
+      items: [{ quantity: 10, receivedQty: 0 }],
+    }, today)).toMatchObject({
+      status: 'pending_approval',
+      orderedQty: 10,
+      receivedQty: 0,
+      remainingQty: 10,
+      isOverdue: false,
+    });
+  });
 });
