@@ -1,0 +1,48 @@
+# Repository configuration for the GitHub Copilot app.
+# Docs: https://docs.github.com/copilot/reference/github-copilot-app-reference/repository-configuration
+# The app asks you to review and accept this configuration before it takes effect.
+
+instructions: |
+  NexaInventory ERP — enterprise inventory/WMS platform with a main cockpit
+  app and a public storefront. React 19 + Vite 6 + TypeScript frontend in
+  src/; Express + TypeORM + PostgreSQL backend (server.ts at repo root).
+
+  Commands:
+  - npm run dev — Express server with Vite middleware on http://localhost:3000
+  - npm run typecheck — tsc --noEmit
+  - npm test — vitest run (needs PostgreSQL + env vars, see below)
+  - npm run build — vite build + esbuild server bundle to dist/server.cjs
+
+  The dev server and tests require PostgreSQL and the env vars from
+  .env.example (DATABASE_URL, JWT_SECRET; NODE_ENV=test for tests).
+
+  HAZARD: files whose names end in " (1)" are accidental duplicates — never
+  edit them; always edit the canonical file.
+
+  Never commit secrets or .env. Run npm run typecheck and npm test before
+  declaring any work done.
+
+scripts:
+  - name: Setup
+    command: npm ci
+    triggers:
+      - session.create
+  - name: Dev server
+    command: npm run dev
+  - name: Typecheck
+    command: npm run typecheck
+  - name: Test
+    command: npm test
+  - name: Build
+    command: npm run build
+  - name: Archive cleanup
+    command: rm -rf node_modules
+    triggers:
+      - session.archive
+
+server_ready_pattern: 'Server listening on (https?://\S+)'
+auto_open_in_browser: true
+
+automation:
+  auto_issue_session: true
+  remote_control: false
