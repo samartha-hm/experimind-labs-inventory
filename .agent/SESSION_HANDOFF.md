@@ -1,12 +1,12 @@
 # Session handoff
 
 Date: 2026-10-08. Repository: erp-development. Branch: feature/kit-builder-milestone-1.
-Milestone: final Draft Kit CRUD review PASS; no new features, main merge, deployment or company-data changes.
+Milestone: final Draft Kit CRUD review PASS. No new features, main merge, deployment or company-data changes.
 
-Fresh checks: 33 targeted PostgreSQL/API security tests PASS; full suite 254 tests/46 files PASS; typecheck and build PASS. All use the separate local synthetic dev/test configuration. Migration is additive; composite tenant FK, current DB user/RBAC, rejected client ownership fields, revision locking, rollback, archive retention and restart persistence reviewed. Legacy API aliases remain fail-closed.
+Fresh checks: 33 targeted PostgreSQL/API security tests PASS; full suite 254 tests/46 files PASS; typecheck/build PASS. Separate synthetic dev/test databases only. Reviewed current DB user/RBAC, rejected client ownership claims, tenant filtering, validation, transaction rollback, revision locking, archive retention and restart persistence. Legacy API aliases remain fail-closed.
 
-Logical local commits: a15bcb2 instructions; 2d1e0a4 security; 72f3778 specifications/baseline; de8e1aa PostgreSQL Draft Kit CRUD. Credentials/generated artifacts excluded. Fresh setup now generates ignored random account passwords; existing database/accounts untouched. Git author is Codex <codex@localhost>.
+Commits: a15bcb2 instruction optimization/permanent GitHub workflow; 2d1e0a4 security; 72f3778 V5 specifications/baseline; de8e1aa PostgreSQL Draft Kit CRUD; 425307e final review/initial authentication blocker. Credentials, .env, DB files and generated output excluded; only relevant demonstration screenshots retained. Future fresh setup generates ignored random account passwords; existing accounts/data unchanged. Author: Codex <codex@localhost>.
 
-GitHub status: push failed because usable GitHub credentials are unavailable (noninteractive retry confirmed inability to obtain a password). Remote has NOT been verified as updated. This handoff is a separate local documentation commit; no force-push attempted.
+GitHub: authentication blocker resolved via Git Credential Manager device sign-in. Checkpoint 425307e2b6550c7ad33e285114dd6f550958541a pushed to origin and verified with ls-remote. This short handoff is committed/pushed separately after that verification; confirm its final HEAD against origin before reporting completion. Never force-push.
 
-Blockers: GitHub authentication; existing dependency advisories and bundle warning remain, production rollback/cutover unapproved. Next task: sign in using Git Credential Manager, push this feature branch, verify origin HEAD, then update/commit/push the short handoff and verify again. Further feature milestones require approval. Do not initialize nonempty databases or run legacy cleanup/seeds.
+Remaining: existing dependency advisories/bundle warning; production migration rollback/cutover not tested or approved. Next task: user review of the published checkpoint, then explicit approval of the smallest activity/packing structure slice. No automatic next feature work. Never initialize nonempty databases or run legacy cleanup/seeds.
