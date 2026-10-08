@@ -13,6 +13,7 @@ import { AppDataSource } from "./src/db.ts";
 import authRoutes from "./src/routes/v1/auth.ts";
 import { authenticateJwt } from "./src/middleware/auth.ts";
 import { requireTenant } from "./src/middleware/tenant.ts";
+import { legacyOperationsGate, legacyOperationalPaths } from "./src/middleware/legacyOperationsGate.ts";
 import { errorHandler } from "./src/middleware/errorHandler.ts";
 import inventoryRoutes from "./src/routes/v1/inventory.ts";
 import warehouseRoutes from "./src/routes/v1/warehouse.ts";
@@ -146,7 +147,7 @@ async function startServer() {
   // Simple request logger
   app.use((req, res, next) => {
     console.log(
-      `[${new Date().toISOString()}] ${req.method} ${req.url}`
+      `[${new Date().toISOString()}] ${req.method} ${req.path}`
     );
     next();
   });
@@ -239,6 +240,8 @@ async function startServer() {
   app.use(["/api/v1/hardware", "/api/hardware"], authenticateJwt, requireTenant, hardwareRoutes);
   app.use("/api/v1/cart", authenticateJwt, requireTenant, cartReservationRoutes);
   app.use("/api/public/cart", cartReservationRoutes);
+  // Global legacy stores cannot enforce tenant ownership; gate every alias.
+  app.use(legacyOperationalPaths, legacyOperationsGate());
   app.use(["/api/v1/qc", "/api/qc"], qcRouter);
   app.use(["/api/v1/traceability", "/api/traceability"], traceabilityRouter);
   app.use(["/api/v1/production", "/api/production"], productionRouter);
