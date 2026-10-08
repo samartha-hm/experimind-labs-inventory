@@ -1,15 +1,12 @@
 # Session handoff
 
-Date: 2026-10-08
-Branch: `feature/kit-builder-milestone-1`; inspected HEAD: `03bf7d614096026b45511e836117328fe1d1125c`.
-Milestone: Draft Kit CRUD implemented, awaiting review. This slice optimizes instructions only; no application, migration, or database changes.
+Date: 2026-10-08. Repository: erp-development. Branch: feature/kit-builder-milestone-1.
+Milestone: final Draft Kit CRUD review PASS; no new features, main merge, deployment or company-data changes.
 
-Verified this session: branch and working tree inspected before edits. Existing application work and untracked documentation were present; no local commit made. Documentation validation passed: router length, handoff word count, 17 index links, and whitespace.
-Historical checkpoint (not rerun): 254 tests across 46 files, including 10 PostgreSQL integration cases; typecheck and build passed. Plain `npm test` can omit PostgreSQL cases without the isolated test database configuration. See `docs/erp/28_DRAFT_KIT_BUILDER_RUNBOOK.md` for review commands and environment requirements.
+Fresh checks: 33 targeted PostgreSQL/API security tests PASS; full suite 254 tests/46 files PASS; typecheck and build PASS. All use the separate local synthetic dev/test configuration. Migration is additive; composite tenant FK, current DB user/RBAC, rejected client ownership fields, revision locking, rollback, archive retention and restart persistence reviewed. Legacy API aliases remain fail-closed.
 
-Modified paths: `AGENTS.md`; `.agent/CONTINUITY_PROTOCOL.md`, `EXECUTION_PLAN.md`, `SESSION_HANDOFF.md`, `NEXT_TASK.md`; `docs/erp/00_READ_FIRST.md`, `INDEX.md`.
-Changes: compact invariant router, on-demand specification index, scoped checks, and once-per-slice continuity updates. Decisions and project status were not changed.
+Logical local commits: a15bcb2 instructions; 2d1e0a4 security; 72f3778 specifications/baseline; de8e1aa PostgreSQL Draft Kit CRUD. Credentials/generated artifacts excluded. Fresh setup now generates ignored random account passwords; existing database/accounts untouched. Git author is Codex <codex@localhost>.
 
-Blockers: none for instruction optimization. Existing Draft Kit CRUD work still needs milestone review before checkpointing application changes. Secrets, environment files, databases, and generated artifacts must remain excluded.
-Next small task: review Draft Kit CRUD tenant/RBAC, concurrency, archive, and restart persistence using the runbook and isolated synthetic databases; run full tests, typecheck, and build once at that review. No next feature milestone, push, merge, or deployment without authorization.
+GitHub status: push failed because usable GitHub credentials are unavailable (noninteractive retry confirmed inability to obtain a password). Remote has NOT been verified as updated. This handoff is a separate local documentation commit; no force-push attempted.
 
+Blockers: GitHub authentication; existing dependency advisories and bundle warning remain, production rollback/cutover unapproved. Next task: sign in using Git Credential Manager, push this feature branch, verify origin HEAD, then update/commit/push the short handoff and verify again. Further feature milestones require approval. Do not initialize nonempty databases or run legacy cleanup/seeds.
