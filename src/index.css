@@ -216,14 +216,14 @@ html:not(.dark) select:not([class*="text-"]) {
 .dark input:not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not([type="button"]):not([type="file"]),
 .dark textarea,
 .dark select,
-:is([class*="bg-slate-900"], [class*="bg-slate-950"], [class*="bg-black"]) input:not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not([type="button"]):not([type="file"]),
-:is([class*="bg-slate-900"], [class*="bg-slate-950"], [class*="bg-black"]) textarea,
-:is([class*="bg-slate-900"], [class*="bg-slate-950"], [class*="bg-black"]) select {
+:is([class~="bg-slate-900"], [class~="bg-slate-950"], [class~="bg-black"]) input:not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not([type="button"]):not([type="file"]),
+:is([class~="bg-slate-900"], [class~="bg-slate-950"], [class~="bg-black"]) textarea,
+:is([class~="bg-slate-900"], [class~="bg-slate-950"], [class~="bg-black"]) select {
   color: #f8fafc !important;
 }
 
-:is([class*="bg-slate-900"], [class*="bg-slate-950"], [class*="bg-black"]) input::placeholder,
-:is([class*="bg-slate-900"], [class*="bg-slate-950"], [class*="bg-black"]) textarea::placeholder {
+:is([class~="bg-slate-900"], [class~="bg-slate-950"], [class~="bg-black"]) input::placeholder,
+:is([class~="bg-slate-900"], [class~="bg-slate-950"], [class~="bg-black"]) textarea::placeholder {
   color: #64748b !important;
 }
 

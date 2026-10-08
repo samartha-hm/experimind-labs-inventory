@@ -11,7 +11,7 @@ const roleAliases: Record<string, PlatformRole> = {
   project_staff: 'project_staff',
 };
 
-const sharedTabs = new Set(['overview', 'inventory', 'projects_hub', 'sales_orders']);
+const sharedTabs = new Set(['overview', 'inventory', 'projects_hub', 'sales_orders', 'product_library']);
 
 const roleTabs: Record<PlatformRole, Set<string>> = {
   admin: new Set([

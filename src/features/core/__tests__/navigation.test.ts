@@ -11,6 +11,7 @@ const routedTabs = [
   'overview',
   'inventory',
   'kitting',
+  'product_library',
   'warehouses',
   'stock_transfer',
   'cycle_counts',
@@ -95,6 +96,6 @@ describe('workspace navigation groups', () => {
       'projects',
     ]);
     const projects = groups.find((group) => group.id === 'projects');
-    expect(projects?.items.map((item) => item.tabId)).toEqual(['projects_hub']);
+    expect(projects?.items.map((item) => item.tabId)).toEqual(['projects_hub', 'product_library']);
   });
 });

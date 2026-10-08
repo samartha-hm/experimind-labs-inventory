@@ -1,6 +1,6 @@
 # Next task
 
-Review the existing Draft Kit CRUD milestone using `docs/erp/28_DRAFT_KIT_BUILDER_RUNBOOK.md`.
-Verify tenant/RBAC isolation, concurrent revision conflict handling, soft archive, and restart persistence against isolated synthetic development/test databases.
-At this milestone review, run the full suite with PostgreSQL integration enabled, typecheck, and build once; record failures and causes.
-Do not initialize nonempty databases or alter company data. Verified feature checkpoints must follow the GitHub workflow in AGENTS.md; further builder milestones, main merge and deployment need approval.
+User review of the verified Draft Kit CRUD feature checkpoint on feature/kit-builder-milestone-1.
+Read SESSION_HANDOFF.md for commits, GitHub verification and current checks; use docs/erp/28_DRAFT_KIT_BUILDER_RUNBOOK.md for the existing demonstration.
+Recommended next development task, only after approval: define the smallest version-owned activity/packing structure slice. Do not implement it now. Main merge and deployment remain unapproved.
+Never initialize nonempty databases, change company inventory or bypass the legacy containment gate. Verified future tasks follow the permanent GitHub checkpoint workflow in AGENTS.md.

@@ -4,6 +4,9 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
+    "dev:kit-builder": "node --env-file=.env.kit-builder-development node_modules/tsx/dist/cli.mjs server.ts",
+    "setup:kit-builder": "node --env-file=.env.kit-builder-development node_modules/tsx/dist/cli.mjs scripts/initialize-kit-builder-dev.ts",
+    "test:kit-builder": "node --env-file=.env.kit-builder-development node_modules/vitest/vitest.mjs run src/routes/__tests__/productTemplates.integration.test.ts",
     "dev": "tsx server.ts",
     "build": "vite build && esbuild server.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=dist/server.cjs",
     "start": "node dist/server.cjs",

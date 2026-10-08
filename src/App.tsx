@@ -13,6 +13,7 @@ import Header from '@/src/shared/components/Header';
 import OperationsWorkspace from '@/src/features/core/OperationsWorkspace';
 import InventoryTab from '@/src/features/inventory/components/InventoryTab';
 import KittingTab from '@/src/features/kitting/components/KittingTab';
+import ProductLibrary from '@/src/features/kit-builder/ProductLibrary';
 import PurchaseOrdersTab from '@/src/features/procurement/components/PurchaseOrdersTab';
 import SalesOrdersTab from '@/src/features/sales/components/SalesOrdersTab';
 import PartnersTab from '@/src/features/partners/components/PartnersTab';
@@ -307,6 +308,7 @@ function MainApp() {
         <div className="flex-1 overflow-y-auto overflow-x-hidden overscroll-contain">
           <div className="p-3 sm:p-6 md:p-8 max-w-7xl mx-auto pb-24 md:pb-8">
             <main>
+              {activeTab === 'product_library' && <ProductLibrary />}
               {activeTab === 'overview' && (
                 <OperationsWorkspace
                   inventory={inventory}

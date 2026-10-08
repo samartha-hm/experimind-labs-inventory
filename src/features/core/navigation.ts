@@ -74,6 +74,7 @@ export const workspaceGroups: WorkspaceGroup[] = [
     icon: FolderKanban,
     items: [
       { tabId: 'projects_hub', label: 'Projects', icon: FolderKanban },
+      { tabId: 'product_library', label: 'Product Library', icon: Package },
       { tabId: 'production_command', label: 'Preparation queue', icon: Factory },
       { tabId: 'sticker_hub', label: 'Labels & verification', icon: QrCode },
     ],

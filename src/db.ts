@@ -1,6 +1,9 @@
 import "reflect-metadata";
 import { DataSource } from "typeorm";
 import { env } from "./config/env.ts";
+import { ProductTemplate } from "./entity/ProductTemplate.ts";
+import { ProductTemplateVersion } from "./entity/ProductTemplateVersion.ts";
+import { AddProductTemplates1791417600000 } from "./migration/1791417600000-AddProductTemplates.ts";
 
 import { User } from "./entity/User.ts";
 import { InventoryItem } from "./entity/InventoryItem.ts";
@@ -83,6 +86,8 @@ export const AppDataSource = new DataSource({
     connectionTimeoutMillis: 5000,
   },
   entities: [
+    ProductTemplate,
+    ProductTemplateVersion,
     User,
     InventoryItem,
     Warehouse,
@@ -134,6 +139,7 @@ export const AppDataSource = new DataSource({
     ComponentAlternate,
   ],
   migrations: [
+    AddProductTemplates1791417600000,
     Init1689500000000,
     AddOrgAuditOrdersInvoices1689500000001,
     SeedDefaultOrganization1689500000002,

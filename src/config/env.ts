@@ -21,6 +21,7 @@ if (!effectiveJwtSecret) {
 export const env = {
   nodeEnv: process.env.NODE_ENV ?? "development",
   port: Number(process.env.PORT ?? 3000),
+  host: process.env.HOST ?? "0.0.0.0",
   databaseUrl: process.env.DATABASE_URL ?? "postgres://postgres:postgres@localhost:5432/experimind_inventory",
   jwtSecret: effectiveJwtSecret,
   jwtExpiresIn: process.env.JWT_EXPIRES_IN ?? "24h", // 24h operational session duration
