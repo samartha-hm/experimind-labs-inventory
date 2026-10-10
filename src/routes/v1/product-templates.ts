@@ -1,6 +1,6 @@
 import { Router, RequestHandler } from "express";
 import { DataSource } from "typeorm";
-import { IsString, MaxLength, MinLength, IsInt, Min, validate } from "class-validator";
+import { IsString, MaxLength, MinLength, IsInt, Min, IsArray, IsOptional, validate } from "class-validator";
 import { plainToInstance } from "class-transformer";
 import { authenticateJwt } from "../../middleware/auth.ts";
 import { User } from "../../entity/User.ts";
@@ -13,6 +13,8 @@ class ContentDto {
   @IsString() @MinLength(1) @MaxLength(200) name!: string;
   @IsString() @MaxLength(5000) description: string = "";
   @IsString() @MaxLength(100) category: string = "";
+  // Raw list; ProductTemplateService.normalizeSubjects validates and normalizes each entry.
+  @IsOptional() @IsArray() subjects?: unknown[];
 }
 class EditDto extends ContentDto { @IsInt() @Min(1) revision!: number; }
 class ArchiveDto { @IsInt() @Min(1) revision!: number; }

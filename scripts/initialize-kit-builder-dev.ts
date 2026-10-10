@@ -3,9 +3,11 @@ import { DataSource } from "typeorm";
 import { AppDataSource } from "../src/db.ts";
 import { ProductTemplate } from "../src/entity/ProductTemplate.ts";
 import { ProductTemplateVersion } from "../src/entity/ProductTemplateVersion.ts";
+import { ProductTemplateRevision } from "../src/entity/ProductTemplateRevision.ts";
 import { Organization } from "../src/entity/Organization.ts";
 import { User } from "../src/entity/User.ts";
 import { AddProductTemplates1791417600000 } from "../src/migration/1791417600000-AddProductTemplates.ts";
+import { AddKitSubjectsAndGrades1791417600001 } from "../src/migration/1791417600001-AddKitSubjectsAndGrades.ts";
 import bcrypt from "bcryptjs";
 import { randomBytes } from "node:crypto";
 import { mkdir, writeFile } from "node:fs/promises";
@@ -15,7 +17,7 @@ if (url.hostname !== "127.0.0.1" || url.port !== "55432" || url.pathname !== "/e
   throw new Error("Only the dedicated loopback development database is allowed");
 }
 const db = new DataSource({ ...AppDataSource.options, migrations: [],
-  entities: (AppDataSource.options.entities as Function[]).filter(entity => entity !== ProductTemplate && entity !== ProductTemplateVersion),
+  entities: (AppDataSource.options.entities as Function[]).filter(entity => entity !== ProductTemplate && entity !== ProductTemplateVersion && entity !== ProductTemplateRevision),
 });
 await db.initialize();
 try {
@@ -45,7 +47,7 @@ try {
   await mkdir(".local-dev", { recursive: true });
   await writeFile(".local-dev/development-accounts.json", JSON.stringify(credentials, null, 2), { mode: 0o600 });
 } finally { await db.destroy(); }
-const migrationDb = new DataSource({ ...AppDataSource.options, migrations: [AddProductTemplates1791417600000] });
+const migrationDb = new DataSource({ ...AppDataSource.options, migrations: [AddProductTemplates1791417600000, AddKitSubjectsAndGrades1791417600001] });
 await migrationDb.initialize();
 try { await migrationDb.runMigrations({ transaction: "all" }); }
 finally { await migrationDb.destroy(); }

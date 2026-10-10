@@ -3,7 +3,9 @@ import { DataSource } from "typeorm";
 import { env } from "./config/env.ts";
 import { ProductTemplate } from "./entity/ProductTemplate.ts";
 import { ProductTemplateVersion } from "./entity/ProductTemplateVersion.ts";
+import { ProductTemplateRevision } from "./entity/ProductTemplateRevision.ts";
 import { AddProductTemplates1791417600000 } from "./migration/1791417600000-AddProductTemplates.ts";
+import { AddKitSubjectsAndGrades1791417600001 } from "./migration/1791417600001-AddKitSubjectsAndGrades.ts";
 
 import { User } from "./entity/User.ts";
 import { InventoryItem } from "./entity/InventoryItem.ts";
@@ -88,6 +90,7 @@ export const AppDataSource = new DataSource({
   entities: [
     ProductTemplate,
     ProductTemplateVersion,
+    ProductTemplateRevision,
     User,
     InventoryItem,
     Warehouse,
@@ -140,6 +143,7 @@ export const AppDataSource = new DataSource({
   ],
   migrations: [
     AddProductTemplates1791417600000,
+    AddKitSubjectsAndGrades1791417600001,
     Init1689500000000,
     AddOrgAuditOrdersInvoices1689500000001,
     SeedDefaultOrganization1689500000002,

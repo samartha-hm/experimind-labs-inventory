@@ -23,6 +23,8 @@
 - Authoritative details and the Draft Kit CRUD review gate are linked in `docs/erp/INDEX.md`.
 
 ## Efficient execution and verification
+- **Sequential Execution**: Complete work in the primary thread. Do not spawn subagents or parallel worker swarms.
+- **Token Output Discipline**: Zero conversational preamble or repetitive requirement narration. Produce minimal, targeted diffs.
 - Use scoped `rg` searches and targeted file ranges; exclude `node_modules`, build output, logs, database files, and unrelated subprojects.
 - Read relevant specifications on demand; do not repeat repository audits or load every V5 document for routine edits.
 - Make the smallest safe diff. Run affected tests first and expand checks when failures or changed scope justify it.
@@ -39,4 +41,4 @@
 - Update `DECISIONS.md` only for real decisions and `PROJECT_STATE.md` only for actual status changes; update other records when relevant.
 - Keep handoff at most 250 words: branch, milestone, verified checks, modified paths, blockers, and next small task; no transcript or verbose logs.
 - Follow `.agent/CONTINUITY_PROTOCOL.md` for continuity details.
-- Final replies: result, tests, changed paths, blockers/next step; approximately 10–15 lines.
+- Final replies: result, tests, changed paths, blockers/next step; approximately 10â€“15 lines.

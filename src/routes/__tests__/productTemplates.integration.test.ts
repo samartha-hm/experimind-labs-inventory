@@ -11,7 +11,9 @@ import { User } from "../../entity/User.ts";
 import { Organization } from "../../entity/Organization.ts";
 import { ProductTemplate } from "../../entity/ProductTemplate.ts";
 import { ProductTemplateVersion } from "../../entity/ProductTemplateVersion.ts";
+import { ProductTemplateRevision } from "../../entity/ProductTemplateRevision.ts";
 import { AddProductTemplates1791417600000 } from "../../migration/1791417600000-AddProductTemplates.ts";
+import { AddKitSubjectsAndGrades1791417600001 } from "../../migration/1791417600001-AddKitSubjectsAndGrades.ts";
 import { productTemplateRouter } from "../v1/product-templates.ts";
 import { ProductTemplateService } from "../../services/ProductTemplateService.ts";
 
@@ -24,6 +26,9 @@ describe.skipIf(!databaseUrl)("PostgreSQL draft-kit CRUD and authorization", () 
   let viewer: User;
   let other: User;
   let kitId: string;
+  let structureKitId = "";
+  let structureVersionId = "";
+  let structure: { id: string; name: string; grades: { id: string; name: string }[] }[] = [];
   const schema = `kit_test_${randomUUID().replaceAll("-", "")}`;
   const token = (user: User, changes = {}) => jwt.sign({ sub: user.id, orgId: user.organization_id, role: user.role, ...changes }, env.jwtSecret, { expiresIn: "5m" });
   async function request(method: string, path = "", user?: User, body?: unknown, customToken?: string) {
@@ -41,14 +46,18 @@ describe.skipIf(!databaseUrl)("PostgreSQL draft-kit CRUD and authorization", () 
     const options = { type: "postgres" as const, entities: AppDataSource.options.entities, uuidExtension: "pgcrypto" as const, url: databaseUrl, schema, ssl: false,
       extra: { options: `-c search_path=${schema},public` }, migrations: [] };
     const bootstrap = new DataSource({ ...options,
-      entities: (AppDataSource.options.entities as Function[]).filter(entity => entity !== ProductTemplate && entity !== ProductTemplateVersion),
+      entities: (AppDataSource.options.entities as Function[]).filter(entity => entity !== ProductTemplate && entity !== ProductTemplateVersion && entity !== ProductTemplateRevision),
     });
     await bootstrap.initialize();
     await bootstrap.synchronize();
-    // Only this additive migration, inside this new synthetic schema.
+    // Only these additive migrations, inside this new synthetic schema.
     const runner = bootstrap.createQueryRunner();
     await runner.connect(); await runner.startTransaction();
-    try { await new AddProductTemplates1791417600000().up(runner); await runner.commitTransaction(); }
+    try {
+      await new AddProductTemplates1791417600000().up(runner);
+      await new AddKitSubjectsAndGrades1791417600001().up(runner);
+      await runner.commitTransaction();
+    }
     catch (error) { await runner.rollbackTransaction(); throw error; }
     finally { await runner.release(); await bootstrap.destroy(); }
     db = new DataSource(options);
@@ -137,5 +146,73 @@ describe.skipIf(!databaseUrl)("PostgreSQL draft-kit CRUD and authorization", () 
     expect(await db.getRepository(ProductTemplateVersion).findOneBy({ template_id: kitId })).toMatchObject({ status: "archived", revision: 4 });
     expect((await db.query("SELECT count(*) FROM inventory_items"))[0].count).toBe("0");
     expect((await db.query("SELECT count(*) FROM stock_ledger"))[0].count).toBe("0");
+  });
+  it("creates a kit with subjects and grades and snapshots the revision immutably", async () => {
+    structure = [
+      { id: randomUUID(), name: "Science", grades: [{ id: randomUUID(), name: "Grade 8" }, { id: randomUUID(), name: "Grade 9" }, { id: randomUUID(), name: "Grade 10" }] },
+      { id: randomUUID(), name: "Mathematics", grades: [{ id: randomUUID(), name: "Grade 8" }, { id: randomUUID(), name: "Grade 9" }, { id: randomUUID(), name: "Grade 10" }] },
+    ];
+    const response = await request("POST", "", maker, { name: "Prastuti Structure", subjects: structure });
+    expect(response.status).toBe(201);
+    const kit = await response.json(); structureKitId = kit.template_id; structureVersionId = kit.id;
+    expect(kit.subjects).toEqual(structure);
+    const snapshots = await db.getRepository(ProductTemplateRevision).find({ where: { version_id: structureVersionId }, order: { revision: "ASC" } });
+    expect(snapshots).toHaveLength(1);
+    expect(snapshots[0]).toMatchObject({ revision: 1, name: "Prastuti Structure", status: "draft", subjects: structure });
+  });
+  it("rejects invalid subject and grade structures", async () => {
+    for (const subjects of [
+      "Science", [{ id: "not-a-uuid", name: "Science" }],
+      [{ id: randomUUID(), name: "Science" }, { id: randomUUID(), name: "science" }],
+      [{ id: randomUUID(), name: "Science", grades: [{ id: randomUUID(), name: "Grade 8" }, { id: randomUUID(), name: "GRADE 8" }] }],
+      [{ id: randomUUID(), name: "" }], [{ id: randomUUID(), name: "x".repeat(101) }],
+      [{ id: randomUUID(), name: "Science", grades: "Grade 8" }],
+      [{ id: randomUUID(), name: "Science", grades: [{ id: randomUUID(), name: "" }] }],
+      Array.from({ length: 101 }, () => ({ id: randomUUID(), name: "S" })),
+    ]) expect((await request("POST", "", maker, { name: "Kit", subjects })).status).toBe(400);
+    const shared = randomUUID();
+    expect((await request("POST", "", maker, { name: "Kit", subjects: [{ id: shared, name: "Science" }, { id: shared, name: "Maths" }] })).status).toBe(400);
+    // Entries without identifiers receive server-assigned UUIDs.
+    const auto = await request("POST", "", maker, { name: "Auto Identified", subjects: [{ name: "Science", grades: [{ name: "Grade 8" }] }] });
+    expect(auto.status).toBe(201);
+    const autoKit = await auto.json();
+    expect(autoKit.subjects[0].grades[0]).toMatchObject({ name: "Grade 8" });
+  });
+  it("renames, reorders and removes subjects and grades while keeping identifiers stable", async () => {
+    const [science, maths] = structure;
+    const reordered = [
+      { id: maths.id, name: "Mathematics", grades: [maths.grades[1], maths.grades[0], maths.grades[2]] },
+      { id: science.id, name: "Natural Science", grades: science.grades.filter(grade => grade.name !== "Grade 9") },
+    ];
+    const response = await request("PUT", `/${structureKitId}`, maker, { name: "Prastuti Structure", subjects: reordered, revision: 1 });
+    expect(response.status).toBe(200);
+    const kit = await response.json();
+    expect(kit.revision).toBe(2);
+    expect(kit.subjects.map((s: { id: string; name: string }) => `${s.id}:${s.name}`))
+      .toEqual([`${maths.id}:Mathematics`, `${science.id}:Natural Science`]);
+    expect(kit.subjects[0].grades.map((g: { id: string }) => g.id)).toEqual([maths.grades[1].id, maths.grades[0].id, maths.grades[2].id]);
+    expect(kit.subjects[1].grades.map((g: { id: string }) => g.id)).toEqual([science.grades[0].id, science.grades[2].id]);
+    expect((await request("PUT", `/${structureKitId}`, maker, { name: "Stale", revision: 1 })).status).toBe(409);
+    expect((await request("PUT", `/${structureKitId}`, other, { name: "Intrusion", revision: 2 })).status).toBe(404);
+    const snapshots = await db.getRepository(ProductTemplateRevision).find({ where: { version_id: structureVersionId }, order: { revision: "ASC" } });
+    expect(snapshots).toHaveLength(2);
+    expect(snapshots[0]).toMatchObject({ revision: 1, name: "Prastuti Structure", subjects: structure });
+    expect(snapshots[1]).toMatchObject({ revision: 2, name: "Prastuti Structure", subjects: reordered });
+  });
+  it("rolls the subjects migration back and reapplies it", async () => {
+    const runner = db.createQueryRunner();
+    await runner.connect();
+    try {
+      await runner.startTransaction();
+      await new AddKitSubjectsAndGrades1791417600001().down(runner);
+      let columns = await runner.query(`SELECT column_name FROM information_schema.columns WHERE table_schema = '${schema}' AND table_name = 'product_template_versions' AND column_name = 'subjects'`);
+      expect(columns).toHaveLength(0);
+      expect((await runner.query(`SELECT count(*) FROM information_schema.tables WHERE table_schema = '${schema}' AND table_name = 'product_template_revisions'`))[0].count).toBe("0");
+      await new AddKitSubjectsAndGrades1791417600001().up(runner);
+      columns = await runner.query(`SELECT column_name FROM information_schema.columns WHERE table_schema = '${schema}' AND table_name = 'product_template_versions' AND column_name = 'subjects'`);
+      expect(columns).toHaveLength(1);
+      await runner.commitTransaction();
+    } catch (error) { await runner.rollbackTransaction(); throw error; }
+    finally { await runner.release(); }
   });
 });

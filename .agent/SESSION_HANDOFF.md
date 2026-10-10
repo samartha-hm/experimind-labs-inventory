@@ -1,12 +1,15 @@
 # Session handoff
 
-Date: 2026-10-08. Repository: erp-development. Branch: feature/kit-builder-milestone-1.
-Milestone: final Draft Kit CRUD review PASS. No new features, main merge, deployment or company-data changes.
+Date: 2026-10-10. Branch: feature/kit-builder-milestone-1.
 
-Fresh checks: 33 targeted PostgreSQL/API security tests PASS; full suite 254 tests/46 files PASS; typecheck/build PASS. Separate synthetic dev/test databases only. Reviewed current DB user/RBAC, rejected client ownership claims, tenant filtering, validation, transaction rollback, revision locking, archive retention and restart persistence. Legacy API aliases remain fail-closed.
+Dynamic Kit Structure Editor — Subjects and Grades: COMPLETE and pushed to GitHub.
 
-Commits: a15bcb2 instruction optimization/permanent GitHub workflow; 2d1e0a4 security; 72f3778 V5 specifications/baseline; de8e1aa PostgreSQL Draft Kit CRUD; 425307e final review/initial authentication blocker. Credentials, .env, DB files and generated output excluded; only relevant demonstration screenshots retained. Future fresh setup generates ignored random account passwords; existing accounts/data unchanged. Author: Codex <codex@localhost>.
+Delivered: additive migration `1791417600001-AddKitSubjectsAndGrades` (subjects jsonb on `product_template_versions`, composite unique `(id, organization_id)`, `product_template_revisions` snapshot table with CHECKs/FK/index, rollback in `down()`); `ProductTemplateRevision` snapshot entity; `normalizeSubjects()` validation (trim, 1–100 chars, case-insensitive duplicates, max 100, UUID handling, server-assigned ids); transactional `create()`/`change()` with `pessimistic_write` lock + revision check → 409; `ContentDto.subjects`; full Product Library subjects/grades editor (add/edit/reorder/remove, save status, blank-name guard).
 
-GitHub: authentication blocker resolved via Git Credential Manager device sign-in. Checkpoint 425307e2b6550c7ad33e285114dd6f550958541a pushed to origin and verified with ls-remote. This short handoff is committed/pushed separately after that verification; confirm its final HEAD against origin before reporting completion. Never force-push.
+Verification: typecheck PASS; build PASS; full suite 253 passed / 14 skipped / 0 failed (47 files); kit-builder integration 14/14; 9 `normalizeSubjects` unit tests. Browser walkthrough on embedded PostgreSQL 17.5 (port 55432): created Prastuti draft with Science + Mathematics, Grades 8/9/10 each, saved, reloaded, reopened — structure restored from PostgreSQL; revision snapshot row confirmed. Tenant isolation and 409 covered by integration tests.
 
-Remaining: existing dependency advisories/bundle warning; production migration rollback/cutover not tested or approved. Next task: user review of the published checkpoint, then explicit approval of the smallest activity/packing structure slice. No automatic next feature work. Never initialize nonempty databases or run legacy cleanup/seeds.
+Test fix applied this session: integration snapshot queries now use the version id (`kit.id`) instead of the template id.
+
+Next milestone (not started): Activities, then BOMs, Packing and Crate Rules. Reuse embedded PostgreSQL setup in `D:\Experimindlabs\pgsql\pgtmp` (v17.5 works; v18.4 broken on this machine). Dev accounts in `.local-dev/development-accounts.json` (gitignored).
+
+Preserve inventory names, fail-closed legacy APIs, tenant authorization. No merge to main, no force-push, no destructive DB scripts.
