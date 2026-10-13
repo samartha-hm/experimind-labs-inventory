@@ -1,11 +1,11 @@
-# ERP state — 2026-10-08
+# ERP state — 2026-10-13
 
-Checkout: D:/Experimindlabs/ERP/erp-development; branch feature/kit-builder-milestone-1. Final Draft Kit CRUD review passed; no new features or company-data changes.
+Checkout: D:/Experimindlabs/ERP/erp-development. Branch: feature/kit-builder-milestone-1. Milestones 1–3 implemented; M3 feature commit 69826d3bd1480e218a1074cb61f90f40e09e8f6f pushed and remote verified.
 
-Fresh verification: 33 targeted PostgreSQL/API security tests PASS; full suite 254 tests/46 files PASS; typecheck/build PASS. Authentication, current-user RBAC, tenant filtering, validation, transaction rollback, revision conflicts, restart persistence and archive retention reviewed. Legacy API containment remains fail-closed.
+Physical packing extends existing version-owned subjects JSONB; no new migration or backfill. Stable ordered box/partition/pouch trees, shared activity assignments, independent inventory locations and read-only revision history delivered. Transactional tenant/RBAC, draft-only writes and optimistic revision checks retained. Inventory validation uses tenant-scoped transaction locks. See ADR-022 for embedded-reference and older-application rollback limitations.
 
-Migration 1791417600000 is additive (two new tables, composite tenant FK); no destructive or legacy scripts executed. Rollback and production cutover not tested/approved. Existing isolated development/test databases preserved. Shared development password removed from publishable setup/runbook; future fresh setup generates ignored random account credentials. Existing accounts not changed.
+298 tests across 49 files PASS, including real PostgreSQL and existing migration up/down smoke in isolated test schemas. Typecheck, frontend/PWA/server build and code review PASS. M2/M3 HTTP persistence verified across server/connection restart; browser save/reload/reopen acceptance remains UNVERIFIED because browser tooling is unavailable.
 
-Permanent GitHub workflow accepted: explicitly stage logical verified commits, push feature branch, verify remote, then publish the short handoff. No force-push, main merge, deployment or further milestone without approval. Commit/push outcome is recorded in SESSION_HANDOFF.md.
+Existing development/test databases, accounts, company data and stock preserved. No seed/reset or production changes. Legacy APIs remain fail-closed. Existing large-bundle warning remains; dependency advisories from earlier setup are unresolved and not re-audited.
 
-Known existing limitations: dependency advisories and large-bundle warning; no archive restore/publish/component engine. Other ERP APIs not certified production-ready. Next task: user review of this feature checkpoint and approval of the next bounded builder task.
+Next: browser acceptance using runbook 28 in a fresh chat. No crate/calculation milestone, merge, deployment or force-push authorized. Latest handoff checkpoint must be pushed and remote verified.

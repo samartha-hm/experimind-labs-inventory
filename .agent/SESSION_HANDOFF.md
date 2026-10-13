@@ -2,12 +2,14 @@
 
 Date: 2026-10-13. Branch: feature/kit-builder-milestone-1.
 
-Activities and Material Requirements: COMPLETE and pushed to GitHub (a0b0bc2).
+Milestone 3 implementation complete. Feature commit: 69826d3bd1480e218a1074cb61f90f40e09e8f6f; pushed and verified equal to origin. This handoff is published in a separate checkpoint commit.
 
-Delivered: `KitActivity`/`KitMaterial` types nested in the existing `subjects` jsonb snapshot (no new migration needed — additive jsonb extension, no shape constraints); `normalizeActivities`/`normalizeMaterials` with validation (activity name 1–100 unique per grade, code ≤50, description ≤2000, instructions ≤5000, reference_url ≤500, max 100 activities/grade; material name 1–200, unit ≤20 default `pcs`, notes ≤500, quantity finite ≥0, max 100 materials/activity, duplicate `inventory_item_id` rejected); server-computed `complete = requiredQuantity > 0` so incomplete quantities are never production-ready; `validateMaterialReferences()` enforces tenant-scoped `inventory_item_id` existence (400) and is wired into `create()`/`change()`; `searchMaterials()` + `GET /materials?q=` picker over the existing inventory master (name/sku/description ILIKE, limit 20) registered before `/:id`; Product Library activity + material editors (add/edit/reorder/remove, Incomplete badge, debounced picker); `withActivities()` normalizes legacy kits lacking the `activities` key on open/save.
+Delivered: grade-owned boxes/partitions/pouches with stable IDs, editable counts/names/codes/notes/order, many-to-many pouch activity links, inventory location references independent of educational demand, populated removal confirmation, unsaved-change warnings and read-only saved revision history. Existing subjects JSONB stores packing; no new migration/backfill. ADR-022 records integrity and rollback limitations.
 
-Verification: typecheck PASS; build PASS; full suite 282 passed / 0 failed (48 files); 11 new `normalizeActivities`/`normalizeMaterials` unit tests; 4 new integration tests (activities CRUD + snapshots + inventory non-mutation, structure validation, cross-tenant/missing material refs, picker auth/tenant). Browser walkthrough on embedded PostgreSQL 17.5 (port 55432): kit opens without white screen, activity editor renders under grades, material picker returns inventory items, Incomplete badge clears once quantity is set. Persistence-after-reload step not re-verified after the badge fix (dev server/DB restarted mid-walkthrough).
+Verification PASS: 298 tests/49 files (including real PostgreSQL), typecheck, frontend/PWA/server build, staged diff check and code review. Tests cover M2 material and M3 packing persistence across server/connection restart, ordering, revision history, conflicts, atomic failures, tenant/RBAC isolation, invalid references and unchanged inventory/stock. Use the full-suite command with --maxWorkers=2 in runbook 28. Existing large-bundle warning remains.
 
-Next milestone (not started): BOMs, Packing, Crate Rules. Reuse embedded PostgreSQL in `D:\Experimindlabs\pgsql\pgtmp` (v17.5 works; v18.4 broken). Dev accounts in `.local-dev/development-accounts.json` (gitignored).
+Browser M2 save/reload/reopen and M3 acceptance remain UNVERIFIED: this session has no callable in-app browser runtime. Runbook 28 contains the exact pending walkthrough; automated HTTP tests do not certify browser behavior.
 
-Preserve inventory names, fail-closed legacy APIs, tenant authorization. No merge to main, no force-push, no destructive DB scripts.
+Existing PostgreSQL 17.5: 127.0.0.1:55432; cluster D:\Experimindlabs\pgsql\pgtmp\data. Preserve development/test databases and ignored accounts. No company data, stock, seeds or accounts changed. Earlier blocker report retained with resolution appended.
+
+Stop after M3. No crate/calculation engine, main merge, deployment, force-push or further milestone authorized. Next: browser acceptance in a fresh enabled chat.
