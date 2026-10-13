@@ -1,7 +1,29 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, Unique } from "typeorm";
 
-/** Editable, version-owned subject/grade structure; identifiers are stable across revisions. */
-export interface KitGrade { id: string; name: string }
+/** Editable, version-owned subject/grade/activity structure; identifiers are stable across revisions.
+ *  Materials reference existing inventory master items; `complete` is computed server-side on save. */
+export interface KitMaterial {
+  id: string;
+  inventory_item_id: string;
+  item_name: string;
+  quantity: number;
+  unit: string;
+  notes?: string;
+  optional?: boolean;
+  reusable?: boolean;
+  complete?: boolean;
+}
+export interface KitActivity {
+  id: string;
+  code?: string;
+  name: string;
+  description?: string;
+  instructions?: string;
+  reference_url?: string;
+  optional?: boolean;
+  materials: KitMaterial[];
+}
+export interface KitGrade { id: string; name: string; activities: KitActivity[] }
 export interface KitSubject { id: string; name: string; grades: KitGrade[] }
 
 /** Activity/material/packing graphs will reference this version's identity. */

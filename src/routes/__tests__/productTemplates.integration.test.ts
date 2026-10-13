@@ -10,6 +10,7 @@ import { env } from "../../config/env.ts";
 import { User } from "../../entity/User.ts";
 import { Organization } from "../../entity/Organization.ts";
 import { ProductTemplate } from "../../entity/ProductTemplate.ts";
+import { InventoryItem } from "../../entity/InventoryItem.ts";
 import { ProductTemplateVersion } from "../../entity/ProductTemplateVersion.ts";
 import { ProductTemplateRevision } from "../../entity/ProductTemplateRevision.ts";
 import { AddProductTemplates1791417600000 } from "../../migration/1791417600000-AddProductTemplates.ts";
@@ -28,7 +29,7 @@ describe.skipIf(!databaseUrl)("PostgreSQL draft-kit CRUD and authorization", () 
   let kitId: string;
   let structureKitId = "";
   let structureVersionId = "";
-  let structure: { id: string; name: string; grades: { id: string; name: string }[] }[] = [];
+  let structure: { id: string; name: string; grades: { id: string; name: string; activities: never[] }[] }[] = [];
   const schema = `kit_test_${randomUUID().replaceAll("-", "")}`;
   const token = (user: User, changes = {}) => jwt.sign({ sub: user.id, orgId: user.organization_id, role: user.role, ...changes }, env.jwtSecret, { expiresIn: "5m" });
   async function request(method: string, path = "", user?: User, body?: unknown, customToken?: string) {
@@ -149,8 +150,8 @@ describe.skipIf(!databaseUrl)("PostgreSQL draft-kit CRUD and authorization", () 
   });
   it("creates a kit with subjects and grades and snapshots the revision immutably", async () => {
     structure = [
-      { id: randomUUID(), name: "Science", grades: [{ id: randomUUID(), name: "Grade 8" }, { id: randomUUID(), name: "Grade 9" }, { id: randomUUID(), name: "Grade 10" }] },
-      { id: randomUUID(), name: "Mathematics", grades: [{ id: randomUUID(), name: "Grade 8" }, { id: randomUUID(), name: "Grade 9" }, { id: randomUUID(), name: "Grade 10" }] },
+      { id: randomUUID(), name: "Science", grades: [{ id: randomUUID(), name: "Grade 8", activities: [] }, { id: randomUUID(), name: "Grade 9", activities: [] }, { id: randomUUID(), name: "Grade 10", activities: [] }] },
+      { id: randomUUID(), name: "Mathematics", grades: [{ id: randomUUID(), name: "Grade 8", activities: [] }, { id: randomUUID(), name: "Grade 9", activities: [] }, { id: randomUUID(), name: "Grade 10", activities: [] }] },
     ];
     const response = await request("POST", "", maker, { name: "Prastuti Structure", subjects: structure });
     expect(response.status).toBe(201);
@@ -198,6 +199,103 @@ describe.skipIf(!databaseUrl)("PostgreSQL draft-kit CRUD and authorization", () 
     expect(snapshots).toHaveLength(2);
     expect(snapshots[0]).toMatchObject({ revision: 1, name: "Prastuti Structure", subjects: structure });
     expect(snapshots[1]).toMatchObject({ revision: 2, name: "Prastuti Structure", subjects: reordered });
+  });
+  it("creates, edits, reorders and removes activities and materials on a draft kit", async () => {
+    const beaker = await db.getRepository(InventoryItem).save({ organization_id: maker.organization_id, sku: "LAB-BEAKER", name: "Beaker 250ml", category: "Lab", base_price: 120, quantity: 40, threshold: 5 });
+    const funnel = await db.getRepository(InventoryItem).save({ organization_id: maker.organization_id, sku: "LAB-FUNNEL", name: "Funnel", category: "Lab", base_price: 45, quantity: 12, threshold: 3 });
+    const inventoryCount = await db.getRepository(InventoryItem).count();
+    const activityId = randomUUID();
+    const materialId = randomUUID();
+    const subjects = [{
+      id: randomUUID(), name: "Science", grades: [{
+        id: randomUUID(), name: "Grade 8", activities: [{
+          id: activityId, code: "8.4.1", name: "Separating mixtures", description: "Filter a mixture", instructions: "Pour and observe",
+          materials: [
+            { id: materialId, inventory_item_id: beaker.id, item_name: "Beaker 250ml", quantity: 2, unit: "pcs" },
+            { inventory_item_id: funnel.id, item_name: "Funnel", quantity: 0 },
+          ],
+        }],
+      }],
+    }];
+    const created = await request("POST", "", maker, { name: "Activity Kit", subjects });
+    expect(created.status).toBe(201);
+    const kit = await created.json();
+    const activity = kit.subjects[0].grades[0].activities[0];
+    expect(activity).toMatchObject({ id: activityId, code: "8.4.1", name: "Separating mixtures", description: "Filter a mixture", instructions: "Pour and observe" });
+    expect(activity.materials[0]).toMatchObject({ id: materialId, inventory_item_id: beaker.id, item_name: "Beaker 250ml", quantity: 2, complete: true });
+    expect(activity.materials[1]).toMatchObject({ quantity: 0, unit: "pcs", complete: false });
+    const snapshots = await db.getRepository(ProductTemplateRevision).find({ where: { version_id: kit.id }, order: { revision: "ASC" } });
+    expect(snapshots).toHaveLength(1);
+    expect(snapshots[0].subjects[0].grades[0].activities[0].materials).toHaveLength(2);
+    // Reorder the activity, complete the second material, then remove the first material.
+    const edited = [{
+      id: kit.subjects[0].id, name: "Science", grades: [{
+        id: kit.subjects[0].grades[0].id, name: "Grade 8", activities: [{
+          ...kit.subjects[0].grades[0].activities[0],
+          materials: [
+            { ...kit.subjects[0].grades[0].activities[0].materials[1], quantity: 1 },
+            kit.subjects[0].grades[0].activities[0].materials[0],
+          ],
+        }],
+      }],
+    }];
+    const updated = await request("PUT", `/${kit.template_id}`, maker, { name: "Activity Kit", subjects: edited, revision: kit.revision });
+    expect(updated.status).toBe(200);
+    const saved = await updated.json();
+    expect(saved.revision).toBe(2);
+    expect(saved.subjects[0].grades[0].activities[0].materials.map((m: { id: string }) => m.id)).toEqual([kit.subjects[0].grades[0].activities[0].materials[1].id, materialId]);
+    expect(saved.subjects[0].grades[0].activities[0].materials[0]).toMatchObject({ quantity: 1, complete: true });
+    const afterSnapshots = await db.getRepository(ProductTemplateRevision).find({ where: { version_id: kit.id }, order: { revision: "ASC" } });
+    expect(afterSnapshots).toHaveLength(2);
+    expect(afterSnapshots[0].subjects[0].grades[0].activities[0].materials).toHaveLength(2);
+    expect(afterSnapshots[1].subjects[0].grades[0].activities[0].materials).toHaveLength(2);
+    // Saving kits must never mutate the inventory master.
+    expect(await db.getRepository(InventoryItem).count()).toBe(inventoryCount);
+    const reloadedBeaker = await db.getRepository(InventoryItem).findOneBy({ id: beaker.id });
+    expect(reloadedBeaker).toMatchObject({ quantity: 40, name: "Beaker 250ml" });
+  });
+  it("validates activity and material structures", async () => {
+    const item = await db.getRepository(InventoryItem).save({ organization_id: maker.organization_id, sku: "LAB-FLASK", name: "Flask", category: "Lab", base_price: 90, quantity: 8, threshold: 2 });
+    const gradeId = randomUUID();
+    const base = { id: randomUUID(), name: "Science", grades: [{ id: gradeId, name: "Grade 8", activities: [] }] };
+    for (const activities of [
+      "Separating mixtures",
+      [null],
+      [{ name: "" }],
+      [{ name: "x".repeat(101) }],
+      [{ name: "Mix", code: "x".repeat(51) }],
+      [{ name: "Mix", description: "x".repeat(2001) }],
+      [{ name: "Mix", instructions: "x".repeat(5001) }],
+      [{ name: "Mix", reference_url: "x".repeat(501) }],
+      [{ name: "Mix", materials: "Flask" }],
+      [{ name: "Mix", materials: [{ inventory_item_id: "not-a-uuid", item_name: "Flask", quantity: 1 }] }],
+      [{ name: "Mix", materials: [{ inventory_item_id: item.id, item_name: "", quantity: 1 }] }],
+      [{ name: "Mix", materials: [{ inventory_item_id: item.id, item_name: "Flask", quantity: -1 }] }],
+      [{ name: "Mix", materials: [{ inventory_item_id: item.id, item_name: "Flask", quantity: 1 }, { inventory_item_id: item.id, item_name: "Flask", quantity: 2 }] }],
+      [{ name: "Mix" }, { name: "mix" }],
+      Array.from({ length: 101 }, () => ({ name: "Mix" })),
+    ]) expect((await request("POST", "", maker, { name: "Kit", subjects: [{ ...base, grades: [{ id: gradeId, name: "Grade 8", activities }] }] })).status).toBe(400);
+  });
+  it("rejects materials referencing items from other tenants or missing items", async () => {
+    const foreign = await db.getRepository(InventoryItem).save({ organization_id: other.organization_id, sku: "OTHER-ITEM", name: "Foreign item", category: "Lab", base_price: 10, quantity: 5, threshold: 1 });
+    const subjects = [{ id: randomUUID(), name: "Science", grades: [{ id: randomUUID(), name: "Grade 8", activities: [{ name: "Mix", materials: [{ inventory_item_id: foreign.id, item_name: "Foreign item", quantity: 1 }] }] }] }];
+    expect((await request("POST", "", maker, { name: "Kit", subjects })).status).toBe(400);
+    const missing = [{ id: randomUUID(), name: "Science", grades: [{ id: randomUUID(), name: "Grade 8", activities: [{ name: "Mix", materials: [{ inventory_item_id: randomUUID(), item_name: "Ghost item", quantity: 1 }] }] }] }];
+    expect((await request("POST", "", maker, { name: "Kit", subjects: missing })).status).toBe(400);
+    // The same reference is accepted for the owning tenant.
+    const own = await request("POST", "", other, { name: "Other Kit", subjects });
+    expect(own.status).toBe(201);
+  });
+  it("serves the material picker with tenant isolation and authentication", async () => {
+    expect((await request("GET", "/materials?q=beaker")).status).toBe(401);
+    const makerResults = await (await request("GET", "/materials?q=beaker", maker)).json();
+    expect(makerResults).toHaveLength(1);
+    expect(makerResults[0]).toMatchObject({ sku: "LAB-BEAKER", name: "Beaker 250ml", unit: "pcs" });
+    expect(makerResults[0].quantity).toBeUndefined();
+    expect(makerResults[0].base_price).toBeUndefined();
+    expect(await (await request("GET", "/materials?q=beaker", other)).json()).toEqual([]);
+    expect((await request("GET", "/materials?q=beaker", viewer)).status).toBe(200);
+    expect((await request("GET", "/materials?q=" + "x".repeat(101), maker)).status).toBe(400);
   });
   it("rolls the subjects migration back and reapplies it", async () => {
     const runner = db.createQueryRunner();

@@ -60,6 +60,12 @@ export function productTemplateRouter(db: DataSource) {
     if (!uuid.test(id)) { res.status(400).json({ error: "Invalid kit identity" }); return; } next();
   });
   router.get("/", action(async (req, res) => { res.json(await service.list(req.user!.orgId!)); }));
+  // Material picker search; registered before /:id so "materials" is not read as a kit identity.
+  router.get("/materials", action(async (req, res) => {
+    const query = typeof req.query.q === "string" ? req.query.q : "";
+    if (query.trim().length > 100) throw new DraftKitError(400, "Search text must contain at most 100 characters");
+    res.json(await service.searchMaterials(query, req.user!.orgId!));
+  }));
   router.get("/:id", action(async (req, res) => { res.json(await service.view(req.params.id, req.user!.orgId!)); }));
   router.post("/", action(async (req, res) => {
     const value = await dto(req.body, ContentDto);
