@@ -67,6 +67,7 @@ export function productTemplateRouter(db: DataSource) {
     res.json(await service.searchMaterials(query, req.user!.orgId!));
   }));
   router.get("/:id", action(async (req, res) => { res.json(await service.view(req.params.id, req.user!.orgId!)); }));
+  router.get("/:id/revisions", action(async (req, res) => { res.json(await service.history(req.params.id, req.user!.orgId!)); }));
   router.post("/", action(async (req, res) => {
     const value = await dto(req.body, ContentDto);
     res.status(201).json(await service.create(value, req.user!.orgId!, req.user!.id));

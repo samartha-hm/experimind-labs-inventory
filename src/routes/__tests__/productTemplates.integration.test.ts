@@ -297,6 +297,56 @@ describe.skipIf(!databaseUrl)("PostgreSQL draft-kit CRUD and authorization", () 
     expect((await request("GET", "/materials?q=beaker", viewer)).status).toBe(200);
     expect((await request("GET", "/materials?q=" + "x".repeat(101), maker)).status).toBe(400);
   });
+  it("persists dynamic packing, activity links and independent inventory assignments through restart", async () => {
+    const item = await db.getRepository(InventoryItem).save({ organization_id: maker.organization_id, sku: "PACK-ITEM", name: "Packing component", category: "Lab", base_price: 5, quantity: 15, threshold: 1 });
+    const before = await db.getRepository(InventoryItem).find({ order: { id: "ASC" } });
+    const activities = ["Activity A", "Activity B"].map(name => ({ id: randomUUID(), name, materials: [{ inventory_item_id: item.id, item_name: item.name, quantity: 2 }] }));
+    const unit = (kind: string, name: string, children: unknown[] = [], activity_ids: string[] = [], inventory_item_ids: string[] = []) => ({ id: randomUUID(), kind, name, code: name, notes: "Handle carefully", children, activity_ids, inventory_item_ids });
+    const pouches = [unit("pouch", "Pouch A", [], activities.map(activity => activity.id), [item.id]), unit("pouch", "Pouch B", [], [activities[0].id])];
+    const packing = [unit("box", "Box A", [unit("partition", "Partition A", pouches), unit("partition", "Partition B")], [], [item.id]), unit("box", "Box B")];
+    const created = await request("POST", "", maker, { name: "Packing Kit", subjects: [{ name: "Science", grades: [{ name: "Grade 8", activities, packing }] }] });
+    expect(created.status).toBe(201);
+    const kit = await created.json();
+    expect(kit.subjects[0].grades[0].packing).toMatchObject(packing);
+    expect(kit.subjects[0].grades[0].packing[0].inventory_labels).toEqual({ [item.id]: item.name });
+    await closeServer(); await db.destroy(); await db.initialize(); await startServer();
+    const reloaded = await (await request("GET", `/${kit.template_id}`, maker)).json();
+    expect(reloaded.subjects).toEqual(kit.subjects);
+    expect(reloaded.subjects[0].grades[0].activities.map((activity: { materials: unknown[] }) => activity.materials)).toEqual(kit.subjects[0].grades[0].activities.map((activity: { materials: unknown[] }) => activity.materials));
+    const edited = structuredClone(kit.subjects);
+    const grade = edited[0].grades[0];
+    grade.packing.reverse(); grade.packing[1].children.reverse(); grade.packing[1].children[1].children.reverse();
+    grade.packing[1].name = "Renamed box"; grade.packing[1].notes = "Updated notes";
+    const contenders = await Promise.all(["First edit", "Second edit"].map(description => request("PUT", `/${kit.template_id}`, maker, { name: kit.name, description, subjects: edited, revision: 1 })));
+    expect(contenders.map(response => response.status).sort()).toEqual([200, 409]);
+    const saved = await (await request("GET", `/${kit.template_id}`, maker)).json();
+    expect(saved.subjects).toEqual(edited);
+    const snapshots = await db.getRepository(ProductTemplateRevision).find({ where: { version_id: kit.id }, order: { revision: "ASC" } });
+    expect(snapshots).toHaveLength(2); expect(snapshots[0].subjects).toEqual(kit.subjects);
+    expect((await request("GET", `/${kit.template_id}/revisions`)).status).toBe(401);
+    expect((await request("GET", `/${kit.template_id}/revisions`, other)).status).toBe(404);
+    const history = await (await request("GET", `/${kit.template_id}/revisions`, viewer)).json();
+    expect(history.map((row: { revision: number }) => row.revision)).toEqual([2, 1]);
+    expect(history[1].subjects).toEqual(kit.subjects);
+    const dangling = structuredClone(edited); dangling[0].grades[0].activities = [];
+    expect((await request("PUT", `/${kit.template_id}`, maker, { name: kit.name, subjects: dangling, revision: 2 })).status).toBe(400);
+    const foreign = await db.getRepository(InventoryItem).save({ organization_id: other.organization_id, sku: "FOREIGN-PACK", name: "Foreign packing component", category: "Lab", base_price: 5, quantity: 15, threshold: 1 });
+    for (const id of [foreign.id, randomUUID()]) {
+      const invalid = structuredClone(edited); invalid[0].grades[0].packing[0].inventory_item_ids = [id];
+      expect((await request("PUT", `/${kit.template_id}`, maker, { name: kit.name, subjects: invalid, revision: 2 })).status).toBe(400);
+    }
+    expect((await request("PUT", `/${kit.template_id}`, viewer, { name: kit.name, subjects: edited, revision: 2 }, token(viewer, { role: "admin" }))).status).toBe(403);
+    expect((await request("GET", `/${kit.template_id}`, other)).status).toBe(404);
+    expect((await request("PUT", `/${kit.template_id}`, other, { name: kit.name, subjects: edited, revision: 2 })).status).toBe(404);
+    expect(await db.getRepository(ProductTemplateRevision).count({ where: { version_id: kit.id } })).toBe(2);
+    // Remove an entire box and its assignments atomically; earlier snapshots retain it.
+    grade.packing = grade.packing.slice(0, 1); grade.activities = [];
+    expect((await request("PUT", `/${kit.template_id}`, maker, { name: kit.name, subjects: edited, revision: 2 })).status).toBe(200);
+    expect((await db.getRepository(ProductTemplateRevision).findOneByOrFail({ version_id: kit.id, revision: 1 })).subjects).toEqual(kit.subjects);
+    expect(await db.getRepository(InventoryItem).find({ where: { organization_id: maker.organization_id }, order: { id: "ASC" } })).toEqual(before.filter(row => row.organization_id === maker.organization_id));
+    await db.getRepository(ProductTemplateVersion).update(kit.id, { status: "published" });
+    expect((await request("PUT", `/${kit.template_id}`, maker, { name: kit.name, subjects: edited, revision: 3 })).status).toBe(409);
+  });
   it("rolls the subjects migration back and reapplies it", async () => {
     const runner = db.createQueryRunner();
     await runner.connect();

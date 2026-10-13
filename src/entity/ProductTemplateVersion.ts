@@ -23,7 +23,18 @@ export interface KitActivity {
   optional?: boolean;
   materials: KitMaterial[];
 }
-export interface KitGrade { id: string; name: string; activities: KitActivity[] }
+export interface KitPackingUnit {
+  id: string;
+  kind: "box" | "partition" | "pouch";
+  name: string;
+  code?: string;
+  notes?: string;
+  activity_ids: string[];
+  inventory_item_ids: string[];
+  inventory_labels?: Record<string, string>;
+  children: KitPackingUnit[];
+}
+export interface KitGrade { id: string; name: string; activities: KitActivity[]; packing?: KitPackingUnit[] }
 export interface KitSubject { id: string; name: string; grades: KitGrade[] }
 
 /** Activity/material/packing graphs will reference this version's identity. */

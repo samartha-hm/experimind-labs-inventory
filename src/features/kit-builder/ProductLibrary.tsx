@@ -4,12 +4,16 @@ import { useAuth } from "../../AuthContext";
 import { apiFetch } from "../../utils/api";
 import EmptyState from "../../shared/components/EmptyState";
 import { SkeletonCard } from "../../shared/components/SkeletonLoader";
+import { MaterialSearch, type InventoryPick } from "./MaterialSearch";
+import { PackingEditor } from "./PackingEditor";
+import { RevisionHistory } from "./RevisionHistory";
+import type { KitPackingUnit } from "../../entity/ProductTemplateVersion";
 
 interface KitMaterial { id: string; inventory_item_id: string; item_name: string; quantity: number; unit: string; notes?: string; optional?: boolean; reusable?: boolean; complete?: boolean }
 interface KitActivity { id: string; code?: string; name: string; description?: string; instructions?: string; reference_url?: string; optional?: boolean; materials: KitMaterial[] }
-interface KitGrade { id: string; name: string; activities: KitActivity[] }
+interface KitGrade { id: string; name: string; activities: KitActivity[]; packing?: KitPackingUnit[] }
 interface KitSubject { id: string; name: string; grades: KitGrade[] }
-interface InventoryPick { id: string; name: string; unit: string; sku: string }
+
 interface DraftKit {
   id: string; template_id: string; name: string; description: string; category: string;
   version_number: number; revision: number; updated_at: string; subjects?: KitSubject[];
@@ -26,61 +30,6 @@ function newId(): string {
   bytes[8] = (bytes[8] & 0x3f) | 0x80;
   const hex = Array.from(bytes, byte => byte.toString(16).padStart(2, "0")).join("");
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
-}
-
-function MaterialSearch({ onPick, disabled }: { onPick: (item: InventoryPick) => void; disabled: boolean }) {
-  const [query, setQuery] = useState("");
-  const [results, setResults] = useState<InventoryPick[]>([]);
-  const [open, setOpen] = useState(false);
-  const [busy, setBusy] = useState(false);
-  useEffect(() => {
-    const text = query.trim();
-    if (text.length < 2) { setResults([]); setOpen(false); return; }
-    let mounted = true;
-    setBusy(true);
-    const timer = setTimeout(() => {
-      apiFetch(`/api/v1/product-templates/materials?q=${encodeURIComponent(text)}`)
-        .then((data: InventoryPick[]) => { if (mounted) { setResults(data); setOpen(true); } })
-        .catch(() => { if (mounted) { setResults([]); setOpen(false); } })
-        .finally(() => { if (mounted) setBusy(false); });
-    }, 300);
-    return () => { mounted = false; clearTimeout(timer); };
-  }, [query]);
-  const pick = (item: InventoryPick) => { onPick(item); setQuery(""); setResults([]); setOpen(false); };
-  return (
-    <div className="relative">
-      <div className="flex items-center gap-2">
-        <Search className="h-4 w-4 text-slate-400" aria-hidden="true" />
-        <input
-          aria-label="Search inventory to add a material"
-          placeholder="Search inventory to add a material"
-          maxLength={100}
-          className={`${inputClass} flex-1`}
-          value={query}
-          disabled={disabled}
-          onChange={event => setQuery(event.target.value)}
-        />
-      </div>
-      {busy && <p className="mt-1 text-xs text-slate-500">Searching…</p>}
-      {open && !busy && (
-        results.length ? (
-          <ul className="mt-1 rounded-xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900 divide-y divide-slate-100 dark:divide-slate-800">
-            {results.map(item => (
-              <li key={item.id}>
-                <button type="button" className="w-full px-3 py-2 text-left text-sm hover:bg-slate-50 dark:hover:bg-slate-800" onClick={() => pick(item)}>
-                  <span className="font-medium">{item.name}</span>
-                  {item.sku ? <span className="ml-2 text-xs text-slate-500">{item.sku}</span> : null}
-                  {item.unit ? <span className="ml-2 text-xs text-slate-500">{item.unit}</span> : null}
-                </button>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p className="mt-1 text-xs text-slate-500">No matching inventory items.</p>
-        )
-      )}
-    </div>
-  );
 }
 
 function countActivities(kit: DraftKit): number {
@@ -108,6 +57,13 @@ export default function ProductLibrary() {
   const [content, setContent] = useState({ name: "", description: "", category: "" });
   const [subjects, setSubjects] = useState<KitSubject[]>([]);
   const [confirmArchive, setConfirmArchive] = useState(false);
+  const dirty = editing === "new" || (!!editing && (content.name !== editing.name || content.description !== editing.description || content.category !== editing.category || JSON.stringify(subjects) !== JSON.stringify(withActivities(editing.subjects ?? []))));
+  useEffect(() => {
+    if (!dirty) return;
+    const warn = (event: BeforeUnloadEvent) => { event.preventDefault(); event.returnValue = ""; };
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [dirty]);
 
   useEffect(() => {
     let mounted = true;
@@ -164,7 +120,11 @@ export default function ProductLibrary() {
       return next;
     });
   }
-  function removeSubject(id: string) { setSubjects(previous => previous.filter(subject => subject.id !== id)); }
+  function removeSubject(id: string) {
+    const subject = subjects.find(entry => entry.id === id);
+    if (subject?.grades.length && !window.confirm("Remove this subject and all its grades, activities and packing assignments?")) return;
+    setSubjects(previous => previous.filter(subject => subject.id !== id));
+  }
   function addSubject() { setSubjects(previous => [...previous, { id: newId(), name: "", grades: [] }]); }
   function updateGrade(subjectId: string, gradeId: string, patch: Partial<KitGrade>) {
     setSubjects(previous => previous.map(subject => subject.id !== subjectId ? subject
@@ -182,6 +142,8 @@ export default function ProductLibrary() {
     }));
   }
   function removeGrade(subjectId: string, gradeId: string) {
+    const grade = subjects.find(subject => subject.id === subjectId)?.grades.find(entry => entry.id === gradeId);
+    if ((grade?.activities.length || grade?.packing?.length) && !window.confirm("Remove this grade and all its activities and packing assignments?")) return;
     setSubjects(previous => previous.map(subject => subject.id !== subjectId ? subject
       : { ...subject, grades: subject.grades.filter(grade => grade.id !== gradeId) }));
   }
@@ -209,6 +171,9 @@ export default function ProductLibrary() {
     }));
   }
   function removeActivity(subjectId: string, gradeId: string, activityId: string) {
+    const grade = subjects.find(subject => subject.id === subjectId)?.grades.find(entry => entry.id === gradeId);
+    const assigned = (units: KitPackingUnit[]): boolean => units.some(unit => unit.activity_ids.includes(activityId) || assigned(unit.children));
+    if (assigned(grade?.packing ?? [])) { setError("Unassign this activity from its pouches before removing it."); return; }
     setSubjects(previous => previous.map(subject => subject.id !== subjectId ? subject
       : { ...subject, grades: subject.grades.map(grade => grade.id !== gradeId ? grade
         : { ...grade, activities: grade.activities.filter(activity => activity.id !== activityId) }) }));
@@ -242,13 +207,13 @@ export default function ProductLibrary() {
     <div className="flex flex-wrap items-center justify-between gap-4">
       <div><p className="text-xs font-bold uppercase tracking-widest text-indigo-600 dark:text-indigo-400">Kit Builder</p>
         <h1 id="library-title" className="mt-2 text-2xl font-bold text-slate-900 dark:text-white">{editing === "new" ? "Create Kit" : editing ? editing.name : "Product Library"}</h1>
-        <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">{editing ? "Define subjects, grades, activities and their materials, then save the draft. Packing structure comes in a later step." : "Create and manage reusable kit drafts for your organization."}</p></div>
+        <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">{editing ? "Define activities and materials, arrange boxes, partitions and pouches, then save the draft." : "Create and manage reusable kit drafts for your organization."}</p></div>
       {!editing && canWrite && <button onClick={create} className={`${buttonClass} bg-indigo-600 text-white flex items-center gap-2`} disabled={busy}><Plus size={18} />Create Kit</button>}
     </div>
     {error && <div role="alert" className="rounded-xl bg-red-50 dark:bg-red-950 p-4 text-red-700 dark:text-red-300">{error}</div>}
     {message && <p role="status" className="rounded-xl bg-emerald-50 dark:bg-emerald-950 p-4 text-emerald-700 dark:text-emerald-300">{message}</p>}
     {editing ? <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 sm:p-8">
-      <button type="button" disabled={busy} onClick={() => { setEditing(null); setConfirmArchive(false); setError(""); }} className={`${buttonClass} mb-6 flex items-center gap-2 text-slate-600 dark:text-slate-300`}><ArrowLeft size={18} />Back to Product Library</button>
+      <button type="button" disabled={busy} onClick={() => { if (dirty && !window.confirm("Discard unsaved changes?")) return; setEditing(null); setConfirmArchive(false); setError(""); }} className={`${buttonClass} mb-6 flex items-center gap-2 text-slate-600 dark:text-slate-300`}><ArrowLeft size={18} />Back to Product Library</button>
       <form onSubmit={save} className="max-w-2xl space-y-5">
         <label className="block text-sm font-semibold text-slate-700 dark:text-slate-200">Kit name<input autoFocus required maxLength={200} disabled={!canWrite || busy} className={`${inputClass} mt-2`} value={content.name} onChange={e => setContent({ ...content, name: e.target.value })} /></label>
         <label className="block text-sm font-semibold text-slate-700 dark:text-slate-200">Category <span className="font-normal text-slate-500">(optional)</span><input maxLength={100} disabled={!canWrite || busy} className={`${inputClass} mt-2`} value={content.category} onChange={e => setContent({ ...content, category: e.target.value })} placeholder="For example, Science or Robotics" /></label>
@@ -298,16 +263,21 @@ export default function ProductLibrary() {
                 </div>
               </div>)}
               {canWrite && <button type="button" disabled={busy || grade.activities.length >= 100} onClick={() => addActivity(subject.id, grade.id)} className="inline-flex items-center gap-1 text-sm font-semibold text-indigo-600 dark:text-indigo-400 disabled:opacity-50 disabled:cursor-not-allowed"><Plus size={14} />Add activity</button>}
+              <fieldset className="space-y-3 pt-3"><legend className="text-sm font-semibold">Physical packing · {grade.name}</legend>
+                <p className="text-xs text-slate-500">Boxes contain partitions and pouches. Activities can share pouches; material assignments describe locations without adding demand or changing stock.</p>
+                <PackingEditor units={grade.packing ?? []} activities={grade.activities} disabled={!canWrite || busy} onChange={packing => updateGrade(subject.id, grade.id, { packing })} />
+              </fieldset>
             </div>)}
             {canWrite && <button type="button" disabled={busy || subject.grades.length >= 100} onClick={() => addGrade(subject.id)} className="inline-flex items-center gap-1 text-sm font-semibold text-indigo-600 dark:text-indigo-400 disabled:opacity-50 disabled:cursor-not-allowed"><Plus size={14} />Add grade</button>}
           </div>)}
           {canWrite && <button type="button" disabled={busy || subjects.length >= 100} onClick={addSubject} className="inline-flex items-center gap-2 text-sm font-semibold text-indigo-600 dark:text-indigo-400 disabled:opacity-50 disabled:cursor-not-allowed"><Plus size={16} />Add subject</button>}
           {blankName && <p className="text-sm text-amber-700 dark:text-amber-300">Every subject, grade and activity needs a name before saving.</p>}
         </fieldset>
-        <p className="text-sm text-slate-500">Draft{editing !== "new" && ` · Version ${editing.version_number} · Revision ${editing.revision}`}</p>
+        <p aria-live="polite" className="text-sm text-slate-500">{busy ? "Saving…" : dirty ? "Unsaved changes" : "Saved"} · Draft{editing !== "new" && ` · Version ${editing.version_number} · Revision ${editing.revision}`}</p>
         {canWrite && <div className="flex flex-wrap gap-3"><button type="submit" disabled={busy || !content.name.trim() || blankName} className={`${buttonClass} bg-indigo-600 text-white`}>{busy ? "Saving…" : "Save draft"}</button>
           {editing !== "new" && <button type="button" disabled={busy} className={`${buttonClass} text-slate-600 dark:text-slate-300 flex items-center gap-2`} onClick={() => setConfirmArchive(true)}><Archive size={18} />Archive kit</button>}</div>}
       </form>
+      {editing !== "new" && <RevisionHistory templateId={editing.template_id} revision={editing.revision} />}
       {confirmArchive && <div role="alert" className="mt-6 rounded-xl border border-amber-200 p-4 text-slate-700 dark:text-slate-200"><p>Archive this kit? It will be removed from the active library. Its saved records will be retained.</p><div className="mt-3 flex gap-3"><button disabled={busy} onClick={archive} className={`${buttonClass} bg-amber-600 text-white`}>Confirm archive</button><button disabled={busy} onClick={() => setConfirmArchive(false)} className={buttonClass}>Cancel</button></div></div>}
     </div> : <>
       <label className="flex items-center gap-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-4"><Search size={18} className="text-slate-400" /><input aria-label="Search draft kits" className="w-full min-h-11 py-3 bg-transparent outline-none text-slate-900 dark:text-white" value={search} onChange={e => setSearch(e.target.value)} placeholder="Search kits by name or category" /></label>

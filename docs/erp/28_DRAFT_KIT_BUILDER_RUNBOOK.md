@@ -104,3 +104,31 @@ Remaining: no publish/component engine, archive restore UI, production rollback 
 ## Final review — 2026-10-08
 
 PASS: 33 targeted PostgreSQL/API security tests; 254 full-suite tests across 46 files; typecheck/build. No critical CRUD access-control or transaction defect found. Ownership is resolved from the verified token and current active DB user; request ownership fields are rejected. Migration remains additive with composite tenant ownership. Legacy APIs remain fail-closed. No destructive DB changes or legacy seeds. Production rollback/cutover remain unapproved; existing dependency advisories and bundle warning remain outside this slice. Checkpoint commits/pushes are now authorized; see SESSION_HANDOFF.md for verified origin status.
+
+## Milestone 3 verification — 2026-10-13
+
+Physical packing and saved revision history are implemented. Each grade supports ordered boxes, partitions and pouches; editable counts, names, codes and notes; many-to-many pouch activity assignments; and inventory location assignments independent of material quantities. Populated-unit removal confirms cascading removal. Draft edits expose unsaved/saving/saved state and navigation warnings. Existing tenant/RBAC, revision conflicts and published-version restrictions apply.
+
+Storage uses the existing subjects JSONB; no new migration or backfill. See ADR-022 for reference integrity and application rollback limitations. No stock calculation, crate rules or company-data modification is included.
+
+Verified commands:
+
+```powershell
+npm run typecheck --silent
+node --env-file=.env.kit-builder-development node_modules/vitest/vitest.mjs run --reporter=dot --maxWorkers=2
+npm run build --silent
+git -c core.safecrlf=false diff --check
+```
+
+PASS: 298 tests across 49 files, typecheck, frontend/PWA/server build and diff check. Real PostgreSQL integration includes HTTP/server and database-connection restart, retained M2 material requirements, packing save/reopen identity and order, concurrent writes, failed-write atomicity, immutable earlier revisions, tenant/RBAC rejection, dangling links, inventory reference validation and unchanged stock/inventory rows. Migration up/down smoke remains covered in the isolated test schema. Two test workers avoid local resource contention. Existing large-bundle warning remains.
+
+**Browser acceptance remains UNVERIFIED:** the required in-app browser runtime is unavailable in this session. Automated restart/reopen tests do not certify UI interaction. Complete these steps in a fresh browser-enabled chat:
+
+1. Open the existing local ERP and sign in with the existing maker account. Do not initialize or seed the database.
+2. Verify M2: open a draft, create/edit an activity and material requirement, save, reload and reopen; confirm quantities and inventory links persist.
+3. In a Prastuti draft, select Science / Grade 8; add two boxes, partitions and pouches. Edit names, codes and notes and reorder each level.
+4. Link one activity to several pouches and several activities to one pouch. Assign an inventory location without changing its educational requirement quantity.
+5. Save, reload and reopen; confirm stable structure, assignments, labels and order. Inspect saved revisions and confirm the earlier structure is unchanged.
+6. Confirm populated removal prompts, dangling activity removal is prevented, viewer controls are read-only and the other tenant cannot open the draft. Verify stock remains unchanged.
+
+Stop after Milestone 3 acceptance; crate rules and calculation require a separate authorized milestone.

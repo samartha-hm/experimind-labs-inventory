@@ -1,8 +1,8 @@
-import { DataSource, IsNull } from "typeorm";
+import { DataSource, EntityManager, IsNull } from "typeorm";
 import { randomUUID } from "node:crypto";
 import { ProductTemplate } from "../entity/ProductTemplate.ts";
 import { InventoryItem } from "../entity/InventoryItem.ts";
-import { KitActivity, KitMaterial, KitSubject, ProductTemplateVersion } from "../entity/ProductTemplateVersion.ts";
+import { KitActivity, KitMaterial, KitPackingUnit, KitSubject, ProductTemplateVersion } from "../entity/ProductTemplateVersion.ts";
 import { ProductTemplateRevision } from "../entity/ProductTemplateRevision.ts";
 
 export interface DraftKitContent { name: string; description: string; category: string; subjects?: unknown }
@@ -13,8 +13,8 @@ export class DraftKitError extends Error {
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 function identifier(value: unknown, label: string, ids: Set<string>): string {
-  const id = typeof value === "string" ? value.trim() : "";
-  if (!id) return randomUUID();
+  const id = typeof value === "string" ? value.trim().toLowerCase() : "";
+  if (!id) { const generated = randomUUID(); ids.add(generated); return generated; }
   if (!uuidPattern.test(id)) throw new DraftKitError(400, `${label} identifiers must be valid UUIDs`);
   if (ids.has(id)) throw new DraftKitError(400, `${label} identifiers must be unique`);
   ids.add(id);
@@ -30,7 +30,7 @@ export function normalizeMaterials(value: unknown, ids: Set<string>): KitMateria
   return value.map(entry => {
     if (!entry || typeof entry !== "object" || Array.isArray(entry)) throw new DraftKitError(400, "Each material must be an object");
     const { id, inventory_item_id, item_name, quantity, unit, notes, optional, reusable } = entry as Record<string, unknown>;
-    const itemId = typeof inventory_item_id === "string" ? inventory_item_id.trim() : "";
+    const itemId = typeof inventory_item_id === "string" ? inventory_item_id.trim().toLowerCase() : "";
     if (!uuidPattern.test(itemId)) throw new DraftKitError(400, "Materials must reference a valid inventory item");
     if (items.has(itemId)) throw new DraftKitError(400, "Each inventory item may appear only once per activity");
     items.add(itemId);
@@ -91,6 +91,46 @@ export function normalizeActivities(value: unknown, ids: Set<string>): KitActivi
 /** Validate and normalize the editable subject/grade structure sent by clients.
  *  Names are trimmed and unique per level (case-insensitive); identifiers are stable
  *  UUIDs, generated for new entries and preserved for existing ones. */
+export function normalizePacking(value: unknown, activities: KitActivity[], ids: Set<string>, kind: KitPackingUnit["kind"] = "box", budget = { count: 0 }): KitPackingUnit[] {
+  if (!Array.isArray(value) || value.length > 100) throw new DraftKitError(400, "Packing must be a list of at most 100 units per level");
+  const names = new Set<string>();
+  const codes = new Set<string>();
+  return value.map(entry => {
+    if (++budget.count > 1000) throw new DraftKitError(400, "A grade can contain at most 1000 packing units");
+    if (!entry || typeof entry !== "object" || Array.isArray(entry)) throw new DraftKitError(400, "Each packing unit must be an object");
+    const raw = entry as Record<string, unknown>;
+    if (raw.kind !== kind) throw new DraftKitError(400, `Expected ${kind} in the packing hierarchy`);
+    const field = (key: string, max: number, required = false) => {
+      if (raw[key] !== undefined && typeof raw[key] !== "string") throw new DraftKitError(400, `Packing ${key} must be text`);
+      const text = ((raw[key] ?? "") as string).trim();
+      if ((required && !text) || text.length > max) throw new DraftKitError(400, `Packing ${key} must contain ${required ? "1 to" : "at most"} ${max} characters`);
+      return text;
+    };
+    const name = field("name", 100, true), code = field("code", 50), notes = field("notes", 2000);
+    if (names.has(name.toLowerCase())) throw new DraftKitError(400, "Packing names must be unique among siblings");
+    names.add(name.toLowerCase());
+    if (code && codes.has(code.toLowerCase())) throw new DraftKitError(400, "Packing codes must be unique among siblings");
+    if (code) codes.add(code.toLowerCase());
+    const refs = (key: string) => {
+      const list = raw[key] ?? [];
+      if (!Array.isArray(list) || list.length > 100 || list.some(id => typeof id !== "string" || !uuidPattern.test(id)))
+        throw new DraftKitError(400, `Packing ${key} must contain at most 100 UUID references`);
+      const canonical = (list as string[]).map(id => id.toLowerCase());
+      if (new Set(canonical).size !== canonical.length) throw new DraftKitError(400, `Duplicate packing ${key} references`);
+      return canonical;
+    };
+    const activity_ids = refs("activity_ids"), inventory_item_ids = refs("inventory_item_ids");
+    if (kind !== "pouch" && activity_ids.length) throw new DraftKitError(400, "Assign activities to pouches");
+    if (activity_ids.some(id => !activities.some(activity => activity.id.toLowerCase() === id)))
+      throw new DraftKitError(400, "Packing activities must exist in this grade; unassign them before removing an activity");
+    const children = raw.children ?? [];
+    if (!Array.isArray(children)) throw new DraftKitError(400, "Packing children must be a list");
+    if (kind === "pouch" && children.length) throw new DraftKitError(400, "Pouches cannot contain packing units");
+    return { id: identifier(raw.id, "Packing", ids), kind, name, ...(code ? { code } : {}), ...(notes ? { notes } : {}), activity_ids, inventory_item_ids,
+      children: kind === "pouch" ? [] : normalizePacking(children, activities, ids, kind === "box" ? "partition" : "pouch", budget) };
+  });
+}
+
 export function normalizeSubjects(value: unknown): KitSubject[] {
   if (!Array.isArray(value) || value.length > 100) throw new DraftKitError(400, "Subjects must be a list of at most 100 subjects");
   const subjectNames = new Set<string>();
@@ -108,14 +148,16 @@ export function normalizeSubjects(value: unknown): KitSubject[] {
     const gradeNames = new Set<string>();
     const normalizedGrades = ((grades ?? []) as unknown[]).map(grade => {
       if (!grade || typeof grade !== "object" || Array.isArray(grade)) throw new DraftKitError(400, "Each grade must be an object with a name");
-      const { id: gradeId, name: gradeName, activities } = grade as Record<string, unknown>;
+      const { id: gradeId, name: gradeName, activities, packing } = grade as Record<string, unknown>;
       const gradeLabel = typeof gradeName === "string" ? gradeName.trim() : "";
       if (!gradeLabel || gradeLabel.length > 100) throw new DraftKitError(400, "Grade names must contain 1 to 100 characters");
       const gradeKey = gradeLabel.toLowerCase();
       if (gradeNames.has(gradeKey)) throw new DraftKitError(400, "Grade names must be unique within a subject");
       gradeNames.add(gradeKey);
       if (activities !== undefined && !Array.isArray(activities)) throw new DraftKitError(400, "Activities must be a list");
-      return { id: identifier(gradeId, "Grade", ids), name: gradeLabel, activities: normalizeActivities(activities ?? [], ids) };
+      const normalizedActivities = normalizeActivities(activities ?? [], ids);
+      return { id: identifier(gradeId, "Grade", ids), name: gradeLabel, activities: normalizedActivities,
+        ...(packing !== undefined ? { packing: normalizePacking(packing, normalizedActivities, ids) } : {}) };
     });
     return { id: subjectId, name: subjectName, grades: normalizedGrades };
   });
@@ -125,15 +167,23 @@ export class ProductTemplateService {
   constructor(private readonly db: DataSource) {}
   /** Materials must reference items that exist in the caller's own organization's inventory;
    *  cross-tenant or unknown references are rejected before any write. */
-  async validateMaterialReferences(subjects: KitSubject[], orgId: string) {
+  private async validateMaterialReferences(subjects: KitSubject[], orgId: string, manager: EntityManager) {
     const ids = new Set<string>();
     for (const subject of subjects) for (const grade of subject.grades) for (const activity of grade.activities)
       for (const material of activity.materials) ids.add(material.inventory_item_id);
+    const visit = (units: KitPackingUnit[]) => { for (const unit of units) { unit.inventory_item_ids.forEach(id => ids.add(id)); visit(unit.children); } };
+    for (const subject of subjects) for (const grade of subject.grades) visit(grade.packing ?? []);
     if (!ids.size) return;
-    const found = await this.db.getRepository(InventoryItem).createQueryBuilder("item")
-      .select("item.id").where("item.id IN (:...ids) AND item.organization_id = :orgId", { ids: [...ids], orgId })
-      .getMany();
+    const found = await manager.getRepository(InventoryItem).createQueryBuilder("item")
+      .select(["item.id", "item.name"]).where("item.id IN (:...ids) AND item.organization_id = :orgId", { ids: [...ids], orgId })
+      .setLock("pessimistic_read").getMany();
     if (found.length !== ids.size) throw new DraftKitError(400, "One or more materials reference items that do not exist in your organization's inventory");
+    const labels = new Map(found.map(item => [item.id, item.name]));
+    const labelUnits = (units: KitPackingUnit[]) => { for (const unit of units) {
+      if (unit.inventory_item_ids.length) unit.inventory_labels = Object.fromEntries(unit.inventory_item_ids.map(id => [id, labels.get(id)!]));
+      labelUnits(unit.children);
+    } };
+    for (const subject of subjects) for (const grade of subject.grades) labelUnits(grade.packing ?? []);
   }
   /** Material picker: search the organization's own inventory master. Returns only
    *  identity and unit fields; quantities and prices are never trusted or exposed here. */
@@ -166,14 +216,20 @@ export class ProductTemplateService {
   }
   async create(content: DraftKitContent, orgId: string, actor: string) {
     const subjects = normalizeSubjects(content.subjects === undefined ? [] : content.subjects);
-    await this.validateMaterialReferences(subjects, orgId);
     return this.db.transaction(async manager => {
+      await this.validateMaterialReferences(subjects, orgId, manager);
       const template = await manager.save(ProductTemplate, manager.create(ProductTemplate, { organization_id: orgId, created_by: actor }));
       const version = await manager.save(ProductTemplateVersion, manager.create(ProductTemplateVersion, {
         ...content, subjects, template_id: template.id, organization_id: orgId, created_by: actor, updated_by: actor,
       }));
       await manager.save(ProductTemplateRevision, manager.create(ProductTemplateRevision, this.snapshot(version)));
       return version;
+    });
+  }
+  async history(id: string, orgId: string) {
+    const version = await this.view(id, orgId);
+    return this.db.getRepository(ProductTemplateRevision).find({
+      where: { version_id: version.id, organization_id: orgId }, order: { revision: "DESC" }, take: 50,
     });
   }
   async change(id: string, orgId: string, actor: string, revision: number, content?: DraftKitContent) {
@@ -190,7 +246,7 @@ export class ProductTemplateService {
       if (content) {
         const subjects = content.subjects === undefined ? version.subjects : normalizeSubjects(content.subjects);
         Object.assign(version, { ...content, subjects });
-        if (content.subjects !== undefined) await this.validateMaterialReferences(subjects, orgId);
+        if (content.subjects !== undefined) await this.validateMaterialReferences(subjects, orgId, manager);
       }
       else { template.archived_at = new Date(); version.status = "archived"; }
       version.updated_by = actor;
