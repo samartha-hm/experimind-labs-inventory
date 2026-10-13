@@ -1,7 +1,7 @@
 # Next task
 
-Review Milestone 4 and complete pending browser acceptance in an enabled runtime. Read SESSION_HANDOFF.md and the Milestone 4 section in docs/erp/28_DRAFT_KIT_BUILDER_RUNBOOK.md.
+Stop for Milestone 5 review. Read SESSION_HANDOFF.md and docs/erp/29_PROJECT_REQUIREMENT_PLANNING_RUNBOOK.md.
 
-Use existing isolated development ERP/accounts/inventory; restart the local ERP if it still serves older code. Do not initialize/reset/seed databases. Verify crate CRUD/reorder/materials, five rule types, optional selections, reasoned overrides, independent Science/Mathematics counts, explicit complete-set validation, save/reload/reopen, trace/totals, old snapshots and unchanged stock. M2/M3 visual acceptance also remains pending.
+When a browser runtime is available, verify Product Library approval, Projects navigation, multi-school editing, approved-version selection, independent Science/Mathematics quantities, explicit complete sets, optional/reasoned overrides, save/reload/reopen, requirements/conversion trace, history and unchanged inventory. Previous M2–M4 visual acceptance also remains pending.
 
-Stop for review. No Project Integration, merge or deployment. Fix only acceptance blockers; run focused checks for fixes, commit/push the feature branch and verify remote HEAD.
+Use existing isolated development ERP/accounts; never initialize/reset/seed databases. Fix only acceptance blockers and run focused checks. No operational release, next milestone, merge or deployment. Commit/push authorized verified fixes and handoff; verify remote HEAD.

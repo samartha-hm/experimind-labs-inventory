@@ -1,11 +1,15 @@
-# Session handoff
+# Session handoff — Milestone 5
 
-Date: 2026-10-13. Branch: feature/kit-builder-milestone-1. Milestone 4 implemented from cf5f6abf83131b99021a72ac15af7b6dfdad288e. Feature commit d99e46a918a5f3f6f83c0f550f8e8dae57b3d783 pushed; GitHub remote HEAD matched.
+Branch: feature/kit-builder-milestone-1. Verified implementation checkpoint: 668f35b59664982b74b0e7d7547b4c1b958a25ae, pushed and remote HEAD matched. Starts from 0b0bd1175b8c8aaa340ce785fe46a8dedb5bf391.
 
-Delivered configurable ordered common/universal/custom crates, inventory materials, generic selected/complete/fixed/project/site rules, optional selections and reasoned overrides. Pure traceable preview requires explicit complete-set decisions and independent subject/grade counts. Draft revisions, tenant/RBAC, concurrency and published-version immutability retained. No new migration, historical import or inventory transactions.
+Implemented PostgreSQL multi-school projects, approved immutable template copies, per-school quantities, reasoned project/site overrides, explicit shared allocations, exact unit conversion and traced consolidated requirements. Packing references do not add demand. Stock/shortage fields remain null/unverified; operational release is blocked.
 
-PASS: 58 focused tests; 337 full tests across 50 files; final typecheck/build/diff check. PostgreSQL/HTTP confirms restart persistence, CRUD, validation, tenant isolation, concurrent-write conflict, unchanged previous snapshots and unchanged full inventory/stock-ledger rows. UI stale-response guard added and final typecheck/build verified. Browser walkthrough UNVERIFIED: no callable runtime immediately available. Existing bundle warning remains.
+Migration 1791417600002 adds five planning/approval tables and immutability safeguards; applied only to the isolated development database. Synthetic empty rollback/reapply passes; populated rollback deliberately refuses. No reset, historical import or operational mutations.
 
-Changed: entity/service/routes, shared quantity engine, CrateEditor/QuantityPreview/ProductLibrary, unit/integration tests, ADR-023, PROJECT_STATE and runbook 28. No company data, accounts, seed/reset or stock changes. Isolated databases remain on 127.0.0.1:55432; local environment/logs/results ignored.
+Verification: 50 focused tests and full 367 tests/52 files PASS; typecheck and frontend/PWA/server builds PASS. Actual development ERP login, approval, two-school save/reopen/recalculate, history and stale edit rejection PASS; inventory and stock ledger unchanged. Two complete Science sets plus three Grade 8-only sets yield universal crates 2/0 and synthetic gross 3.3 m. HTTP/PostgreSQL integration verifies restart, tenant isolation, concurrency, snapshots and unit conversions.
 
-Next: review and browser acceptance in an enabled runtime using runbook 28. Existing ERP process may require restart to load new server code. No Project Integration, merge or deployment. This short handoff will be committed/pushed and remote HEAD verified.
+Browser/visual acceptance UNVERIFIED: no callable runtime. Existing bundle-size warning remains. Development ERP restarted on loopback port 3100 to serve current code. Synthetic acceptance records retained; credentials/logs/results remain ignored.
+
+Relevant paths: src/features/projects/, ProjectPlanningService, planning-projects router, approval additions, migration, tests and docs/erp/29_PROJECT_REQUIREMENT_PLANNING_RUNBOOK.md.
+
+Next: stop for review; browser acceptance in an enabled runtime. No subsequent milestone, merge or deployment.
