@@ -35,7 +35,18 @@ export interface KitPackingUnit {
   children: KitPackingUnit[];
 }
 export interface KitGrade { id: string; name: string; activities: KitActivity[]; packing?: KitPackingUnit[] }
-export interface KitSubject { id: string; name: string; grades: KitGrade[] }
+export interface KitSetReference { subject_id: string; grade_id: string; quantity: number }
+export type KitQuantityRule =
+  | { kind: "selected_sets"; components: KitSetReference[] }
+  | { kind: "complete_sets"; components: KitSetReference[] }
+  | { kind: "fixed"; quantity: number }
+  | { kind: "per_project" | "per_site"; quantity: number };
+export interface KitCrate {
+  id: string; name: string; kind: "common" | "universal" | "custom";
+  notes?: string; optional?: boolean; reusable?: boolean;
+  materials: KitMaterial[]; rule: KitQuantityRule;
+}
+export interface KitSubject { id: string; name: string; grades: KitGrade[]; crates?: KitCrate[] }
 
 /** Activity/material/packing graphs will reference this version's identity. */
 @Entity("product_template_versions")

@@ -7,12 +7,9 @@ import { SkeletonCard } from "../../shared/components/SkeletonLoader";
 import { MaterialSearch, type InventoryPick } from "./MaterialSearch";
 import { PackingEditor } from "./PackingEditor";
 import { RevisionHistory } from "./RevisionHistory";
-import type { KitPackingUnit } from "../../entity/ProductTemplateVersion";
-
-interface KitMaterial { id: string; inventory_item_id: string; item_name: string; quantity: number; unit: string; notes?: string; optional?: boolean; reusable?: boolean; complete?: boolean }
-interface KitActivity { id: string; code?: string; name: string; description?: string; instructions?: string; reference_url?: string; optional?: boolean; materials: KitMaterial[] }
-interface KitGrade { id: string; name: string; activities: KitActivity[]; packing?: KitPackingUnit[] }
-interface KitSubject { id: string; name: string; grades: KitGrade[] }
+import { CrateEditor } from "./CrateEditor";
+import { QuantityPreview } from "./QuantityPreview";
+import type { KitMaterial, KitActivity, KitGrade, KitSubject, KitPackingUnit } from "../../entity/ProductTemplateVersion";
 
 interface DraftKit {
   id: string; template_id: string; name: string; description: string; category: string;
@@ -228,6 +225,7 @@ export default function ProductLibrary() {
               <button type="button" aria-label={`Move ${subject.name || "subject"} down`} disabled={busy || index === subjects.length - 1} onClick={() => moveSubject(subject.id, 1)} className={iconButtonClass}><ArrowDown size={16} /></button>
               {canWrite && <button type="button" aria-label={`Remove ${subject.name || "subject"}`} disabled={busy} onClick={() => removeSubject(subject.id)} className={`${iconButtonClass} text-red-600 dark:text-red-400`}><Trash2 size={16} /></button>}
             </div>
+            <CrateEditor crates={subject.crates ?? []} subjects={subjects} disabled={!canWrite || busy} onChange={crates => updateSubject(subject.id, { crates })} />
             {subject.grades.map((grade, gradeIndex) => <div key={grade.id} className="space-y-2 sm:pl-8">
               <div className="flex flex-wrap items-center gap-2">
                 <input aria-label={`${subject.name || "Subject"} grade ${gradeIndex + 1} name`} placeholder="Grade name, for example Grade 8" maxLength={100} disabled={!canWrite || busy} className={`${inputClass} flex-1 min-w-48`} value={grade.name} onChange={e => updateGrade(subject.id, grade.id, { name: e.target.value })} />
@@ -273,6 +271,7 @@ export default function ProductLibrary() {
           {canWrite && <button type="button" disabled={busy || subjects.length >= 100} onClick={addSubject} className="inline-flex items-center gap-2 text-sm font-semibold text-indigo-600 dark:text-indigo-400 disabled:opacity-50 disabled:cursor-not-allowed"><Plus size={16} />Add subject</button>}
           {blankName && <p className="text-sm text-amber-700 dark:text-amber-300">Every subject, grade and activity needs a name before saving.</p>}
         </fieldset>
+        <QuantityPreview subjects={subjects} templateId={editing === "new" ? undefined : editing.template_id} revision={editing === "new" ? undefined : editing.revision} dirty={dirty} disabled={busy} />
         <p aria-live="polite" className="text-sm text-slate-500">{busy ? "Saving…" : dirty ? "Unsaved changes" : "Saved"} · Draft{editing !== "new" && ` · Version ${editing.version_number} · Revision ${editing.revision}`}</p>
         {canWrite && <div className="flex flex-wrap gap-3"><button type="submit" disabled={busy || !content.name.trim() || blankName} className={`${buttonClass} bg-indigo-600 text-white`}>{busy ? "Saving…" : "Save draft"}</button>
           {editing !== "new" && <button type="button" disabled={busy} className={`${buttonClass} text-slate-600 dark:text-slate-300 flex items-center gap-2`} onClick={() => setConfirmArchive(true)}><Archive size={18} />Archive kit</button>}</div>}

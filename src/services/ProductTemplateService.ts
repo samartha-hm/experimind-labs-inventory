@@ -2,7 +2,8 @@ import { DataSource, EntityManager, IsNull } from "typeorm";
 import { randomUUID } from "node:crypto";
 import { ProductTemplate } from "../entity/ProductTemplate.ts";
 import { InventoryItem } from "../entity/InventoryItem.ts";
-import { KitActivity, KitMaterial, KitPackingUnit, KitSubject, ProductTemplateVersion } from "../entity/ProductTemplateVersion.ts";
+import { KitActivity, KitCrate, KitMaterial, KitPackingUnit, KitSubject, ProductTemplateVersion } from "../entity/ProductTemplateVersion.ts";
+import { amount, previewQuantities, QuantityRuleError, validateRule } from "../features/kit-builder/quantityRules.ts";
 import { ProductTemplateRevision } from "../entity/ProductTemplateRevision.ts";
 
 export interface DraftKitContent { name: string; description: string; category: string; subjects?: unknown }
@@ -135,7 +136,7 @@ export function normalizeSubjects(value: unknown): KitSubject[] {
   if (!Array.isArray(value) || value.length > 100) throw new DraftKitError(400, "Subjects must be a list of at most 100 subjects");
   const subjectNames = new Set<string>();
   const ids = new Set<string>();
-  return value.map(entry => {
+  const subjects: KitSubject[] = value.map(entry => {
     if (!entry || typeof entry !== "object" || Array.isArray(entry)) throw new DraftKitError(400, "Each subject must be an object with a name");
     const { id, name, grades } = entry as Record<string, unknown>;
     const subjectName = typeof name === "string" ? name.trim() : "";
@@ -161,6 +162,36 @@ export function normalizeSubjects(value: unknown): KitSubject[] {
     });
     return { id: subjectId, name: subjectName, grades: normalizedGrades };
   });
+  try {
+    subjects.forEach((subject, index) => {
+      const crates = (value[index] as Record<string, unknown>).crates;
+      if (crates === undefined) return;
+      if (!Array.isArray(crates) || crates.length > 100) throw new DraftKitError(400, "Crates must be a list of at most 100 definitions");
+      const names = new Set<string>();
+      subject.crates = crates.map(entry => {
+        if (!entry || typeof entry !== "object" || Array.isArray(entry)) throw new DraftKitError(400, "Each crate must be an object");
+        const raw = entry as Record<string, unknown>;
+        if (Object.keys(raw).some(key => !["id", "name", "kind", "notes", "optional", "reusable", "materials", "rule"].includes(key))) throw new DraftKitError(400, "Unknown crate field");
+        const name = typeof raw.name === "string" ? raw.name.trim() : "";
+        if (!name || name.length > 100 || names.has(name.toLowerCase())) throw new DraftKitError(400, "Crate names must contain 1 to 100 characters and be unique within a subject");
+        names.add(name.toLowerCase());
+        if (!["common", "universal", "custom"].includes(raw.kind as string)) throw new DraftKitError(400, "Choose a supported crate kind");
+        if (raw.notes !== undefined && (typeof raw.notes !== "string" || raw.notes.length > 2000)) throw new DraftKitError(400, "Crate notes must contain at most 2000 characters");
+        for (const flag of ["optional", "reusable"]) if (raw[flag] !== undefined && typeof raw[flag] !== "boolean") throw new DraftKitError(400, "Crate flags must be boolean");
+        const materials = normalizeMaterials(raw.materials ?? [], ids);
+        for (const material of materials) {
+          amount(material.quantity, "Crate material quantity");
+          const source = (raw.materials as Record<string, unknown>[]).find(entry => typeof entry.inventory_item_id === "string" && entry.inventory_item_id.trim().toLowerCase() === material.inventory_item_id)!;
+          if (typeof source.unit !== "string" || !source.unit.trim()) throw new DraftKitError(400, "Crate material units must be explicitly configured");
+          for (const flag of ["optional", "reusable"]) if (source[flag] !== undefined && typeof source[flag] !== "boolean") throw new DraftKitError(400, "Material flags must be boolean");
+        }
+        return { id: identifier(raw.id, "Crate", ids), name, kind: raw.kind as KitCrate["kind"],
+          ...(raw.notes ? { notes: (raw.notes as string).trim() } : {}), ...(raw.optional === true ? { optional: true } : {}),
+          ...(raw.reusable === true ? { reusable: true } : {}), materials, rule: validateRule(raw.rule, subjects) };
+      });
+    });
+  } catch (error) { if (error instanceof QuantityRuleError) throw new DraftKitError(400, error.message); throw error; }
+  return subjects;
 }
 
 export class ProductTemplateService {
@@ -169,6 +200,7 @@ export class ProductTemplateService {
    *  cross-tenant or unknown references are rejected before any write. */
   private async validateMaterialReferences(subjects: KitSubject[], orgId: string, manager: EntityManager) {
     const ids = new Set<string>();
+    for (const subject of subjects) for (const crate of subject.crates ?? []) for (const material of crate.materials) ids.add(material.inventory_item_id);
     for (const subject of subjects) for (const grade of subject.grades) for (const activity of grade.activities)
       for (const material of activity.materials) ids.add(material.inventory_item_id);
     const visit = (units: KitPackingUnit[]) => { for (const unit of units) { unit.inventory_item_ids.forEach(id => ids.add(id)); visit(unit.children); } };
@@ -194,6 +226,12 @@ export class ProductTemplateService {
       .where("item.organization_id = :orgId", { orgId });
     if (text) builder.andWhere("(item.name ILIKE :text OR item.sku ILIKE :text OR item.description ILIKE :text)", { text: `%${text}%` });
     return builder.orderBy("item.name", "ASC").limit(20).getMany();
+  }
+  async preview(id: string, orgId: string, revision: number, context: unknown) {
+    const version = await this.view(id, orgId);
+    if (version.revision !== revision) throw new DraftKitError(409, "The draft changed. Reopen it before previewing quantities.");
+    try { return { template_id: id, version_id: version.id, revision, ...previewQuantities(version.subjects, context) }; }
+    catch (error) { if (error instanceof QuantityRuleError) throw new DraftKitError(400, error.message); throw error; }
   }
   private snapshot(version: ProductTemplateVersion) {
     const { organization_id, revision, name, description, category, status, subjects, updated_by } = version;

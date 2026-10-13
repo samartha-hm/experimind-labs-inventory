@@ -1,6 +1,6 @@
 import { Router, RequestHandler } from "express";
 import { DataSource } from "typeorm";
-import { IsString, MaxLength, MinLength, IsInt, Min, IsArray, IsOptional, validate } from "class-validator";
+import { IsString, MaxLength, MinLength, IsInt, Min, IsArray, IsOptional, IsObject, validate } from "class-validator";
 import { plainToInstance } from "class-transformer";
 import { authenticateJwt } from "../../middleware/auth.ts";
 import { User } from "../../entity/User.ts";
@@ -18,6 +18,7 @@ class ContentDto {
 }
 class EditDto extends ContentDto { @IsInt() @Min(1) revision!: number; }
 class ArchiveDto { @IsInt() @Min(1) revision!: number; }
+class PreviewDto extends ArchiveDto { @IsObject() context!: Record<string, unknown>; }
 async function dto<T extends object>(body: unknown, cls: new () => T) {
   if (!body || typeof body !== "object" || Array.isArray(body)) throw new DraftKitError(400, "Expected an object");
   const value = plainToInstance(cls, body);
@@ -51,7 +52,8 @@ export function productTemplateRouter(db: DataSource) {
     if (!user) { res.status(403).json({ error: "Organization access denied" }); return; }
     // Resolve current permissions from server records, not stale/client-supplied roles.
     identity.role = user.role;
-    if (!readers.has(user.role) || (!["GET", "HEAD", "OPTIONS"].includes(req.method) && !draftKitWriters.has(user.role))) {
+    const previewRead = req.method === "POST" && /^\/[0-9a-f-]{36}\/preview\/?$/i.test(req.path);
+    if (!readers.has(user.role) || (!["GET", "HEAD", "OPTIONS"].includes(req.method) && !previewRead && !draftKitWriters.has(user.role))) {
       res.status(403).json({ error: "You do not have permission to change draft kits" }); return;
     }
     next();
@@ -68,6 +70,10 @@ export function productTemplateRouter(db: DataSource) {
   }));
   router.get("/:id", action(async (req, res) => { res.json(await service.view(req.params.id, req.user!.orgId!)); }));
   router.get("/:id/revisions", action(async (req, res) => { res.json(await service.history(req.params.id, req.user!.orgId!)); }));
+  router.post("/:id/preview", action(async (req, res) => {
+    const { revision, context } = await dto(req.body, PreviewDto);
+    res.json(await service.preview(req.params.id, req.user!.orgId!, revision, context));
+  }));
   router.post("/", action(async (req, res) => {
     const value = await dto(req.body, ContentDto);
     res.status(201).json(await service.create(value, req.user!.orgId!, req.user!.id));

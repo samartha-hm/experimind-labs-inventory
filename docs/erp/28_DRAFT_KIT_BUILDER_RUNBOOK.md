@@ -132,3 +132,22 @@ PASS: 298 tests across 49 files, typecheck, frontend/PWA/server build and diff c
 6. Confirm populated removal prompts, dangling activity removal is prevented, viewer controls are read-only and the other tenant cannot open the draft. Verify stock remains unchanged.
 
 Stop after Milestone 3 acceptance; crate rules and calculation require a separate authorized milestone.
+
+## Milestone 4 — 2026-10-13
+
+The user subsequently authorized crates and quantity rules. In a draft subject, add common/universal/custom crates, edit names/notes/optional/reusable flags, reorder or remove them, and select inventory materials with units and quantities. Select a rule and component grades or fixed/scope quantity, then save. Removing referenced grades is rejected until rules are updated.
+
+Configure Prastuti explicitly: each Science Grade 8/9/10 common crate uses selected_sets with its corresponding grade and weight 1. Mathematics has no common crate. Universal uses complete_sets with all three Science grades, weight 1 each. No preset or historical production data is imported.
+
+Quantity preview accepts independent subject/grade counts and requires explicit complete-set counts, including zero for partial selections:
+
+- Science 8 = 1, Science 9/10 = 0, complete = 0: common 8 = 1, universal = 0.
+- Science 8/9/10 = 2 each, complete = 2: each common = 2, universal = 2.
+- Science 8/9/10 = 30/20/25: missing complete count blocks; explicit 10 gives universal 10; above 20 rejects.
+- Mathematics-only counts produce independent activity requirements; Science crates stay zero with complete count zero.
+
+Fixed and per-project/site rules are generic; scope counts are explicit preview inputs, not operational records. Include optional definitions before use; overrides need a reason and replace crate counts or final material quantities. Reusable flags do not silently reduce demand. Save definitions first; edits invalidate results. Inputs are transient and calculations do not mutate inventory, reservations, purchasing, production or master versions.
+
+PASS: 58 focused tests, 337 full tests / 50 files, typecheck and frontend/PWA/server build. PostgreSQL/HTTP verifies CRUD, restart persistence, revisions, tenant/RBAC, concurrency, published immutability and unchanged inventory/stock-ledger rows. No new migration; existing up/down smoke runs in isolated synthetic schemas. Existing bundle warning remains.
+
+Browser verification is pending because no callable runtime was immediately available. In an enabled browser, verify crate/material CRUD and reorder, rule controls, optional selections/overrides, save/reload/reopen, independent counts, explicit complete-set validation and trace/totals. Verify unchanged previous revisions and stock. Stop for review; no Project Integration, merge or deployment.

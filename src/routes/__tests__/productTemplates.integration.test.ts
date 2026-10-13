@@ -347,6 +347,56 @@ describe.skipIf(!databaseUrl)("PostgreSQL draft-kit CRUD and authorization", () 
     await db.getRepository(ProductTemplateVersion).update(kit.id, { status: "published" });
     expect((await request("PUT", `/${kit.template_id}`, maker, { name: kit.name, subjects: edited, revision: 3 })).status).toBe(409);
   });
+  it("persists crate CRUD and rules across restart with immutable snapshots, tenant isolation and concurrency", async () => {
+    const item = await db.getRepository(InventoryItem).save({ organization_id: maker.organization_id, sku: "CRATE-ITEM", name: "Crate component", category: "Lab", base_price: 5, quantity: 123, threshold: 1 });
+    const foreign = await db.getRepository(InventoryItem).save({ organization_id: other.organization_id, sku: "FOREIGN-CRATE", name: "Foreign component", category: "Lab", base_price: 5, quantity: 15, threshold: 1 });
+    const before = await db.getRepository(InventoryItem).find({ order: { id: "ASC" } });
+    const ledgerBefore = await db.query('SELECT * FROM stock_ledger ORDER BY id');
+    const scienceId = randomUUID(); const grades = [8, 9, 10].map(number => ({ id: randomUUID(), name: `Grade ${number}`, activities: [] }));
+    const components = grades.map(grade => ({ subject_id: scienceId, grade_id: grade.id, quantity: 1 }));
+    const material = () => ({ id: randomUUID(), inventory_item_id: item.id, item_name: item.name, quantity: 2, unit: "pcs", notes: "Shared supply", reusable: true });
+    const crates = components.map((component, index) => ({ id: randomUUID(), name: `Science ${index + 8} common`, kind: "common", materials: [material()], reusable: true, rule: { kind: "selected_sets", components: [component] } }));
+    crates.push({ id: randomUUID(), name: "Universal", kind: "universal", materials: [material()], reusable: true, rule: { kind: "complete_sets", components } });
+    const mathGrade = randomUUID();
+    const subjects = [{ id: scienceId, name: "Science", grades, crates }, { id: randomUUID(), name: "Mathematics", grades: [{ id: mathGrade, name: "Grade 8", activities: [{ id: randomUUID(), name: "Math activity", materials: [material()] }] }] }];
+    const response = await request("POST", "", maker, { name: "Crate acceptance", subjects }); expect(response.status).toBe(201);
+    const kit = await response.json(); const path = `/${kit.template_id}`;
+    const context = { grade_quantities: Object.fromEntries(grades.map(grade => [grade.id, 2])), complete_sets: { [crates[3].id]: 2 } };
+    const preview = await request("POST", `${path}/preview`, viewer, { revision: 1, context }); expect(preview.status).toBe(200);
+    const result = await preview.json(); expect(result.revision).toBe(1); expect(result.lines.filter((line: { unit: string }) => line.unit === "crates").map((line: { quantity: number }) => line.quantity)).toEqual([2, 2, 2, 2]);
+    expect(result.totals).toEqual([{ inventory_item_id: item.id, unit: "pcs", quantity: 16 }]);
+    const partial = { grade_quantities: { [grades[0].id]: 1, [mathGrade]: 3 }, complete_sets: { [crates[3].id]: 0 } };
+    expect((await (await request("POST", `${path}/preview`, maker, { revision: 1, context: partial })).json()).totals[0].quantity).toBe(8);
+    expect((await request("POST", `${path}/preview`, maker, { revision: 1, context: { grade_quantities: context.grade_quantities } })).status).toBe(400);
+    expect((await request("POST", `${path}/preview`, maker, { revision: 1, context: { ...partial, complete_sets: { [crates[3].id]: 1 } } })).status).toBe(400);
+    expect((await request("POST", `${path}/preview`, other, { revision: 1, context })).status).toBe(404);
+    expect((await request("POST", `${path}/preview`, undefined, { revision: 1, context })).status).toBe(401);
+    expect((await request("POST", `${path}/preview`, maker, { revision: 1, context, status: "approved" })).status).toBe(400);
+    for (const inventoryId of [foreign.id, randomUUID()]) {
+      const invalid = structuredClone(kit.subjects); invalid[0].crates[0].materials[0].inventory_item_id = inventoryId;
+      expect((await request("PUT", path, maker, { name: kit.name, subjects: invalid, revision: 1 })).status).toBe(400);
+    }
+    expect((await request("PUT", path, other, { name: kit.name, subjects: kit.subjects, revision: 1 })).status).toBe(404);
+    expect((await request("PUT", path, viewer, { name: kit.name, subjects: kit.subjects, revision: 1 })).status).toBe(403);
+    await closeServer(); await db.destroy(); await db.initialize(); await startServer();
+    expect((await (await request("GET", path, maker)).json()).subjects).toEqual(kit.subjects);
+    const edited = structuredClone(kit.subjects); edited[0].crates.reverse(); edited[0].crates[0].name = "Universal edited"; edited[0].crates[0].notes = "Keep dry"; edited[0].crates[0].materials[0].quantity = 3;
+    const contenders = await Promise.all(["A", "B"].map(description => request("PUT", path, maker, { name: kit.name, description, subjects: edited, revision: 1 })));
+    expect(contenders.map(response => response.status).sort()).toEqual([200, 409]);
+    expect((await request("POST", `${path}/preview`, viewer, { revision: 1, context })).status).toBe(409);
+    expect((await (await request("GET", path, maker)).json()).subjects).toEqual(edited);
+    const invalid = structuredClone(edited); invalid[0].grades.pop();
+    expect((await request("PUT", path, maker, { name: kit.name, subjects: invalid, revision: 2 })).status).toBe(400);
+    edited[0].crates = edited[0].crates.slice(1);
+    expect((await request("PUT", path, maker, { name: kit.name, subjects: edited, revision: 2 })).status).toBe(200);
+    const history = await (await request("GET", `${path}/revisions`, viewer)).json();
+    expect(history.map((row: { revision: number }) => row.revision)).toEqual([3, 2, 1]); expect(history[2].subjects).toEqual(kit.subjects);
+    await db.getRepository(ProductTemplateVersion).update(kit.id, { status: "published" });
+    expect((await request("PUT", path, maker, { name: kit.name, subjects: edited, revision: 3 })).status).toBe(409);
+    expect((await db.getRepository(ProductTemplateVersion).findOneByOrFail({ id: kit.id })).subjects).toEqual(edited);
+    expect(await db.getRepository(InventoryItem).find({ order: { id: "ASC" } })).toEqual(before);
+    expect(await db.query('SELECT * FROM stock_ledger ORDER BY id')).toEqual(ledgerBefore);
+  });
   it("rolls the subjects migration back and reapplies it", async () => {
     const runner = db.createQueryRunner();
     await runner.connect();
