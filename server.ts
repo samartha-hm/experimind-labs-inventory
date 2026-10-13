@@ -15,6 +15,7 @@ import { authenticateJwt } from "./src/middleware/auth.ts";
 import { requireTenant } from "./src/middleware/tenant.ts";
 import { legacyOperationsGate, legacyOperationalPaths } from "./src/middleware/legacyOperationsGate.ts";
 import { productTemplateRouter } from "./src/routes/v1/product-templates.ts";
+import { planningProjectRouter } from "./src/routes/v1/planning-projects.ts";
 import { errorHandler } from "./src/middleware/errorHandler.ts";
 import inventoryRoutes from "./src/routes/v1/inventory.ts";
 import warehouseRoutes from "./src/routes/v1/warehouse.ts";
@@ -209,6 +210,7 @@ async function startServer() {
   // ===== Versioned API (protected) =====
   app.use("/api/v1/auth", authLimiter, authRoutes);
   app.use("/api/v1/product-templates", productTemplateRouter(AppDataSource));
+  app.use("/api/v1/planning-projects", planningProjectRouter(AppDataSource));
   app.use("/api/v1/orders", orderRoutes);
   app.use("/api/v1/users", authenticateJwt, requireTenant, userRoutes);
   app.use("/api/v1/inventory", authenticateJwt, requireTenant, inventoryRoutes);

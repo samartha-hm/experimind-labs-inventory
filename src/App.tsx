@@ -33,7 +33,7 @@ import { ToastProvider } from '@/src/contexts/ToastContext';
 import { ApprovalProvider } from '@/src/contexts/ApprovalContext';
 import { UserDirectoryTab } from '@/src/features/compliance/components/UserDirectoryTab';
 import ProductionCommandCenterTab from '@/src/features/production/ProductionCommandCenterTab';
-import ProjectPortfolioManagerTab from '@/src/features/projects/ProjectPortfolioManagerTab';
+import ProjectPlanningTab from '@/src/features/projects/ProjectPlanningTab';
 import StickerMonitoringHubTab from '@/src/features/stickers/StickerMonitoringHubTab';
 import ToastContainer from '@/src/components/ToastContainer';
 import MobileBottomNav from '@/src/shared/components/MobileBottomNav';
@@ -338,12 +338,7 @@ function MainApp() {
               )}
 
               {activeTab === 'projects_hub' && (
-                <ProjectPortfolioManagerTab
-                  onNavigateToTab={(tabId, params) => {
-                    if (params) setProjectNavParams(params);
-                    handleNavigateTab(tabId);
-                  }}
-                />
+                <ProjectPlanningTab />
               )}
 
               {activeTab === 'production_command' && (

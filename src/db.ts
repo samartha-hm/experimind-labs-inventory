@@ -4,6 +4,8 @@ import { env } from "./config/env.ts";
 import { ProductTemplate } from "./entity/ProductTemplate.ts";
 import { ProductTemplateVersion } from "./entity/ProductTemplateVersion.ts";
 import { ProductTemplateRevision } from "./entity/ProductTemplateRevision.ts";
+import { planningEntities } from "./entity/PlanningProject.ts";
+import { AddProjectPlanning1791417600002 } from "./migration/1791417600002-AddProjectPlanning.ts";
 import { AddProductTemplates1791417600000 } from "./migration/1791417600000-AddProductTemplates.ts";
 import { AddKitSubjectsAndGrades1791417600001 } from "./migration/1791417600001-AddKitSubjectsAndGrades.ts";
 
@@ -88,6 +90,7 @@ export const AppDataSource = new DataSource({
     connectionTimeoutMillis: 5000,
   },
   entities: [
+    ...planningEntities,
     ProductTemplate,
     ProductTemplateVersion,
     ProductTemplateRevision,
@@ -142,6 +145,7 @@ export const AppDataSource = new DataSource({
     ComponentAlternate,
   ],
   migrations: [
+    AddProjectPlanning1791417600002,
     AddProductTemplates1791417600000,
     AddKitSubjectsAndGrades1791417600001,
     Init1689500000000,

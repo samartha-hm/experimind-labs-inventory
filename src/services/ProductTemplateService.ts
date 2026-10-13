@@ -5,6 +5,7 @@ import { InventoryItem } from "../entity/InventoryItem.ts";
 import { KitActivity, KitCrate, KitMaterial, KitPackingUnit, KitSubject, ProductTemplateVersion } from "../entity/ProductTemplateVersion.ts";
 import { amount, previewQuantities, QuantityRuleError, validateRule } from "../features/kit-builder/quantityRules.ts";
 import { ProductTemplateRevision } from "../entity/ProductTemplateRevision.ts";
+import { KitTemplateApproval } from "../entity/PlanningProject.ts";
 
 export interface DraftKitContent { name: string; description: string; category: string; subjects?: unknown }
 export class DraftKitError extends Error {
@@ -196,6 +197,36 @@ export function normalizeSubjects(value: unknown): KitSubject[] {
 
 export class ProductTemplateService {
   constructor(private readonly db: DataSource) {}
+  async approved(orgId: string) {
+    return this.db.getRepository(ProductTemplateVersion).createQueryBuilder("v")
+      .innerJoin(KitTemplateApproval, "a", "a.version_id = v.id AND a.organization_id = v.organization_id")
+      .where("v.organization_id = :orgId AND v.status = 'published'", { orgId })
+      .orderBy("v.created_at", "DESC").getMany();
+  }
+  async approve(id: string, orgId: string, actor: string, revision: number) {
+    return this.db.transaction(async manager => {
+      const parent = await manager.findOne(ProductTemplate, { where: { id, organization_id: orgId, archived_at: IsNull() }, lock: { mode: "pessimistic_write" } });
+      if (!parent) throw new DraftKitError(404, "Draft kit not found");
+      const draft = await manager.findOne(ProductTemplateVersion, { where: { template_id: id, organization_id: orgId, status: "draft" }, order: { version_number: "DESC" } });
+      if (!draft || draft.revision !== revision) throw new DraftKitError(409, "The draft changed. Reopen it before approving.");
+      const previous = await manager.findOneBy(KitTemplateApproval, { organization_id: orgId, source_version_id: draft.id, source_revision: revision });
+      if (previous) return manager.findOneByOrFail(ProductTemplateVersion, { id: previous.version_id, organization_id: orgId });
+      const subjects = normalizeSubjects(draft.subjects);
+      if (!subjects.length || !subjects.some(s => s.grades.length)) throw new DraftKitError(400, "Configure subjects and grades before approving");
+      const materials = subjects.flatMap(s => [...(s.crates ?? []).flatMap(c => c.materials), ...s.grades.flatMap(g => g.activities.flatMap(a => a.materials))]);
+      if (materials.some(m => !m.inventory_item_id || !m.unit.trim() || m.quantity <= 0)) throw new DraftKitError(400, "Complete every material before approving");
+      await this.validateMaterialReferences(subjects, orgId, manager);
+      const last = await manager.findOne(ProductTemplateVersion, { where: { template_id: id, organization_id: orgId }, order: { version_number: "DESC" } });
+      const published = await manager.save(ProductTemplateVersion, manager.create(ProductTemplateVersion, {
+        template_id: id, organization_id: orgId, version_number: last!.version_number + 1, revision: 1,
+        name: draft.name, description: draft.description, category: draft.category, subjects,
+        status: "published", created_by: actor, updated_by: actor,
+      }));
+      await manager.save(ProductTemplateRevision, manager.create(ProductTemplateRevision, this.snapshot(published)));
+      await manager.save(KitTemplateApproval, { version_id: published.id, organization_id: orgId, source_version_id: draft.id, source_revision: revision, approved_by: actor });
+      return published;
+    });
+  }
   /** Materials must reference items that exist in the caller's own organization's inventory;
    *  cross-tenant or unknown references are rejected before any write. */
   private async validateMaterialReferences(subjects: KitSubject[], orgId: string, manager: EntityManager) {

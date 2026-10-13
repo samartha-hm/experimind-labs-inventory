@@ -8,6 +8,8 @@ import { Organization } from "../src/entity/Organization.ts";
 import { User } from "../src/entity/User.ts";
 import { AddProductTemplates1791417600000 } from "../src/migration/1791417600000-AddProductTemplates.ts";
 import { AddKitSubjectsAndGrades1791417600001 } from "../src/migration/1791417600001-AddKitSubjectsAndGrades.ts";
+import { AddProjectPlanning1791417600002 } from "../src/migration/1791417600002-AddProjectPlanning.ts";
+import { planningEntities } from "../src/entity/PlanningProject.ts";
 import bcrypt from "bcryptjs";
 import { randomBytes } from "node:crypto";
 import { mkdir, writeFile } from "node:fs/promises";
@@ -17,7 +19,7 @@ if (url.hostname !== "127.0.0.1" || url.port !== "55432" || url.pathname !== "/e
   throw new Error("Only the dedicated loopback development database is allowed");
 }
 const db = new DataSource({ ...AppDataSource.options, migrations: [],
-  entities: (AppDataSource.options.entities as Function[]).filter(entity => entity !== ProductTemplate && entity !== ProductTemplateVersion && entity !== ProductTemplateRevision),
+  entities: (AppDataSource.options.entities as Function[]).filter(entity => entity !== ProductTemplate && entity !== ProductTemplateVersion && entity !== ProductTemplateRevision && !planningEntities.some(p => p === entity)),
 });
 await db.initialize();
 try {
@@ -47,7 +49,7 @@ try {
   await mkdir(".local-dev", { recursive: true });
   await writeFile(".local-dev/development-accounts.json", JSON.stringify(credentials, null, 2), { mode: 0o600 });
 } finally { await db.destroy(); }
-const migrationDb = new DataSource({ ...AppDataSource.options, migrations: [AddProductTemplates1791417600000, AddKitSubjectsAndGrades1791417600001] });
+const migrationDb = new DataSource({ ...AppDataSource.options, migrations: [AddProductTemplates1791417600000, AddKitSubjectsAndGrades1791417600001, AddProjectPlanning1791417600002] });
 await migrationDb.initialize();
 try { await migrationDb.runMigrations({ transaction: "all" }); }
 finally { await migrationDb.destroy(); }

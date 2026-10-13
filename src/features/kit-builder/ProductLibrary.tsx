@@ -70,6 +70,15 @@ export default function ProductLibrary() {
     return () => { mounted = false; };
   }, []);
   function create() { setContent({ name: "", description: "", category: "" }); setSubjects([]); setEditing("new"); setError(""); setMessage(""); }
+  async function approve() {
+    if (!editing || editing === "new" || dirty || !window.confirm("Approve this saved revision as an immutable version for project planning? The draft remains editable.")) return;
+    setBusy(true); setError(""); setMessage("");
+    try {
+      const version: { version_number: number } = await apiFetch(`/api/v1/product-templates/${editing.template_id}/approve`, { method: "POST", body: JSON.stringify({ revision: editing.revision }) });
+      setMessage(`Approved immutable version ${version.version_number}. Select it in Project requirement planning.`);
+    } catch (error) { setError(error instanceof Error ? error.message : "Unable to approve kit"); }
+    finally { setBusy(false); }
+  }
   async function open(kit: DraftKit) {
     setBusy(true); setError(""); setMessage("");
     try {
@@ -272,6 +281,7 @@ export default function ProductLibrary() {
           {blankName && <p className="text-sm text-amber-700 dark:text-amber-300">Every subject, grade and activity needs a name before saving.</p>}
         </fieldset>
         <QuantityPreview subjects={subjects} templateId={editing === "new" ? undefined : editing.template_id} revision={editing === "new" ? undefined : editing.revision} dirty={dirty} disabled={busy} />
+        {canWrite && editing !== "new" && <button type="button" className={buttonClass} disabled={busy || dirty} onClick={() => void approve()}>Approve immutable version for planning</button>}
         <p aria-live="polite" className="text-sm text-slate-500">{busy ? "Saving…" : dirty ? "Unsaved changes" : "Saved"} · Draft{editing !== "new" && ` · Version ${editing.version_number} · Revision ${editing.revision}`}</p>
         {canWrite && <div className="flex flex-wrap gap-3"><button type="submit" disabled={busy || !content.name.trim() || blankName} className={`${buttonClass} bg-indigo-600 text-white`}>{busy ? "Saving…" : "Save draft"}</button>
           {editing !== "new" && <button type="button" disabled={busy} className={`${buttonClass} text-slate-600 dark:text-slate-300 flex items-center gap-2`} onClick={() => setConfirmArchive(true)}><Archive size={18} />Archive kit</button>}</div>}

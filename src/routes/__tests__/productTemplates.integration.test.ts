@@ -15,6 +15,8 @@ import { ProductTemplateVersion } from "../../entity/ProductTemplateVersion.ts";
 import { ProductTemplateRevision } from "../../entity/ProductTemplateRevision.ts";
 import { AddProductTemplates1791417600000 } from "../../migration/1791417600000-AddProductTemplates.ts";
 import { AddKitSubjectsAndGrades1791417600001 } from "../../migration/1791417600001-AddKitSubjectsAndGrades.ts";
+import { AddProjectPlanning1791417600002 } from "../../migration/1791417600002-AddProjectPlanning.ts";
+import { planningEntities } from "../../entity/PlanningProject.ts";
 import { productTemplateRouter } from "../v1/product-templates.ts";
 import { ProductTemplateService } from "../../services/ProductTemplateService.ts";
 
@@ -47,7 +49,7 @@ describe.skipIf(!databaseUrl)("PostgreSQL draft-kit CRUD and authorization", () 
     const options = { type: "postgres" as const, entities: AppDataSource.options.entities, uuidExtension: "pgcrypto" as const, url: databaseUrl, schema, ssl: false,
       extra: { options: `-c search_path=${schema},public` }, migrations: [] };
     const bootstrap = new DataSource({ ...options,
-      entities: (AppDataSource.options.entities as Function[]).filter(entity => entity !== ProductTemplate && entity !== ProductTemplateVersion && entity !== ProductTemplateRevision),
+      entities: (AppDataSource.options.entities as Function[]).filter(entity => entity !== ProductTemplate && entity !== ProductTemplateVersion && entity !== ProductTemplateRevision && !planningEntities.some(p => p === entity)),
     });
     await bootstrap.initialize();
     await bootstrap.synchronize();
@@ -57,6 +59,7 @@ describe.skipIf(!databaseUrl)("PostgreSQL draft-kit CRUD and authorization", () 
     try {
       await new AddProductTemplates1791417600000().up(runner);
       await new AddKitSubjectsAndGrades1791417600001().up(runner);
+      await new AddProjectPlanning1791417600002().up(runner);
       await runner.commitTransaction();
     }
     catch (error) { await runner.rollbackTransaction(); throw error; }
@@ -131,7 +134,7 @@ describe.skipIf(!databaseUrl)("PostgreSQL draft-kit CRUD and authorization", () 
     expect(await db.getRepository(ProductTemplate).count()).toBe(count);
   });
   it("rejects changing non-draft versions and cross-tenant parent links", async () => {
-    await db.getRepository(ProductTemplateVersion).update({ template_id: kitId }, { status: "published" });
+    await db.getRepository(ProductTemplateVersion).update({ template_id: kitId }, { status: "archived" });
     expect((await request("PUT", `/${kitId}`, maker, { name: "Changed publication", revision: 3 })).status).toBe(409);
     expect((await request("POST", `/${kitId}/archive`, maker, { revision: 3 })).status).toBe(409);
     await expect(db.getRepository(ProductTemplateVersion).save({ template_id: kitId, organization_id: other.organization_id,
@@ -402,11 +405,13 @@ describe.skipIf(!databaseUrl)("PostgreSQL draft-kit CRUD and authorization", () 
     await runner.connect();
     try {
       await runner.startTransaction();
+      await new AddProjectPlanning1791417600002().down(runner);
       await new AddKitSubjectsAndGrades1791417600001().down(runner);
       let columns = await runner.query(`SELECT column_name FROM information_schema.columns WHERE table_schema = '${schema}' AND table_name = 'product_template_versions' AND column_name = 'subjects'`);
       expect(columns).toHaveLength(0);
       expect((await runner.query(`SELECT count(*) FROM information_schema.tables WHERE table_schema = '${schema}' AND table_name = 'product_template_revisions'`))[0].count).toBe("0");
       await new AddKitSubjectsAndGrades1791417600001().up(runner);
+      await new AddProjectPlanning1791417600002().up(runner);
       columns = await runner.query(`SELECT column_name FROM information_schema.columns WHERE table_schema = '${schema}' AND table_name = 'product_template_versions' AND column_name = 'subjects'`);
       expect(columns).toHaveLength(1);
       await runner.commitTransaction();

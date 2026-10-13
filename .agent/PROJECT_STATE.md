@@ -1,11 +1,11 @@
 # ERP state — 2026-10-13
 
-Branch: feature/kit-builder-milestone-1. Milestones 1–4 implemented; Milestone 4 starts from cf5f6abf83131b99021a72ac15af7b6dfdad288e.
+Branch: feature/kit-builder-milestone-1. Milestones 1–5 implemented; Milestone 5 starts from 0b0bd1175b8c8aaa340ce785fe46a8dedb5bf391.
 
-Ordered common/universal/custom crates and generic quantity rules extend version-owned subjects JSONB. No new migration or backfill. Explicit complete-set counts, independent subject/grade counts, optional selections and reasoned overrides produce traceable previews. Tenant/RBAC, draft-only edits, revision conflicts and immutable snapshots retained; see ADR-023.
+Tenant-scoped multi-school planning selects explicitly approved immutable Kit Builder versions. Independent school quantities, reasoned project/site overrides and explicit scoped allocations produce traced requirements. Packing references add no demand. Six-place calculations use active explicit unit conversions. Stock/shortage fields remain unverified/null; operational release is blocked. See ADR-024 and docs/erp/29_PROJECT_REQUIREMENT_PLANNING_RUNBOOK.md.
 
-337 tests across 50 files PASS; focused crate/PostgreSQL acceptance: 58 PASS. Typecheck and frontend/PWA/server build PASS. HTTP/database restart persistence, tenant isolation, concurrency, earlier snapshots, published restrictions and unchanged inventory/stock-ledger rows verified. Browser interaction remains UNVERIFIED: no callable runtime available.
+Additive migration 1791417600002 applied only to the isolated development database. Empty rollback/reapply and populated rollback refusal verified in synthetic schemas. No reset, historical import, operational transactions, account or existing inventory changes.
 
-Existing accounts/company data preserved. No reset, seed, historical import or stock transactions. Existing bundle warning remains; earlier dependency advisories were not re-audited.
+367 tests across 52 files PASS; 50 focused checks PASS; typecheck and frontend/PWA/server builds PASS. Development ERP login/save/reopen/recalculation/history/conflicts and unchanged inventory/ledger PASS. Integration restart, tenant isolation, concurrency and immutable snapshots PASS. Browser acceptance remains UNVERIFIED; no callable runtime. Existing bundle warning remains.
 
-Next: review and browser acceptance in an enabled runtime. No Project Integration, merge or deployment authorized.
+Stop for review and browser acceptance. No merge, deployment or subsequent milestone authorized.

@@ -19,7 +19,7 @@ class ContentDto {
 class EditDto extends ContentDto { @IsInt() @Min(1) revision!: number; }
 class ArchiveDto { @IsInt() @Min(1) revision!: number; }
 class PreviewDto extends ArchiveDto { @IsObject() context!: Record<string, unknown>; }
-async function dto<T extends object>(body: unknown, cls: new () => T) {
+export async function dto<T extends object>(body: unknown, cls: new () => T) {
   if (!body || typeof body !== "object" || Array.isArray(body)) throw new DraftKitError(400, "Expected an object");
   const value = plainToInstance(cls, body);
   if ("name" in value && typeof value.name === "string") value.name = value.name.trim();
@@ -62,6 +62,7 @@ export function productTemplateRouter(db: DataSource) {
     if (!uuid.test(id)) { res.status(400).json({ error: "Invalid kit identity" }); return; } next();
   });
   router.get("/", action(async (req, res) => { res.json(await service.list(req.user!.orgId!)); }));
+  router.get("/approved", action(async (req, res) => { res.json(await service.approved(req.user!.orgId!)); }));
   // Material picker search; registered before /:id so "materials" is not read as a kit identity.
   router.get("/materials", action(async (req, res) => {
     const query = typeof req.query.q === "string" ? req.query.q : "";
@@ -86,6 +87,10 @@ export function productTemplateRouter(db: DataSource) {
     const { revision } = await dto(req.body, ArchiveDto);
     await service.change(req.params.id, req.user!.orgId!, req.user!.id, revision);
     res.status(204).end();
+  }));
+  router.post("/:id/approve", action(async (req, res) => {
+    const { revision } = await dto(req.body, ArchiveDto);
+    res.status(201).json(await service.approve(req.params.id, req.user!.orgId!, req.user!.id, revision));
   }));
   return router;
 }

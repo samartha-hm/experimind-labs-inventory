@@ -94,3 +94,13 @@ User authorized Milestone 4. Ordered common/universal/custom crate definitions l
 Generic typed rules support selected subject/grade components, explicit complete bundles, fixed quantities and explicit project/site counts. Complete counts are required even for partial selections (zero), bounded by every component and never inferred. Subject quantities are independent. Prastuti is employee configuration: grade-specific Science crates, no Mathematics crate, and universal crates per explicitly confirmed complete Science 8–10 bundle.
 
 Preview context is transient: no master edits, operational records or inventory transactions. Optional definitions require inclusion; reasoned overrides replace crate counts or final material quantities. Reusable flags describe requirements without reducing demand automatically. Decimal calculations have six-place precision, bounds and trace lines. Packing references add no demand. Published versions stay immutable; publication/Project Integration remain outside scope.
+
+## ADR-024 — Immutable approvals and school planning — IMPLEMENTED 2026-10-13
+
+User authorized Milestone 5. Explicit approval copies a validated saved draft into a published version with approval provenance; drafts remain editable. Planning foreign keys accept only tenant-owned approved versions. Database triggers enforce published and revision immutability.
+
+Projects own ordered school sites, selections, quantity contexts and reasoned overrides. Transactional parent locking plus revisions prevents lost updates. Project defaults are validated independently; school overrides take precedence. Shared project/site crate rules require explicit allocation and reject duplicate positive allocations. Reusable flags and packing references never silently reduce or duplicate requirements.
+
+Explicit active tenant unit conversions use exact six-place arithmetic and preserve source/factor provenance. Unconvertible quantities remain separate with warnings. Gross demand is independent of untrusted historical balances: verified stock, reservations, ATP, incoming and shortages are null, and operational release is blocked. No operational writes or production-data import.
+
+Additive migration 1791417600002 applied only to the isolated development database. Down is verified on empty synthetic schemas and refuses populated projects/approvals; preserve populated schema and use a forward fix or disable access. No production migration, merge or deployment.

@@ -1,0 +1,64 @@
+import { Router, RequestHandler } from "express";
+import { DataSource } from "typeorm";
+import { IsArray, IsObject, IsString, MaxLength, MinLength, IsInt, Min } from "class-validator";
+import { authenticateJwt } from "../../middleware/auth.ts";
+import { User } from "../../entity/User.ts";
+import { ProjectPlanningService } from "../../services/ProjectPlanningService.ts";
+import { DraftKitError } from "../../services/ProductTemplateService.ts";
+import { dto, draftKitWriters } from "./product-templates.ts";
+
+class ProjectDto {
+  @IsString() @MinLength(1) @MaxLength(200) name!: string;
+  @IsString() @MaxLength(200) client: string = "";
+  @IsString() @MaxLength(5000) notes: string = "";
+  @IsArray() commercial_links: unknown[] = [];
+  @IsObject() overrides: Record<string, unknown> = {};
+  @IsArray() sites: unknown[] = [];
+}
+class EditProjectDto extends ProjectDto { @IsInt() @Min(1) revision!: number; }
+class RevisionDto { @IsInt() @Min(1) revision!: number; }
+const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+export function planningProjectRouter(db: DataSource) {
+  const router = Router(); const service = new ProjectPlanningService(db);
+  const action = (run: RequestHandler): RequestHandler => (req, res, next) => {
+    Promise.resolve(run(req, res, next)).catch((error: unknown) => {
+      if (error instanceof DraftKitError) res.status(error.status).json({ error: error.message });
+      else if (error && typeof error === "object" && "code" in error && error.code === "23505") res.status(409).json({ error: "Planning identity conflict. Reopen or create fresh site/selection identities." });
+      else { console.error("Project planning failed", error instanceof Error ? error.name : "Error"); res.status(500).json({ error: "Unable to save or load project planning" }); }
+    });
+  };
+  router.use((req, res, next) => {
+    if (!req.headers.authorization?.startsWith("Bearer ")) { res.status(401).json({ error: "Sign in required" }); return; } next();
+  }, authenticateJwt);
+  router.use(action(async (req, res, next) => {
+    const identity = req.user;
+    if (!identity || !uuid.test(identity.id) || !identity.orgId || !uuid.test(identity.orgId) || identity.orgId === "00000000-0000-0000-0000-000000000000") {
+      res.status(403).json({ error: "An explicit organization is required" }); return;
+    }
+    const user = await db.getRepository(User).findOneBy({ id: identity.id, organization_id: identity.orgId, is_active: true });
+    if (!user) { res.status(403).json({ error: "Organization access denied" }); return; }
+    identity.role = user.role;
+    const read = ["GET", "HEAD", "OPTIONS"].includes(req.method) || (req.method === "POST" && /^\/[0-9a-f-]{36}\/preview\/?$/i.test(req.path));
+    if ((!draftKitWriters.has(user.role) && user.role !== "viewer") || (!read && !draftKitWriters.has(user.role))) {
+      res.status(403).json({ error: "Project planning permission denied" }); return;
+    } next();
+  }));
+  router.param("id", (_req, res, next, id: string) => { if (!uuid.test(id)) { res.status(400).json({ error: "Invalid project identity" }); return; } next(); });
+  router.get("/", action(async (req, res) => { res.json(await service.list(req.user!.orgId!)); }));
+  router.get("/:id", action(async (req, res) => { res.json(await service.view(req.params.id, req.user!.orgId!)); }));
+  router.get("/:id/revisions", action(async (req, res) => { res.json(await service.history(req.params.id, req.user!.orgId!)); }));
+  router.post("/", action(async (req, res) => { res.status(201).json(await service.save(req.user!.orgId!, req.user!.id, await dto(req.body, ProjectDto))); }));
+  router.put("/:id", action(async (req, res) => {
+    const { revision, ...content } = await dto(req.body, EditProjectDto);
+    res.json(await service.save(req.user!.orgId!, req.user!.id, content, req.params.id, revision));
+  }));
+  router.post("/:id/archive", action(async (req, res) => {
+    const { revision } = await dto(req.body, RevisionDto);
+    await service.archive(req.params.id, req.user!.orgId!, req.user!.id, revision); res.status(204).end();
+  }));
+  router.post("/:id/preview", action(async (req, res) => {
+    const { revision } = await dto(req.body, RevisionDto);
+    res.json(await service.preview(req.params.id, req.user!.orgId!, revision));
+  }));
+  return router;
+}
