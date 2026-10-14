@@ -16,7 +16,9 @@ export async function reservationTotals(m:EntityManager,org:string,item:string,p
     FROM project_stock_reservations WHERE organization_id=$1 AND item_id=$2 AND ($4::text IS NULL OR unit=$4)`,[org,item,project??null,unit??null]);
   const installed=await m.query(`SELECT to_regclass(current_schema()||'.production_input_reservations') IS NOT NULL installed`);
   const production=installed[0].installed?(await m.query(`SELECT COALESCE(SUM(quantity),0)::text q FROM production_input_reservations WHERE organization_id=$1 AND item_id=$2 AND status='active' AND ($3::text IS NULL OR unit=$3)`,[org,item,unit??null]))[0].q:"0";
-  return {total:stockUnits(rows[0].total)+stockUnits(production),own:stockUnits(rows[0].own),fulfilled:stockUnits(rows[0].fulfilled)};
+  const packingInstalled=await m.query(`SELECT to_regclass(current_schema()||'.packing_picks') IS NOT NULL installed`);
+  const picked=project&&packingInstalled[0].installed?(await m.query(`SELECT COALESCE(SUM(p.quantity),0)::text q FROM packing_picks p JOIN packing_orders o ON o.id=p.order_id AND o.organization_id=p.organization_id WHERE p.organization_id=$1 AND p.item_id=$2 AND o.project_id=$3 AND ($4::text IS NULL OR p.unit=$4)`,[org,item,project,unit??null]))[0].q:"0";
+  return {total:stockUnits(rows[0].total)+stockUnits(production),own:stockUnits(rows[0].own),fulfilled:stockUnits(rows[0].fulfilled)+stockUnits(picked)};
 }
 export async function supplyAvailability(m:EntityManager,org:string,materials:MaterialSummary[],project?:string) {
   for(const v of materials) {

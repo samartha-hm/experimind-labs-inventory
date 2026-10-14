@@ -1,0 +1,150 @@
+import {packingRouter} from "../v1/packing";
+import {AddPacking1791849600007} from "../../migration/1791849600007-AddPacking";
+import {HardenProductionReconciliation1791763200006} from "../../migration/1791763200006-HardenProductionReconciliation";
+import {AddProductionPlanning1791763200005} from "../../migration/1791763200005-AddProductionPlanning";
+import {productionEntities} from "../../entity/ProductionPlanning";
+import {supplyPlanningRouter} from "../v1/supply-planning";
+import {supplyEntities} from "../../entity/SupplyPlanning";
+import {AddReservationsAndProcurement1791676800004} from "../../migration/1791676800004-AddReservationsAndProcurement";
+import "reflect-metadata";
+import {beforeAll,afterAll,describe,it,expect} from "vitest";
+import {DataSource} from "typeorm";
+import express from "express";
+import type {Server} from "node:http";
+import jwt from "jsonwebtoken";
+import {randomUUID} from "node:crypto";
+import {AppDataSource} from "../../db";
+import {env} from "../../config/env";
+import {Organization} from "../../entity/Organization";
+import {User} from "../../entity/User";
+import {InventoryItem} from "../../entity/InventoryItem";
+import {UomConversion} from "../../entity/UomConversion";
+import {ProductTemplate} from "../../entity/ProductTemplate";
+import {ProductTemplateVersion} from "../../entity/ProductTemplateVersion";
+import {ProductTemplateRevision} from "../../entity/ProductTemplateRevision";
+import {planningEntities} from "../../entity/PlanningProject";
+import {stocktakeEntities,Stocktake,type StocktakeTarget} from "../../entity/Stocktake";
+import {AddProductTemplates1791417600000} from "../../migration/1791417600000-AddProductTemplates";
+import {AddKitSubjectsAndGrades1791417600001} from "../../migration/1791417600001-AddKitSubjectsAndGrades";
+import {AddProjectPlanning1791417600002} from "../../migration/1791417600002-AddProjectPlanning";
+import {AddPhysicalStocktake1791504000003} from "../../migration/1791504000003-AddPhysicalStocktake";
+import {stocktakeRouter} from "../v1/stocktakes";
+import {planningProjectRouter} from "../v1/planning-projects";
+import {productTemplateRouter} from "../v1/product-templates";
+import {planningFixture} from "../../features/projects/__tests__/planningFixture";
+
+const url=process.env.KIT_BUILDER_TEST_DATABASE_URL;
+describe.skipIf(!url)("PostgreSQL packing acceptance",()=>{
+  let db:DataSource;let server:Server;let base:string;let maker:User;let admin:User;let viewer:User;let other:User;
+  let wire:InventoryItem;let finished:InventoryItem;let unknown:InventoryItem;let session:Stocktake;let baseline:string;let projectId:string;
+  const schema=`packing_test_${randomUUID().replaceAll("-","")}`;
+  const token=(u:User,claims={})=>jwt.sign({sub:u.id,orgId:u.organization_id,role:u.role,...claims},env.jwtSecret,{expiresIn:"10m"});
+  async function request(method:string,path:string,u?:User,body?:unknown,expected=200,claims={}) {
+    const r=await fetch(base+"/api/v1"+path,{method,headers:{"Content-Type":"application/json",...(u?{Authorization:`Bearer ${token(u,claims)}`}:{})},...(body===undefined?{}:{body:JSON.stringify(body)})});
+    const text=await r.text();expect(r.status,text).toBe(expected);return text?JSON.parse(text):null;
+  }
+  async function start(){const app=express();app.use(express.json());app.use("/api/v1/packing",packingRouter(db));app.use("/api/v1/supply-planning",supplyPlanningRouter(db));app.use("/api/v1/stocktakes",stocktakeRouter(db));app.use("/api/v1/product-templates",productTemplateRouter(db));app.use("/api/v1/planning-projects",planningProjectRouter(db));server=await new Promise<Server>(resolve=>{const s=app.listen(0,"127.0.0.1",()=>resolve(s));});const a=server.address();if(!a||typeof a==="string")throw new Error("Missing port");base=`http://127.0.0.1:${a.port}`;}
+  const close=()=>new Promise<void>((resolve,reject)=>server.close(e=>e?reject(e):resolve()));
+  const target=(item=wire,locations=["Shelf A","Shelf B"]):StocktakeTarget=>({item_id:item.id,locations,complete_coverage:true});
+  const create=(targets:StocktakeTarget[]=[target()])=>request("POST","/stocktakes",maker,{name:"Synthetic count",notes:"Physical verification",targets},201);
+  const count=(s:Stocktake,q:string,location="Shelf A",item=wire,unit="m")=>request("PUT",`/stocktakes/${s.id}/count`,maker,{revision:s.revision,item_id:item.id,location,quantity:q,unit});
+  const step=(s:Stocktake,action:string,extra={})=>request("POST",`/stocktakes/${s.id}/${action}`,admin,{revision:s.revision,...extra});
+  async function reviewed(q:string){let s=await create();s=await count(s,q);return step(s,"review",{reason:"Explicit recount",allow_partial:true});}
+  beforeAll(async()=>{
+    const parsed=new URL(url!);if(parsed.hostname!=="127.0.0.1"||parsed.port!=="55432"||parsed.pathname!=="/experimind_kitbuilder_test")throw new Error("Refusing non-isolated PostgreSQL");
+    const raw=new DataSource({type:"postgres",url});await raw.initialize();try{await raw.query(`CREATE SCHEMA "${schema}"`);}finally{await raw.destroy();}
+    const options={type:"postgres" as const,url,schema,ssl:false,uuidExtension:"pgcrypto" as const,entities:AppDataSource.options.entities,migrations:[],extra:{options:`-c search_path=${schema},public`}};
+    const bootstrap=new DataSource({...options,entities:(options.entities as Function[]).filter(e=>![ProductTemplate,ProductTemplateVersion,ProductTemplateRevision,...planningEntities,...stocktakeEntities,...supplyEntities,...productionEntities].includes(e as typeof ProductTemplate))});
+    await bootstrap.initialize();await bootstrap.synchronize();const runner=bootstrap.createQueryRunner();await runner.connect();await runner.startTransaction();
+    try{await new AddProductTemplates1791417600000().up(runner);await new AddKitSubjectsAndGrades1791417600001().up(runner);await new AddProjectPlanning1791417600002().up(runner);const migration=new AddPhysicalStocktake1791504000003();await migration.up(runner);await migration.down(runner);await migration.up(runner);const supplyMigration=new AddReservationsAndProcurement1791676800004();await supplyMigration.up(runner);await supplyMigration.down(runner);await supplyMigration.up(runner);const productionMigration=new AddProductionPlanning1791763200005();await productionMigration.up(runner);await productionMigration.down(runner);await productionMigration.up(runner);const hardening=new HardenProductionReconciliation1791763200006();await hardening.up(runner);await hardening.down(runner);await hardening.up(runner);const packing=new AddPacking1791849600007();await packing.up(runner);await packing.down(runner);await packing.up(runner);await runner.commitTransaction();}catch(e){await runner.rollbackTransaction();throw e;}finally{await runner.release();await bootstrap.destroy();}
+    db=new DataSource(options);await db.initialize();const a=await db.getRepository(Organization).save({name:schema});const b=await db.getRepository(Organization).save({name:schema+"other"});
+    const user=(name:string,role:string,org=a.id)=>db.getRepository(User).save({name,email:name+"@test.invalid",role,organization_id:org,firebase_uid:null});
+    maker=await user("Counter","staff");admin=await user("Approver","admin");viewer=await user("Reader","viewer");other=await user("Other","admin",b.id);
+    wire=await db.getRepository(InventoryItem).save({organization_id:a.id,name:"Preserved wire",description:"Preserved description",sku:"WIRE",unit:"m",quantity:987,base_price:123,threshold:0});
+    unknown=await db.getRepository(InventoryItem).save({organization_id:a.id,name:"Uncounted item",sku:"UNKNOWN",unit:"m",quantity:456,base_price:99,threshold:0});
+    // Historical ledger is intentionally excluded from physical truth.
+    await db.query(`INSERT INTO stock_ledger(organization_id,item_id,item_name,item_sku,qty_delta,running_balance,unit_cost,transaction_type) VALUES($1,$2,'Preserved wire','WIRE',987,987,123,'INITIAL_BALANCE')`,[a.id,wire.id]);
+    finished=await db.getRepository(InventoryItem).save({organization_id:a.id,name:"Synthetic laser parts",sku:"PARTS",unit:"m",quantity:777,base_price:42,threshold:0});baseline=JSON.stringify(await db.query("SELECT * FROM inventory_items ORDER BY id"));await start();
+  },30000);
+  afterAll(async()=>{if(server)await close();if(db?.isInitialized)await db.destroy();});
+  async function prod(method:string,path:string,body?:unknown,status=200,u=maker,key=randomUUID()) {
+    const r=await fetch(base+"/api/v1/packing"+path,{method,headers:{Authorization:`Bearer ${token(u)}`,"Content-Type":"application/json","Idempotency-Key":key},...(body===undefined?{}:{body:JSON.stringify(body)})});
+    const t=await r.text();expect(r.status,t).toBe(status);return t?JSON.parse(t):null;
+  }
+  const balance=async()=>Number((await db.query("SELECT COALESCE(SUM(qty_delta),0)::text q FROM stock_ledger WHERE item_id=$1 AND verification_entry_id IS NOT NULL",[wire.id]))[0].q);
+  const schoolOrders: import("../../features/packing/packingTypes").PackingOrder[]=[];
+  async function supply(path:string,body:unknown,status=201,u=maker){const r=await fetch(base+"/api/v1/supply-planning"+path,{method:"POST",headers:{Authorization:`Bearer ${token(u)}`,"Content-Type":"application/json","Idempotency-Key":randomUUID()},body:JSON.stringify(body)});const t=await r.text();expect(r.status,t).toBe(status);return JSON.parse(t);}
+  let order: import("../../features/packing/packingTypes").PackingOrder;
+  it("round-trips the empty migration and establishes synthetic physical truth",async()=>{
+    let s=await create([target(wire,["Shelf A"])]);s=await count(s,"20");s=await step(s,"review",{reason:"Complete count"});s=await step(s,"approve");await step(s,"post");expect(await balance()).toBe(20);
+  });
+  it("enforces current-user permissions, tenant ownership and strict inputs",async()=>{
+    await request("GET","/packing",undefined,undefined,401);
+    await prod("POST","/orders",{batch_code:"TEST",manual:{name:"Kit",materials:[{item_id:wire.id,quantity:"2",unit:"m"}]}},403,viewer);
+    await request("POST","/packing/orders",viewer,{},403,{role:"admin"});
+    await prod("POST","/orders",{batch_code:"TEST",manual:{name:"Kit",materials:[{item_id:wire.id,quantity:"2",unit:"m"}]}},404,other);
+    await prod("POST","/orders",{batch_code:"TEST",organization_id:other.organization_id},400);
+    order=await prod("POST","/orders",{batch_code:"TEST",manual:{name:"Kit",materials:[{item_id:wire.id,quantity:"2",unit:"m"}]}},201);
+    await prod("GET",`/orders/${order.id}`,undefined,404,other);
+    await prod("POST",`/orders/${order.id}/release`,{revision:order.revision},403);
+    order=await prod("POST",`/orders/${order.id}/release`,{revision:order.revision},200,admin);
+  });
+  it("posts one ledger decrement for concurrent retries and rejects over-picking",async()=>{
+    const key=randomUUID(),body={revision:order.revision,item_id:wire.id,quantity:"1",unit:"m",location:"Shelf A"};
+    const results=await Promise.all([prod("POST",`/orders/${order.id}/picks`,body,201,maker,key),prod("POST",`/orders/${order.id}/picks`,body,201,maker,key)]);
+    expect(results[0]).toEqual(results[1]);order=results[0];expect(await balance()).toBe(19);
+    await prod("POST",`/orders/${order.id}/picks`,{...body,quantity:"2"},409,maker,key);
+    await prod("POST",`/orders/${order.id}/picks`,{...body,revision:order.revision,quantity:"2"},409);
+    const d=await prod("GET",`/orders/${order.id}`);expect(d.picks).toHaveLength(1);expect(d.materials[0].remaining).toBe("1.0000");expect(d.picks[0].source_movements).toHaveLength(1);
+    await prod("POST",`/orders/${order.id}/cancel`,{revision:order.revision},409);
+    await expect(db.query("UPDATE packing_picks SET quantity=2 WHERE order_id=$1",[order.id])).rejects.toThrow();
+    await expect(db.query("UPDATE packing_orders SET snapshot='{}' WHERE id=$1",[order.id])).rejects.toThrow();
+  });
+  it("retains school-specific crate counts, version identity and packing history",async()=>{
+    const f=planningFixture(wire.id);const draft=await request("POST","/product-templates",maker,{name:"Packing demand",subjects:f.subjects},201);
+    const v=await request("POST",`/product-templates/${draft.template_id}/approve`,maker,{revision:1},201);
+    for(const site of f.content.sites)site.selections[0].version_id=v.id;
+    const project=await request("POST","/planning-projects",maker,f.content,201);projectId=project.id;
+    for(const [i,site] of project.sites.entries()){
+      const o=await prod("POST","/orders",{batch_code:`SCHOOL-${i}`,project_id:project.id,site_id:site.id,demand_revision:project.revision},201);
+      schoolOrders.push(o);
+      expect(o.snapshot.packages.filter((p: {kind:string})=>p.kind==="common_crate")).toHaveLength(i===0?6:3);
+      expect(o.snapshot.packages.filter((p: {kind:string})=>p.kind==="universal_crate")).toHaveLength(i===0?2:0);
+      expect(o.snapshot.packages.every((p: {version_id:string})=>p.version_id===v.id)).toBe(true);
+      await prod("POST","/orders",{batch_code:"DUPLICATE",project_id:project.id,site_id:site.id,demand_revision:project.revision},409);
+    }
+    await request("POST",`/planning-projects/${project.id}/archive`,maker,{revision:project.revision},409);
+    const removed={...f.content,sites:[]};await request("PUT",`/planning-projects/${project.id}`,maker,{...removed,revision:project.revision},409);
+  });
+  it("transfers school reservations once and credits project demand without a second movement",async()=>{
+    let o=schoolOrders[0];const before=await balance();
+    const r=await supply("/reservations",{project_id:o.project_id,site_id:o.site_id,item_id:wire.id,quantity:"2.4",unit:"m"});
+    expect(await balance()).toBe(before);
+    await supply(`/reservations/${r.id}/fulfill`,{revision:r.revision,reason:"Legacy transfer",location:"Shelf A"},409,admin);
+    o=await prod("POST",`/orders/${o.id}/release`,{revision:o.revision},200,admin);
+    await prod("POST",`/orders/${o.id}/picks`,{revision:o.revision,item_id:wire.id,quantity:"1",unit:"m",location:"Shelf A",reservation_id:r.id},404,other);
+    o=await prod("POST",`/orders/${o.id}/picks`,{revision:o.revision,item_id:wire.id,quantity:"1",unit:"m",location:"Shelf A",reservation_id:r.id},201);
+    const partial=(await db.query("SELECT * FROM project_stock_reservations WHERE id=$1",[r.id]))[0];expect(partial.quantity).toBe("1.4000");expect(partial.status).toBe("active");
+    o=await prod("POST",`/orders/${o.id}/picks`,{revision:o.revision,item_id:wire.id,quantity:"1.4",unit:"m",location:"Shelf A",reservation_id:r.id},201);
+    expect((await db.query("SELECT status FROM project_stock_reservations WHERE id=$1",[r.id]))[0].status).toBe("released");
+    expect(await balance()).toBe(before-2.4);
+    const preview=await request("POST",`/planning-projects/${o.project_id}/preview`,maker,{revision:o.demand_revision});expect(preview.materials[0].fulfilled_quantity).toBe(2.4);
+    await close();await start();const restored=await prod("GET",`/orders/${o.id}`);expect(restored.picks).toHaveLength(2);expect(restored.materials[0].remaining).toBe("0.0000");
+    await prod("POST",`/orders/${o.id}/picks`,{revision:o.revision,item_id:wire.id,quantity:"0.1",unit:"m",location:"Shelf A"},409);
+  });
+  it("refuses to repick a school whose stock was already fulfilled",async()=>{
+    const f=planningFixture(wire.id);const draft=await request("POST","/product-templates",maker,{name:"Historical fulfillment",subjects:f.subjects},201);
+    const v=await request("POST",`/product-templates/${draft.template_id}/approve`,maker,{revision:1},201);for(const site of f.content.sites)site.selections[0].version_id=v.id;
+    const project=await request("POST","/planning-projects",maker,f.content,201),site=project.sites[0];
+    const r=await supply("/reservations",{project_id:project.id,site_id:site.id,item_id:wire.id,quantity:"0.5",unit:"m"});
+    const before=await balance();await supply(`/reservations/${r.id}/fulfill`,{revision:r.revision,reason:"Existing stock transfer",location:"Shelf A"},200,admin);
+    await prod("POST","/orders",{batch_code:"NO-REPICK",project_id:project.id,site_id:site.id,demand_revision:project.revision},409);
+    expect(await balance()).toBe(before-0.5);
+  });
+  it("refuses destructive rollback and preserves inventory and historical ledger",async()=>{
+    const r=db.createQueryRunner();try{await expect(new AddPacking1791849600007().down(r)).rejects.toThrow("history");}finally{await r.release();}
+    expect(JSON.stringify(await db.query("SELECT * FROM inventory_items ORDER BY id"))).toBe(baseline);
+    expect(Number((await db.query("SELECT qty_delta FROM stock_ledger WHERE verification_entry_id IS NULL AND item_id=$1",[wire.id]))[0].qty_delta)).toBe(987);
+    const unmatched=await db.query("SELECT p.id FROM packing_picks p LEFT JOIN stock_ledger l ON l.id=p.ledger_id AND l.packing_pick_id=p.id AND l.organization_id=p.organization_id AND l.qty_delta=-p.quantity WHERE l.id IS NULL");expect(unmatched).toHaveLength(0);
+  });
+});

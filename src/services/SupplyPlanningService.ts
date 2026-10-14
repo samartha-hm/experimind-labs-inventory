@@ -95,6 +95,7 @@ export class SupplyPlanningService {
       const current=await m.findOneBy(ProjectStockReservation,{id,organization_id:org});if(!current)fail(404,"Reservation not found");
       const item=await this.item(m,org,current.item_id,true);const r=await m.findOne(ProjectStockReservation,{where:{id,organization_id:org},lock:{mode:"pessimistic_write"}});if(!r)fail(404,"Reservation not found");
       if(r.revision!==revision||r.status!=="active")fail(409,"Reservation changed or finalized; reopen it");
+      if(action==="fulfill"){const installed=await m.query(`SELECT to_regclass(current_schema()||'.packing_orders') IS NOT NULL installed`);if(installed[0].installed&&(await m.query(`SELECT 1 FROM packing_orders WHERE organization_id=$1 AND project_id=$2 AND site_id=$3 AND status<>'cancelled' LIMIT 1`,[org,r.project_id,r.site_id])).length)fail(409,"Use packing picks to transfer school reservations without a second stock decrement");}
       if(action==="adjust") {let amount:bigint;try{amount=stockUnits(quantity??"");}catch(e){fail(400,(e as Error).message);}if(amount!<=0n)fail(400,"Quantity must be positive");await this.checkCapacity(m,org,item,amount!,stockUnits(r.quantity));r.quantity=stockText(amount!);}
       else r.status=action==="release"?"released":action==="cancel"?"cancelled":"fulfilled";
       r.revision++;r.updated_by=actor;r.reason=reason;

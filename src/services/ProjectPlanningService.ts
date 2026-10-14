@@ -121,6 +121,7 @@ export class ProjectPlanningService {
         if(await manager.query(`SELECT 1 FROM project_stock_reservations WHERE organization_id=$1 AND site_id=$2 LIMIT 1`,[orgId,old.id]).then((rows:unknown[])=>rows.length))throw new DraftKitError(409,"A site with reservation history cannot be removed");
         if(await manager.query(`SELECT 1 FROM purchase_requests r, jsonb_array_elements(r.lines) l WHERE r.organization_id=$1 AND l->>'site_id'=$2 LIMIT 1`,[orgId,old.id]).then((rows:unknown[])=>rows.length))throw new DraftKitError(409,"A site with procurement history cannot be removed");
         if((await manager.query(`SELECT to_regclass(current_schema()||'.production_work_orders') installed`))[0].installed && await manager.query(`SELECT 1 FROM production_work_orders WHERE organization_id=$1 AND site_id=$2 LIMIT 1`,[orgId,old.id]).then((rows:unknown[])=>rows.length))throw new DraftKitError(409,"A site with production history cannot be removed");
+        if((await manager.query(`SELECT to_regclass(current_schema()||'.packing_orders') installed`))[0].installed && (await manager.query(`SELECT 1 FROM packing_orders WHERE organization_id=$1 AND site_id=$2 LIMIT 1`,[orgId,old.id])).length)throw new DraftKitError(409,"A site with packing history cannot be removed");
         await manager.delete(PlanningSchoolSite,{id:old.id,organization_id:orgId});
       }
       for (const [position, site] of sites.entries()) {
@@ -139,6 +140,7 @@ export class ProjectPlanningService {
       if (p.revision !== revision) throw new DraftKitError(409, "Project changed. Reopen before archiving.");
       if(await manager.query(`SELECT 1 FROM project_stock_reservations WHERE organization_id=$1 AND project_id=$2 AND status='active' LIMIT 1`,[orgId,id]).then((rows:unknown[])=>rows.length))throw new DraftKitError(409,"Release active reservations before archiving the project");
       if((await manager.query(`SELECT to_regclass(current_schema()||'.production_work_orders') installed`))[0].installed && await manager.query(`SELECT 1 FROM production_work_orders WHERE organization_id=$1 AND project_id=$2 AND status NOT IN ('completed','cancelled') LIMIT 1`,[orgId,id]).then((rows:unknown[])=>rows.length))throw new DraftKitError(409,"Finalize active production before archiving the project");
+      if((await manager.query(`SELECT to_regclass(current_schema()||'.packing_orders') installed`))[0].installed && (await manager.query(`SELECT 1 FROM packing_orders WHERE organization_id=$1 AND project_id=$2 AND status NOT IN ('ready','cancelled') LIMIT 1`,[orgId,id])).length)throw new DraftKitError(409,"Finalize active packing before archiving the project");
       const { id: _id, revision: _rev, updated_at: _date, ...content } = await this.load(manager, p);
       p.archived_at = new Date(); p.revision++; p.updated_by = actor; await manager.save(p);
       await manager.insert(PlanningProjectRevision, { project_id: id, organization_id: orgId, revision: p.revision, content, archived: true, updated_by: actor });
