@@ -220,5 +220,8 @@ describe.skipIf(!url)("PostgreSQL packing acceptance",()=>{
     expect(JSON.stringify(await db.query("SELECT * FROM inventory_items ORDER BY id"))).toBe(baseline);
     expect(Number((await db.query("SELECT qty_delta FROM stock_ledger WHERE verification_entry_id IS NULL AND item_id=$1",[wire.id]))[0].qty_delta)).toBe(987);
     const unmatched=await db.query("SELECT p.id FROM packing_picks p LEFT JOIN stock_ledger l ON l.id=p.ledger_id AND l.packing_pick_id=p.id AND l.organization_id=p.organization_id AND l.qty_delta=-p.quantity WHERE l.id IS NULL");expect(unmatched).toHaveLength(0);
+    const orphaned=await db.query("SELECT l.id FROM stock_ledger l LEFT JOIN packing_picks p ON p.id=l.packing_pick_id AND p.ledger_id=l.id AND p.organization_id=l.organization_id WHERE l.packing_pick_id IS NOT NULL AND p.id IS NULL");expect(orphaned).toHaveLength(0);
+    expect(await balance()).toBeCloseTo(15.2);
+    expect(schoolOrders.map(o=>o.status)).toEqual(["ready","ready"]);
   });
 });
