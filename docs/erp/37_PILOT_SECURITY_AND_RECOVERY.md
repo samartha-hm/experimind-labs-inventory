@@ -105,6 +105,9 @@ It never uses `--clean`, drops a database, runs migrations or overwrites the sou
 
 Validation compares normalized schema dumps, every public table's ordered full
 row hash/count, every sequence state, migration records and every object hash.
+Schema normalization removes random dump restriction markers and treats only
+literal varchar-array-to-text casts as equivalent to their restored per-element
+casts. Changed values, column references and all other definitions remain unequal.
 It checks user/tenant ownership, item/ledger ownership and balances, reciprocal
 packing-pick links and attachment record/file size/digest. Extra objects are
 reported and preserved. Source hashes are rechecked after recovery. Private
@@ -159,17 +162,25 @@ stop writers before switching both together.
 
 ## Actual recovery status
 
-PostgreSQL server and portable pg_dump/pg_restore/psql report 17.5. A consistent
-custom database dump, private object copy and full comparison manifest were
-created. Source integrity checks passed, including tenant relationships,
-verified ledger balances/sequences/units and attachment record/file hashes.
-**Paired restore is blocked: CREATE DATABASE was denied to kitbuilder_dev.**
-No recovery database was created and source database/objects were not overwritten.
-Automatic approval review rejected trying the development password with the
-separate postgres administrator as unauthorized credential probing; no such
-login occurred. Administrator authorization and a correct local credential are
-required to complete the fresh-target restore and comparison. Failed rehearsal
-directories are retained privately. Existing Linux backup/restore scripts do not
-include attachments and must not be run against this local setup.
+**Paired PostgreSQL and private attachment restore: PASS**, completed
+2026-10-14 19:47 IST. Server and portable clients report PostgreSQL 17.5.
+After explicit user authorization, the existing isolated administrator created
+`experimind_pilot_restore_20261014141752742` owned by kitbuilder_dev; all dump,
+restore and validation operations used the application account. No roles or
+source data were changed. Evidence is private in
+`D:\Experimindlabs\ERP\erp-development\.local-dev\recovery\20261014141752742`.
+Fresh object root is its `restored-objects` child; backup/manifest is its `backup`
+child. Both initial paired validation and retained-pair read-only validation PASS.
+All 85 public tables (including projects/templates/migrations/users), sequence
+states and normalized schema match. Tenant relationships, verified ledger
+balances/sequences/units, reciprocal picks and attachment hashes/size pass.
+One attachment record matches its file; ten pre-existing unreferenced objects
+were copied unchanged, reported and preserved. No unexpected data/file differences
+remain; source hashes were unchanged. Initial schema comparison found PostgreSQL
+reparsing equivalent literal array casts, now narrowly normalized and tested
+against changed values/columns. Earlier failed targets are retained for diagnosis.
+Existing Linux backup/restore scripts do not include attachments and must not be
+run against this local setup. This proves paired data recovery, not browser or
+hosting cutover acceptance. Host ACLs/encrypted offline retention remain required.
 
-Actual visual/physical print acceptance is also pending; follow [the manual browser matrix](34_PILOT_BROWSER_ACCEPTANCE.md). HTTP acceptance is not visual acceptance. Complete the authorized new-target rehearsal and browser matrix before controlled pilot approval.
+Actual visual/physical print acceptance is pending; follow [the manual browser matrix](34_PILOT_BROWSER_ACCEPTANCE.md). HTTP acceptance is not visual acceptance. Complete the browser matrix before controlled pilot approval.

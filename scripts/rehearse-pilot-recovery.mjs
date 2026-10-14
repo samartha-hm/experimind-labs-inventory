@@ -16,6 +16,12 @@ const objectRoot = resolve(process.env.ATTACHMENT_STORAGE_ROOT ?? '.local-dev/at
 const localRoot = resolve('.local-dev');
 if (!relative(localRoot, objectRoot) || relative(localRoot, objectRoot).startsWith('..') || isAbsolute(relative(localRoot, objectRoot))) throw Error('Objects must be in the isolated .local-dev tree');
 const hash = bytes => createHash('sha256').update(bytes).digest('hex');
+// PostgreSQL reparses varchar literal arrays during restore: casting the
+// complete array to text[] becomes identical per-element text casts. Normalize
+// only this literal-only form; preserve every other schema difference.
+const normalizeSchema = sql => sql.split('\n').filter(line => !/^\\(un)?restrict /.test(line)).join('\n')
+  .replace(/\(ARRAY\[((?:'(?:[^']|'')*'::character varying)(?:, '(?:[^']|'')*'::character varying)*)\]\)::text\[\]/g,
+    (_, values) => `ARRAY[${values.replace(/'(?:[^']|'')*'::character varying/g, value => `(${value})::text`)}]`);
 const quote = name => '"' + name.replaceAll('"', '""') + '"';
 const privateEnv = { ...process.env, PGHOST: sourceUrl.hostname, PGPORT: sourceUrl.port, PGUSER: decodeURIComponent(sourceUrl.username), PGPASSWORD: decodeURIComponent(sourceUrl.password), PGDATABASE: sourceUrl.pathname.slice(1) };
 async function run(tool, args, env = privateEnv) {
@@ -98,7 +104,7 @@ try {
     const objects = await tree(saved.restoredRoot);
     if (JSON.stringify(saved.tables) !== JSON.stringify(await snapshot(restored, restoredTables)) || JSON.stringify(saved.objects) !== JSON.stringify(objects)) throw Error('Saved manifest differs from restored data');
     const sql = await run('pg_dump', ['--schema-only', '--no-owner', '--no-privileges', `--dbname=${saved.targetName}`]);
-    if (hash(sql.split('\n').filter(line => !/^\\(un)?restrict /.test(line)).join('\n')) !== saved.schemaDigest) throw Error('Restored schema differs from manifest');
+    if (hash(normalizeSchema(sql)) !== saved.schemaDigest) throw Error('Restored schema differs from manifest');
     console.log(JSON.stringify({ status: 'PASS', targetName: saved.targetName, integrity: await verify(restored, objects), validation: 'retained pair; read only' }));
   } else {
   await source.connect();
@@ -129,7 +135,6 @@ try {
   const dump = join(backupRoot, 'database.dump');
   await run('pg_dump', ['--format=custom', '--no-owner', '--no-privileges', `--snapshot=${snapshotId}`, `--file=${dump}`]);
   const schemaArgs = ['--schema-only', '--no-owner', '--no-privileges'];
-  const normalizeSchema = sql => sql.split('\n').filter(line => !/^\\(un)?restrict /.test(line)).join('\n');
   const schema = normalizeSchema(await run('pg_dump', schemaArgs));
   const manifest = { server, versions, git: execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim(), stamp, sourceDatabase: server.database, targetName, sourceObjectRoot: objectRoot, restoredRoot, dumpDigest: hash(await readFile(dump)), schemaDigest: hash(schema), tables: sourceData, objects, integrity };
   await writeFile(join(backupRoot, 'manifest.json'), JSON.stringify(manifest, null, 2), { flag: 'wx', mode: 0o600 });
