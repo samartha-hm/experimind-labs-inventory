@@ -1,9 +1,9 @@
-# Next task — Review Milestone 7
+# Next task — Review Milestone 8
 
-Milestone 7 implementation and HTTP/PostgreSQL acceptance are verified. Stop for user review; do not begin Production/Preparation, merge or deploy.
+Milestone 8 implementation and authenticated development HTTP/PostgreSQL acceptance are verified. Stop for review; do not begin Milestone 9, merge or deploy.
 
-Browser acceptance remains pending because runtime bootstrap returned EPERM. In a browser-enabled fresh chat, follow docs/erp/31_RESERVATIONS_AND_PROCUREMENT_RUNBOOK.md; verify reservation and purchasing controls, partial receipt QC, history and refreshed project shortages.
+Browser acceptance remains pending because runtime bootstrap returned EPERM. In a browser-enabled fresh chat, follow docs/erp/32_PRODUCTION_AND_PREPARATION_RUNBOOK.md; verify recipe/version controls, work order release/reservations/issues, partial QC and rework, reload persistence/history and project stock previews.
 
-Existing isolated PostgreSQL is on 127.0.0.1:55432 and ERP on loopback 3100. Never initialize/reset/seed retained databases or touch company production data. Synthetic acceptance stock is now 2.5 m with 2 m active reservations; do not rerun the acceptance script's original 2 m baseline assertion blindly. Credentials, results and logs remain ignored under .local-dev/.
+Existing isolated PostgreSQL is on 127.0.0.1:55432 and ERP on loopback 3100. Never reset, initialize or seed retained databases. Synthetic M8 input/output balances are 11 m/6 m; retained older M6/M7 examples remain separate. A failed acceptance-script setup left a separate synthetic draft count; it posted nothing. Credentials/results/logs remain ignored under .local-dev. Do not blindly rerun scripts with initial-baseline assertions.
 
-Read short handoff and verify GitHub HEAD first. Use /new or /compact before further work.
+Read the short handoff and verify GitHub HEAD first. Use /new or /compact before further work.

@@ -1,13 +1,13 @@
-# Session handoff — Milestone 7
+# Session handoff — Milestone 8
 
-Branch: feature/kit-builder-milestone-1. Implementation ad0346dc989578721a50911ad48fc74d93f003a3 pushed; local/remote matched. Starts from b827eab517e330c7edc6762ff47552272db7a2f1.
+Branch: feature/kit-builder-milestone-1. Implementation 49c92487b163e15f928b98558b1ec1e00557ce93 pushed; local/remote matched. Starts from e94d37bcbd47310f0f81bd5e137ee9070ef53294.
 
-Implemented tenant/RBAC reservations (adjust/release/cancel/explicit fulfillment), manual/project-site shortage requests, review/approval, supplier-linked orders and partial receipts with accept/reject/quarantine. Exact decimal conversions, revision checks, item locks, immutable audits and actor-bound idempotency protect operations. Existing stock_ledger remains the only physical source. Legacy master/quantities/prices/locations/history unchanged; unknown stock remains Unverified. No automatic allocation or production.
+Implemented independent versioned recipes, explicit yields/units/scrap and chemical metadata; immutable approved versions and order snapshots. Manual/project-site orders support release, verified input reservations, assignment, actual issues, partial batches, QC accept/reject/rework/resubmit and finalization. Current-user RBAC, tenant ownership, revisions, item locks, immutable audits, actor-bound idempotency and deferred reconciliation protect operations. Only actual issues and accepted QC move the existing ledger. No automatic fulfillment/dispatch or legacy master mutation.
 
-Previews separate gross demand, verified on-hand, reservations, free stock, approved incoming and immediate/projected shortages; credit own project allocations/fulfillments. Reads never post stock. Changes span supply entities/services/routes/UI, project planning, migration and stocktake guards.
+Production allocations and incoming integrate with read-only requirement previews. Production history protects sites; active work prevents project archival. Changes span entities/migrations/services/routes, production and project panels, tests and runbook 32/ADR-027.
 
-Migration 1791676800004 applied only to isolated development. Empty rollback/reapply PASS; populated rollback safely refuses.
+Migrations 1791763200005/0006 applied only to isolated development. Empty rollback/reapply PASS; populated rollback refuses history loss.
 
-Verification: 10 supply tests; full 407 tests/55 files PASS; typecheck and frontend/PWA/server builds PASS. Authenticated HTTP acceptance PASS: demand 3.3 m, verified 2 m, reserve 2 m unchanged physical, request/order 1.3 m, pending unavailable, accept 0.5 m exactly once, reject 0.3 m unchanged physical. Final stock 2.5 m, reserved 2 m, shortage 0.8 m, incoming 0.5 m. Repeated previews preserve ledger/legacy inventory.
+Verification: 11 focused production tests; final full 418 tests/56 files PASS; typecheck and frontend/PWA/server builds PASS. Authenticated development HTTP PASS: laser partial QC accepts 3 m/rejects 2 m, make-for-stock accepts two 1 m batches, multi-school linked order accepts 1 m. Input balance 20→11 m; output 6 m. Exact replay posts once; 3.3 m project demand previews preserve ledger/legacy inventory and do not allocate automatically.
 
-Browser PENDING: runtime EPERM; no retries. ERP loopback 3100, PostgreSQL 55432; synthetic records retained and credentials/results/logs ignored. Read ADR-026 and runbook 31. Stop for review; no Production/Preparation, merge or deployment.
+Browser PENDING: runtime EPERM; no retries. ERP loopback 3100/PostgreSQL 55432. Synthetic records/results/credentials ignored under .local-dev. Stop for review; no Milestone 9, merge or deployment. Use /new or /compact.

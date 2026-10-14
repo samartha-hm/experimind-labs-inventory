@@ -1,15 +1,13 @@
 # ERP state — 2026-10-14
 
-Branch: feature/kit-builder-milestone-1. Milestones 1–7 implemented; M7 starts from verified b827eab517e330c7edc6762ff47552272db7a2f1.
+Branch: feature/kit-builder-milestone-1. Milestones 1–8 implemented. M8 implementation: 49c92487b163e15f928b98558b1ec1e00557ce93.
 
-Tenant reservations allocate verified stock without physical changes. Exact decimal arithmetic, item locks, revisions, immutable audits and idempotency protect adjustments/release/explicit fulfillment. Existing stock_ledger remains the sole physical source; legacy inventory/master values remain unchanged and unverified.
+Independent immutable approved recipe versions and work order snapshots support explicit yield, units, scrap and chemical metadata. Manual/project-site production carries assignment, priority, due date and demand revision. Verified input reservations share capacity with project reservations. Actual issues consume stock; pending/rejected/rework output is unavailable; QC acceptance alone adds stock. Existing stock_ledger remains the physical source; legacy inventory masters/history remain unchanged.
 
-Manual or project/site-shortage requests support draft editing/review/approval, supplier-linked orders and partial receipts. Approved orders require review/approval. Pending/quarantined/rejected receipts are unavailable; acceptance posts exactly once. Explicitly approved non-QC lines post on receipt. No automatic allocation or production workflow.
+Current-user RBAC, tenant isolation, exact decimal conversions, item locks, optimistic revisions, immutable events, actor-bound idempotency and deferred reconciliation protect operations. Read-only project previews include production allocations/incoming; no automatic fulfillment, dispatch or procurement expansion. Production history protects sites and active work blocks project archival.
 
-Read-only previews show gross demand, on-hand, reservations, free stock, incoming and immediate/projected shortages. Own project allocations/fulfillments and incoming receive credit; unknown stock remains Unverified. Supply history protects project sites from deletion.
+Migrations 1791763200005/0006 applied only to isolated development; empty rollback/reapply and populated rollback refusal PASS. See ADR-027 and runbook 32.
 
-Migration 1791676800004 applied only to isolated development PostgreSQL. Empty rollback/reapply and populated rollback refusal PASS. See ADR-026 and docs/erp/31_RESERVATIONS_AND_PROCUREMENT_RUNBOOK.md.
+Verification: 11 focused production tests; final full 418 tests/56 files PASS; typecheck and frontend/PWA/server builds PASS. Authenticated development HTTP scenarios cover laser partial QC, make-for-stock multi-batch and multi-school linked production: input 20→11 m, accepted output 6 m, rejected output 2 m. Repeated previews preserve stock and existing masters/history.
 
-Verification: 10 supply tests; full 407 tests/55 files PASS; typecheck and frontend/PWA/server builds PASS. Authenticated HTTP: 3.3 m demand, 2 m verified, reserve 2 m unchanged physical, request/order 1.3 m, accept 0.5 m once, reject 0.3 m unchanged physical. Final stock 2.5 m, reservations 2 m, immediate shortage 0.8 m, incoming 0.5 m. Repeated previews preserve ledger/legacy inventory.
-
-Browser acceptance PENDING (runtime EPERM). Stop for review; no Production/Preparation, merge or deployment. Use /new or /compact before further work.
+Browser acceptance PENDING (runtime EPERM). Stop for review; no Milestone 9, merge or deployment. Use /new or /compact before further work.
