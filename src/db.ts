@@ -1,4 +1,5 @@
 import { AddPacking1791849600007 } from "./migration/1791849600007-AddPacking.ts";
+import { HardenPackingReadiness1791936000008 } from "./migration/1791936000008-HardenPackingReadiness.ts";
 import {HardenProductionReconciliation1791763200006} from "./migration/1791763200006-HardenProductionReconciliation";
 import { productionEntities } from "./entity/ProductionPlanning";
 import { AddProductionPlanning1791763200005 } from "./migration/1791763200005-AddProductionPlanning";
@@ -157,6 +158,7 @@ export const AppDataSource = new DataSource({
   ],
   migrations: [
     AddPacking1791849600007,
+    HardenPackingReadiness1791936000008,
     AddProductionPlanning1791763200005,HardenProductionReconciliation1791763200006,
     AddReservationsAndProcurement1791676800004,
     AddPhysicalStocktake1791504000003,

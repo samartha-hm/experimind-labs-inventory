@@ -5,11 +5,11 @@ if(url.hostname!=="127.0.0.1"||url.port!=="55432"||url.pathname!=="/experimind_k
 await AppDataSource.initialize();
 try {
  const pending = (await AppDataSource.query("SELECT name FROM migrations")).map((r:{name:string})=>r.name);
- const expected = "AddPacking1791849600007";
+ const expected = ["AddPacking1791849600007", "HardenPackingReadiness1791936000008"];
  if(!pending.includes("HardenProductionReconciliation1791763200006"))throw new Error("Verified production reconciliation migration required");
  // This isolated database has a synchronized legacy baseline. Never run legacy seed/alignment migrations here.
- AppDataSource.migrations=AppDataSource.migrations.filter(m=>m.name===expected);
- if(AppDataSource.migrations.length!==1)throw new Error("Packing migration registration invalid");
+ AppDataSource.migrations=AppDataSource.migrations.filter(m=>expected.includes(m.name));
+ if(AppDataSource.migrations.length!==expected.length)throw new Error("Packing migration registration invalid");
  const fingerprint=async()=>AppDataSource.query(`SELECT 'inventory' kind,count(*)::text count,md5(COALESCE(string_agg(row_to_json(i)::text,'' ORDER BY id),'')) digest FROM inventory_items i UNION ALL SELECT 'ledger',count(*)::text,md5(COALESCE(string_agg((to_jsonb(l)-'packing_pick_id')::text,'' ORDER BY id),'')) FROM stock_ledger l`);
  const before=await fingerprint();const ran=await AppDataSource.runMigrations({transaction:"all"});const after=await fingerprint();
  if(JSON.stringify(before)!==JSON.stringify(after))throw new Error("Inventory or ledger fingerprint changed");

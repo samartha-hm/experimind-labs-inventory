@@ -1,4 +1,5 @@
 import {packingRouter} from "../v1/packing";
+import {HardenPackingReadiness1791936000008} from "../../migration/1791936000008-HardenPackingReadiness";
 import {AddPacking1791849600007} from "../../migration/1791849600007-AddPacking";
 import {HardenProductionReconciliation1791763200006} from "../../migration/1791763200006-HardenProductionReconciliation";
 import {AddProductionPlanning1791763200005} from "../../migration/1791763200005-AddProductionPlanning";
@@ -56,7 +57,7 @@ describe.skipIf(!url)("PostgreSQL packing acceptance",()=>{
     const options={type:"postgres" as const,url,schema,ssl:false,uuidExtension:"pgcrypto" as const,entities:AppDataSource.options.entities,migrations:[],extra:{options:`-c search_path=${schema},public`}};
     const bootstrap=new DataSource({...options,entities:(options.entities as Function[]).filter(e=>![ProductTemplate,ProductTemplateVersion,ProductTemplateRevision,...planningEntities,...stocktakeEntities,...supplyEntities,...productionEntities].includes(e as typeof ProductTemplate))});
     await bootstrap.initialize();await bootstrap.synchronize();const runner=bootstrap.createQueryRunner();await runner.connect();await runner.startTransaction();
-    try{await new AddProductTemplates1791417600000().up(runner);await new AddKitSubjectsAndGrades1791417600001().up(runner);await new AddProjectPlanning1791417600002().up(runner);const migration=new AddPhysicalStocktake1791504000003();await migration.up(runner);await migration.down(runner);await migration.up(runner);const supplyMigration=new AddReservationsAndProcurement1791676800004();await supplyMigration.up(runner);await supplyMigration.down(runner);await supplyMigration.up(runner);const productionMigration=new AddProductionPlanning1791763200005();await productionMigration.up(runner);await productionMigration.down(runner);await productionMigration.up(runner);const hardening=new HardenProductionReconciliation1791763200006();await hardening.up(runner);await hardening.down(runner);await hardening.up(runner);const packing=new AddPacking1791849600007();await packing.up(runner);await packing.down(runner);await packing.up(runner);await runner.commitTransaction();}catch(e){await runner.rollbackTransaction();throw e;}finally{await runner.release();await bootstrap.destroy();}
+    try{await new AddProductTemplates1791417600000().up(runner);await new AddKitSubjectsAndGrades1791417600001().up(runner);await new AddProjectPlanning1791417600002().up(runner);const migration=new AddPhysicalStocktake1791504000003();await migration.up(runner);await migration.down(runner);await migration.up(runner);const supplyMigration=new AddReservationsAndProcurement1791676800004();await supplyMigration.up(runner);await supplyMigration.down(runner);await supplyMigration.up(runner);const productionMigration=new AddProductionPlanning1791763200005();await productionMigration.up(runner);await productionMigration.down(runner);await productionMigration.up(runner);const hardening=new HardenProductionReconciliation1791763200006();await hardening.up(runner);await hardening.down(runner);await hardening.up(runner);const packing=new AddPacking1791849600007();await packing.up(runner);await packing.down(runner);await packing.up(runner);const readiness=new HardenPackingReadiness1791936000008();await readiness.up(runner);await readiness.down(runner);await readiness.up(runner);await runner.commitTransaction();}catch(e){await runner.rollbackTransaction();throw e;}finally{await runner.release();await bootstrap.destroy();}
     db=new DataSource(options);await db.initialize();const a=await db.getRepository(Organization).save({name:schema});const b=await db.getRepository(Organization).save({name:schema+"other"});
     const user=(name:string,role:string,org=a.id)=>db.getRepository(User).save({name,email:name+"@test.invalid",role,organization_id:org,firebase_uid:null});
     maker=await user("Counter","staff");admin=await user("Approver","admin");viewer=await user("Reader","viewer");other=await user("Other","admin",b.id);
@@ -140,6 +141,60 @@ describe.skipIf(!url)("PostgreSQL packing acceptance",()=>{
     const before=await balance();await supply(`/reservations/${r.id}/fulfill`,{revision:r.revision,reason:"Existing stock transfer",location:"Shelf A"},200,admin);
     await prod("POST","/orders",{batch_code:"NO-REPICK",project_id:project.id,site_id:site.id,demand_revision:project.revision},409);
     expect(await balance()).toBe(before-0.5);
+  });
+  it("persists assignments and partial checklists with tenant and revision protection",async()=>{
+    order=await prod("POST",`/orders/${order.id}/assign`,{revision:order.revision,team:"Assembly",employee_id:maker.id});
+    expect(order.assigned_employee_id).toBe(maker.id);
+    await prod("POST",`/orders/${order.id}/assign`,{revision:order.revision,employee_id:other.id},404);
+    await prod("POST",`/orders/${order.id}/assign`,{revision:order.revision,team:"Forbidden"},403,viewer);
+    const ids=order.snapshot.packages.map((p:{id:string})=>p.id);
+    await prod("POST",`/orders/${order.id}/checklist`,{revision:order.revision,package_ids:ids,assembled:true},409);
+    await prod("POST",`/orders/${order.id}/checklist`,{revision:order.revision,package_ids:[],assembled:true},400);
+    await expect(db.query("UPDATE packing_orders SET status='ready',revision=revision+1 WHERE id=$1",[order.id])).rejects.toThrow();
+    const d=await prod("GET",`/orders/${schoolOrders[0].id}`);schoolOrders[0]=d.order;
+    const leaf=d.order.snapshot.packages.find((p:{id:string;parent_id:string|null})=>!d.order.snapshot.packages.some((c:{parent_id:string|null})=>c.parent_id===p.id));
+    schoolOrders[0]=await prod("POST",`/orders/${d.order.id}/checklist`,{revision:d.order.revision,package_ids:[leaf.id],assembled:true});
+    expect(Object.values(schoolOrders[0].execution.progress).filter((p:any)=>p.assembled)).toHaveLength(1);
+    await prod("POST",`/orders/${d.order.id}/checklist`,{revision:d.order.revision,package_ids:[leaf.id],assembled:true},409);
+    await close();await start();expect((await prod("GET",`/orders/${order.id}`)).order.assigned_team).toBe("Assembly");
+  });
+  it("blocks shortages and rejected QC, corrects exceptions and reinspects without stock movements",async()=>{
+    let o=schoolOrders[0];const ids=o.snapshot.packages.map(p=>p.id),leaf=o.snapshot.packages.find(p=>!o.snapshot.packages.some(c=>c.parent_id===p.id))!;
+    const before=await balance(),ledgerBefore=(await db.query("SELECT count(*) n FROM stock_ledger"))[0].n;
+    o=await prod("POST",`/orders/${o.id}/exceptions`,{revision:o.revision,package_id:leaf.id,kind:"missing",notes:"Pouch missing during assembly"});
+    const exception=o.execution.exceptions[0];
+    await prod("POST",`/orders/${o.id}/checklist`,{revision:o.revision,package_ids:ids,assembled:true},409);
+    o=await prod("POST",`/orders/${o.id}/exceptions`,{revision:o.revision,package_id:leaf.id,kind:"missing",notes:"Located issued pouch in WIP",exception_id:exception.id});
+    const body={revision:o.revision,package_ids:ids,assembled:true},key=randomUUID();
+    const retries=await Promise.all([prod("POST",`/orders/${o.id}/checklist`,body,200,maker,key),prod("POST",`/orders/${o.id}/checklist`,body,200,maker,key)]);expect(retries[0]).toEqual(retries[1]);o=retries[0];
+    const checks={material:true,quantity:true,placement:true,packaging:true,stickers:true,instructions:true};
+    await prod("POST",`/orders/${o.id}/qc`,{revision:o.revision,package_ids:ids,decision:"accept",checks},403);
+    await prod("POST",`/orders/${o.id}/qc`,{revision:o.revision,package_ids:ids,decision:"accept",checks:{...checks,stickers:false}},409,admin);
+    await prod("POST",`/orders/${o.id}/qc`,{revision:o.revision,package_ids:ids,decision:"accept",checks:{material:true}},400,admin);
+    o=await prod("POST",`/orders/${o.id}/qc`,{revision:o.revision,package_ids:[leaf.id],decision:"reject",checks:{...checks,packaging:false},notes:"Damaged seal"},200,admin);
+    expect(o.status).toBe("packing");expect(o.execution.progress[leaf.id].qc).toBe("rejected");
+    await prod("POST",`/orders/${o.id}/qc`,{revision:o.revision,package_ids:[ids[0]],decision:"accept",checks},409,admin);
+    o=await prod("POST",`/orders/${o.id}/checklist`,{revision:o.revision,package_ids:ids,assembled:true,notes:"Seal replaced and contents rechecked"});
+    const qcBody={revision:o.revision,package_ids:ids,decision:"accept",checks},qcKey=randomUUID();
+    const accepted=await Promise.all([prod("POST",`/orders/${o.id}/qc`,qcBody,200,admin,qcKey),prod("POST",`/orders/${o.id}/qc`,qcBody,200,admin,qcKey)]);expect(accepted[0]).toEqual(accepted[1]);o=accepted[0];expect(o.status).toBe("ready");
+    expect(o.execution.exceptions[0].corrected_by).toBe(maker.id);expect(Object.values(o.execution.progress).every((p:any)=>p.checked_by===admin.id)).toBe(true);
+    expect(await balance()).toBe(before);expect((await db.query("SELECT count(*) n FROM stock_ledger"))[0].n).toBe(ledgerBefore);
+    await prod("POST",`/orders/${o.id}/checklist`,{revision:o.revision,package_ids:ids,assembled:false},409);
+    await prod("POST",`/orders/${o.id}/reopen`,{revision:o.revision,reason:"Reinspection"},403);
+    o=await prod("POST",`/orders/${o.id}/reopen`,{revision:o.revision,reason:"Supervisor reinspection"},200,admin);expect(o.status).toBe("packing");
+    o=await prod("POST",`/orders/${o.id}/qc`,{revision:o.revision,package_ids:ids,decision:"accept",checks},200,admin);schoolOrders[0]=o;
+    await close();await start();expect((await prod("GET",`/orders/${o.id}`)).order.status).toBe("ready");
+  });
+  it("completes School B only after picking, assembly and authorized QC",async()=>{
+    let o=schoolOrders[1];const ids=o.snapshot.packages.map(p=>p.id),before=await balance();
+    o=await prod("POST",`/orders/${o.id}/release`,{revision:o.revision},200,admin);
+    await prod("POST",`/orders/${o.id}/checklist`,{revision:o.revision,package_ids:ids,assembled:true},409);
+    const detail=await prod("GET",`/orders/${o.id}`);expect(detail.materials[0].planned).toBe("0.9000");
+    o=await prod("POST",`/orders/${o.id}/picks`,{revision:o.revision,item_id:wire.id,quantity:"0.9",unit:"m",location:"Shelf A"},201);
+    o=await prod("POST",`/orders/${o.id}/checklist`,{revision:o.revision,package_ids:ids,assembled:true});expect(o.status).toBe("packing");
+    o=await prod("POST",`/orders/${o.id}/qc`,{revision:o.revision,package_ids:ids,decision:"accept",checks:{material:true,quantity:true,placement:true,packaging:true,stickers:true,instructions:true}},200,admin);
+    expect(o.status).toBe("ready");schoolOrders[1]=o;expect(await balance()).toBeCloseTo(before-0.9);
+    const detailAfter=await prod("GET",`/orders/${o.id}`);expect(detailAfter.materials[0].completed).toBe("0.9000");expect(detailAfter.history.length).toBeGreaterThan(4);
   });
   it("refuses destructive rollback and preserves inventory and historical ledger",async()=>{
     const r=db.createQueryRunner();try{await expect(new AddPacking1791849600007().down(r)).rejects.toThrow("history");}finally{await r.release();}
