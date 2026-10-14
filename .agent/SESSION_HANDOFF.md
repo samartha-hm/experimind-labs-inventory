@@ -1,13 +1,13 @@
-# Session handoff — Milestone 9 automated acceptance complete
+# Session handoff — Milestone 10 automated acceptance complete
 
-Branch: feature/kit-builder-milestone-1. Verified GitHub implementation/reconciliation HEAD 406fe55e80e671fc1fc09059d6ac8d7d7f29bae1. Phase B ed3da10; Phase C ccc3a08. Phase A preserved and pushed.
+Branch: feature/kit-builder-milestone-1. Verified implementation GitHub HEAD: 2576fe375b058b71c7a5aefffa5adb02b9e08cac. Dispatch checkpoint: b08831c779470b35e880959b39b69eb1041e97e1. Final documentation commit follows; resolve current HEAD with git rev-parse HEAD.
 
-B: tenant-safe assignments, partial checklists, exceptions/corrections, rejection/reinspection, immutable audit and server/DB Ready guard; existing-style project UI. Only picking changes stock in the authoritative ledger.
+Implemented tenant-safe dispatch manifests, exclusive physical-package claims, transport, partial POD, delivery exceptions/correction/return/retry, custody and authenticated QR traceability. Picking remains the only packing stock deduction; dispatch, receipts, returns, installation and closure create no stock movements. Returns remain quarantined custody, never an artificial inventory receipt.
 
-C: immutable package IDs, printable PDF labels for all package kinds, configurable browser-local tenant layouts, previews/download/print via PDF viewer; authenticated tenant-safe QR lookup. Read-only printing/reprinting creates no packages, revisions or ledger entries. No paid service.
+Installation supports assignments, configurable required checklists, notes/surveys, issues/corrections, submission, authorized acceptance and reinspection. Project completion evaluates every school, current demand/QC, deliveries, issues, installation and outstanding supply. Authorized explicit exception closure records blockers/reason. Closed projects fence operational edits until authorized audited reopening. Existing-style UI and read-only printable manifests included.
 
-D: fresh full suite 438 tests/59 files PASS; 20 focused packing/label tests PASS; typecheck and frontend/PWA/server builds PASS (existing bundle-size warning). HTTP/PostgreSQL synthetic acceptance: School A two complete Science Grades 8–10 sets, six common/two universal crates; School B three Grade 8 Science sets, three common/zero universal. Both Ready only after authorized QC; exception, correction, rejection/rework, retries and restart persistence verified. Bidirectional pick/ledger reconciliation has zero unmatched/orphan entries; verified synthetic balance 15.2 m; historical inventory/ledger unchanged.
+Verification: 16 focused tests/2 files; full suite 443 tests/60 files; typecheck and frontend/PWA/server builds PASS (existing bundle-size warning). HTTP/PostgreSQL acceptance: School A six common/two universal crates across two batches; School B three common/zero universal. Partial POD, exceptions, correction, acceptance, closure/reopen, tenant/role checks, retries/concurrency and restart persistence pass.
 
-Migrations 1791849600007/1791936000008 applied only to isolated development PostgreSQL; final run no-op. Nine inventory/twelve ledger fingerprints unchanged. Modified packing service/routes/UI/tests/migration registration and QR dependencies.
+Migrations 1792022400009/1792108800010 applied only to isolated development PostgreSQL; final runner no-op. Zero unmatched/orphan pick-ledger rows; synthetic balance 15.2 m. Original nine inventory/twelve ledger fingerprints unchanged.
 
-Browser visual/physical print acceptance PENDING: previous runtime EPERM; no retries. Next: visual review when tooling works. No Milestone 10, dispatch, main merge, deployment or force-push.
+Browser visual/physical print acceptance PENDING: one availability check returned EPERM; no retries. Secure photo/document attachment storage unavailable; text acknowledgements supported. Runbook: docs/erp/33_DELIVERY_INSTALLATION_COMPLETION_RUNBOOK.md. No main merge, deployment, force-push or Milestone 11.

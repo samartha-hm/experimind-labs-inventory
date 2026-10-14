@@ -10,6 +10,7 @@ Open only the authority relevant to the task. Current user instructions and conf
 | Multi-school projects and delivery sites | [Project model](16_MULTI_SCHOOL_PROJECT_MODEL.md) |
 | Project requirement planning and acceptance | [Milestone 5 runbook](29_PROJECT_REQUIREMENT_PLANNING_RUNBOOK.md) |
 | Stock reservations and procurement | [Milestone 7 runbook](31_RESERVATIONS_AND_PROCUREMENT_RUNBOOK.md) |
+| Delivery, installation and completion | [Milestone 10 runbook](33_DELIVERY_INSTALLATION_COMPLETION_RUNBOOK.md) |
 | Production and in-house preparation | [Milestone 8 runbook](32_PRODUCTION_AND_PREPARATION_RUNBOOK.md) |
 | Inventory preservation and provenance | [Inventory provenance](21_INVENTORY_DATA_PROVENANCE.md), [local-first preservation](18_LOCAL_FIRST_HOSTING_AND_DATA_PRESERVATION.md) |
 | Tenant/RBAC and legacy API security | [Local-first security](23_LOCAL_FIRST_SECURITY.md) |
