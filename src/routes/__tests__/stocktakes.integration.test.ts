@@ -1,3 +1,5 @@
+import {supplyEntities} from "../../entity/SupplyPlanning";
+import {AddReservationsAndProcurement1791676800004} from "../../migration/1791676800004-AddReservationsAndProcurement";
 import "reflect-metadata";
 import {beforeAll,afterAll,describe,it,expect} from "vitest";
 import {DataSource} from "typeorm";
@@ -46,9 +48,9 @@ describe.skipIf(!url)("PostgreSQL physical stocktake acceptance",()=>{
     const parsed=new URL(url!);if(parsed.hostname!=="127.0.0.1"||parsed.port!=="55432"||parsed.pathname!=="/experimind_kitbuilder_test")throw new Error("Refusing non-isolated PostgreSQL");
     const raw=new DataSource({type:"postgres",url});await raw.initialize();try{await raw.query(`CREATE SCHEMA "${schema}"`);}finally{await raw.destroy();}
     const options={type:"postgres" as const,url,schema,ssl:false,uuidExtension:"pgcrypto" as const,entities:AppDataSource.options.entities,migrations:[],extra:{options:`-c search_path=${schema},public`}};
-    const bootstrap=new DataSource({...options,entities:(options.entities as Function[]).filter(e=>![ProductTemplate,ProductTemplateVersion,ProductTemplateRevision,...planningEntities,...stocktakeEntities].includes(e as typeof ProductTemplate))});
+    const bootstrap=new DataSource({...options,entities:(options.entities as Function[]).filter(e=>![ProductTemplate,ProductTemplateVersion,ProductTemplateRevision,...planningEntities,...stocktakeEntities,...supplyEntities].includes(e as typeof ProductTemplate))});
     await bootstrap.initialize();await bootstrap.synchronize();const runner=bootstrap.createQueryRunner();await runner.connect();await runner.startTransaction();
-    try{await new AddProductTemplates1791417600000().up(runner);await new AddKitSubjectsAndGrades1791417600001().up(runner);await new AddProjectPlanning1791417600002().up(runner);const migration=new AddPhysicalStocktake1791504000003();await migration.up(runner);await migration.down(runner);await migration.up(runner);await runner.commitTransaction();}catch(e){await runner.rollbackTransaction();throw e;}finally{await runner.release();await bootstrap.destroy();}
+    try{await new AddProductTemplates1791417600000().up(runner);await new AddKitSubjectsAndGrades1791417600001().up(runner);await new AddProjectPlanning1791417600002().up(runner);const migration=new AddPhysicalStocktake1791504000003();await migration.up(runner);await migration.down(runner);await migration.up(runner);await new AddReservationsAndProcurement1791676800004().up(runner);await runner.commitTransaction();}catch(e){await runner.rollbackTransaction();throw e;}finally{await runner.release();await bootstrap.destroy();}
     db=new DataSource(options);await db.initialize();const a=await db.getRepository(Organization).save({name:schema});const b=await db.getRepository(Organization).save({name:schema+"other"});
     const user=(name:string,role:string,org=a.id)=>db.getRepository(User).save({name,email:name+"@test.invalid",role,organization_id:org,firebase_uid:null});
     maker=await user("Counter","staff");admin=await user("Approver","admin");viewer=await user("Reader","viewer");other=await user("Other","admin",b.id);
@@ -114,7 +116,7 @@ describe.skipIf(!url)("PostgreSQL physical stocktake acceptance",()=>{
   });
   it("completes remaining location coverage and verifies the ledger sum",async()=>{
     let remaining=await create();remaining=await count(remaining,"0.5","Shelf B");remaining=await step(remaining,"review",{reason:"Remaining shelf counted",allow_partial:true});remaining=await step(remaining,"approve");await step(remaining,"post");
-    const item=(await request("GET","/stocktakes/inventory",viewer)).find((i:{id:string})=>i.id===wire.id);expect(item).toMatchObject({verified_on_hand:2,available_to_promise:2,stock_status:"verified",active_reservations:null,incoming:null,legacy_quantity:"987"});
+    const item=(await request("GET","/stocktakes/inventory",viewer)).find((i:{id:string})=>i.id===wire.id);expect(item).toMatchObject({verified_on_hand:2,available_to_promise:2,stock_status:"verified",active_reservations:0,incoming:0,legacy_quantity:"987"});
     await request("POST","/stocktakes",maker,{name:"Scope change",targets:[target(wire,["Shelf A"])]},409);
   });
   it("calculates a multi-school shortage and recalculates without stock changes",async()=>{
@@ -123,7 +125,7 @@ describe.skipIf(!url)("PostgreSQL physical stocktake acceptance",()=>{
     for(const s of fixture.content.sites)s.selections[0].version_id=approved.id;
     const project=await request("POST","/planning-projects",maker,fixture.content,201);projectId=project.id;
     const before=JSON.stringify(await db.query("SELECT * FROM stock_ledger ORDER BY id"));
-    for(let i=0;i<2;i++){const result=await request("POST",`/planning-projects/${projectId}/preview`,viewer,{revision:1});expect(result.materials[0]).toMatchObject({gross_demand:3.3,verified_on_hand:2,available_to_promise:2,immediate_shortage:1.3,incoming:null,active_reservations:null});expect(result.operational_release).toBe(false);}
+    for(let i=0;i<2;i++){const result=await request("POST",`/planning-projects/${projectId}/preview`,viewer,{revision:1});expect(result.materials[0]).toMatchObject({gross_demand:3.3,verified_on_hand:2,available_to_promise:2,immediate_shortage:1.3,incoming:0,active_reservations:0});expect(result.operational_release).toBe(false);}
     expect(JSON.stringify(await db.query("SELECT * FROM stock_ledger ORDER BY id"))).toBe(before);expect(JSON.stringify(await db.query("SELECT * FROM inventory_items ORDER BY id"))).toBe(baseline);
   });
   it("serializes competing stocktakes and rejects stale reviewed balances",async()=>{

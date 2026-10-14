@@ -1,3 +1,4 @@
+import { supplyAvailability } from "./SupplyStockService";
 import { randomUUID } from "node:crypto";
 import { DataSource, EntityManager } from "typeorm";
 import { Stocktake, StocktakeEvent, PhysicalStockScope, type StocktakeTarget, type CountEntry } from "../entity/Stocktake";
@@ -151,7 +152,7 @@ export class StocktakeService {
     return this.db.transaction("REPEATABLE READ",async m=>{
       const items=await m.find(InventoryItem,{where:{organization_id:org},order:{name:"ASC"}});
       const materials: MaterialSummary[]=items.map(i=>({inventory_item_id:i.id,name:i.name,unit:i.unit,gross_demand:0,stock_status:"unverified",verified_on_hand:null,active_reservations:null,available_to_promise:null,incoming:null,immediate_shortage:null,projected_shortage:null}));
-      await verifiedAvailability(m,org,materials);
+      await verifiedAvailability(m,org,materials); await supplyAvailability(m,org,materials);
       const scopes=await m.findBy(PhysicalStockScope,{organization_id:org});
       return items.map(i=>({id:i.id,name:i.name,description:i.description,unit:i.unit,legacy_quantity:String(i.quantity),legacy_status:"unverified",
         ...materials.find(v=>v.inventory_item_id===i.id),scope:scopes.find(s=>s.item_id===i.id)??null}));

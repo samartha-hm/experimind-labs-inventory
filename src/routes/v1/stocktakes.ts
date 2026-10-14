@@ -32,7 +32,7 @@ export function stocktakeRouter(db: DataSource) {
   const router=Router();const service=new StocktakeService(db);
   const action=(run:RequestHandler):RequestHandler=>(req,res,next)=>{Promise.resolve(run(req,res,next)).catch((e:unknown)=>{
     if(e instanceof DraftKitError)res.status(e.status).json({error:e.message});
-    else if(e&&typeof e==="object"&&"code"in e&&["23505","40001","40P01"].includes(String(e.code)))res.status(409).json({error:"Concurrent stock change; reopen and retry"});
+    else if(e&&typeof e==="object"&&"code"in e&&["23505","23514","P0001","40001","40P01"].includes(String(e.code)))res.status(409).json({error:"Concurrent stock change; reopen and retry"});
     else {console.error("Physical stock operation failed",e instanceof Error?e.name:"Error");res.status(500).json({error:"Unable to process physical stock"});}
   });};
   router.use((req,res,next)=>{if(!req.headers.authorization?.startsWith("Bearer ")){res.status(401).json({error:"Sign in required"});return;}next();},authenticateJwt);

@@ -1,3 +1,5 @@
+import { supplyEntities } from "./entity/SupplyPlanning";
+import { AddReservationsAndProcurement1791676800004 } from "./migration/1791676800004-AddReservationsAndProcurement";
 import "reflect-metadata";
 import { DataSource } from "typeorm";
 import { env } from "./config/env.ts";
@@ -92,6 +94,7 @@ export const AppDataSource = new DataSource({
     connectionTimeoutMillis: 5000,
   },
   entities: [
+    ...supplyEntities,
     ...planningEntities,
     ProductTemplate,
     ProductTemplateVersion,
@@ -148,6 +151,7 @@ export const AppDataSource = new DataSource({
     ComponentAlternate,
   ],
   migrations: [
+    AddReservationsAndProcurement1791676800004,
     AddPhysicalStocktake1791504000003,
     AddProjectPlanning1791417600002,
     AddProductTemplates1791417600000,

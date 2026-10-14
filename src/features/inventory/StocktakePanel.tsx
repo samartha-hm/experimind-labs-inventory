@@ -33,7 +33,7 @@ export default function StocktakePanel() {
   }
   return <section className="space-y-4 rounded-2xl border border-slate-300 p-4">
     <h2 className="text-xl font-semibold">Physical stocktake and verified balances</h2>
-    <p className="text-sm text-slate-500">Legacy quantities, prices and locations are unverified. Verified stock comes only from approved physical counts in the ledger. Reservations and incoming supply are not configured.</p>
+    <p className="text-sm text-slate-500">Legacy quantities, prices and locations are unverified. Verified stock comes from approved counts and accepted receipts in the ledger. Active reservations reduce available stock; pending inspection is unavailable.</p>
     {error&&<p role="alert" className="text-red-600">{error}</p>}
     <fieldset disabled={busy} className="space-y-4">
       <div className="flex flex-wrap gap-3"><label>Stocktake <select className={input} value={session?.id??""} onChange={e=>{const id=e.target.value;if(id)void run(()=>load(id));}}><option value="">Select session</option>{sessions.map(s=><option key={s.id} value={s.id}>{s.name} · {s.status} · r{s.revision}</option>)}</select></label>

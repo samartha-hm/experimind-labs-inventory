@@ -15,7 +15,7 @@ import InventoryTab from '@/src/features/inventory/components/InventoryTab';
 import StocktakePanel from '@/src/features/inventory/StocktakePanel';
 import KittingTab from '@/src/features/kitting/components/KittingTab';
 import ProductLibrary from '@/src/features/kit-builder/ProductLibrary';
-import PurchaseOrdersTab from '@/src/features/procurement/components/PurchaseOrdersTab';
+import SupplyPlanningPanel from '@/src/features/procurement/components/SupplyPlanningPanel';
 import SalesOrdersTab from '@/src/features/sales/components/SalesOrdersTab';
 import PartnersTab from '@/src/features/partners/components/PartnersTab';
 import WarehousesTab from '@/src/features/warehouse/components/WarehousesTab';
@@ -391,7 +391,7 @@ function MainApp() {
               )}
 
               {activeTab === 'purchase_orders' && (
-                <PurchaseOrdersTab role={role} />
+                <SupplyPlanningPanel />
               )}
 
               {activeTab === 'sales_orders' && (

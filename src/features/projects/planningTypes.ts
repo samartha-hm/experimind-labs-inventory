@@ -27,8 +27,9 @@ export interface PackingAssignment {
 }
 export interface MaterialSummary {
   inventory_item_id: string; name: string; unit: string; gross_demand: number;
-  stock_status: "unverified" | "verified"; verified_on_hand: number | null; active_reservations: null;
-  available_to_promise: number | null; incoming: null; immediate_shortage: number | null; projected_shortage: null;
+  project_reservations?: number; project_incoming?: number; fulfilled_quantity?: number;
+  stock_status: "unverified" | "verified"; verified_on_hand: number | null; active_reservations: number | null;
+  available_to_promise: number | null; incoming: number | null; immediate_shortage: number | null; projected_shortage: number | null;
 }
 export interface PlanningPreview {
   project_id: string; revision: number; operational_release: false;

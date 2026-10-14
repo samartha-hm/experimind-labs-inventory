@@ -1,3 +1,4 @@
+import { supplyAvailability } from "./SupplyStockService";
 import { DataSource, EntityManager, In, IsNull } from "typeorm";
 import { verifiedAvailability } from "./PhysicalStockService";
 import { PlanningProject, PlanningSchoolSite, PlanningVersionLink, PlanningProjectRevision, KitTemplateApproval } from "../entity/PlanningProject.ts";
@@ -86,21 +87,22 @@ export class ProjectPlanningService {
       const result=calculateRequirements(id, revision, content, versions, items, conversions);
       // Read-only, snapshot-consistent physical ledger reconciliation. Legacy quantities never participate.
       await verifiedAvailability(manager,orgId,result.materials);
+      await supplyAvailability(manager,orgId,result.materials,id === "unsaved" ? undefined : id);
       result.warnings=result.warnings.filter(w=>!w.startsWith("Stock NOT VERIFIED:"));
       if(result.materials.some(m=>m.stock_status==="unverified"))result.warnings.unshift("Unverified stock: counts must cover every declared location in a confirmed item scope; incompatible demand units remain unverified.");
-      result.warnings.push("Reservations and incoming supply are not configured. Available quantity is unreserved verified physical stock; shortage excludes future supply. Operational release remains disabled.");
+      result.warnings.push("Available stock excludes active reservations. Immediate shortage credits reservations and fulfillments assigned to this project; projected shortage also credits its approved incoming supply. Pending inspection is not usable stock.");
       return result;
     }
     catch (error) { if (error instanceof QuantityRuleError) throw new DraftKitError(400, error.message); throw error; }
   }
-  async preview(id: string, orgId: string, revision: number) {
-    return this.db.transaction("REPEATABLE READ", async manager => {
-      const p = await manager.findOneBy(PlanningProject, { id, organization_id: orgId, archived_at: IsNull() });
-      if (!p) throw new DraftKitError(404, "Project not found");
-      if (p.revision !== revision) throw new DraftKitError(409, "Project changed. Reopen before calculating.");
-      const content = await this.load(manager, p);
-      return this.calculation(manager, id, revision, content, orgId);
-    });
+  async previewInTransaction(manager: EntityManager, id:string, orgId:string, revision:number) {
+    const p=await manager.findOneBy(PlanningProject,{id,organization_id:orgId,archived_at:IsNull()});
+    if(!p)throw new DraftKitError(404,"Project not found");
+    if(p.revision!==revision)throw new DraftKitError(409,"Project changed. Reopen before calculating.");
+    return this.calculation(manager,id,revision,await this.load(manager,p),orgId);
+  }
+  async preview(id:string,orgId:string,revision:number) {
+    return this.db.transaction("REPEATABLE READ",m=>this.previewInTransaction(m,id,orgId,revision));
   }
   async save(orgId: string, actor: string, raw: unknown, id?: string, revision?: number) {
     const content = normalizePlanning(raw);
@@ -114,9 +116,15 @@ export class ProjectPlanningService {
       project = await manager.save(project);
       // Replacing children is atomic; immutable snapshots retain previous allocations.
       await manager.delete(PlanningVersionLink, { project_id: project.id, organization_id: orgId });
-      await manager.delete(PlanningSchoolSite, { project_id: project.id, organization_id: orgId });
+      const existingSites=await manager.findBy(PlanningSchoolSite,{project_id:project.id,organization_id:orgId});
+      for(const old of existingSites)if(!sites.some(site=>site.id===old.id)) {
+        if(await manager.query(`SELECT 1 FROM project_stock_reservations WHERE organization_id=$1 AND site_id=$2 LIMIT 1`,[orgId,old.id]).then((rows:unknown[])=>rows.length))throw new DraftKitError(409,"A site with reservation history cannot be removed");
+        if(await manager.query(`SELECT 1 FROM purchase_requests r, jsonb_array_elements(r.lines) l WHERE r.organization_id=$1 AND l->>'site_id'=$2 LIMIT 1`,[orgId,old.id]).then((rows:unknown[])=>rows.length))throw new DraftKitError(409,"A site with procurement history cannot be removed");
+        await manager.delete(PlanningSchoolSite,{id:old.id,organization_id:orgId});
+      }
       for (const [position, site] of sites.entries()) {
-        await manager.insert(PlanningSchoolSite, { id: site.id, project_id: project.id, organization_id: orgId, position, content: site });
+        if(existingSites.some(old=>old.id===site.id))await manager.update(PlanningSchoolSite,{id:site.id,project_id:project.id,organization_id:orgId},{position,content:site});
+        else await manager.insert(PlanningSchoolSite, { id: site.id, project_id: project.id, organization_id: orgId, position, content: site });
         for (const selection of site.selections) await manager.insert(PlanningVersionLink, { selection_id: selection.id, site_id: site.id, project_id: project.id, organization_id: orgId, version_id: selection.version_id });
       }
       await manager.insert(PlanningProjectRevision, { project_id: project.id, organization_id: orgId, revision: project.revision, content, archived: false, updated_by: actor });
@@ -128,6 +136,7 @@ export class ProjectPlanningService {
       const p = await manager.findOne(PlanningProject, { where: { id, organization_id: orgId, archived_at: IsNull() }, lock: { mode: "pessimistic_write" } });
       if (!p) throw new DraftKitError(404, "Project not found");
       if (p.revision !== revision) throw new DraftKitError(409, "Project changed. Reopen before archiving.");
+      if(await manager.query(`SELECT 1 FROM project_stock_reservations WHERE organization_id=$1 AND project_id=$2 AND status='active' LIMIT 1`,[orgId,id]).then((rows:unknown[])=>rows.length))throw new DraftKitError(409,"Release active reservations before archiving the project");
       const { id: _id, revision: _rev, updated_at: _date, ...content } = await this.load(manager, p);
       p.archived_at = new Date(); p.revision++; p.updated_by = actor; await manager.save(p);
       await manager.insert(PlanningProjectRevision, { project_id: id, organization_id: orgId, revision: p.revision, content, archived: true, updated_by: actor });

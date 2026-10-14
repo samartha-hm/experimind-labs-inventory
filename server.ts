@@ -17,6 +17,7 @@ import { legacyOperationsGate, legacyOperationalPaths } from "./src/middleware/l
 import { productTemplateRouter } from "./src/routes/v1/product-templates.ts";
 import { planningProjectRouter } from "./src/routes/v1/planning-projects.ts";
 import { stocktakeRouter } from "./src/routes/v1/stocktakes.ts";
+import { supplyPlanningRouter } from "./src/routes/v1/supply-planning.ts";
 import { errorHandler } from "./src/middleware/errorHandler.ts";
 import inventoryRoutes from "./src/routes/v1/inventory.ts";
 import warehouseRoutes from "./src/routes/v1/warehouse.ts";
@@ -213,6 +214,7 @@ async function startServer() {
   app.use("/api/v1/product-templates", productTemplateRouter(AppDataSource));
   app.use("/api/v1/planning-projects", planningProjectRouter(AppDataSource));
   app.use("/api/v1/stocktakes", stocktakeRouter(AppDataSource));
+  app.use("/api/v1/supply-planning", supplyPlanningRouter(AppDataSource));
   app.use("/api/v1/orders", orderRoutes);
   app.use("/api/v1/users", authenticateJwt, requireTenant, userRoutes);
   app.use("/api/v1/inventory", authenticateJwt, requireTenant, inventoryRoutes);
