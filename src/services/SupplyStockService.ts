@@ -14,7 +14,9 @@ export async function reservationTotals(m:EntityManager,org:string,item:string,p
     COALESCE(SUM(quantity) FILTER(WHERE status='active' AND project_id=$3),0)::text own,
     COALESCE(SUM(quantity) FILTER(WHERE status='fulfilled' AND project_id=$3),0)::text fulfilled
     FROM project_stock_reservations WHERE organization_id=$1 AND item_id=$2 AND ($4::text IS NULL OR unit=$4)`,[org,item,project??null,unit??null]);
-  return {total:stockUnits(rows[0].total),own:stockUnits(rows[0].own),fulfilled:stockUnits(rows[0].fulfilled)};
+  const installed=await m.query(`SELECT to_regclass(current_schema()||'.production_input_reservations') IS NOT NULL installed`);
+  const production=installed[0].installed?(await m.query(`SELECT COALESCE(SUM(quantity),0)::text q FROM production_input_reservations WHERE organization_id=$1 AND item_id=$2 AND status='active' AND ($3::text IS NULL OR unit=$3)`,[org,item,unit??null]))[0].q:"0";
+  return {total:stockUnits(rows[0].total)+stockUnits(production),own:stockUnits(rows[0].own),fulfilled:stockUnits(rows[0].fulfilled)};
 }
 export async function supplyAvailability(m:EntityManager,org:string,materials:MaterialSummary[],project?:string) {
   for(const v of materials) {
@@ -30,6 +32,11 @@ export async function supplyAvailability(m:EntityManager,org:string,materials:Ma
       const remaining=stockUnits(l.canonical_quantity)-stockUnits(delivered[0].q)+stockUnits(delivered[0].pending);
       incoming+=remaining;if(l.project_id===project)ownIncoming+=remaining;
     }
+    const installed=await m.query(`SELECT to_regclass(current_schema()||'.production_work_orders') IS NOT NULL installed`);
+    if(installed[0].installed){const work:{q:string;own:string}[]=await m.query(`SELECT COALESCE(SUM(GREATEST(w.planned_quantity-COALESCE(b.final,0),0)),0)::text q,
+      COALESCE(SUM(GREATEST(w.planned_quantity-COALESCE(b.final,0),0)) FILTER(WHERE w.project_id=$4),0)::text own
+      FROM production_work_orders w LEFT JOIN LATERAL(SELECT SUM(accepted+rejected) final FROM production_batches WHERE order_id=w.id AND organization_id=w.organization_id) b ON true
+      WHERE w.organization_id=$1 AND w.output_item_id=$2 AND w.unit=$3 AND w.status IN ('released','in_progress')`,[org,v.inventory_item_id,v.unit,project??null]);incoming+=stockUnits(work[0].q);ownIncoming+=stockUnits(work[0].own);}
     v.incoming=decimalNumber(incoming*100n);v.project_incoming=decimalNumber(ownIncoming*100n);
     if(v.stock_status!=="verified"||v.verified_on_hand===null)continue;
     const onhand=decimalUnits(v.verified_on_hand);const free=onhand-r.total*100n;

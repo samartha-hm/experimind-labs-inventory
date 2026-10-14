@@ -1,3 +1,6 @@
+import {HardenProductionReconciliation1791763200006} from "./migration/1791763200006-HardenProductionReconciliation";
+import { productionEntities } from "./entity/ProductionPlanning";
+import { AddProductionPlanning1791763200005 } from "./migration/1791763200005-AddProductionPlanning";
 import { supplyEntities } from "./entity/SupplyPlanning";
 import { AddReservationsAndProcurement1791676800004 } from "./migration/1791676800004-AddReservationsAndProcurement";
 import "reflect-metadata";
@@ -94,6 +97,7 @@ export const AppDataSource = new DataSource({
     connectionTimeoutMillis: 5000,
   },
   entities: [
+    ...productionEntities,
     ...supplyEntities,
     ...planningEntities,
     ProductTemplate,
@@ -151,6 +155,7 @@ export const AppDataSource = new DataSource({
     ComponentAlternate,
   ],
   migrations: [
+    AddProductionPlanning1791763200005,HardenProductionReconciliation1791763200006,
     AddReservationsAndProcurement1791676800004,
     AddPhysicalStocktake1791504000003,
     AddProjectPlanning1791417600002,

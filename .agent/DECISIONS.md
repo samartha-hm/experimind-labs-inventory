@@ -122,3 +122,9 @@ Planning uses exact decimal arithmetic and explicit unit conversions. Free stock
 Request/order review and approval require current-user roles. Reviewed lines are immutable. QC is required by default; an explicitly approved non-QC line permits posting on receipt. Idempotency keys bind actor/input, immutable events retain revision snapshots, and receipts preserve project/site/supplier provenance. No autoallocation, production or historical-price backfill. Manual purchase orders are unvalued; commercial valuation is outside this milestone.
 
 Migration 1791676800004 preserves the installed ledger guard for reversible empty rollback. Populated rollback refuses history loss; use a forward repair or disable access. Only isolated development/test databases were used.
+
+## ADR-027 — Explicit production inputs and QC-gated stock — IMPLEMENTED 2026-10-14
+
+Independent versioned recipes carry explicit inventory inputs, yield, scrap allowance and chemical metadata; approved versions and order snapshots are immutable. Production allocations share verified-stock capacity with project reservations. Actual input issues alone consume physical stock; pending/rejected/rework output does not add stock. QC acceptance posts to the existing stock_ledger exactly once. Decimal conversions, item locks, revisions, actor-bound idempotency and deferred database reconciliation protect history and concurrent operations.
+
+Project/site orders preserve demand revision and contribute incoming quantities to read-only previews. Accepted output never automatically fulfills or dispatches a project. Output requires explicit verified coverage, including a counted zero opening. Legacy masters/history remain unchanged. Empty additive migration rollback restores prior guards; populated rollback refuses data loss. No chemical inference, procurement expansion, dispatch or production deployment.
