@@ -1,7 +1,9 @@
-# Next task — Review Milestone 6
+# Next task — Review Milestone 7
 
-Milestone 6 implementation is complete and verified. Stop for user review; do not begin another milestone, merge or deploy.
+Milestone 7 implementation and HTTP/PostgreSQL acceptance are verified. Stop for user review; do not begin Production/Preparation, merge or deploy.
 
-Browser acceptance remains pending because bootstrap returned EPERM. In a browser-enabled fresh chat, use the stocktake and project preview steps in docs/erp/30_INVENTORY_FOUNDATION_RUNBOOK.md. Keep production/company data untouched.
+Browser acceptance remains pending because runtime bootstrap returned EPERM. In a browser-enabled fresh chat, follow docs/erp/31_RESERVATIONS_AND_PROCUREMENT_RUNBOOK.md; verify reservation and purchasing controls, partial receipt QC, history and refreshed project shortages.
 
-Use existing isolated PostgreSQL on 127.0.0.1:55432 and ERP on loopback 3100. Never initialize/reset/seed retained databases. Credentials, synthetic acceptance results and logs are ignored under .local-dev/. Check short handoff and GitHub HEAD first.
+Existing isolated PostgreSQL is on 127.0.0.1:55432 and ERP on loopback 3100. Never initialize/reset/seed retained databases or touch company production data. Synthetic acceptance stock is now 2.5 m with 2 m active reservations; do not rerun the acceptance script's original 2 m baseline assertion blindly. Credentials, results and logs remain ignored under .local-dev/.
+
+Read short handoff and verify GitHub HEAD first. Use /new or /compact before further work.
