@@ -1,4 +1,5 @@
 import { DataSource, EntityManager, In, IsNull } from "typeorm";
+import { verifiedAvailability } from "./PhysicalStockService";
 import { PlanningProject, PlanningSchoolSite, PlanningVersionLink, PlanningProjectRevision, KitTemplateApproval } from "../entity/PlanningProject.ts";
 import { ProductTemplateVersion } from "../entity/ProductTemplateVersion.ts";
 import { InventoryItem } from "../entity/InventoryItem.ts";
@@ -81,7 +82,15 @@ export class ProjectPlanningService {
     const items = itemIds.size ? await manager.getRepository(InventoryItem).createQueryBuilder("item")
       .select(["item.id", "item.name", "item.unit"]).where("item.organization_id = :orgId AND item.id IN (:...ids)", { orgId, ids: [...itemIds] }).getMany() : [];
     const conversions = await manager.findBy(UomConversion, { organization_id: orgId, is_active: true });
-    try { return calculateRequirements(id, revision, content, versions, items, conversions); }
+    try {
+      const result=calculateRequirements(id, revision, content, versions, items, conversions);
+      // Read-only, snapshot-consistent physical ledger reconciliation. Legacy quantities never participate.
+      await verifiedAvailability(manager,orgId,result.materials);
+      result.warnings=result.warnings.filter(w=>!w.startsWith("Stock NOT VERIFIED:"));
+      if(result.materials.some(m=>m.stock_status==="unverified"))result.warnings.unshift("Unverified stock: counts must cover every declared location in a confirmed item scope; incompatible demand units remain unverified.");
+      result.warnings.push("Reservations and incoming supply are not configured. Available quantity is unreserved verified physical stock; shortage excludes future supply. Operational release remains disabled.");
+      return result;
+    }
     catch (error) { if (error instanceof QuantityRuleError) throw new DraftKitError(400, error.message); throw error; }
   }
   async preview(id: string, orgId: string, revision: number) {

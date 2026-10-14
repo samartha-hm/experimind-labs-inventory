@@ -12,6 +12,7 @@ import Sidebar from '@/src/shared/components/Sidebar';
 import Header from '@/src/shared/components/Header';
 import OperationsWorkspace from '@/src/features/core/OperationsWorkspace';
 import InventoryTab from '@/src/features/inventory/components/InventoryTab';
+import StocktakePanel from '@/src/features/inventory/StocktakePanel';
 import KittingTab from '@/src/features/kitting/components/KittingTab';
 import ProductLibrary from '@/src/features/kit-builder/ProductLibrary';
 import PurchaseOrdersTab from '@/src/features/procurement/components/PurchaseOrdersTab';
@@ -323,6 +324,9 @@ function MainApp() {
               )}
 
               {activeTab === 'inventory' && (
+                <div className="space-y-6">
+                <StocktakePanel />
+                <p className="text-sm text-amber-700">Item master below retains historical quantities, prices and locations. Use verified stocktake balances above for planning.</p>
                 <InventoryTab
                   inventory={inventory}
                   kits={kits}
@@ -335,6 +339,7 @@ function MainApp() {
                   onOpenBarcodeStudio={() => setIsBarcodeStudioOpen(true)}
                   onOpenBarcodeScanner={() => setIsBarcodeScannerOpen(true)}
                 />
+                </div>
               )}
 
               {activeTab === 'projects_hub' && (

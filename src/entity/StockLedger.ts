@@ -23,6 +23,11 @@ export type StockTransactionType =
 @Index(["organization_id", "created_at"])
 @Index(["bin_location", "organization_id"])
 export class StockLedger {
+  @Column({ type: "varchar", length: 30, nullable: true }) verified_unit!: string | null;
+  @Column({ type: "uuid", nullable: true }) verification_entry_id!: string | null;
+  @Column({ type: "varchar", length: 100, nullable: true }) physical_location!: string | null;
+  @Column({ type: "int", nullable: true }) physical_sequence!: number | null;
+  @Column({ type: "uuid", nullable: true }) stocktake_id!: string | null;
   @PrimaryGeneratedColumn("uuid")
   id!: string;
 

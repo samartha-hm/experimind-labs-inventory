@@ -104,3 +104,11 @@ Projects own ordered school sites, selections, quantity contexts and reasoned ov
 Explicit active tenant unit conversions use exact six-place arithmetic and preserve source/factor provenance. Unconvertible quantities remain separate with warnings. Gross demand is independent of untrusted historical balances: verified stock, reservations, ATP, incoming and shortages are null, and operational release is blocked. No operational writes or production-data import.
 
 Additive migration 1791417600002 applied only to the isolated development database. Down is verified on empty synthetic schemas and refuses populated projects/approvals; preserve populated schema and use a forward fix or disable access. No production migration, merge or deployment.
+
+## ADR-025 — Approved counts in the existing stock ledger — IMPLEMENTED 2026-10-14
+
+Milestone 6 uses the existing PostgreSQL stock_ledger as the sole verified quantity source. Nullable physical provenance distinguishes approved counts from unverified historical movements; no historical values are backfilled or corrected. Immutable scopes contain only unit/location metadata. The existing four-place ledger precision is retained; count parsing/conversion uses exact integer arithmetic and rejects inexact quantities.
+
+Tenant-scoped draft/review/approve/post sessions carry revision snapshots and entry actor provenance. Current database roles authorize approval. Atomic posting locks sessions and sorted inventory items, validates reviewed balance/sequence and inserts unique ledger entries exactly once. Posted counts/events/verified movements are immutable; new approved counts provide corrections. Legacy inventory/location movement paths cannot change verified stock. Partial coverage stays Unverified; later approved postings explicitly attest complete coverage without changing original scope metadata.
+
+Read-only project previews derive verified on-hand and unreserved availability from verified ledger sums. Missing coverage/unit compatibility leaves stock and shortage null. Unsupported reservations, incoming and projected shortages remain null; operational release is blocked. Additive migration 1791504000003 has empty rollback/reapply coverage and refuses populated rollback. Development-only application; no company data, procurement, production or deployment.

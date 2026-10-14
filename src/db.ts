@@ -38,6 +38,8 @@ import { FloorPlanLayout } from "./entity/FloorPlanLayout.ts";
 import { CustomElementType } from "./entity/CustomElementType.ts";
 import { SerialNumber } from "./entity/SerialNumber.ts";
 import { StockLedger } from "./entity/StockLedger.ts";
+import { stocktakeEntities } from "./entity/Stocktake.ts";
+import { AddPhysicalStocktake1791504000003 } from "./migration/1791504000003-AddPhysicalStocktake.ts";
 import { WarehouseTransfer } from "./entity/WarehouseTransfer.ts";
 import { WarehouseTransferLine } from "./entity/WarehouseTransferLine.ts";
 import { CycleCount } from "./entity/CycleCount.ts";
@@ -123,6 +125,7 @@ export const AppDataSource = new DataSource({
     CustomElementType,
     SerialNumber,
     StockLedger,
+    ...stocktakeEntities,
     WarehouseTransfer,
     WarehouseTransferLine,
     CycleCount,
@@ -145,6 +148,7 @@ export const AppDataSource = new DataSource({
     ComponentAlternate,
   ],
   migrations: [
+    AddPhysicalStocktake1791504000003,
     AddProjectPlanning1791417600002,
     AddProductTemplates1791417600000,
     AddKitSubjectsAndGrades1791417600001,
