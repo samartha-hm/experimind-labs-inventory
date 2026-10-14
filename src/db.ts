@@ -3,6 +3,7 @@ import { HardenPackingReadiness1791936000008 } from "./migration/1791936000008-H
 import { AddDeliveryCustody1792022400009 } from "./migration/1792022400009-AddDeliveryCustody.ts";
 import { AddProjectCompletion1792108800010 } from "./migration/1792108800010-AddProjectCompletion.ts";
 import { AddPrivateAttachments1792195200011 } from "./migration/1792195200011-AddPrivateAttachments.ts";
+import { AddSharedLabelLayouts1792281600012 } from "./migration/1792281600012-AddSharedLabelLayouts.ts";
 import {HardenProductionReconciliation1791763200006} from "./migration/1791763200006-HardenProductionReconciliation";
 import { productionEntities } from "./entity/ProductionPlanning";
 import { AddProductionPlanning1791763200005 } from "./migration/1791763200005-AddProductionPlanning";
@@ -165,6 +166,7 @@ export const AppDataSource = new DataSource({
     AddDeliveryCustody1792022400009,
     AddProjectCompletion1792108800010,
     AddPrivateAttachments1792195200011,
+    AddSharedLabelLayouts1792281600012,
     AddProductionPlanning1791763200005,HardenProductionReconciliation1791763200006,
     AddReservationsAndProcurement1791676800004,
     AddPhysicalStocktake1791504000003,

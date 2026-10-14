@@ -2,12 +2,8 @@ import jsPDF from "jspdf";
 import QRCode from "qrcode";
 import { actualMaterials, type PackingOrder } from "./packingTypes";
 
-export interface LabelTemplate { width: number; height: number; fontSize: number; materials: boolean }
-export const defaultLabelTemplate: LabelTemplate = { width:100, height:80, fontSize:9, materials:true };
-export function validateLabelTemplate(t: LabelTemplate): LabelTemplate {
-  if (![t.width,t.height,t.fontSize].every(Number.isFinite) || t.width<90 || t.width>210 || t.height<80 || t.height>297 || t.fontSize<7 || t.fontSize>12 || typeof t.materials!=="boolean") throw new Error("Label width 90–210 mm, height 80–297 mm and font 7–12 pt required");
-  return { width:t.width,height:t.height,fontSize:t.fontSize,materials:t.materials };
-}
+import { defaultLabelTemplate, validateLabelTemplate, type LabelTemplate } from "./packingLabelTemplate";
+export { defaultLabelTemplate, validateLabelTemplate, type LabelTemplate } from "./packingLabelTemplate";
 export function packageDestination(origin: string, id: string): string {
   if (!/^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(id)) throw new Error("Invalid package identity");
   const url=new URL(origin); if (!["https:","http:"].includes(url.protocol) || url.username || url.password) throw new Error("Invalid application origin");

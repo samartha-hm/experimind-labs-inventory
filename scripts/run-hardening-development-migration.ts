@@ -6,7 +6,7 @@ await AppDataSource.initialize();
 try {
   const applied=(await AppDataSource.query("SELECT name FROM migrations")).map((r:{name:string})=>r.name);
   if(!applied.includes("AddProjectCompletion1792108800010"))throw new Error("Verified delivery/completion baseline required");
-  const expected=["AddPrivateAttachments1792195200011"];
+  const expected=["AddPrivateAttachments1792195200011","AddSharedLabelLayouts1792281600012"];
   AppDataSource.migrations=AppDataSource.migrations.filter(m=>expected.includes(m.name));
   if(AppDataSource.migrations.length!==expected.length)throw new Error("Hardening migration registration invalid");
   const fingerprint=()=>AppDataSource.query(`SELECT 'inventory' kind,count(*)::text count,md5(COALESCE(string_agg(row_to_json(i)::text,'' ORDER BY id),'')) digest FROM inventory_items i UNION ALL SELECT 'ledger',count(*)::text,md5(COALESCE(string_agg((to_jsonb(l)-'packing_pick_id')::text,'' ORDER BY id),'')) FROM stock_ledger l`);
