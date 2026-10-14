@@ -7,11 +7,52 @@ after these two checks; the following manual path is the repeatable fallback.
 
 ## Preparation and evidence
 
-Run the existing isolated development command `npm run dev:kit-builder`; use its
-printed localhost URL. Verify database configuration is the isolated development
-database before starting. Use synthetic tenant accounts: admin, assigned staff,
-viewer and an admin in another tenant. Never seed company data. Sign in manually;
-do not put credentials or tokens into scripts, screenshots or reports.
+Milestone 11B: ready for human testing; no browser was operated by the agent.
+Run these commands in PowerShell from the existing checkout (not a fresh install):
+
+```powershell
+Set-Location 'D:\Experimindlabs\ERP\erp-development'
+$pgBin = 'D:\Experimindlabs\ERP\erp-development\.local-dev\tools\node_modules\@embedded-postgres\windows-x64\native\bin'
+$pgData = 'D:\Experimindlabs\ERP\erp-development\.local-dev\postgres-data'
+& "$pgBin\pg_ctl.exe" -D $pgData status
+# Only if status says the server is stopped:
+& "$pgBin\pg_ctl.exe" -D $pgData -l 'D:\Experimindlabs\ERP\erp-development\.local-dev\postgres.log' -w start
+npm run dev:kit-builder
+```
+
+Exact URL: **http://127.0.0.1:3100/**. PostgreSQL is loopback **55432**, database
+`experimind_kitbuilder_development`. Backend and Vite frontend run in the same
+process; no separate frontend command is needed. Leave this terminal open; stop
+the application with Ctrl+C before recovery. Do not rerun `setup:kit-builder`,
+`db:migrate`, seeds or cleanup commands against the populated database.
+
+Four accounts were added without changing existing identities or business data:
+
+| Email | Role / tenant | Use |
+| --- | --- | --- |
+| pilot-admin@kitbuilder.test | admin / Kit Builder Development | approvals and reopening |
+| pilot-staff@kitbuilder.test | staff / Kit Builder Development | assign explicitly to packing/installation records before staff scenarios |
+| pilot-viewer@kitbuilder.test | viewer / Kit Builder Development | read and forbidden writes |
+| pilot-other-admin@kitbuilder.test | admin / Kit Builder Other Tenant | cross-tenant denial |
+
+Read passwords locally in
+`D:\Experimindlabs\ERP\erp-development\.local-dev\pilot-accounts.json`; keep this
+file private. For a future acceptance setup **only when these identities do not
+exist**, run `node --env-file=.env.kit-builder-development scripts/prepare-pilot-accounts.mjs`.
+It guards host/port/database and synthetic organization names, refuses existing
+pilot identities and never resets users or stock. Do not use public registration
+to create administrators.
+
+Open a normal Edge/Chrome/Firefox window, enter **Email Address** and **Password**,
+then click **Sign In**. Use separate browser profiles for the four users. Record
+the role/tenant for each profile. Start with A01 and proceed in matrix order;
+stop dependent scenarios when prerequisites fail. Use a unique `Pilot-11B-<date>`
+prefix for records, never company names or real attachments. Navigate using the
+section named in each row, select/create the synthetic record, perform the listed
+actions, navigate away, reload, and reopen it. Compare the visible outcome to the
+row before marking PASS. Capture approval, rejection and stale-revision errors,
+not just the final happy path. Record the exact displayed button names when they
+differ from the matrix; a missing control is a failure, not an inferred pass.
 
 Keep evidence outside Git in `.local-dev/browser-acceptance/<run-date>/`.
 Record browser/version, application commit, synthetic tenant, scenario ID,
@@ -48,6 +89,24 @@ If attachment storage/shared label layouts are installed, add upload/download on
 each supported record and confirm shared layouts from a second browser profile.
 Attempt forbidden extension, oversized file and other-tenant download; require
 clear denial. Confirm reprinting still changes neither identities nor stock.
+
+For files, open a synthetic project, scroll to **Private project files**, select
+`project` under **Attachment record type**, choose a small synthetic TXT/PNG using
+**Private file**, then click **Upload private file**. Reload and use
+**Authenticated download**; compare bytes/name with the original. Repeat for
+survey/installation/delivery with the required school/record. In the other-tenant
+profile the source project/file must be inaccessible. Do not paste tokens into a
+URL. A viewer must have no upload capability. Record forbidden extension and
+over-10-MiB rejection independently. In label settings save a synthetic layout,
+reload in a second authorized profile and confirm shared revision/preview.
+
+Report each scenario as `ID | PASS/FAIL/NOT RUN | role/tenant | steps | expected |
+observed | reload outcome | screenshot filename`. Attach redacted page screenshots
+and this table to the chat, or give the absolute local evidence path. Include
+browser/version, `git rev-parse HEAD`, date/time and visible error text. Never
+attach credential files, cookies, tokens, HARs or database dumps. Physical print:
+record paper/printer, measured dimensions, readability and scanned package ID;
+PDF preview alone cannot pass physical print acceptance.
 
 ## Acceptance gate
 
