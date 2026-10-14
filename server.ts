@@ -1,4 +1,5 @@
 import { packingRouter } from "./src/routes/v1/packing.ts";
+import { deliveryRouter } from "./src/routes/v1/delivery.ts";
 import "reflect-metadata";
 import express from "express";
 import cookieParser from "cookie-parser";
@@ -219,6 +220,7 @@ async function startServer() {
   app.use("/api/v1/supply-planning", supplyPlanningRouter(AppDataSource));
   app.use("/api/v1/production-planning", productionPlanningRouter(AppDataSource));
   app.use("/api/v1/packing", packingRouter(AppDataSource));
+  app.use("/api/v1/delivery", deliveryRouter(AppDataSource));
   app.use("/api/v1/orders", orderRoutes);
   app.use("/api/v1/users", authenticateJwt, requireTenant, userRoutes);
   app.use("/api/v1/inventory", authenticateJwt, requireTenant, inventoryRoutes);

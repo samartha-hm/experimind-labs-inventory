@@ -1,3 +1,5 @@
+import { deliveryRouter } from "../v1/delivery";
+import { AddDeliveryCustody1792022400009 } from "../../migration/1792022400009-AddDeliveryCustody";
 import {packingRouter} from "../v1/packing";
 import {packingLabelPDF, packageDestination} from "../../features/packing/packingLabels";
 import {HardenPackingReadiness1791936000008} from "../../migration/1791936000008-HardenPackingReadiness";
@@ -45,7 +47,7 @@ describe.skipIf(!url)("PostgreSQL packing acceptance",()=>{
     const r=await fetch(base+"/api/v1"+path,{method,headers:{"Content-Type":"application/json",...(u?{Authorization:`Bearer ${token(u,claims)}`}:{})},...(body===undefined?{}:{body:JSON.stringify(body)})});
     const text=await r.text();expect(r.status,text).toBe(expected);return text?JSON.parse(text):null;
   }
-  async function start(){const app=express();app.use(express.json());app.use("/api/v1/packing",packingRouter(db));app.use("/api/v1/supply-planning",supplyPlanningRouter(db));app.use("/api/v1/stocktakes",stocktakeRouter(db));app.use("/api/v1/product-templates",productTemplateRouter(db));app.use("/api/v1/planning-projects",planningProjectRouter(db));server=await new Promise<Server>(resolve=>{const s=app.listen(0,"127.0.0.1",()=>resolve(s));});const a=server.address();if(!a||typeof a==="string")throw new Error("Missing port");base=`http://127.0.0.1:${a.port}`;}
+  async function start(){const app=express();app.use(express.json());app.use("/api/v1/packing",packingRouter(db));app.use("/api/v1/delivery",deliveryRouter(db));app.use("/api/v1/supply-planning",supplyPlanningRouter(db));app.use("/api/v1/stocktakes",stocktakeRouter(db));app.use("/api/v1/product-templates",productTemplateRouter(db));app.use("/api/v1/planning-projects",planningProjectRouter(db));server=await new Promise<Server>(resolve=>{const s=app.listen(0,"127.0.0.1",()=>resolve(s));});const a=server.address();if(!a||typeof a==="string")throw new Error("Missing port");base=`http://127.0.0.1:${a.port}`;}
   const close=()=>new Promise<void>((resolve,reject)=>server.close(e=>e?reject(e):resolve()));
   const target=(item=wire,locations=["Shelf A","Shelf B"]):StocktakeTarget=>({item_id:item.id,locations,complete_coverage:true});
   const create=(targets:StocktakeTarget[]=[target()])=>request("POST","/stocktakes",maker,{name:"Synthetic count",notes:"Physical verification",targets},201);
@@ -58,7 +60,7 @@ describe.skipIf(!url)("PostgreSQL packing acceptance",()=>{
     const options={type:"postgres" as const,url,schema,ssl:false,uuidExtension:"pgcrypto" as const,entities:AppDataSource.options.entities,migrations:[],extra:{options:`-c search_path=${schema},public`}};
     const bootstrap=new DataSource({...options,entities:(options.entities as Function[]).filter(e=>![ProductTemplate,ProductTemplateVersion,ProductTemplateRevision,...planningEntities,...stocktakeEntities,...supplyEntities,...productionEntities].includes(e as typeof ProductTemplate))});
     await bootstrap.initialize();await bootstrap.synchronize();const runner=bootstrap.createQueryRunner();await runner.connect();await runner.startTransaction();
-    try{await new AddProductTemplates1791417600000().up(runner);await new AddKitSubjectsAndGrades1791417600001().up(runner);await new AddProjectPlanning1791417600002().up(runner);const migration=new AddPhysicalStocktake1791504000003();await migration.up(runner);await migration.down(runner);await migration.up(runner);const supplyMigration=new AddReservationsAndProcurement1791676800004();await supplyMigration.up(runner);await supplyMigration.down(runner);await supplyMigration.up(runner);const productionMigration=new AddProductionPlanning1791763200005();await productionMigration.up(runner);await productionMigration.down(runner);await productionMigration.up(runner);const hardening=new HardenProductionReconciliation1791763200006();await hardening.up(runner);await hardening.down(runner);await hardening.up(runner);const packing=new AddPacking1791849600007();await packing.up(runner);await packing.down(runner);await packing.up(runner);const readiness=new HardenPackingReadiness1791936000008();await readiness.up(runner);await readiness.down(runner);await readiness.up(runner);await runner.commitTransaction();}catch(e){await runner.rollbackTransaction();throw e;}finally{await runner.release();await bootstrap.destroy();}
+    try{await new AddProductTemplates1791417600000().up(runner);await new AddKitSubjectsAndGrades1791417600001().up(runner);await new AddProjectPlanning1791417600002().up(runner);const migration=new AddPhysicalStocktake1791504000003();await migration.up(runner);await migration.down(runner);await migration.up(runner);const supplyMigration=new AddReservationsAndProcurement1791676800004();await supplyMigration.up(runner);await supplyMigration.down(runner);await supplyMigration.up(runner);const productionMigration=new AddProductionPlanning1791763200005();await productionMigration.up(runner);await productionMigration.down(runner);await productionMigration.up(runner);const hardening=new HardenProductionReconciliation1791763200006();await hardening.up(runner);await hardening.down(runner);await hardening.up(runner);const packing=new AddPacking1791849600007();await packing.up(runner);await packing.down(runner);await packing.up(runner);const readiness=new HardenPackingReadiness1791936000008();await readiness.up(runner);await readiness.down(runner);await readiness.up(runner);const delivery=new AddDeliveryCustody1792022400009();await delivery.up(runner);await delivery.down(runner);await delivery.up(runner);await runner.commitTransaction();}catch(e){await runner.rollbackTransaction();throw e;}finally{await runner.release();await bootstrap.destroy();}
     db=new DataSource(options);await db.initialize();const a=await db.getRepository(Organization).save({name:schema});const b=await db.getRepository(Organization).save({name:schema+"other"});
     const user=(name:string,role:string,org=a.id)=>db.getRepository(User).save({name,email:name+"@test.invalid",role,organization_id:org,firebase_uid:null});
     maker=await user("Counter","staff");admin=await user("Approver","admin");viewer=await user("Reader","viewer");other=await user("Other","admin",b.id);
@@ -196,6 +198,54 @@ describe.skipIf(!url)("PostgreSQL packing acceptance",()=>{
     o=await prod("POST",`/orders/${o.id}/qc`,{revision:o.revision,package_ids:ids,decision:"accept",checks:{material:true,quantity:true,placement:true,packaging:true,stickers:true,instructions:true}},200,admin);
     expect(o.status).toBe("ready");schoolOrders[1]=o;expect(await balance()).toBeCloseTo(before-0.9);
     const detailAfter=await prod("GET",`/orders/${o.id}`);expect(detailAfter.materials[0].completed).toBe("0.9000");expect(detailAfter.history.length).toBeGreaterThan(4);
+  });
+  const deliveryOrders: import("../../features/delivery/deliveryTypes").DeliveryOrder[]=[];
+  async function deliver(method:string,path:string,body?:unknown,status=200,u=admin,key=randomUUID()) {
+    const r=await fetch(base+"/api/v1/delivery"+path,{method,headers:{Authorization:`Bearer ${token(u)}`,"Content-Type":"application/json","Idempotency-Key":key},...(body===undefined?{}:{body:JSON.stringify(body)})});const t=await r.text();expect(r.status,t).toBe(status);return t?JSON.parse(t):null;
+  }
+  it("allocates School A in two batches and School B once, guards duplicate claims and tenant access",async()=>{
+    const before=await balance(),ledger=(await db.query("SELECT count(*) n FROM stock_ledger"))[0].n;
+    await deliver("POST","/orders",{packing_order_id:order.id,package_ids:order.snapshot.packages.map(p=>p.id),transport:{carrier:"Synthetic carrier",planned_date:new Date().toISOString()}},409);
+    for(const school of schoolOrders){
+      const roots=school.snapshot.packages.filter(p=>p.kind==="kit");
+      const batches=school===schoolOrders[0]?[roots.slice(0,1),roots.slice(1)]:[roots];
+      for(const batch of batches){const body={packing_order_id:school.id,package_ids:batch.map(p=>p.id),transport:{carrier:"Synthetic carrier",vehicle:"TEST",planned_date:new Date().toISOString(),employee_id:maker.id}};
+        await deliver("POST","/orders",body,403,maker);
+        const key=randomUUID(),both=await Promise.all([deliver("POST","/orders",body,201,admin,key),deliver("POST","/orders",body,201,admin,key)]);expect(both[0]).toEqual(both[1]);deliveryOrders.push(both[0]);
+        await deliver("POST","/orders",body,409);
+        await deliver("GET",`/orders/${both[0].id}`,undefined,404,other);
+        await deliver("POST",`/orders/${both[0].id}/dispatch`,{revision:both[0].revision},403,viewer);
+      }
+      await prod("POST",`/orders/${school.id}/reopen`,{revision:school.revision,reason:"Cannot alter allocated packages"},409,admin);
+    }
+    expect(deliveryOrders).toHaveLength(3);expect(await balance()).toBe(before);expect((await db.query("SELECT count(*) n FROM stock_ledger"))[0].n).toBe(ledger);
+  });
+  it("records partial proof, failure, quarantined return, correction and retry exactly once without stock receipts",async()=>{
+    const before=await balance(),ledger=JSON.stringify(await db.query("SELECT * FROM stock_ledger ORDER BY id"));
+    for(let index=0;index<deliveryOrders.length;index++){
+      let o=deliveryOrders[index];const key=randomUUID(),body={revision:o.revision};
+      const both=await Promise.all([deliver("POST",`/orders/${o.id}/dispatch`,body,200,admin,key),deliver("POST",`/orders/${o.id}/dispatch`,body,200,admin,key)]);expect(both[0]).toEqual(both[1]);o=both[0];
+      await deliver("POST",`/orders/${o.id}/transit`,body,409);o=await deliver("POST",`/orders/${o.id}/transit`,{revision:o.revision});
+      if(index===0){
+        o=await deliver("POST",`/orders/${o.id}/issues`,{revision:o.revision,package_id:o.manifest[0].id,kind:"damaged",notes:"Transport seal damaged"},200,maker);
+        o=await deliver("POST",`/orders/${o.id}/fail`,{revision:o.revision,reason:"Receiver declined damaged seal"});
+        o=await deliver("POST",`/orders/${o.id}/return`,{revision:o.revision,reason:"Physical package held in return quarantine"});
+        await deliver("POST",`/orders/${o.id}/retry`,{revision:o.revision,reason:"Retry"},409);
+        await deliver("POST",`/orders/${o.id}/issues`,{revision:o.revision,package_id:o.manifest[0].id,kind:"damaged",notes:"Repaired",issue_id:o.execution.issues[0].id},403,maker);
+        o=await deliver("POST",`/orders/${o.id}/issues`,{revision:o.revision,package_id:o.manifest[0].id,kind:"damaged",notes:"Seal corrected and contents rechecked",issue_id:o.execution.issues[0].id});
+        o=await deliver("POST",`/orders/${o.id}/retry`,{revision:o.revision,reason:"Supervisor verified correction"});
+      }
+      const proof={revision:o.revision,package_ids:[o.manifest[0].id],recipient:"Synthetic school recipient",acknowledged_at:new Date().toISOString(),acknowledgement:"Package physically received"};
+      await deliver("POST",`/orders/${o.id}/receive`,{...proof,recipient:" "},400,maker);
+      const receiptKey=randomUUID(),receipts=await Promise.all([deliver("POST",`/orders/${o.id}/receive`,proof,200,maker,receiptKey),deliver("POST",`/orders/${o.id}/receive`,proof,200,maker,receiptKey)]);expect(receipts[0]).toEqual(receipts[1]);o=receipts[0];expect(o.status).toBe("partially_delivered");
+      await deliver("POST",`/orders/${o.id}/receive`,{...proof,revision:o.revision},409,maker);
+      o=await deliver("POST",`/orders/${o.id}/receive`,{...proof,revision:o.revision,package_ids:o.manifest.slice(1).map(p=>p.id)},200,maker);expect(o.status).toBe("delivered");deliveryOrders[index]=o;
+      const detail=await deliver("GET",`/orders/${o.id}`,undefined,200,viewer);expect(detail.custody.filter((e:import("../../features/delivery/deliveryTypes").CustodyEvent)=>e.state==="delivered")).toHaveLength(o.manifest.length);
+      expect(detail.custody.every((e:import("../../features/delivery/deliveryTypes").CustodyEvent)=>e.pick_ledger_ids.length>0)).toBe(true);
+    }
+    await close();await start();expect((await deliver("GET",`/orders/${deliveryOrders[0].id}`)).order.status).toBe("delivered");
+    expect(await balance()).toBe(before);expect(JSON.stringify(await db.query("SELECT * FROM stock_ledger ORDER BY id"))).toBe(ledger);
+    const runner=db.createQueryRunner();await runner.connect();await expect(new AddDeliveryCustody1792022400009().down(runner)).rejects.toThrow("Delivery history exists");await runner.release();
   });
   it("prints and reprints traceable labels without package or ledger writes and isolates QR access",async()=>{
     const before=await balance(),ledger=(await db.query("SELECT count(*) n FROM stock_ledger"))[0].n;
