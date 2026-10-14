@@ -1,5 +1,5 @@
 import { describe,it,expect } from "vitest";
-import { mkdtemp, rm, writeFile, symlink } from "node:fs/promises";
+import { mkdtemp, rm, writeFile, cp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { randomUUID } from "node:crypto";
@@ -21,5 +21,18 @@ describe("Private attachment storage",()=>{
   });
   it("rejects source/web-root storage configuration",async()=>{
     await expect(new PrivateAttachmentStore(join(process.cwd(),"public","uploads")).put(randomUUID(),randomUUID(),Buffer.from("x"))).rejects.toThrow("outside");
+  });
+  it("restores a portable object tree and verifies bytes against metadata",async()=>{
+    const root=await mkdtemp(join(tmpdir(),"erp-recovery-test-"));
+    const org=randomUUID(),id=randomUUID(),bytes=Buffer.from("synthetic recovery evidence");
+    try {
+      const source=join(root,"source"),restored=join(root,"restored");
+      await new PrivateAttachmentStore(source).put(org,id,bytes);
+      await cp(source,restored,{recursive:true,errorOnExist:true,force:false});
+      expect(await new PrivateAttachmentStore(restored).get(org,id,attachmentDigest(bytes),bytes.length)).toEqual(bytes);
+      await writeFile(join(restored,org,id),Buffer.from("corrupt"));
+      await expect(new PrivateAttachmentStore(restored).get(org,id,attachmentDigest(bytes),bytes.length)).rejects.toThrow();
+      expect(await new PrivateAttachmentStore(source).get(org,id,attachmentDigest(bytes),bytes.length)).toEqual(bytes);
+    } finally { await rm(root,{recursive:true,force:true}); }
   });
 });

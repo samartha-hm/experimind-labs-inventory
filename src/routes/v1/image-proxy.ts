@@ -1,6 +1,6 @@
 import { Router, Request, Response } from "express";
 import https from "https";
-import http from "http";
+
 import { URL } from "url";
 
 const router = Router();
@@ -10,30 +10,13 @@ const imageCache = new Map<string, { buffer: Buffer; contentType: string; timest
 const MAX_CACHE_SIZE = 500;
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
 
-function isPrivateIpOrHost(hostname: string): boolean {
-  const host = hostname.toLowerCase().trim();
-  if (
-    host === "localhost" ||
-    host.endsWith(".localhost") ||
-    host.endsWith(".local") ||
-    host === "127.0.0.1" ||
-    host === "::1" ||
-    host === "0.0.0.0" ||
-    host.startsWith("10.") ||
-    host.startsWith("192.168.") ||
-    host.startsWith("169.254.")
-  ) {
-    return true;
-  }
-  // Check 172.16.0.0 - 172.31.255.255
-  if (host.startsWith("172.")) {
-    const parts = host.split(".");
-    if (parts.length >= 2) {
-      const secondOctet = parseInt(parts[1], 10);
-      if (secondOctet >= 16 && secondOctet <= 31) return true;
-    }
-  }
-  return false;
+export function isAllowedImageTarget(value: string): boolean {
+  try {
+    const url = new URL(value);
+    return url.protocol === "https:" && !url.username && !url.password &&
+      (!url.port || url.port === "443") &&
+      ["drive.google.com", "lh3.googleusercontent.com"].includes(url.hostname.toLowerCase());
+  } catch { return false; }
 }
 
 function generateSvgPlaceholder(label: string = "Laboratory Asset"): string {
@@ -51,7 +34,7 @@ function generateSvgPlaceholder(label: string = "Laboratory Asset"): string {
   </svg>`;
 }
 
-async function fetchRemoteBuffer(urlStr: string, redirectCount = 0): Promise<{ buffer: Buffer; contentType: string } | null> {
+export async function fetchRemoteBuffer(urlStr: string, redirectCount = 0): Promise<{ buffer: Buffer; contentType: string } | null> {
   if (redirectCount > 4) return null;
 
   let parsedUrl: URL;
@@ -61,17 +44,11 @@ async function fetchRemoteBuffer(urlStr: string, redirectCount = 0): Promise<{ b
     return null;
   }
 
-  // Strictly enforce HTTP(S) protocol and block private/loopback/cloud metadata IPs
-  if (parsedUrl.protocol !== "https:" && parsedUrl.protocol !== "http:") {
-    return null;
-  }
-  if (isPrivateIpOrHost(parsedUrl.hostname)) {
-    console.warn(`[SSRF BLOCKED] Prevented access to restricted target: ${parsedUrl.hostname}`);
-    return null;
-  }
+  // Public catalog proxy: only the existing Google image providers are permitted.
+  if (!isAllowedImageTarget(urlStr)) return null;
 
   return new Promise((resolve) => {
-    const client = parsedUrl.protocol === "https:" ? https : http;
+    const client = https;
     const req = client.get(
       urlStr,
       {
@@ -85,20 +62,29 @@ async function fetchRemoteBuffer(urlStr: string, redirectCount = 0): Promise<{ b
       (res) => {
         // Follow redirects safely
         if (res.statusCode && res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
-          return resolve(fetchRemoteBuffer(res.headers.location, redirectCount + 1));
+          res.resume();
+          try { return resolve(fetchRemoteBuffer(new URL(res.headers.location, parsedUrl).href, redirectCount + 1)); }
+          catch { return resolve(null); }
         }
 
         if (!res.statusCode || res.statusCode < 200 || res.statusCode >= 300) {
+          res.resume();
           return resolve(null);
         }
 
-        const contentType = res.headers["content-type"] || "image/jpeg";
-        if (contentType.includes("text/html")) {
+        const contentType = (res.headers["content-type"] || "").split(";")[0].toLowerCase();
+        if (!["image/png", "image/jpeg", "image/webp", "image/gif", "image/avif"].includes(contentType)) {
+          res.resume();
           return resolve(null);
         }
 
         const chunks: Buffer[] = [];
-        res.on("data", (chunk) => chunks.push(Buffer.from(chunk)));
+        let total = 0;
+        res.on("data", (chunk) => {
+          total += chunk.length;
+          if (total > 8 * 1024 * 1024) { res.destroy(); resolve(null); return; }
+          chunks.push(Buffer.from(chunk));
+        });
         res.on("end", () => {
           const buffer = Buffer.concat(chunks);
           if (buffer.length > 100) {
@@ -120,8 +106,8 @@ async function fetchRemoteBuffer(urlStr: string, redirectCount = 0): Promise<{ b
 }
 
 router.get("/", async (req: Request, res: Response): Promise<void> => {
-  const driveId = req.query.driveId as string;
-  const originalUrl = req.query.originalUrl as string;
+  const driveId = typeof req.query.driveId === "string" && /^[a-zA-Z0-9_-]{1,128}$/.test(req.query.driveId) ? req.query.driveId : undefined;
+  const originalUrl = typeof req.query.originalUrl === "string" && req.query.originalUrl.length <= 2048 ? req.query.originalUrl : undefined;
 
   const targetDriveId = driveId || (originalUrl ? (originalUrl.match(/[?&]id=([a-zA-Z0-9_-]+)/) || originalUrl.match(/\/d\/([a-zA-Z0-9_-]+)/))?.[1] : null);
 
@@ -156,7 +142,7 @@ router.get("/", async (req: Request, res: Response): Promise<void> => {
   }
 
   if (result) {
-    if (imageCache.size >= MAX_CACHE_SIZE) {
+    while (imageCache.size >= MAX_CACHE_SIZE || [...imageCache.values()].reduce((bytes, image) => bytes + image.buffer.length, 0) + result.buffer.length > 64 * 1024 * 1024) {
       const firstKey = imageCache.keys().next().value;
       if (firstKey) imageCache.delete(firstKey);
     }
@@ -175,4 +161,3 @@ router.get("/", async (req: Request, res: Response): Promise<void> => {
 });
 
 export default router;
-

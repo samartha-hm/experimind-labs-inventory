@@ -71,20 +71,20 @@ export const requireRole = (...allowedRoles: string[]) => {
       return res.status(401).json({ error: "Unauthorized: Missing authentication context" });
     }
 
-    const userRole = (req.user.role || "viewer").toLowerCase().trim();
-    const userLevel = ROLE_HIERARCHY[userRole] ?? 1;
+    const userRole = (req.user.role || "").toLowerCase().trim();
+    const userLevel = ROLE_HIERARCHY[userRole];
 
     // Check if user satisfies any of the allowed roles via level or alias
     const hasRole = allowedRoles.some((role) => {
       const targetRole = role.toLowerCase().trim();
-      const targetLevel = ROLE_HIERARCHY[targetRole] ?? 1;
+      const targetLevel = ROLE_HIERARCHY[targetRole];
       
       // Direct match
       if (userRole === targetRole) return true;
       // Alias match
       if (ROLE_ALIASES[targetRole]?.includes(userRole)) return true;
       // Hierarchy level match (e.g. admin >= staff >= employee >= viewer)
-      if (userLevel >= targetLevel) return true;
+      if (userLevel !== undefined && targetLevel !== undefined && userLevel >= targetLevel) return true;
       
       return false;
     });
@@ -143,7 +143,6 @@ export const requirePermission = (...requiredPermissions: string[]) => {
       const roleRecord = await roleRepo.findOne({
         where: [
           { organization_id: orgId, code: userRole },
-          { code: userRole }, // global fallback
         ],
       });
 
@@ -162,7 +161,7 @@ export const requirePermission = (...requiredPermissions: string[]) => {
 
       next();
     } catch (err: any) {
-      return res.status(500).json({ error: "Permission verification failed", details: err.message });
+      return res.status(503).json({ error: "Permission verification unavailable" });
     }
   };
 };

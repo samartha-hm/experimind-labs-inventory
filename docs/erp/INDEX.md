@@ -18,5 +18,6 @@ Open only the authority relevant to the task. Current user instructions and conf
 | Migration and rollback | [Migration plan](09_DATA_MIGRATION_AND_ROLLBACK.md) |
 | Confirmed business decisions | [October decisions](19_BUSINESS_DECISIONS_OCT_2026.md), [decision record](../../.agent/DECISIONS.md) |
 | Repository audit baseline | [Verified audit](20_VERIFIED_REPOSITORY_AUDIT.md) |
+| Milestone 11 pilot acceptance and recovery | [Browser matrix](34_PILOT_BROWSER_ACCEPTANCE.md), [private attachments](35_PRIVATE_ATTACHMENTS_RUNBOOK.md), [shared labels](36_SHARED_LABEL_LAYOUTS_RUNBOOK.md), [security and recovery](37_PILOT_SECURITY_AND_RECOVERY.md) |
 | Quantity and fulfillment background | [Quantity engine](04_QUANTITY_ENGINE_SPEC.md), [inventory and fulfillment](05_INVENTORY_AND_FULFILLMENT.md); apply confirmed rules above |
 | Current slice and continuity | [Handoff](../../.agent/SESSION_HANDOFF.md), [next task](../../.agent/NEXT_TASK.md) |

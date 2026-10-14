@@ -2,9 +2,11 @@ import { Router } from "express";
 import { QmsService } from "../../services/QmsService.ts";
 import { authenticateJwt } from "../../middleware/auth.ts";
 import { requireTenant } from "../../middleware/tenant.ts";
+import { advancedOperationsGate } from "../../middleware/advancedOperationsGate.ts";
 import { requireRole } from "../../middleware/requireRole.ts";
 
 const router = Router();
+router.use(advancedOperationsGate);
 
 // ==========================================
 // 1. INSPECTIONS
