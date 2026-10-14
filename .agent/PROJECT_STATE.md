@@ -11,3 +11,11 @@ Migrations 1791763200005/0006 applied only to isolated development; empty rollba
 Verification: 11 focused production tests; final full 418 tests/56 files PASS; typecheck and frontend/PWA/server builds PASS. Authenticated development HTTP scenarios cover laser partial QC, make-for-stock multi-batch and multi-school linked production: input 20→11 m, accepted output 6 m, rejected output 2 m. Repeated previews preserve stock and existing masters/history.
 
 Browser acceptance PENDING (runtime EPERM). Stop for review; no Milestone 9, merge or deployment. Use /new or /compact before further work.
+
+## Milestone 9 — 2026-10-14
+
+Supersedes the earlier Milestone 9 stop instruction: user authorized implementation and feature-branch pushes. Phase A preserved; B packing execution/QC and C printable stable labels/QR implemented. Verified checkpoint 406fe55e80e671fc1fc09059d6ac8d7d7f29bae1 is on GitHub.
+
+Fresh final verification: 438 tests/59 files, typecheck and frontend/PWA/server builds PASS. HTTP/PostgreSQL synthetic School A six common/two universal crates; School B three common/zero universal; exceptions corrected, QC rejection/rework/reinspection and labels exercised; both Ready after authorized QC. Printing leaves package records and stock unchanged. Bidirectional pick/ledger reconciliation zero mismatches; verified synthetic balance 15.2 m. Development inventory nine rows and historical ledger twelve rows preserve fingerprints.
+
+Packing/readiness migrations 1791849600007/1791936000008 applied to isolated development only; final run no-op. Browser visual and physical print acceptance remain PENDING due to recorded runtime EPERM. Labels use configurable tenant-specific browser-local layouts; QR requires current-user authentication and tenant ownership. No dispatch/Milestone 10, main merge or deployment.

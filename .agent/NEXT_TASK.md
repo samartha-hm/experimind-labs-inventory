@@ -1,5 +1,3 @@
-# Next task — Milestone 9 Phase C
+# Next task — Milestone 9 visual acceptance
 
-Continue from verified pushed Phase B ed3da10. Implement stable package labels and configurable printable layouts, authenticated tenant-safe package QR lookup, existing-style preview/print controls, access/identity/reprint/traceability tests. Printing must never mutate packages or stock. Preserve Phase A/B and applied migrations.
-
-Then Phase D: full suite, typecheck/builds, synthetic School A/B acceptance including exceptions/correction/QC/labels, ledger reconciliation and tenant/role checks. Document pending browser visual acceptance without repeated retries. Update short handoff, review secrets/generated files, commit/push and verify GitHub SHA. No main merge, deploy, force-push, dispatch or Milestone 10.
+Implementation and automated acceptance complete through verified GitHub 406fe55. Review packing progress/QC controls, QR login/lookup and PDF preview/physical print when browser tooling becomes available; previous runtime EPERM remains pending. Configurable label layouts are saved per tenant in the browser, not centrally shared. No routine retry loop and no Milestone 10 without a new user instruction. Preserve isolated PostgreSQL, immutable snapshots and authoritative stock ledger.

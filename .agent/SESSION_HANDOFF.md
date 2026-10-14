@@ -1,9 +1,13 @@
-# Session handoff — Milestone 9 Phase B
+# Session handoff — Milestone 9 automated acceptance complete
 
-Branch: feature/kit-builder-milestone-1. GitHub verified ed3da10aa5d04c858a66efe1cfb8636825ffaf8c. Phase A commits 18e0e39 and 33252e0 also pushed. Milestone remains incomplete.
+Branch: feature/kit-builder-milestone-1. Verified GitHub implementation/reconciliation HEAD 406fe55e80e671fc1fc09059d6ac8d7d7f29bae1. Phase B ed3da10; Phase C ccc3a08. Phase A preserved and pushed.
 
-Phase B: assignment, checklist, exception/correction, material-change and QC APIs; project packing UI; additive database Ready guard. Snapshot identities remain immutable; assembly/QC do not create stock transactions. Synthetic School A six common/two universal crates and School B three common/no universal reach Ready only after picking, assembly and authorized QC. Exception correction, rejection/reinspection, retries, persistence and access checks verified.
+B: tenant-safe assignments, partial checklists, exceptions/corrections, rejection/reinspection, immutable audit and server/DB Ready guard; existing-style project UI. Only picking changes stock in the authoritative ledger.
 
-Fresh verification: 16 packing generator/HTTP tests PASS using isolated PostgreSQL; typecheck and frontend/server builds PASS. HardenPackingReadiness1791936000008 applied only to experimind_kitbuilder_development, 127.0.0.1:55432. Nine inventory/twelve ledger row fingerprints unchanged. Applied migrations immutable. Runner explicitly excludes legacy seed/alignment migrations.
+C: immutable package IDs, printable PDF labels for all package kinds, configurable browser-local tenant layouts, previews/download/print via PDF viewer; authenticated tenant-safe QR lookup. Read-only printing/reprinting creates no packages, revisions or ledger entries. No paid service.
 
-Remaining: Phase C printable stable package labels, configurable layouts, authenticated tenant-safe QR lookup and UI preview/print/reprint tests. Phase D full suite and integrated labels/packing/QC acceptance, reconciliation, final handoff and push. Browser visual verification pending (previous runtime EPERM; no retry loops). Preserve inventory/history; use only isolated development/test PostgreSQL. No dispatch, merge, force-push, deploy or Milestone 10.
+D: fresh full suite 438 tests/59 files PASS; 20 focused packing/label tests PASS; typecheck and frontend/PWA/server builds PASS (existing bundle-size warning). HTTP/PostgreSQL synthetic acceptance: School A two complete Science Grades 8–10 sets, six common/two universal crates; School B three Grade 8 Science sets, three common/zero universal. Both Ready only after authorized QC; exception, correction, rejection/rework, retries and restart persistence verified. Bidirectional pick/ledger reconciliation has zero unmatched/orphan entries; verified synthetic balance 15.2 m; historical inventory/ledger unchanged.
+
+Migrations 1791849600007/1791936000008 applied only to isolated development PostgreSQL; final run no-op. Nine inventory/twelve ledger fingerprints unchanged. Modified packing service/routes/UI/tests/migration registration and QR dependencies.
+
+Browser visual/physical print acceptance PENDING: previous runtime EPERM; no retries. Next: visual review when tooling works. No Milestone 10, dispatch, main merge, deployment or force-push.
