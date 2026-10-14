@@ -1,15 +1,15 @@
-# Session handoff — Milestone 5
+# Session handoff — Milestone 6
 
-Branch: feature/kit-builder-milestone-1. Verified implementation checkpoint: 668f35b59664982b74b0e7d7547b4c1b958a25ae, pushed and remote HEAD matched. Starts from 0b0bd1175b8c8aaa340ce785fe46a8dedb5bf391.
+Branch: feature/kit-builder-milestone-1. Implementation checkpoint: cada29a15c42523774321c13d5c0b758b0257619, pushed and remote HEAD matched. Starts from 2de85da9bd42df744c8c44388d73ca906e888767.
 
-Implemented PostgreSQL multi-school projects, approved immutable template copies, per-school quantities, reasoned project/site overrides, explicit shared allocations, exact unit conversion and traced consolidated requirements. Packing references do not add demand. Stock/shortage fields remain null/unverified; operational release is blocked.
+Implemented authenticated tenant stocktakes: draft counts, review, role-authorized approval and exact-once transactional posting to the EXISTING PostgreSQL stock_ledger. Immutable entry provenance/revisions, sorted item locks and reviewed balance/sequence checks protect concurrent counts. Explicit units use exact four-place ledger arithmetic. Historical inventory/master/ledger values remain unverified and unchanged; protective triggers block legacy writes to verified stock. No second quantity source.
 
-Migration 1791417600002 adds five planning/approval tables and immutability safeguards; applied only to the isolated development database. Synthetic empty rollback/reapply passes; populated rollback deliberately refuses. No reset, historical import or operational mutations.
+Project previews show gross demand, verified on-hand, unreserved availability and immediate shortage. Missing coverage/unit compatibility shows Unverified, never zero. Reservations, incoming and projected shortage remain null/Not configured; operational release stays blocked. Partial count coverage requires explicit review; complete coverage requires approval.
 
-Verification: 50 focused tests and full 367 tests/52 files PASS; typecheck and frontend/PWA/server builds PASS. Actual development ERP login, approval, two-school save/reopen/recalculate, history and stale edit rejection PASS; inventory and stock ledger unchanged. Two complete Science sets plus three Grade 8-only sets yield universal crates 2/0 and synthetic gross 3.3 m. HTTP/PostgreSQL integration verifies restart, tenant isolation, concurrency, snapshots and unit conversions.
+Migration 1791504000003 adds three provenance tables and five nullable ledger columns/guards; applied only to isolated development DB. Empty rollback/reapply PASS; populated rollback refuses history loss. No reset or company-data access.
 
-Browser/visual acceptance UNVERIFIED: no callable runtime. Existing bundle-size warning remains. Development ERP restarted on loopback port 3100 to serve current code. Synthetic acceptance records retained; credentials/logs/results remain ignored.
+Verification: focused 41 tests and full 397 tests/54 files PASS; typecheck and frontend/PWA/server builds PASS. Actual ERP login/count/review/approve/post/retry/reopen/preview PASS: gross 3.3 m, verified 2 m, shortage 1.3 m. Recalculation, legacy inventory and historical ledger unchanged. Synthetic records retained; credentials/results/logs ignored.
 
-Relevant paths: src/features/projects/, ProjectPlanningService, planning-projects router, approval additions, migration, tests and docs/erp/29_PROJECT_REQUIREMENT_PLANNING_RUNBOOK.md.
+Browser acceptance PENDING: bootstrap EPERM; no repeated troubleshooting. Existing bundle warning remains. Development ERP runs loopback 3100; PostgreSQL 55432.
 
-Next: stop for review; browser acceptance in an enabled runtime. No subsequent milestone, merge or deployment.
+Read docs/erp/30_INVENTORY_FOUNDATION_RUNBOOK.md and ADR-025. Stop for review. No next milestone, merge or deployment.

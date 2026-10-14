@@ -1,7 +1,7 @@
-# Next task
+# Next task — Review Milestone 6
 
-Stop for Milestone 5 review. Read SESSION_HANDOFF.md and docs/erp/29_PROJECT_REQUIREMENT_PLANNING_RUNBOOK.md.
+Milestone 6 implementation is complete and verified. Stop for user review; do not begin another milestone, merge or deploy.
 
-When a browser runtime is available, verify Product Library approval, Projects navigation, multi-school editing, approved-version selection, independent Science/Mathematics quantities, explicit complete sets, optional/reasoned overrides, save/reload/reopen, requirements/conversion trace, history and unchanged inventory. Previous M2–M4 visual acceptance also remains pending.
+Browser acceptance remains pending because bootstrap returned EPERM. In a browser-enabled fresh chat, use the stocktake and project preview steps in docs/erp/30_INVENTORY_FOUNDATION_RUNBOOK.md. Keep production/company data untouched.
 
-Use existing isolated development ERP/accounts; never initialize/reset/seed databases. Fix only acceptance blockers and run focused checks. No operational release, next milestone, merge or deployment. Commit/push authorized verified fixes and handoff; verify remote HEAD.
+Use existing isolated PostgreSQL on 127.0.0.1:55432 and ERP on loopback 3100. Never initialize/reset/seed retained databases. Credentials, synthetic acceptance results and logs are ignored under .local-dev/. Check short handoff and GitHub HEAD first.
