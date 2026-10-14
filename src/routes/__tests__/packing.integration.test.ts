@@ -1,3 +1,5 @@
+import { attachmentRouter } from "../v1/attachments";
+import { AddPrivateAttachments1792195200011 } from "../../migration/1792195200011-AddPrivateAttachments";
 import { deliveryRouter } from "../v1/delivery";
 import { AddDeliveryCustody1792022400009 } from "../../migration/1792022400009-AddDeliveryCustody";
 import { AddProjectCompletion1792108800010 } from "../../migration/1792108800010-AddProjectCompletion";
@@ -48,7 +50,7 @@ describe.skipIf(!url)("PostgreSQL packing acceptance",()=>{
     const r=await fetch(base+"/api/v1"+path,{method,headers:{"Content-Type":"application/json",...(u?{Authorization:`Bearer ${token(u,claims)}`}:{})},...(body===undefined?{}:{body:JSON.stringify(body)})});
     const text=await r.text();expect(r.status,text).toBe(expected);return text?JSON.parse(text):null;
   }
-  async function start(){const app=express();app.use(express.json());app.use("/api/v1/packing",packingRouter(db));app.use("/api/v1/delivery",deliveryRouter(db));app.use("/api/v1/supply-planning",supplyPlanningRouter(db));app.use("/api/v1/stocktakes",stocktakeRouter(db));app.use("/api/v1/product-templates",productTemplateRouter(db));app.use("/api/v1/planning-projects",planningProjectRouter(db));server=await new Promise<Server>(resolve=>{const s=app.listen(0,"127.0.0.1",()=>resolve(s));});const a=server.address();if(!a||typeof a==="string")throw new Error("Missing port");base=`http://127.0.0.1:${a.port}`;}
+  async function start(){const app=express();app.use(express.json());app.use("/api/v1/attachments",attachmentRouter(db));app.use("/api/v1/packing",packingRouter(db));app.use("/api/v1/delivery",deliveryRouter(db));app.use("/api/v1/supply-planning",supplyPlanningRouter(db));app.use("/api/v1/stocktakes",stocktakeRouter(db));app.use("/api/v1/product-templates",productTemplateRouter(db));app.use("/api/v1/planning-projects",planningProjectRouter(db));server=await new Promise<Server>(resolve=>{const s=app.listen(0,"127.0.0.1",()=>resolve(s));});const a=server.address();if(!a||typeof a==="string")throw new Error("Missing port");base=`http://127.0.0.1:${a.port}`;}
   const close=()=>new Promise<void>((resolve,reject)=>server.close(e=>e?reject(e):resolve()));
   const target=(item=wire,locations=["Shelf A","Shelf B"]):StocktakeTarget=>({item_id:item.id,locations,complete_coverage:true});
   const create=(targets:StocktakeTarget[]=[target()])=>request("POST","/stocktakes",maker,{name:"Synthetic count",notes:"Physical verification",targets},201);
@@ -61,7 +63,7 @@ describe.skipIf(!url)("PostgreSQL packing acceptance",()=>{
     const options={type:"postgres" as const,url,schema,ssl:false,uuidExtension:"pgcrypto" as const,entities:AppDataSource.options.entities,migrations:[],extra:{options:`-c search_path=${schema},public`}};
     const bootstrap=new DataSource({...options,entities:(options.entities as Function[]).filter(e=>![ProductTemplate,ProductTemplateVersion,ProductTemplateRevision,...planningEntities,...stocktakeEntities,...supplyEntities,...productionEntities].includes(e as typeof ProductTemplate))});
     await bootstrap.initialize();await bootstrap.synchronize();const runner=bootstrap.createQueryRunner();await runner.connect();await runner.startTransaction();
-    try{await new AddProductTemplates1791417600000().up(runner);await new AddKitSubjectsAndGrades1791417600001().up(runner);await new AddProjectPlanning1791417600002().up(runner);const migration=new AddPhysicalStocktake1791504000003();await migration.up(runner);await migration.down(runner);await migration.up(runner);const supplyMigration=new AddReservationsAndProcurement1791676800004();await supplyMigration.up(runner);await supplyMigration.down(runner);await supplyMigration.up(runner);const productionMigration=new AddProductionPlanning1791763200005();await productionMigration.up(runner);await productionMigration.down(runner);await productionMigration.up(runner);const hardening=new HardenProductionReconciliation1791763200006();await hardening.up(runner);await hardening.down(runner);await hardening.up(runner);const packing=new AddPacking1791849600007();await packing.up(runner);await packing.down(runner);await packing.up(runner);const readiness=new HardenPackingReadiness1791936000008();await readiness.up(runner);await readiness.down(runner);await readiness.up(runner);const delivery=new AddDeliveryCustody1792022400009();await delivery.up(runner);await delivery.down(runner);await delivery.up(runner);const completion=new AddProjectCompletion1792108800010();await completion.up(runner);await completion.down(runner);await completion.up(runner);await runner.commitTransaction();}catch(e){await runner.rollbackTransaction();throw e;}finally{await runner.release();await bootstrap.destroy();}
+    try{await new AddProductTemplates1791417600000().up(runner);await new AddKitSubjectsAndGrades1791417600001().up(runner);await new AddProjectPlanning1791417600002().up(runner);const migration=new AddPhysicalStocktake1791504000003();await migration.up(runner);await migration.down(runner);await migration.up(runner);const supplyMigration=new AddReservationsAndProcurement1791676800004();await supplyMigration.up(runner);await supplyMigration.down(runner);await supplyMigration.up(runner);const productionMigration=new AddProductionPlanning1791763200005();await productionMigration.up(runner);await productionMigration.down(runner);await productionMigration.up(runner);const hardening=new HardenProductionReconciliation1791763200006();await hardening.up(runner);await hardening.down(runner);await hardening.up(runner);const packing=new AddPacking1791849600007();await packing.up(runner);await packing.down(runner);await packing.up(runner);const readiness=new HardenPackingReadiness1791936000008();await readiness.up(runner);await readiness.down(runner);await readiness.up(runner);const delivery=new AddDeliveryCustody1792022400009();await delivery.up(runner);await delivery.down(runner);await delivery.up(runner);const completion=new AddProjectCompletion1792108800010();await completion.up(runner);await completion.down(runner);await completion.up(runner);const attachments=new AddPrivateAttachments1792195200011();await attachments.up(runner);await attachments.down(runner);await attachments.up(runner);await runner.commitTransaction();}catch(e){await runner.rollbackTransaction();throw e;}finally{await runner.release();await bootstrap.destroy();}
     db=new DataSource(options);await db.initialize();const a=await db.getRepository(Organization).save({name:schema});const b=await db.getRepository(Organization).save({name:schema+"other"});
     const user=(name:string,role:string,org=a.id)=>db.getRepository(User).save({name,email:name+"@test.invalid",role,organization_id:org,firebase_uid:null});
     maker=await user("Counter","staff");admin=await user("Approver","admin");viewer=await user("Reader","viewer");other=await user("Other","admin",b.id);
@@ -317,6 +319,26 @@ describe.skipIf(!url)("PostgreSQL packing acceptance",()=>{
     await prod("GET",`/packages/${randomUUID()}`,undefined,404);
     expect(JSON.stringify(await db.query("SELECT * FROM packing_orders ORDER BY id"))).toBe(ordersBefore);
     expect(await balance()).toBe(before);expect((await db.query("SELECT count(*) n FROM stock_ledger"))[0].n).toBe(ledger);
+  });
+  it("persists private attachments with authenticated isolation, audit and safe replay",async()=>{
+    const p=await request("POST","/planning-projects",maker,{name:"Synthetic attachment project",client:"Synthetic",notes:"",commercial_links:[],overrides:{},sites:[]},201);
+    const bytes=Buffer.from("Synthetic private survey"),key=randomUUID(),ledgerBefore=JSON.stringify(await db.query("SELECT * FROM stock_ledger ORDER BY id"));
+    async function upload(u:User|undefined,filename="survey.txt",body=bytes,k=key,claims={}){
+      return fetch(base+`/api/v1/attachments/projects/${p.id}`,{method:"POST",headers:{...(u?{Authorization:`Bearer ${token(u,claims)}`}:{ }),"Content-Type":"text/plain","X-Attachment-Name":filename,"Idempotency-Key":k},body});
+    }
+    expect((await upload(undefined)).status).toBe(401);expect((await upload(viewer,"survey.txt",bytes,key,{role:"admin"})).status).toBe(403);expect((await upload(other)).status).toBe(404);
+    expect((await upload(maker,"../escape.txt")).status).toBe(400);expect((await upload(maker,"survey.html")).status).toBe(400);
+    const responses=await Promise.all([upload(maker),upload(maker)]);expect(responses.map(r=>r.status)).toEqual([201,201]);
+    const a=await responses[0].json(),b=await responses[1].json();expect(a.id).toBe(b.id);
+    expect((await upload(maker,"survey.txt",Buffer.from("changed"))).status).toBe(409);
+    expect(await request("GET",`/attachments/projects/${p.id}`,viewer)).toHaveLength(1);
+    await request("GET",`/attachments/${a.id}/download`,other,undefined,404);await request("GET",`/attachments/${a.id}/download`,undefined,undefined,401);
+    const download=await fetch(base+`/api/v1/attachments/${a.id}/download`,{headers:{Authorization:`Bearer ${token(viewer)}`}});
+    expect(download.status).toBe(200);expect(download.headers.get("content-disposition")).toContain("attachment");expect(download.headers.get("cache-control")).toContain("no-store");expect(Buffer.from(await download.arrayBuffer())).toEqual(bytes);
+    expect((await db.query("SELECT action FROM private_attachment_events WHERE attachment_id=$1 ORDER BY created_at",[a.id])).map((e:{action:string})=>e.action)).toEqual(["upload","download"]);
+    await close();await db.destroy();await db.initialize();await start();expect(await request("GET",`/attachments/projects/${p.id}`,maker)).toHaveLength(1);
+    const runner=db.createQueryRunner();try{await expect(new AddPrivateAttachments1792195200011().down(runner)).rejects.toThrow("populated");}finally{await runner.release();}
+    expect(JSON.stringify(await db.query("SELECT * FROM stock_ledger ORDER BY id"))).toBe(ledgerBefore);
   });
   it("refuses destructive rollback and preserves inventory and historical ledger",async()=>{
     const r=db.createQueryRunner();try{await expect(new AddPacking1791849600007().down(r)).rejects.toThrow("history");}finally{await r.release();}

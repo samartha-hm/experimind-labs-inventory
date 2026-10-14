@@ -117,7 +117,7 @@ export function normalizeApiEndpoint(endpoint: string): string {
   return `/api/v1${endpoint.startsWith('/') ? '' : '/'}${endpoint}`;
 }
 
-export async function apiFetch(endpoint: string, options: RequestInit = {}) {
+export async function apiFetch(endpoint: string, options: RequestInit = {}, responseType: "json" | "blob" = "json") {
   const targetUrl = normalizeApiEndpoint(endpoint);
 
   const isAuthEndpoint = targetUrl.includes('/auth/login') ||
@@ -178,6 +178,7 @@ export async function apiFetch(endpoint: string, options: RequestInit = {}) {
   }
 
   if (response.status === 204) return null;
+  if (responseType === "blob") return response.blob();
 
   const contentType = response.headers.get('content-type') || '';
   if (!contentType.includes('application/json')) {
