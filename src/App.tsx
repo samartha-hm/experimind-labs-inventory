@@ -34,6 +34,7 @@ import { ToastProvider } from '@/src/contexts/ToastContext';
 import { ApprovalProvider } from '@/src/contexts/ApprovalContext';
 import { UserDirectoryTab } from '@/src/features/compliance/components/UserDirectoryTab';
 import ProductionPlanningPanel from "./features/production/ProductionPlanningPanel";
+import { PackingPackageLookup } from "./features/packing/PackingLabelsPanel";
 import ProjectPlanningTab from '@/src/features/projects/ProjectPlanningTab';
 import StickerMonitoringHubTab from '@/src/features/stickers/StickerMonitoringHubTab';
 import ToastContainer from '@/src/components/ToastContainer';
@@ -309,6 +310,7 @@ function MainApp() {
         <div className="flex-1 overflow-y-auto overflow-x-hidden overscroll-contain">
           <div className="p-3 sm:p-6 md:p-8 max-w-7xl mx-auto pb-24 md:pb-8">
             <main>
+              <PackingPackageLookup />
               {activeTab === 'product_library' && <ProductLibrary />}
               {activeTab === 'overview' && (
                 <OperationsWorkspace

@@ -3,6 +3,7 @@ import { useAuth } from "../../AuthContext";
 import { apiFetch } from "../../utils/api";
 import type { PlanningView } from "../projects/planningTypes";
 import { actualMaterials, qcChecks, type PackingDetail, type PackingOrder } from "./packingTypes";
+import { PackingLabelsPanel } from "./PackingLabelsPanel";
 
 const input = "min-h-11 rounded-xl border border-slate-300 bg-transparent p-3";
 const button = "min-h-11 rounded-xl border border-slate-300 px-4 py-3 disabled:opacity-40";
@@ -60,6 +61,7 @@ export default function PackingPanel({ project }: { project?: PlanningView }) {
       {writer && active && <div className="flex flex-wrap gap-2"><button className={button} disabled={busy || !selected.length} onClick={()=>act("checklist",{package_ids:selected,assembled:true,notes})}>Complete selected checklists</button><button className={button} disabled={busy || !selected.length} onClick={()=>act("checklist",{package_ids:selected,assembled:false,notes})}>Return selected to rework</button><select className={input} value={exceptionKind} onChange={e=>setExceptionKind(e.target.value)}><option value="missing">Missing item</option><option value="damaged">Damaged item</option><option value="other">Other exception</option></select><button className={button} disabled={busy || selected.length!==1 || !notes.trim()} onClick={()=>act("exceptions",{package_id:selected[0],kind:exceptionKind,notes})}>Report exception on selected package</button></div>}
       {order.execution.exceptions.map(e=><div className="rounded-xl border p-3" key={e.id}>{e.kind}: {e.notes} · {e.corrected_by?`Corrected: ${e.correction}`:"Open"}{writer && active && !e.corrected_by && <button className={button} disabled={busy || !notes.trim()} onClick={()=>act("exceptions",{package_id:e.package_id,kind:e.kind,exception_id:e.id,notes})}>Record correction</button>}</div>)}
       {inspector && active && <fieldset className="space-y-2"><legend>Packing QC inspection</legend><div className="flex flex-wrap gap-3">{qcChecks.map(k=><label key={k}><input type="checkbox" checked={checks[k]} onChange={e=>setChecks({...checks,[k]:e.target.checked})}/> {k}</label>)}</div><button className={button} disabled={busy || !selected.length || qcChecks.some(k=>!checks[k])} onClick={()=>act("qc",{package_ids:selected,decision:"accept",checks,notes})}>Accept selected QC</button> <button className={button} disabled={busy || !selected.length || !notes.trim()} onClick={()=>act("qc",{package_ids:selected,decision:"reject",checks,notes})}>Reject selected QC</button></fieldset>}
+      <PackingLabelsPanel order={order} ids={selected}/>
       <details><summary>Audit history ({detail.history.length})</summary>{detail.history.map(h=><p key={h.revision}>Revision {h.revision} · {h.actor_id} · {h.created_at}</p>)}</details>
     </>}
   </section>;

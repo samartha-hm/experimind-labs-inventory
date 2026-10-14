@@ -1,4 +1,5 @@
 import {packingRouter} from "../v1/packing";
+import {packingLabelPDF, packageDestination} from "../../features/packing/packingLabels";
 import {HardenPackingReadiness1791936000008} from "../../migration/1791936000008-HardenPackingReadiness";
 import {AddPacking1791849600007} from "../../migration/1791849600007-AddPacking";
 import {HardenProductionReconciliation1791763200006} from "../../migration/1791763200006-HardenProductionReconciliation";
@@ -195,6 +196,24 @@ describe.skipIf(!url)("PostgreSQL packing acceptance",()=>{
     o=await prod("POST",`/orders/${o.id}/qc`,{revision:o.revision,package_ids:ids,decision:"accept",checks:{material:true,quantity:true,placement:true,packaging:true,stickers:true,instructions:true}},200,admin);
     expect(o.status).toBe("ready");schoolOrders[1]=o;expect(await balance()).toBeCloseTo(before-0.9);
     const detailAfter=await prod("GET",`/orders/${o.id}`);expect(detailAfter.materials[0].completed).toBe("0.9000");expect(detailAfter.history.length).toBeGreaterThan(4);
+  });
+  it("prints and reprints traceable labels without package or ledger writes and isolates QR access",async()=>{
+    const before=await balance(),ledger=(await db.query("SELECT count(*) n FROM stock_ledger"))[0].n;
+    const ordersBefore=JSON.stringify(await db.query("SELECT * FROM packing_orders ORDER BY id"));
+    for(const o of schoolOrders){
+      const ids=o.snapshot.packages.map(p=>p.id);
+      const pdf=await packingLabelPDF(o,ids,"https://erp.test.invalid");expect(pdf.getNumberOfPages()).toBe(ids.length);
+      const reprint=await packingLabelPDF(o,ids,"https://erp.test.invalid");expect(reprint.getNumberOfPages()).toBe(ids.length);
+      for(const p of o.snapshot.packages){const d=await prod("GET",`/packages/${p.id}`,undefined,200,viewer);expect(d.package).toEqual(p);expect(d.school).toBe(o.snapshot.site_name);expect(d.requirement_revision).toBe(o.demand_revision);expect(d.progress.qc).toBe("accepted");expect(d.status).toBe("ready");expect(new URL(packageDestination("https://erp.test.invalid",p.id)).searchParams.get("packing_package")).toBe(p.id);}
+    }
+    const id=schoolOrders[0].snapshot.packages[0].id;
+    await request("GET",`/packing/packages/${id}`,undefined,undefined,401);
+    await prod("GET",`/packages/${id}`,undefined,404,other);
+    await request("GET",`/packing/packages/${id}`,other,undefined,403,{orgId:maker.organization_id,role:"admin"});
+    await prod("GET","/packages/not-a-uuid",undefined,400);
+    await prod("GET",`/packages/${randomUUID()}`,undefined,404);
+    expect(JSON.stringify(await db.query("SELECT * FROM packing_orders ORDER BY id"))).toBe(ordersBefore);
+    expect(await balance()).toBe(before);expect((await db.query("SELECT count(*) n FROM stock_ledger"))[0].n).toBe(ledger);
   });
   it("refuses destructive rollback and preserves inventory and historical ledger",async()=>{
     const r=db.createQueryRunner();try{await expect(new AddPacking1791849600007().down(r)).rejects.toThrow("history");}finally{await r.release();}
