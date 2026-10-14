@@ -6,6 +6,7 @@ import { User } from "../../entity/User";
 import { dto } from "./product-templates";
 import { DraftKitError } from "../../services/ProductTemplateService";
 import { PackingService } from "../../services/PackingService";
+import { DeliveryService } from "../../services/DeliveryService";
 
 class Revision { @IsInt() @Min(1) revision!: number; }
 class Create {
@@ -80,7 +81,7 @@ export function packingRouter(db: DataSource) {
   const key = (req: Parameters<RequestHandler>[0]) => req.header("Idempotency-Key")!;
   r.get("/", action(async (req, res) => { res.json(await s.list(req.user!.orgId!)); }));
   r.get("/orders/:id", action(async (req, res) => { res.json(await s.detail(req.user!.orgId!, req.params.id)); }));
-  r.get("/packages/:id", action(async (req, res) => { res.setHeader("Cache-Control", "private, no-store"); res.json(await s.package(req.user!.orgId!, req.params.id)); }));
+  r.get("/packages/:id", action(async (req, res) => { res.setHeader("Cache-Control", "private, no-store"); const view = await s.package(req.user!.orgId!, req.params.id); res.json({ ...view, custody: await new DeliveryService(db).packageTrace(req.user!.orgId!, req.params.id) }); }));
   r.post("/orders", action(async (req, res) => { const d = await dto(req.body, Create); res.status(201).json(await s.create(req.user!.orgId!, req.user!.id, key(req), d)); }));
   for (const verb of ["release", "pause", "resume", "cancel", "reopen"] as const) r.post(`/orders/:id/${verb}`, action(async (req, res) => { const d = await dto(req.body, Action); res.json(await s.transition(req.user!.orgId!, req.user!.id, key(req), req.params.id, d.revision, verb, d.reason)); }));
   r.post("/orders/:id/picks", action(async (req, res) => { const d = await dto(req.body, Pick); res.status(201).json(await s.pick(req.user!.orgId!, req.user!.id, key(req), req.params.id, d.revision, d.item_id, d.quantity, d.unit, d.location, d.reservation_id)); }));

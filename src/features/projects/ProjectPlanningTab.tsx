@@ -7,6 +7,7 @@ import { SelectionQuantities } from "./SelectionQuantities";
 import SupplyPlanningPanel from "../procurement/components/SupplyPlanningPanel";
 import ProductionPlanningPanel from "../production/ProductionPlanningPanel";
 import PackingPanel from "../packing/PackingPanel";
+import DeliveryPanel from "../delivery/DeliveryPanel";
 
 const input = "min-h-11 w-full rounded-xl border border-slate-300 bg-transparent p-3";
 const button = "min-h-11 rounded-xl border border-slate-300 px-4 py-3 disabled:opacity-40";
@@ -89,6 +90,7 @@ export default function ProjectPlanningTab() {
       {saved&&!dirty&&<SupplyPlanningPanel project={saved} onChange={()=>setResult(undefined)}/>}
       {saved&&!dirty&&<ProductionPlanningPanel project={saved} onChange={()=>setResult(undefined)}/>}
       {saved&&!dirty&&<PackingPanel project={saved}/>}
+      {saved&&!dirty&&<DeliveryPanel project={saved}/>}
       {history.map(h => <details key={h.revision}><summary className="min-h-11 cursor-pointer py-3">Revision {h.revision} · {h.created_at}</summary><pre className="overflow-auto rounded-xl border p-3 text-xs">{JSON.stringify(h.content, null, 2)}</pre></details>)}
       {result && <div aria-live="polite" className="space-y-4">
         {result.warnings.map(w => <p key={w} className="rounded-xl bg-amber-50 p-3 text-sm text-amber-800">{w}</p>)}

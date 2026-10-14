@@ -5,7 +5,7 @@ if(url.hostname!=="127.0.0.1"||url.port!=="55432"||url.pathname!=="/experimind_k
 await AppDataSource.initialize();
 try {
  const pending = (await AppDataSource.query("SELECT name FROM migrations")).map((r:{name:string})=>r.name);
- const expected = ["AddDeliveryCustody1792022400009"];
+ const expected = ["AddDeliveryCustody1792022400009", "AddProjectCompletion1792108800010"];
  if(!pending.includes("HardenPackingReadiness1791936000008"))throw new Error("Verified packing readiness migration required");
  // This isolated database has a synchronized legacy baseline. Never run legacy seed/alignment migrations here.
  AppDataSource.migrations=AppDataSource.migrations.filter(m=>expected.includes(m.name));

@@ -1,5 +1,5 @@
 import type { PackMaterial, PackingSnapshot } from "./packingPlan";
-export interface PackingPackageView { order_id:string; number:string; batch_code:string; project:string; school:string; requirement_revision:number|null; status:PackingOrder["status"]; package:PackingSnapshot["packages"][number]; actual_materials:PackMaterial[]; progress:PackageProgress }
+export interface PackingPackageView { order_id:string; number:string; batch_code:string; project:string; school:string; requirement_revision:number|null; status:PackingOrder["status"]; package:PackingSnapshot["packages"][number]; actual_materials:PackMaterial[]; progress:PackageProgress; custody?:import("../delivery/deliveryTypes").CustodyEvent[] }
 export const qcChecks=["material","quantity","placement","packaging","stickers","instructions"] as const;
 export interface PackageProgress { assembled:boolean; packed_by?:string; packed_at?:string; qc:"pending"|"accepted"|"rejected"; checked_by?:string; checked_at?:string; checks?:Record<typeof qcChecks[number],boolean>; notes?:string }
 export interface PackingException { id:string; package_id:string; kind:"missing"|"damaged"|"other"; notes:string; reported_by:string; reported_at:string; corrected_by?:string; corrected_at?:string; correction?:string }

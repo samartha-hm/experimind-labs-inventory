@@ -1,5 +1,6 @@
 import { deliveryRouter } from "../v1/delivery";
 import { AddDeliveryCustody1792022400009 } from "../../migration/1792022400009-AddDeliveryCustody";
+import { AddProjectCompletion1792108800010 } from "../../migration/1792108800010-AddProjectCompletion";
 import {packingRouter} from "../v1/packing";
 import {packingLabelPDF, packageDestination} from "../../features/packing/packingLabels";
 import {HardenPackingReadiness1791936000008} from "../../migration/1791936000008-HardenPackingReadiness";
@@ -60,7 +61,7 @@ describe.skipIf(!url)("PostgreSQL packing acceptance",()=>{
     const options={type:"postgres" as const,url,schema,ssl:false,uuidExtension:"pgcrypto" as const,entities:AppDataSource.options.entities,migrations:[],extra:{options:`-c search_path=${schema},public`}};
     const bootstrap=new DataSource({...options,entities:(options.entities as Function[]).filter(e=>![ProductTemplate,ProductTemplateVersion,ProductTemplateRevision,...planningEntities,...stocktakeEntities,...supplyEntities,...productionEntities].includes(e as typeof ProductTemplate))});
     await bootstrap.initialize();await bootstrap.synchronize();const runner=bootstrap.createQueryRunner();await runner.connect();await runner.startTransaction();
-    try{await new AddProductTemplates1791417600000().up(runner);await new AddKitSubjectsAndGrades1791417600001().up(runner);await new AddProjectPlanning1791417600002().up(runner);const migration=new AddPhysicalStocktake1791504000003();await migration.up(runner);await migration.down(runner);await migration.up(runner);const supplyMigration=new AddReservationsAndProcurement1791676800004();await supplyMigration.up(runner);await supplyMigration.down(runner);await supplyMigration.up(runner);const productionMigration=new AddProductionPlanning1791763200005();await productionMigration.up(runner);await productionMigration.down(runner);await productionMigration.up(runner);const hardening=new HardenProductionReconciliation1791763200006();await hardening.up(runner);await hardening.down(runner);await hardening.up(runner);const packing=new AddPacking1791849600007();await packing.up(runner);await packing.down(runner);await packing.up(runner);const readiness=new HardenPackingReadiness1791936000008();await readiness.up(runner);await readiness.down(runner);await readiness.up(runner);const delivery=new AddDeliveryCustody1792022400009();await delivery.up(runner);await delivery.down(runner);await delivery.up(runner);await runner.commitTransaction();}catch(e){await runner.rollbackTransaction();throw e;}finally{await runner.release();await bootstrap.destroy();}
+    try{await new AddProductTemplates1791417600000().up(runner);await new AddKitSubjectsAndGrades1791417600001().up(runner);await new AddProjectPlanning1791417600002().up(runner);const migration=new AddPhysicalStocktake1791504000003();await migration.up(runner);await migration.down(runner);await migration.up(runner);const supplyMigration=new AddReservationsAndProcurement1791676800004();await supplyMigration.up(runner);await supplyMigration.down(runner);await supplyMigration.up(runner);const productionMigration=new AddProductionPlanning1791763200005();await productionMigration.up(runner);await productionMigration.down(runner);await productionMigration.up(runner);const hardening=new HardenProductionReconciliation1791763200006();await hardening.up(runner);await hardening.down(runner);await hardening.up(runner);const packing=new AddPacking1791849600007();await packing.up(runner);await packing.down(runner);await packing.up(runner);const readiness=new HardenPackingReadiness1791936000008();await readiness.up(runner);await readiness.down(runner);await readiness.up(runner);const delivery=new AddDeliveryCustody1792022400009();await delivery.up(runner);await delivery.down(runner);await delivery.up(runner);const completion=new AddProjectCompletion1792108800010();await completion.up(runner);await completion.down(runner);await completion.up(runner);await runner.commitTransaction();}catch(e){await runner.rollbackTransaction();throw e;}finally{await runner.release();await bootstrap.destroy();}
     db=new DataSource(options);await db.initialize();const a=await db.getRepository(Organization).save({name:schema});const b=await db.getRepository(Organization).save({name:schema+"other"});
     const user=(name:string,role:string,org=a.id)=>db.getRepository(User).save({name,email:name+"@test.invalid",role,organization_id:org,firebase_uid:null});
     maker=await user("Counter","staff");admin=await user("Approver","admin");viewer=await user("Reader","viewer");other=await user("Other","admin",b.id);
@@ -247,6 +248,58 @@ describe.skipIf(!url)("PostgreSQL packing acceptance",()=>{
     expect(await balance()).toBe(before);expect(JSON.stringify(await db.query("SELECT * FROM stock_ledger ORDER BY id"))).toBe(ledger);
     const runner=db.createQueryRunner();await runner.connect();await expect(new AddDeliveryCustody1792022400009().down(runner)).rejects.toThrow("Delivery history exists");await runner.release();
   });
+  it("requires installer completion, correction, authorized sign-off and customer acceptance before closing all schools",async()=>{
+    const before=await balance(),ledger=JSON.stringify(await db.query("SELECT * FROM stock_ledger ORDER BY id"));
+    const progressPath=`/projects/${projectId}`;
+    let progress:import("../../features/delivery/completionTypes").CompletionProgress=await deliver("GET",progressPath);
+    expect(progress.schools.map(s=>s.remaining)).toEqual([0,0]);expect(progress.blockers).toEqual([]);
+    const site=progress.schools[0],task=randomUUID();
+    const config={project_id:projectId,site_id:site.site_id,required:true,employee_id:maker.id,survey:"Synthetic site power and access checked",checklist:[{id:task,label:"Set up and demonstrate science kits",required:true}]};
+    await deliver("POST","/installations",config,403,maker);
+    await deliver("POST","/installations",{...config,employee_id:other.id},404);
+    let job:import("../../features/delivery/completionTypes").InstallationJob=await deliver("POST","/installations",config,201);
+    await deliver("POST","/installations",config,409);
+    await deliver("GET",progressPath,undefined,404,other);
+    const closeBody={revision:0,project_revision:progress.project_revision,action:"close",recipient:"Synthetic customer",notes:"All schools acknowledged"};
+    await deliver("POST",`${progressPath}/completion`,closeBody,409);
+    await deliver("POST",`/installations/${job.id}`,{revision:job.revision,action:"finish"},409,maker);
+    job=await deliver("POST",`/installations/${job.id}`,{revision:job.revision,action:"issue",notes:"Mounting position needs correction"},200,maker);expect(job.status).toBe("blocked");
+    await deliver("POST",`/installations/${job.id}`,{revision:job.revision,action:"correct",issue_id:job.issues[0].id,notes:"Fixed"},403,maker);
+    job=await deliver("POST",`/installations/${job.id}`,{revision:job.revision,action:"correct",issue_id:job.issues[0].id,notes:"Mounting position corrected and inspected"});
+    const check={revision:job.revision,action:"check",task_id:task,checked:true},key=randomUUID();
+    const checked=await Promise.all([deliver("POST",`/installations/${job.id}`,check,200,maker,key),deliver("POST",`/installations/${job.id}`,check,200,maker,key)]);expect(checked[0]).toEqual(checked[1]);job=checked[0];
+    job=await deliver("POST",`/installations/${job.id}`,{revision:job.revision,action:"finish"},200,maker);expect(job.status).toBe("installed");
+    await deliver("POST",`${progressPath}/completion`,closeBody,409);
+    await deliver("POST",`/installations/${job.id}`,{revision:job.revision,action:"accept",recipient:"School representative",notes:"Setup accepted"},403,maker);
+    job=await deliver("POST",`/installations/${job.id}`,{revision:job.revision,action:"accept",recipient:"School representative",notes:"Setup accepted"});expect(job.status).toBe("completed");
+    progress=await deliver("GET",progressPath);expect(progress.blockers).toEqual([]);expect(progress.schools[1].installation).toBeNull();
+    await deliver("POST",`${progressPath}/completion`,closeBody,403,maker);
+    await deliver("POST",`${progressPath}/completion`,{...closeBody,recipient:" "},400);
+    const closeKey=randomUUID(),closed=await Promise.all([deliver("POST",`${progressPath}/completion`,closeBody,200,admin,closeKey),deliver("POST",`${progressPath}/completion`,closeBody,200,admin,closeKey)]);expect(closed[0]).toEqual(closed[1]);expect(closed[0].status).toBe("closed");
+    await deliver("POST",`/installations/${job.id}`,{revision:job.revision,action:"reopen",notes:"Revisit"},409);
+    const schoolOrder=deliveryOrders[0];await deliver("POST",`/orders/${schoolOrder.id}/issues`,{revision:schoolOrder.revision,package_id:schoolOrder.manifest[0].id,kind:"missing",notes:"Late discrepancy"},409);
+    await expect(db.query("UPDATE planning_projects SET revision=revision+1 WHERE id=$1",[projectId])).rejects.toThrow("Reopen closed project");
+    await deliver("POST",`${progressPath}/completion`,{revision:closed[0].revision,project_revision:progress.project_revision,action:"reopen",notes:"Authorized site revisit"});
+    job=await deliver("POST",`/installations/${job.id}`,{revision:job.revision,action:"reopen",notes:"Authorized site revisit"});
+    job=await deliver("POST",`/installations/${job.id}`,{revision:job.revision,action:"finish"},200,maker);
+    job=await deliver("POST",`/installations/${job.id}`,{revision:job.revision,action:"accept",recipient:"School representative",notes:"Reinspection accepted"});
+    progress=await deliver("GET",progressPath);await deliver("POST",`${progressPath}/completion`,{...closeBody,revision:progress.completion!.revision});
+    await close();await start();progress=await deliver("GET",progressPath);expect(progress.completion?.status).toBe("closed");expect(progress.history.filter(h=>h.kind==="project_completion")).toHaveLength(3);
+    await expect(db.query("DELETE FROM supply_events WHERE kind='installation'")).rejects.toThrow();
+    await expect(db.query("UPDATE package_custody_events SET notes='rewrite'")).rejects.toThrow("immutable");
+    const runner=db.createQueryRunner();await expect(new AddProjectCompletion1792108800010().down(runner)).rejects.toThrow("Lifecycle history exists");await runner.release();
+    expect(await balance()).toBe(before);expect(JSON.stringify(await db.query("SELECT * FROM stock_ledger ORDER BY id"))).toBe(ledger);
+  });
+  it("records explicit authorized closure exceptions without fabricating delivered packages",async()=>{
+    const f=planningFixture(wire.id);const t=await request("POST","/product-templates",maker,{name:"Synthetic incomplete project",subjects:f.subjects},201);const published=await request("POST",`/product-templates/${t.template_id}/approve`,maker,{revision:1},201);
+    f.content.sites[0].selections[0].version_id=published.id;f.content.sites=f.content.sites.slice(0,1);
+    const project=await request("POST","/planning-projects",maker,f.content,201);
+    const body={revision:0,project_revision:project.revision,action:"close",recipient:"Synthetic customer",notes:"Customer requests closure despite pending shipment"};
+    await deliver("POST",`/projects/${project.id}/completion`,body,409);
+    await deliver("POST",`/projects/${project.id}/completion`,{...body,exception_reason:"Authorized cancellation of remaining delivery"},403,maker);
+    const result=await deliver("POST",`/projects/${project.id}/completion`,{...body,exception_reason:"Authorized cancellation of remaining delivery"});expect(result.exception.blockers.length).toBeGreaterThan(0);
+    const progress=await deliver("GET",`/projects/${project.id}`);expect(progress.schools[0].delivered).toBe(0);expect(progress.blockers.length).toBeGreaterThan(0);
+  });
   it("prints and reprints traceable labels without package or ledger writes and isolates QR access",async()=>{
     const before=await balance(),ledger=(await db.query("SELECT count(*) n FROM stock_ledger"))[0].n;
     const ordersBefore=JSON.stringify(await db.query("SELECT * FROM packing_orders ORDER BY id"));
@@ -254,7 +307,7 @@ describe.skipIf(!url)("PostgreSQL packing acceptance",()=>{
       const ids=o.snapshot.packages.map(p=>p.id);
       const pdf=await packingLabelPDF(o,ids,"https://erp.test.invalid");expect(pdf.getNumberOfPages()).toBe(ids.length);
       const reprint=await packingLabelPDF(o,ids,"https://erp.test.invalid");expect(reprint.getNumberOfPages()).toBe(ids.length);
-      for(const p of o.snapshot.packages){const d=await prod("GET",`/packages/${p.id}`,undefined,200,viewer);expect(d.package).toEqual(p);expect(d.school).toBe(o.snapshot.site_name);expect(d.requirement_revision).toBe(o.demand_revision);expect(d.progress.qc).toBe("accepted");expect(d.status).toBe("ready");expect(new URL(packageDestination("https://erp.test.invalid",p.id)).searchParams.get("packing_package")).toBe(p.id);}
+      for(const p of o.snapshot.packages){const d=await prod("GET",`/packages/${p.id}`,undefined,200,viewer);expect(d.package).toEqual(p);expect(d.school).toBe(o.snapshot.site_name);expect(d.requirement_revision).toBe(o.demand_revision);expect(d.progress.qc).toBe("accepted");expect(d.status).toBe("ready");expect(new URL(packageDestination("https://erp.test.invalid",p.id)).searchParams.get("packing_package")).toBe(p.id);if(p.kind!=="batch"){expect(d.custody.length).toBeGreaterThan(0);expect(d.custody.at(-1).state).toBe("delivered");expect(d.custody.every((e:{package_id:string;pick_ledger_ids:string[]})=>e.package_id===p.id&&e.pick_ledger_ids.length>0)).toBe(true);}}
     }
     const id=schoolOrders[0].snapshot.packages[0].id;
     await request("GET",`/packing/packages/${id}`,undefined,undefined,401);
