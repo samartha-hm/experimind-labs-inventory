@@ -81,3 +81,10 @@ All 13 additive migrations 0000–0012 are present; 16 legacy migrations stay ab
   (`final-recovery-validation.log`).
 - Physical printer alignment and printed QR scanning need an operator.
 - QMS/signature/RMA mutations remain deferred with 503 responses.
+
+## Milestone 12 follow-up
+
+See [pilot readiness and final acceptance](39_PILOT_READINESS_AND_FINAL_ACCEPTANCE.md)
+for independently validated historical/current baselines, the recovery-validator
+correction and four synthetic label checks. These supplement A01–A16; physical
+print/scan acceptance remains pending operator evidence.

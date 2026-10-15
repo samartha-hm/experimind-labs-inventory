@@ -184,3 +184,14 @@ run against this local setup. This proves paired data recovery, not browser or
 hosting cutover acceptance. Host ACLs/encrypted offline retention remain required.
 
 Actual visual/physical print acceptance is pending; follow [the manual browser matrix](34_PILOT_BROWSER_ACCEPTANCE.md). HTTP acceptance is not visual acceptance. Complete the browser matrix before controlled pilot approval.
+
+## Milestone 12 clarification — 2026-10-15
+
+The 17.5 source above is historical. The current browser/development cluster is
+17.4 and must not be treated as its before/after continuation. The retained
+snapshot now passes strict validation after a narrow version-comment correction;
+its original hashes/data remain unchanged. A separate current paired baseline
+also passes. See [pilot readiness](39_PILOT_READINESS_AND_FINAL_ACCEPTANCE.md) for
+database identities, evidence limits, label checks and operator steps. Current
+development app-role superuser privileges and a stale recovery-admin secret are
+recorded operational gates. Physical acceptance and rollout remain pending.

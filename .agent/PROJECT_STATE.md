@@ -1,4 +1,17 @@
-# ERP state — 2026-10-14
+# ERP state — historical implementation notes
+
+## Current acceptance status — 2026-10-15
+
+Milestone 12 pilot preparation completed; rollout is not approved. A01–A16 prior
+browser acceptance retained; four synthetic labels pass PDF/QR/browser checks.
+Physical print/scan evidence remains pending from the operator. Historical
+retained fingerprints match; continuity into the distinct current browser
+database is unproven. Current paired recovery baseline and strict retained
+validation pass after a narrow PostgreSQL version-header correction. Current
+development app-role superuser privileges, stale saved recovery-admin credentials,
+backup custody and named pilot authorization remain operational gates. No stock
+records or privileges were changed. See docs/erp/39_PILOT_READINESS_AND_FINAL_ACCEPTANCE.md.
+Final checks: 476 tests/65 files, four schema tests, typecheck and builds PASS.
 
 Branch: feature/kit-builder-milestone-1. Milestones 1–8 implemented. M8 implementation: 49c92487b163e15f928b98558b1ec1e00557ce93.
 

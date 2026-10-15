@@ -21,3 +21,4 @@ Open only the authority relevant to the task. Current user instructions and conf
 | Milestone 11 pilot acceptance and recovery | [Browser matrix](34_PILOT_BROWSER_ACCEPTANCE.md), [private attachments](35_PRIVATE_ATTACHMENTS_RUNBOOK.md), [shared labels](36_SHARED_LABEL_LAYOUTS_RUNBOOK.md), [security and recovery](37_PILOT_SECURITY_AND_RECOVERY.md) |
 | Quantity and fulfillment background | [Quantity engine](04_QUANTITY_ENGINE_SPEC.md), [inventory and fulfillment](05_INVENTORY_AND_FULFILLMENT.md); apply confirmed rules above |
 | Current slice and continuity | [Handoff](../../.agent/SESSION_HANDOFF.md), [next task](../../.agent/NEXT_TASK.md) |
+| Milestone 12 pilot readiness | [Final acceptance, baseline and controlled pilot](39_PILOT_READINESS_AND_FINAL_ACCEPTANCE.md) |
