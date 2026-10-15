@@ -1,9 +1,23 @@
 # ERP state — historical implementation notes
 
+## Milestone 13B — 2026-10-15
+
+Precision Operations and focused Packing/QC approved and implemented as a
+DEV-only, synthetic, memory-only prototype. Shell, My work, Kit Studio, floor QC
+and foundations are ready for user review. Radix Dialog selected after measured
+React Aria comparison. See docs/erp/ui-ux/MILESTONE_13B.md and acceptance record.
+No API/schema/calculator/ledger/RBAC/history changes. Current checks: 7 focused
+tests; repository 399 passed/84 skipped; typecheck/build pass. DB-enabled run:
+six suites fail on connection setup timeout; isolated PostgreSQL unavailable.
+Original login/view-toggle smoke passes; authenticated navigation unverified.
+Desktop/tablet browser checks completed; staff/device testing, full accessibility
+audit and 13C remain pending. Milestone 12 operational gates remain unresolved.
+No rollout authorized.
+
 ## Milestone 13A design strategy — 2026-10-15
 
-Discovery and documentation completed; design direction and UI implementation
-await user approval. See docs/erp/ui-ux/DECISION_BRIEF.md for three directions,
+Discovery and documentation completed; direction subsequently approved for
+bounded 13B only. See docs/erp/ui-ux/DECISION_BRIEF.md for three directions,
 recommended Precision Operations/focused packing, eight planning specifications,
 seven journeys and bounded 13B proposal. Read-only synthetic browser evidence is
 ignored locally; portable diagrams are committed. Document/link/SVG/scope checks

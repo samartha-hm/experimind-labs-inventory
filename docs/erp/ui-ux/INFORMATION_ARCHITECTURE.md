@@ -1,6 +1,6 @@
 # Proposed information architecture
 
-Approval pending. This reorganizes existing ERP capabilities; it does not add business modules, endpoints or permissions. Current state-driven tab navigation must remain reachable during incremental adoption.
+Approved as bounded 13B prototype navigation; wider adoption remains pending. See [implemented scope](MILESTONE_13B.md). This reorganizes existing ERP capabilities; it does not add business modules, endpoints or permissions. Current state-driven tab navigation must remain reachable during incremental adoption.
 
 | Primary destination | Contents / existing capability | Proposed role start |
 | --- | --- | --- |

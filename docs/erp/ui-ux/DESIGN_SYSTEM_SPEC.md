@@ -1,5 +1,7 @@
 # Design system specification
 
+13B status: [the implemented subset](MILESTONE_13B.md) uses scoped tokens and Radix Dialog. The broader proposal below is not globally adopted or staff/device accepted.
+
 Proposed foundation for Direction A, with a focused warehouse mode. Values are design candidates to validate, not claims of measured contrast or adopted dependencies. Keep existing React/TypeScript/Vite/Tailwind architecture and consolidate `src/index.css` tokens before adding parallel styling systems.
 
 ## Foundations

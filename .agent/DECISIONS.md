@@ -134,3 +134,18 @@ Project/site orders preserve demand revision and contribute incoming quantities 
 Dispatch exclusively claims immutable tenant-owned QC-ready package hierarchies. Custody events reference original packing picks and authoritative ledger entries. Dispatch, POD, returns, installation, closure and reprinting never deduct stock again. Returns quarantine unreceived physical packages without fabricating an inventory receipt.
 
 Current database roles, actor/input-bound idempotency, immutable revisions and project locks govern execution and acceptance. Completion evaluates every school and outstanding supply; explicit authorized exception closure records blockers and reason. Closed projects fence operational writes until audited reopening. Installation acceptance preserves assignment, checklist, issue, recipient and site traceability. Secure attachment storage and browser visual acceptance remain unavailable/pending; text acknowledgement and read-only manifests are implemented.
+
+## ADR-029 — Bounded Precision Operations foundation — IMPLEMENTED 2026-10-15
+
+The user approved Direction A with focused Packing/QC for Milestone 13B only.
+Use a DEV-only lazy preview with synthetic in-memory fixtures, scoped light/dark
+tokens and Radix Dialog 1.3.1. The measured minimal dialog bundle is smaller than
+React Aria Components 1.22.1; advanced collection controls remain a later decision.
+Quantity previews invoke the unchanged authoritative calculator. Approved fixture
+revisions remain independent. No API, schema, ledger, RBAC or historical changes.
+Existing ERP stays reachable; production does not expose the prototype.
+
+Browser prototype acceptance and frontend checks pass. Database-enabled regression
+and authenticated smoke remain blocked by unavailable isolated PostgreSQL/backend.
+No staff usability testing occurred. User review, device/accessibility validation
+and explicit 13C authorization precede wider integration. No rollout is approved.

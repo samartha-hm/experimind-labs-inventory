@@ -1,4 +1,4 @@
-import { StrictMode } from 'react';
+import { lazy, StrictMode, Suspense } from 'react';
 import { createRoot } from 'react-dom/client';
 import { registerSW } from 'virtual:pwa-register';
 import App from './App';
@@ -7,8 +7,11 @@ import { AuthProvider } from './AuthContext';
 import { UndoRedoProvider } from './contexts/UndoRedoContext';
 import './index.css';
 
+const isDesignPreview = import.meta.env.DEV && window.location.pathname === '/__design/13b';
+const PrecisionPreview = import.meta.env.DEV ? lazy(() => import('./design/precision/PrecisionPreview')) : null;
+
 // Safely register ServiceWorker with full error suppression for self-signed certificates / raw IPs
-if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
+if (!isDesignPreview && typeof window !== 'undefined' && 'serviceWorker' in navigator) {
   try {
     registerSW({
       immediate: true,
@@ -32,7 +35,9 @@ const isShop = typeof window !== 'undefined' &&
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    {isShop ? (
+    {isDesignPreview && PrecisionPreview ? (
+      <Suspense fallback={<p role="status">Loading design preview…</p>}><PrecisionPreview /></Suspense>
+    ) : isShop ? (
       <StorefrontApp />
     ) : (
       <AuthProvider>
