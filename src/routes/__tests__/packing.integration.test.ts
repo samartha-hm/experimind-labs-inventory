@@ -179,7 +179,7 @@ describe.skipIf(!url)("PostgreSQL packing acceptance",()=>{
     await prod("POST",`/orders/${o.id}/qc`,{revision:o.revision,package_ids:ids,decision:"accept",checks},403);
     await prod("POST",`/orders/${o.id}/qc`,{revision:o.revision,package_ids:ids,decision:"accept",checks:{...checks,stickers:false}},409,admin);
     await prod("POST",`/orders/${o.id}/qc`,{revision:o.revision,package_ids:ids,decision:"accept",checks:{material:true}},400,admin);
-    o=await prod("POST",`/orders/${o.id}/qc`,{revision:o.revision,package_ids:[leaf.id],decision:"reject",checks:{...checks,packaging:false},notes:"Damaged seal"},200,admin);
+    o=await prod("POST",`/orders/${o.id}/qc`,{revision:o.revision,package_ids:ids,decision:"reject",checks:{...checks,packaging:false},notes:"Damaged seal"},200,admin);
     expect(o.status).toBe("packing");expect(o.execution.progress[leaf.id].qc).toBe("rejected");
     await prod("POST",`/orders/${o.id}/qc`,{revision:o.revision,package_ids:[ids[0]],decision:"accept",checks},409,admin);
     o=await prod("POST",`/orders/${o.id}/checklist`,{revision:o.revision,package_ids:ids,assembled:true,notes:"Seal replaced and contents rechecked"});

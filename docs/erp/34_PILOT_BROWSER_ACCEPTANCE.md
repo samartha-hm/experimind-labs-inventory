@@ -1,13 +1,12 @@
 # Controlled local pilot — browser acceptance script
 
-Status: NOT RUN. HTTP coverage is not visual acceptance. Browser runtime investigation
-2026-10-14: agent module resolution fails with EPERM; an independent Node process
-can read the module. No Playwright dependency is installed. Investigation stopped
-after these two checks; the following manual path is the repeatable fallback.
+Status: browser acceptance executed 2026-10-15 in local Edge through Playwright.
+See [38_BROWSER_ACCEPTANCE_RESULTS.md](38_BROWSER_ACCEPTANCE_RESULTS.md) for results,
+fixes, evidence and limitations. Physical printing and printed QR scans remain pending.
 
 ## Preparation and evidence
 
-Milestone 11B: ready for human testing; no browser was operated by the agent.
+The manual preparation and acceptance matrix remain available for operator reruns.
 Run these commands in PowerShell from the existing checkout (not a fresh install):
 
 ```powershell

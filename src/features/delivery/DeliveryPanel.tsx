@@ -2,17 +2,18 @@ import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "../../AuthContext";
 import { apiFetch } from "../../utils/api";
 import type { PlanningView } from "../projects/planningTypes";
-import type { PackingDetail, PackingOrder } from "../packing/packingTypes";
+import type { PackingDetail, PackingOrder, PackingOrderSummary } from "../packing/packingTypes";
 import type { DeliveryOrder, CustodyEvent } from "./deliveryTypes";
 import type { CompletionProgress, InstallationJob } from "./completionTypes";
 import { deliveryManifestPDF } from "./deliveryManifest";
+import { dispatchRoots } from "./dispatchRoots";
 const input = "min-h-11 rounded-xl border border-slate-300 bg-transparent p-3";
 const button = "min-h-11 rounded-xl border border-slate-300 px-4 py-3 disabled:opacity-40";
 interface DeliveryDetail { order: DeliveryOrder; custody: CustodyEvent[]; history: unknown[] }
 export default function DeliveryPanel({ project }: { project: PlanningView }) {
   const { currentUser } = useAuth(), role = currentUser?.role ?? "";
   const approver = ["admin", "super_admin", "manager"].includes(role), writer = approver || ["staff", "inventory_staff", "production_staff", "project_staff", "editor"].includes(role);
-  const [orders, setOrders] = useState<DeliveryOrder[]>([]), [packing, setPacking] = useState<PackingOrder[]>([]), [allocation, setAllocation] = useState<PackingOrder>();
+  const [orders, setOrders] = useState<DeliveryOrder[]>([]), [packing, setPacking] = useState<PackingOrderSummary[]>([]), [allocation, setAllocation] = useState<PackingOrder>();
   const [detail, setDetail] = useState<DeliveryDetail>(), [progress, setProgress] = useState<CompletionProgress>();
   const [selected, setSelected] = useState<string[]>([]), [roots, setRoots] = useState<string[]>([]);
   const [carrier, setCarrier] = useState(""), [vehicle, setVehicle] = useState(""), [date, setDate] = useState(new Date().toISOString().slice(0, 10));
@@ -25,7 +26,7 @@ export default function DeliveryPanel({ project }: { project: PlanningView }) {
   const tasks = useMemo(() => checklist.split("\n").map(v => v.trim()).filter(Boolean).map(label => ({ id: crypto.randomUUID(), label, required: true })), [checklist]);
   const order = detail?.order, closed = progress?.completion?.status === "closed";
   async function load() {
-    const [o, p, ready]: [DeliveryOrder[], CompletionProgress, PackingOrder[]] = await Promise.all([apiFetch(`/api/v1/delivery?project_id=${project.id}`), apiFetch(`/api/v1/delivery/projects/${project.id}`), apiFetch("/api/v1/packing")]);
+    const [o, p, ready]: [DeliveryOrder[], CompletionProgress, PackingOrderSummary[]] = await Promise.all([apiFetch(`/api/v1/delivery?project_id=${project.id}`), apiFetch(`/api/v1/delivery/projects/${project.id}`), apiFetch("/api/v1/packing")]);
     setOrders(o); setProgress(p); setPacking(ready.filter(v => v.project_id === project.id && v.status === "ready"));
   }
   async function run(work: () => Promise<unknown>) { setBusy(true); setError(""); try { await work(); await load(); } catch (e) { setError(e instanceof Error ? e.message : "Delivery operation failed"); } finally { setBusy(false); } }
@@ -49,7 +50,7 @@ export default function DeliveryPanel({ project }: { project: PlanningView }) {
     </div>
     {approver && !closed && <details><summary className="cursor-pointer py-3">Create school dispatch plan</summary><div className="space-y-2">
       <select className={input} aria-label="QC approved allocation" value={allocation?.id ?? ""} disabled={busy} onChange={e => { const id = e.target.value; setAllocation(undefined); setRoots([]); if (id) void run(async () => { const d: PackingDetail = await apiFetch(`/api/v1/packing/orders/${id}`); setAllocation(d.order); }); }}><option value="">Choose QC Ready school allocation</option>{packing.map(p => <option key={p.id} value={p.id}>{project.sites.find(s => s.id === p.site_id)?.name} · {p.batch_code}</option>)}</select>
-      {allocation?.snapshot.packages.filter(p => p.kind === "kit").map(p => { const claimed = orders.some(o => o.manifest.some(v => v.id === p.id)); return <label key={p.id} className="block py-2"><input type="checkbox" disabled={busy || claimed} checked={roots.includes(p.id)} onChange={() => setRoots(toggle(roots, p.id))} /> {p.code} · {p.name}{claimed ? " · Already allocated" : ""}</label>; })}
+      {(allocation ? dispatchRoots(allocation.snapshot.packages) : []).map(p => { const claimed = orders.some(o => o.manifest.some(v => v.id === p.id)); return <label key={p.id} className="block py-2"><input type="checkbox" disabled={busy || claimed} checked={roots.includes(p.id)} onChange={() => setRoots(toggle(roots, p.id))} /> {p.code} · {p.name}{claimed ? " · Already allocated" : ""}</label>; })}
       <input className={input} aria-label="Transport carrier" placeholder="Carrier" value={carrier} onChange={e => setCarrier(e.target.value)} />
       <input className={input} aria-label="Transport vehicle" placeholder="Vehicle" value={vehicle} onChange={e => setVehicle(e.target.value)} />
       <input className={input} aria-label="Planned dispatch date" type="date" value={date} onChange={e => setDate(e.target.value)} />

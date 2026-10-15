@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useAuth } from "../../AuthContext";
 import { apiFetch } from "../../utils/api";
 import type { PlanningView } from "../projects/planningTypes";
-import { actualMaterials, qcChecks, type PackingDetail, type PackingOrder } from "./packingTypes";
+import { actualMaterials, qcChecks, type PackingDetail, type PackingOrderSummary } from "./packingTypes";
 import { PackingLabelsPanel } from "./PackingLabelsPanel";
 
 const input = "min-h-11 rounded-xl border border-slate-300 bg-transparent p-3";
@@ -11,7 +11,7 @@ export default function PackingPanel({ project }: { project?: PlanningView }) {
   const { currentUser } = useAuth(), role = currentUser?.role ?? "";
   const writer = ["admin", "super_admin", "manager", "staff", "inventory_staff", "production_staff", "project_staff", "editor"].includes(role);
   const approver = ["admin", "super_admin", "manager"].includes(role), inspector = approver || role === "inventory_staff";
-  const [orders, setOrders] = useState<PackingOrder[]>([]), [detail, setDetail] = useState<PackingDetail>();
+  const [orders, setOrders] = useState<PackingOrderSummary[]>([]), [detail, setDetail] = useState<PackingDetail>();
   const [busy, setBusy] = useState(false), [error, setError] = useState("");
   const [site, setSite] = useState(""), [batch, setBatch] = useState("");
   const [team, setTeam] = useState(""), [employee, setEmployee] = useState("");
@@ -38,7 +38,7 @@ export default function PackingPanel({ project }: { project?: PlanningView }) {
       <input aria-label="Packing batch code" placeholder="Batch code" className={input} value={batch} onChange={e=>setBatch(e.target.value)}/>
       <button className={button} disabled={busy || !site || !batch.trim()} onClick={()=>void run(async()=>{const o=await write("/orders",{project_id:project.id,site_id:site,demand_revision:project.revision,batch_code:batch});await open(o.id);setSelected([]);})}>Generate packing order</button>
     </div>}
-    <div className="flex flex-wrap gap-2">{orders.filter(o=>!project || o.project_id===project.id).map(o=><button className={button} disabled={busy} key={o.id} onClick={()=>void run(async()=>{await open(o.id);setSelected([]);})}>{o.snapshot.site_name || o.number} · {o.batch_code} · {o.status === "ready" ? "Ready for Delivery" : o.status}</button>)}</div>
+    <div className="flex flex-wrap gap-2">{orders.filter(o=>!project || o.project_id===project.id).map(o=><button className={button} disabled={busy} key={o.id} onClick={()=>void run(async()=>{await open(o.id);setSelected([]);})}>{o.site_name || o.number} · {o.batch_code} · {o.status === "ready" ? "Ready for Delivery" : o.status}</button>)}</div>
     {order && <>
       <p>{order.number} · {order.snapshot.project_name} / {order.snapshot.site_name} · revision {order.revision} · <strong>{order.status === "ready" ? "Ready for Delivery" : order.status}</strong></p>
       <p className="text-sm">Assigned: {order.assigned_team || "No team"} · {order.assigned_employee_id || "No operator"}</p>

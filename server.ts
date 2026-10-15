@@ -141,7 +141,8 @@ async function startServer() {
   const authLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: env.nodeEnv === "production" ? 100 : 1000, standardHeaders: true });
   const aiLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 30, message: { error: "AI analysis rate limit exceeded. Please try again later." } });
 
-  app.use(globalLimiter);
+  // Development asset requests must not consume the API request budget.
+  app.use("/api", globalLimiter);
 
   // High-speed HTTP Gzip/Deflate compression
   app.use(compression());

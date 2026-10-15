@@ -9,6 +9,7 @@ export interface PackingOrder { id:string; organization_id:string; project_id:st
 export interface PackingPick { id:string; organization_id:string; order_id:string; item_id:string; quantity:string; unit:string; location:string; ledger_id:string; reservation_id:string|null; source_movements:{id:string;quantity:string}[]; picked_by:string; created_at:string }
 export interface PackingMaterialSummary { item_id:string; name:string; unit:string; planned:string; picked:string; assembled:string; checked:string; completed:string; remaining:string; stock_status:"verified"|"unverified"; available:string|null; shortage:string|null }
 export interface PackingDetail { order:PackingOrder; picks:PackingPick[]; materials:PackingMaterialSummary[]; history:{actor_id:string;revision:number;created_at:string;snapshot:unknown}[] }
+export type PackingOrderSummary = Pick<PackingOrder, "id" | "number" | "status" | "revision" | "batch_code" | "project_id" | "site_id" | "assigned_team" | "updated_at"> & { project_name:string; site_name:string };
 export function actualMaterials(order:PackingOrder,packageId:string):PackMaterial[]{
   let materials=(order.snapshot.packages.find(p=>p.id===packageId)?.materials??[]).map(m=>({...m}));
   for(const c of order.execution.changes.filter(c=>c.package_id===packageId)){

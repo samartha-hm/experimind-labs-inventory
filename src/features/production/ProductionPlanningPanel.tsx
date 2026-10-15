@@ -18,8 +18,8 @@ export default function ProductionPlanningPanel({project,onChange}:{project?:Pla
   const [recipeId,setRecipeId]=useState(""),[quantity,setQuantity]=useState(""),[unit,setUnit]=useState(""),[team,setTeam]=useState(""),[employee,setEmployee]=useState(""),[due,setDue]=useState(""),[priority,setPriority]=useState("normal"),[site,setSite]=useState(project?.sites[0]?.id??"");
   const [allocation,setAllocation]=useState(""),[batchId,setBatchId]=useState(""),[batchCode,setBatchCode]=useState(""),[location,setLocation]=useState(""),[scrap,setScrap]=useState("0"),[notes,setNotes]=useState("");
   async function load(){const [d,i]=await Promise.all([apiFetch("/api/v1/production-planning"),apiFetch("/api/v1/stocktakes/inventory")]);setRecipes(d.recipes);setOrders(d.orders);setItems(i);}
-  async function run(work:()=>Promise<void>){setBusy(true);setError("");try{await work();await load();onChange?.();}catch(e){setError(e instanceof Error?e.message:"Production operation failed");}finally{setBusy(false);}}
-  useEffect(()=>{void run(load);},[]);
+  async function run(work:()=>Promise<void>,mutates=true){setBusy(true);setError("");try{await work();if(mutates){await load();onChange?.();}}catch(e){setError(e instanceof Error?e.message:"Production operation failed");}finally{setBusy(false);}}
+  useEffect(()=>{void run(load,false);},[]);
   async function open(id:string){setDetail(await apiFetch(`/api/v1/production-planning/orders/${id}`));setAllocation("");setBatchId("");}
   async function write(path:string,body:unknown,method="POST"){const fingerprint=JSON.stringify([path,body,method]),key=retryKeys.get(fingerprint)??crypto.randomUUID();retryKeys.set(fingerprint,key);const result=await apiFetch("/api/v1/production-planning"+path,{method,headers:{"Idempotency-Key":key},body:JSON.stringify(body)});retryKeys.delete(fingerprint);return result;}
   const def=():RecipeDefinition=>({output_item_id:output,yield_quantity:yieldQ,unit:items.find(i=>i.id===output)?.unit??"",inputs,instructions,specification,concentration});
