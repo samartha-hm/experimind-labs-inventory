@@ -22,3 +22,4 @@ Open only the authority relevant to the task. Current user instructions and conf
 | Quantity and fulfillment background | [Quantity engine](04_QUANTITY_ENGINE_SPEC.md), [inventory and fulfillment](05_INVENTORY_AND_FULFILLMENT.md); apply confirmed rules above |
 | Current slice and continuity | [Handoff](../../.agent/SESSION_HANDOFF.md), [next task](../../.agent/NEXT_TASK.md) |
 | Milestone 12 pilot readiness | [Final acceptance, baseline and controlled pilot](39_PILOT_READINESS_AND_FINAL_ACCEPTANCE.md) |
+| Milestone 13A UX discovery — proposals awaiting approval | [Decision brief](ui-ux/DECISION_BRIEF.md), [current-state audit](ui-ux/CURRENT_STATE_AUDIT.md), [workspace specifications](ui-ux/PRIORITY_WORKSPACE_SPECS.md), [roadmap](ui-ux/PHASED_IMPLEMENTATION_ROADMAP.md) |
