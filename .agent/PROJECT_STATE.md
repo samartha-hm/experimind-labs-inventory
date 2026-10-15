@@ -1,5 +1,17 @@
 # ERP state — historical implementation notes
 
+## Milestone 13A design strategy — 2026-10-15
+
+Discovery and documentation completed; design direction and UI implementation
+await user approval. See docs/erp/ui-ux/DECISION_BRIEF.md for three directions,
+recommended Precision Operations/focused packing, eight planning specifications,
+seven journeys and bounded 13B proposal. Read-only synthetic browser evidence is
+ignored locally; portable diagrams are committed. Document/link/SVG/scope checks
+passed. No application, API, database, inventory or permission change; no fresh
+backend regression or concept usability test. Milestone 12 operational and
+physical-print gates below remain unresolved. Historical results below are not
+new 13A verification.
+
 ## Current acceptance status — 2026-10-15
 
 Milestone 12 pilot preparation completed; rollout is not approved. A01–A16 prior
