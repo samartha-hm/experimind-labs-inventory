@@ -1,29 +1,31 @@
-# Milestone 13A — UX discovery, 2026-10-15
+# Milestone 13B — interactive design review, 2026-10-15
 
-Branch feature/kit-builder-milestone-1. Strategy checkpoint
-bc3b6b852a54d7f6dc71c8caf6fd0c34e9ccb861 pushed; local/remote HEAD matched.
+Branch feature/kit-builder-milestone-1. Implementation checkpoint
+80c826d601e4b3295ee6f3f0c0e0f5f5f2ba00db pushed; local/remote hashes matched.
 Resolve final continuity SHA with git rev-parse HEAD and git ls-remote origin
 refs/heads/feature/kit-builder-milestone-1.
 
-Read docs/erp/ui-ux/DECISION_BRIEF.md. Eight planning documents cover current
-evidence, seven staff journeys, references, IA, design system, four workspaces,
-quality gates and phased delivery. Three visual directions; recommended Precision
-Operations with focused packing mode. All are proposals awaiting user approval;
-no UI, API, schema, ledger or RBAC changes. No staff interviews/concept tests.
+Direction A, Precision Operations, implemented as a DEV-only synthetic preview
+at /__design/13b with #work, #kit, #packing and #foundation workspaces. State is
+memory-only. Original API/schema/calculator/ledger/RBAC remain unchanged.
+Radix dialogs selected after measured comparison; broader adoption is pending.
+Read docs/erp/ui-ux/MILESTONE_13B.md and MILESTONE_13B_ACCEPTANCE.md.
 
-Verified: nine required documents, 24 local Markdown links, two well-formed SVGs
-with accessible descriptions and no scripts/external resources, staged whitespace
-and docs-only scope. Five synthetic browser captures remain ignored under
-.local-dev/ux-discovery; evidence register records coverage and limits. No fresh
-backend suite/build or A01–A16 rerun for docs-only work. Prior results remain
-historical. Modified docs/erp/ui-ux and INDEX, then continuity files.
+Verified: seven fixture tests; repository run 399 passed/84 skipped; typecheck;
+production build; preview excluded from production entry; desktop/tablet browser
+flows, focus/Escape, draft/conflict, quantity validation and sample QC gating.
+Five inspected screenshots, hashes and command logs remain ignored under
+.local-dev/ux-13b. Original sign-in and registration view toggle work without
+submission. DB-enabled run failed six integration suites on connection timeouts;
+isolated PostgreSQL/backend unavailable. Authenticated ERP smoke remains blocked.
+No staff, physical-device, screen-reader or full WCAG acceptance occurred.
 
-Next: obtain direction/IA and bounded 13B foundation/prototype approval before
-implementing UI. Staff terminology, handoffs, scanner/device use remain untested.
-Preserve unrelated AGENTS.md changes. Use /new or /compact for implementation.
+Changed src/design/precision, main.tsx, package/lock, bundle-measurement script,
+UX docs, INDEX and project/decision records; then these continuity files.
+Preserve unrelated unstaged AGENTS.md edits and ignored evidence.
 
-Milestone 12 gates remain: physical print/scan evidence pending; development app
-SUPERUSER/CREATEDB, stale recovery-admin secret, backup custody and named pilot
-authorization unresolved. Historical/current database continuity is unproven.
-See docs/erp/39_PILOT_READINESS_AND_FINAL_ACCEPTANCE.md for retained/current
-recovery evidence. No real stock activation, merge, deployment or rollout.
+Next: user reviews 13B and decides the bounded 13C proposal. No 13C implementation,
+main merge, deployment or operational entry authorized. Milestone 12 physical
+print/scan, privileges, stale recovery-admin secret, backup custody, named pilot
+approval and database continuity gates remain unresolved. Use /new or /compact
+for the next approved slice.
