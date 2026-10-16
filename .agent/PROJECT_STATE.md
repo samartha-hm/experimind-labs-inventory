@@ -154,3 +154,18 @@ Supersedes the earlier Milestone 9 stop instruction: user authorized implementat
 Fresh final verification: 438 tests/59 files, typecheck and frontend/PWA/server builds PASS. HTTP/PostgreSQL synthetic School A six common/two universal crates; School B three common/zero universal; exceptions corrected, QC rejection/rework/reinspection and labels exercised; both Ready after authorized QC. Printing leaves package records and stock unchanged. Bidirectional pick/ledger reconciliation zero mismatches; verified synthetic balance 15.2 m. Development inventory nine rows and historical ledger twelve rows preserve fingerprints.
 
 Packing/readiness migrations 1791849600007/1791936000008 applied to isolated development only; final run no-op. Browser visual and physical print acceptance remain PENDING due to recorded runtime EPERM. Labels use configurable tenant-specific browser-local layouts; QR requires current-user authentication and tenant ownership. No dispatch/Milestone 10, main merge or deployment.
+
+## Milestone 13I — 2026-10-16
+
+Bounded inspection rejection implemented on the feature branch; implementation
+4db266869500f1c434e3a6eb883193477449351b pushed and remote verified.
+Six explicit checks, actor/inspector provenance and guarded single-package
+rejection reuse authoritative QC transactions. Final acceptance/readiness,
+legacy QMS/RMA/signatures and dispatch remain blocked for review.
+532 tests/73 files, typecheck and frontend/PWA/server builds pass. Desktop and
+768px tablet-frame axe zero violations/incomplete; lost-response replay and
+cross-tab consistency pass. Exactly two synthetic rejection events; fourteen
+operational fingerprints unchanged. Flag-off preserves identical legacy records;
+no migration. Physical scanner/printer/tablet, staff and assistive-device testing
+pending. See MILESTONE_13I_ACCEPTANCE.md and MILESTONE_13I_CONTRACT_MATRIX.md.
+Stop before further operational integration, main merge or deployment.
