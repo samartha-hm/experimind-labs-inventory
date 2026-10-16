@@ -1,6 +1,21 @@
 # ERP state — historical implementation notes
 
-## Milestone 13E — 2026-10-16 — current
+## Milestone 13F — 2026-10-16 — current
+
+Supported Studio lifecycle completed: saved completeness review, authoritative
+quantity preview, confirmed immutable approval, provenance/history/comparison and
+continuing existing draft. Existing tenant/RBAC, locking and idempotence retained;
+unsupported rejection/correction/clone transitions disclosed. No migration,
+calculator or operational inventory changes. Full suite 523/523, 71 files;
+typecheck/build pass. Standalone Edge desktop/tablet/reflow scoped axe: zero
+violations/incomplete. Complex synthetic fixture and operational fingerprints pass;
+flag-off legacy rollback passes. Local flags left off. Implementation checkpoint
+497d8acde6b7ee59caea74c013bc623610453af8 pushed and verified.
+See MILESTONE_13F_INTEGRATION.md and MILESTONE_13F_ACCEPTANCE.md.
+Manual device/staff/assistive acceptance and earlier Milestone 12 gates remain open.
+Stop after 13F: no further implementation, Packing/QC, merge or deployment.
+
+## Milestone 13E — 2026-10-16 — historical
 
 Bounded existing-draft editing integrated behind the additional default-off
 KIT_STUDIO_DRAFT_EDITING flag. Existing tenant/role checks, transactional revision
