@@ -1,13 +1,12 @@
-# Next bounded task — review Milestone 13D
+# Next bounded task — review Milestone 13E
 
-Review the live read-only Kit Studio, MILESTONE_13D_INTEGRATION.md and
-MILESTONE_13D_ACCEPTANCE.md. Verify development flag activation with an existing
-allowlisted organization and record user feedback on contract gaps. The local
-server is left flag-off. Preserve pending staff/device/assistive testing.
+Review controlled existing-draft editing and MILESTONE_13E_ACCEPTANCE.md alongside
+MILESTONE_13E_INTEGRATION.md. Both Studio flags are off on the local review server.
+Record user feedback and complete manual staff/tablet/screen-reader/actual zoom
+acceptance before proposing another slice. Preserve the legacy default, server
+tenant/role authority, stale-write rejection and immutable approved snapshots.
 
-Recommend a separately approved read-only site/set context and authoritative
-quantity-trace slice, plus approval metadata/pagination. Do not implement it yet.
-Stop for review before write-enabled Kit Studio, Packing/QC, ERP migration,
-main merge, deployment or pilot activation. Preserve unrelated AGENTS.md edits
-and ignored evidence. Existing Milestone 12 gates remain in PROJECT_STATE.md.
-Use /new or /compact for the next approved slice.
+Stop before approval/publishing integration, Packing/QC live migration, additional
+workspaces, main merge, deployment or pilot activation. No further implementation
+authorized. Preserve unrelated AGENTS.md edits and ignored browser evidence.
+Milestone 12 gates remain open in PROJECT_STATE.md. Use /new or /compact.
