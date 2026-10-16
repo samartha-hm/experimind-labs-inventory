@@ -1,6 +1,24 @@
 # ERP state — historical implementation notes
 
-## Milestone 13B — 2026-10-15
+## Milestone 13C — 2026-10-16 — current
+
+User-authorized DEV-only synthetic refinement completed; awaiting design review.
+Kit Studio preserves education/BOM/packaging context on tablets, explicit shared
+ownership, quantity tracing and revision recovery. Packing/QC separates rejection,
+correction, reinspection and reviewer approval with retained exceptions.
+No operational route/API/schema/calculator/ledger/RBAC/history changes.
+
+Isolated PostgreSQL reconnected safely: all 84 skipped tests recovered; full suite
+492 passed, zero failed/pending, 67 files. Authenticated navigation smoke, typecheck
+and frontend/PWA/server builds pass. Eleven browser groups and six axe audits
+pass with zero automated violations. Evidence: .local-dev/ux-13c.
+Manual staff/device/scanner, assistive-technology and actual zoom testing remain.
+See docs/erp/ui-ux/MILESTONE_13C_ACCEPTANCE.md and MILESTONE_13C_INTEGRATION.md.
+Read-only integration is proposed, not implemented or approved. The 13B database
+blockers below are historical and recovered; Milestone 12 gates remain unresolved.
+No rollout authorized.
+
+## Milestone 13B — 2026-10-15 (historical)
 
 Precision Operations and focused Packing/QC approved and implemented as a
 DEV-only, synthetic, memory-only prototype. Shell, My work, Kit Studio, floor QC

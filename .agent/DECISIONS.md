@@ -149,3 +149,17 @@ Browser prototype acceptance and frontend checks pass. Database-enabled regressi
 and authenticated smoke remain blocked by unavailable isolated PostgreSQL/backend.
 No staff usability testing occurred. User review, device/accessibility validation
 and explicit 13C authorization precede wider integration. No rollout is approved.
+
+## ADR-030 — Refined prototype and integration gate — 2026-10-16
+
+The user approved Precision Operations and authorized 13C refinement/verification
+with synthetic DEV-only state. Education/BOM/physical mapping stay linked, shared
+ownership is explicit and the calculator remains unchanged. QC correction and
+reinspection remain distinct from reviewer approval. All 84 database tests and
+authenticated smoke recovered; ADR-029's blocker is historical.
+
+The proposed next surface is read-only Kit Studio behind a default-off server
+flag and organization allowlist, using existing tenant-scoped authenticated reads.
+This is documentation, not integration authorization. User design review and
+explicit approval precede implementation. No operational route change, merge,
+deployment or pilot activation is authorized by prototype acceptance.

@@ -1,10 +1,10 @@
-# Next bounded task — review Milestone 13B
+# Next bounded task — review Milestone 13C
 
-Review the local DEV prototype using docs/erp/ui-ux/MILESTONE_13B.md and its
-acceptance report. Obtain the user's design decision and explicit authorization
-for the proposed bounded 13C slice before changing additional operational UI.
-Record concrete review findings; preserve pending staff/device and backend
-validation as pending. Do not infer approval from completed prototype checks.
+Review the refined DEV prototype using docs/erp/ui-ux/MILESTONE_13C.md,
+MILESTONE_13C_ACCEPTANCE.md and MILESTONE_13C_INTEGRATION.md. Record the user's
+design decision and decision on the bounded read-only integration proposal.
+Obtain explicit approval before operational integration. Preserve pending
+staff/device and assistive-technology testing as pending.
 
 Preserve unrelated AGENTS.md edits and ignored local evidence. No main merge,
 deployment, pilot activation or operational records are authorized. Existing
