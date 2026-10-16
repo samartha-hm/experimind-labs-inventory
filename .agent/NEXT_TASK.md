@@ -1,11 +1,13 @@
-# Next bounded task — review Milestone 13C
+# Next bounded task — review Milestone 13D
 
-Review the refined DEV prototype using docs/erp/ui-ux/MILESTONE_13C.md,
-MILESTONE_13C_ACCEPTANCE.md and MILESTONE_13C_INTEGRATION.md. Record the user's
-design decision and decision on the bounded read-only integration proposal.
-Obtain explicit approval before operational integration. Preserve pending
-staff/device and assistive-technology testing as pending.
+Review the live read-only Kit Studio, MILESTONE_13D_INTEGRATION.md and
+MILESTONE_13D_ACCEPTANCE.md. Verify development flag activation with an existing
+allowlisted organization and record user feedback on contract gaps. The local
+server is left flag-off. Preserve pending staff/device/assistive testing.
 
-Preserve unrelated AGENTS.md edits and ignored local evidence. No main merge,
-deployment, pilot activation or operational records are authorized. Existing
-Milestone 12 gates remain in PROJECT_STATE.md. Use /new or /compact after review.
+Recommend a separately approved read-only site/set context and authoritative
+quantity-trace slice, plus approval metadata/pagination. Do not implement it yet.
+Stop for review before write-enabled Kit Studio, Packing/QC, ERP migration,
+main merge, deployment or pilot activation. Preserve unrelated AGENTS.md edits
+and ignored evidence. Existing Milestone 12 gates remain in PROJECT_STATE.md.
+Use /new or /compact for the next approved slice.
