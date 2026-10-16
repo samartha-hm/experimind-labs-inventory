@@ -1,6 +1,24 @@
 # ERP state — historical implementation notes
 
-## Milestone 13G — 2026-10-16 — current
+## Milestone 13H — 2026-10-16 — current
+
+Bounded package assembly/reset and exception report/correction integrated behind
+additional default-off execution flag. Existing tenant/current-role, revision
+locking, idempotency and audit contracts retained; accepted package/ancestor
+mutations blocked inside transaction. Measured quantities, QC, dispatch, stock,
+picking, lifecycle and approved requirement writes unavailable. Legacy stays default.
+Full suite 529/529 in 72 files with maxWorkers=2 and 30-second budget; typecheck
+and frontend/PWA/server builds pass. Edge desktop/tablet/reflow scoped axe zero
+violations/incomplete; keyboard, lost-response reload/replay and cross-tab pass.
+Seven operational table fingerprints unchanged; three authorized synthetic audit
+events correctly attributed. Actual flag-off legacy detail matches saved records.
+No migration or persisted flags; temporary acceptance server stopped. Implementation
+288ff84dda3bb7bfa07516a8ea4f24c79f800eb5 pushed and verified.
+See MILESTONE_13H_ACCEPTANCE.md and MILESTONE_13H_CONTRACT_MATRIX.md.
+Physical devices/staff/assistive acceptance and earlier Milestone12 gates pending.
+Stop for review before QC or further operational writes, main merge or deployment.
+
+## Milestone 13G — 2026-10-16 — historical
 
 Authenticated read-only Packing/QC foundation completed behind independent
 default-off development/test organization flags. Legacy operational panel remains
