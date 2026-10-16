@@ -2,6 +2,11 @@ import type { PhysicalPackage } from './packingPlan';
 import type { PackingOrder } from './packingTypes';
 
 export const packingWriters = new Set(['admin', 'super_admin', 'manager', 'staff', 'inventory_staff', 'production_staff', 'project_staff', 'editor']);
+export const packingInspectors = new Set(['admin', 'super_admin', 'manager', 'inventory_staff']);
+export function packingInspectionBlocker(order: PackingOrder, packageId: string, role: string): string | null {
+  if (!packingInspectors.has(role)) return 'Inspection requires an authorized packing inspector.';
+  return packingExecutionBlocker(order, packageId) ?? (!order.execution.progress[packageId]?.assembled ? 'Assemble the package before inspection.' : null);
+}
 export function packingExecutionEnabled(org: string, env: Record<string, string | undefined>): boolean {
   return packingWorkspaceEnabled(org, env) && env.PACKING_WORKSPACE_EXECUTION === 'true';
 }

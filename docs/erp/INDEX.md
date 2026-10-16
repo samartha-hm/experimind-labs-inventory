@@ -29,3 +29,4 @@ Open only the authority relevant to the task. Current user instructions and conf
 | Milestone 13F — supported lifecycle review | [Integration and rollback](ui-ux/MILESTONE_13F_INTEGRATION.md), [acceptance](ui-ux/MILESTONE_13F_ACCEPTANCE.md) |
 | Milestone 13G — read-only Packing/QC review | [Contract and rollback](ui-ux/MILESTONE_13G_CONTRACT_AUDIT.md), [acceptance](ui-ux/MILESTONE_13G_ACCEPTANCE.md), [future writes proposal](ui-ux/MILESTONE_13G_WRITE_PROPOSAL.md) |
 | Milestone 13H — bounded packing execution review | [Supported contracts and rollback](ui-ux/MILESTONE_13H_CONTRACT_MATRIX.md), [acceptance and reconciliation](ui-ux/MILESTONE_13H_ACCEPTANCE.md) |
+| Milestone 13I — bounded inspection rejection review | [Transition contracts](ui-ux/MILESTONE_13I_CONTRACT_MATRIX.md), [acceptance and reconciliation](ui-ux/MILESTONE_13I_ACCEPTANCE.md) |

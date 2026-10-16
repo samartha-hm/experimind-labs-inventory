@@ -185,7 +185,41 @@ describe.skipIf(!url)("PostgreSQL packing acceptance",()=>{
     await prod("POST",`/orders/${o.id}/qc`,{revision:o.revision,package_ids:ids,decision:"accept",checks},403);
     await prod("POST",`/orders/${o.id}/qc`,{revision:o.revision,package_ids:ids,decision:"accept",checks:{...checks,stickers:false}},409,admin);
     await prod("POST",`/orders/${o.id}/qc`,{revision:o.revision,package_ids:ids,decision:"accept",checks:{material:true}},400,admin);
-    o=await prod("POST",`/orders/${o.id}/qc`,{revision:o.revision,package_ids:ids,decision:"reject",checks:{...checks,packaging:false},notes:"Damaged seal"},200,admin);
+    const inspectionFlags=['PACKING_WORKSPACE_READ_ONLY','PACKING_WORKSPACE_EXECUTION','PACKING_WORKSPACE_ORGANIZATIONS'],oldInspectionFlags=inspectionFlags.map(k=>process.env[k]);
+    try {
+      Object.assign(process.env,{PACKING_WORKSPACE_READ_ONLY:'true',PACKING_WORKSPACE_EXECUTION:'true',PACKING_WORKSPACE_ORGANIZATIONS:maker.organization_id+','+other.organization_id});
+      const endpoint=`/workspace/orders/${o.id}/inspection-rejection`;
+      const rejection={revision:o.revision,package_ids:[leaf.id],decision:'reject',checks:{...checks,packaging:false},notes:'Damaged seal'};
+      const tables=['inventory_items','stock_ledger','project_stock_reservations','packing_picks','planning_projects','planning_sites','product_template_versions','production_work_orders','production_input_reservations','production_input_issues','production_batches','production_qc_decisions','delivery_orders','delivery_package_claims'];
+      const fingerprint=async()=>Promise.all(tables.map(t=>db.query(`SELECT md5(coalesce(string_agg(row_to_json(t)::text,'' ORDER BY row_to_json(t)::text),'')) hash FROM ${t} t`)));
+      const stateBefore=await fingerprint(),detailBefore=await prod('GET',`/orders/${o.id}`);
+      const peer=await db.getRepository(User).save({name:'Second inspector',email:'second-inspector@test.invalid',role:'manager',organization_id:admin.organization_id,firebase_uid:null});
+      await prod('POST',endpoint,rejection,403,maker);
+      await prod('POST',endpoint,rejection,403,viewer);
+      await prod('POST',endpoint,rejection,404,other);
+      await prod('POST',endpoint,{...rejection,notes:'   '},400,admin);
+      await prod('POST',endpoint,{...rejection,checks:{material:true}},400,admin);
+      await prod('POST',endpoint,{...rejection,decision:'accept'},409,admin);
+      await prod('POST',`/workspace/orders/${o.id}/qc`,{...rejection,decision:'accept'},405,admin);
+      const raceKey=randomUUID(),peerKey=randomUUID();
+      const submit=(u:User,k:string)=>fetch(base+'/api/v1/packing'+endpoint,{method:'POST',headers:{Authorization:`Bearer ${token(u)}`,'Content-Type':'application/json','Idempotency-Key':k},body:JSON.stringify(rejection)});
+      const race=await Promise.all([submit(admin,raceKey),submit(peer,peerKey)]);
+      expect(race.map(r=>r.status).sort()).toEqual([200,409]);
+      const winner=race[0].status===200?admin:peer,winnerKey=winner===admin?raceKey:peerKey;
+      o=await race.find(r=>r.status===200)!.json();
+      const replays=await Promise.all([prod('POST',endpoint,rejection,200,winner,winnerKey),prod('POST',endpoint,rejection,200,winner,winnerKey)]);
+      expect(replays).toEqual([o,o]);
+      await prod('POST',endpoint,{...rejection,notes:'Altered retry'},409,winner,winnerKey);
+      await prod('POST',endpoint,rejection,409,admin);
+      const detailAfter=await prod('GET',`/orders/${o.id}`);
+      expect(detailAfter.history.length).toBe(detailBefore.history.length+1);
+      expect(detailAfter.history[0].actor_id).toBe(winner.id);
+      expect(o.execution.progress[leaf.id].checked_by).toBe(winner.id);
+      expect(o.snapshot).toEqual(detailBefore.order.snapshot);
+      expect(o.execution.exceptions).toEqual(detailBefore.order.execution.exceptions);
+      expect(await fingerprint()).toEqual(stateBefore);
+      expect(o.status).toBe('packing');
+    } finally {inspectionFlags.forEach((k,i)=>{if(oldInspectionFlags[i]===undefined)delete process.env[k];else process.env[k]=oldInspectionFlags[i];});}
     expect(o.status).toBe("packing");expect(o.execution.progress[leaf.id].qc).toBe("rejected");
     await prod("POST",`/orders/${o.id}/qc`,{revision:o.revision,package_ids:[ids[0]],decision:"accept",checks},409,admin);
     o=await prod("POST",`/orders/${o.id}/checklist`,{revision:o.revision,package_ids:ids,assembled:true,notes:"Seal replaced and contents rechecked"});
@@ -197,6 +231,7 @@ describe.skipIf(!url)("PostgreSQL packing acceptance",()=>{
       const beforeProtected=await prod('GET',`/orders/${o.id}`);
       await prod('POST',`/workspace/orders/${o.id}/checklist`,{revision:o.revision,package_ids:[leaf.id],assembled:false,notes:'Cannot reset accepted evidence'},409);
       await prod('POST',`/workspace/orders/${o.id}/exceptions`,{revision:o.revision,package_id:leaf.id,kind:'other',notes:'Cannot reset accepted evidence'},409);
+      await prod('POST',`/workspace/orders/${o.id}/inspection-rejection`,{revision:o.revision,package_ids:[leaf.id],decision:'reject',checks,notes:'Cannot reject accepted evidence'},409,admin);
       expect(await prod('GET',`/orders/${o.id}`)).toEqual(beforeProtected);
     } finally {flags.forEach((k,i)=>{if(savedFlags[i]===undefined)delete process.env[k];else process.env[k]=savedFlags[i];});}
     const qcBody={revision:o.revision,package_ids:ids.filter(id=>id!==leaf.id),decision:"accept",checks},qcKey=randomUUID();
@@ -383,7 +418,7 @@ describe.skipIf(!url)("PostgreSQL packing acceptance",()=>{
     const keys = ['PACKING_WORKSPACE_READ_ONLY', 'PACKING_WORKSPACE_ORGANIZATIONS'];
     const previous = keys.map(k => process.env[k]);
     const tables = ['inventory_items', 'stock_ledger', 'project_stock_reservations', 'packing_orders', 'packing_picks', 'supply_events', 'supply_operations'];
-    const fingerprint = async () => Promise.all(tables.map(t => db.query(`SELECT md5(coalesce(string_agg(row_to_json(t)::text,'' ORDER BY id),'')) hash FROM ${t} t`)));
+    const fingerprint = async () => Promise.all(tables.map(t => db.query(`SELECT md5(coalesce(string_agg(row_to_json(t)::text,'' ORDER BY row_to_json(t)::text),'')) hash FROM ${t} t`)));
     const before = await fingerprint();
     try {
       delete process.env.PACKING_WORKSPACE_READ_ONLY;
@@ -422,7 +457,7 @@ describe.skipIf(!url)("PostgreSQL packing acceptance",()=>{
       fixture = await prod('POST', `/orders/${fixture.id}/release`, { revision: fixture.revision }, 200, admin);
       const pkg = fixture.snapshot.packages.at(-1).id;
       const tables = ['inventory_items', 'stock_ledger', 'project_stock_reservations', 'packing_picks', 'planning_projects', 'product_template_versions'];
-      const fingerprint = async () => Promise.all(tables.map(t => db.query(`SELECT md5(coalesce(string_agg(row_to_json(t)::text,'' ORDER BY id),'')) hash FROM ${t} t`)));
+      const fingerprint = async () => Promise.all(tables.map(t => db.query(`SELECT md5(coalesce(string_agg(row_to_json(t)::text,'' ORDER BY row_to_json(t)::text),'')) hash FROM ${t} t`)));
       const before = await fingerprint();
       const original = structuredClone(fixture);
       const eventsBefore = (await prod('GET', `/orders/${fixture.id}`)).history.length;

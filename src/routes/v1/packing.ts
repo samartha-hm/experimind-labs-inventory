@@ -1,5 +1,5 @@
 import { Router, type RequestHandler } from "express";
-import { packingExecutionEnabled, packingExecutionBlocker, packingWriters, packingWorkspaceEnabled } from "../../features/packing/workspaceContract";
+import { packingExecutionEnabled, packingExecutionBlocker, packingInspectionBlocker, packingInspectors, packingWriters, packingWorkspaceEnabled } from "../../features/packing/workspaceContract";
 import { DataSource } from "typeorm";
 import { IsString, IsUUID, IsInt, Min, MinLength, MaxLength, IsOptional, IsObject, IsArray, ArrayNotEmpty, ArrayMaxSize, ArrayUnique, IsBoolean, IsIn } from "class-validator";
 import { authenticateJwt } from "../../middleware/auth";
@@ -87,13 +87,20 @@ export function packingRouter(db: DataSource) {
   r.use('/workspace', (req, res, next) => {
     res.setHeader('Cache-Control', 'private, no-store');
     if (!packingWorkspaceEnabled(req.user!.orgId!, process.env)) { res.status(404).json({ error: 'Packing workspace unavailable' }); return; }
-    if (req.method !== 'GET' && req.method !== 'HEAD' && !(req.method === 'POST' && packingExecutionEnabled(req.user!.orgId!, process.env) && /^\/orders\/[^/]+\/(checklist|exceptions)$/.test(req.path))) { res.status(405).json({ error: 'Read-only workspace' }); return; }
+    if (req.method !== 'GET' && req.method !== 'HEAD' && !(req.method === 'POST' && packingExecutionEnabled(req.user!.orgId!, process.env) && /^\/orders\/[^/]+\/(checklist|exceptions|inspection-rejection)$/.test(req.path))) { res.status(405).json({ error: 'Read-only workspace' }); return; }
     next();
   });
   r.get('/workspace/orders/:id/capabilities', action(async (req, res) => {
     const { order } = await s.detail(req.user!.orgId!, req.params.id);
     const reason = !packingExecutionEnabled(req.user!.orgId!, process.env) ? 'Execution flag disabled' : !packingWriters.has(req.user!.role!) ? 'Packing permission denied' : null;
-    res.json({ revision: order.revision, packages: Object.fromEntries(order.snapshot.packages.map(p => [p.id, { blocker: reason ?? packingExecutionBlocker(order, p.id) }])) });
+    res.json({ revision: order.revision, packages: Object.fromEntries(order.snapshot.packages.map(p => [p.id, { blocker: reason ?? packingExecutionBlocker(order, p.id), inspection_blocker: reason ?? packingInspectionBlocker(order, p.id, req.user!.role!) }])) });
+  }));
+  r.post('/workspace/orders/:id/inspection-rejection', action(async (req, res) => {
+    if (!packingInspectors.has(req.user!.role!)) throw new DraftKitError(403, 'Packing checker permission required');
+    const d = await dto(req.body, QC);
+    if (d.decision !== 'reject') throw new DraftKitError(409, 'Final QC acceptance is unavailable in this workspace');
+    if (d.package_ids.length !== 1 || !d.notes.trim()) throw new DraftKitError(400, 'One confirmed package and inspection reason required');
+    res.json(await s.qc(req.user!.orgId!, req.user!.id, key(req), req.params.id, d.revision, d.package_ids, d.decision, d.checks, d.notes, true));
   }));
   r.post('/workspace/orders/:id/checklist', action(async (req, res) => {
     const d = await dto(req.body, Checklist);

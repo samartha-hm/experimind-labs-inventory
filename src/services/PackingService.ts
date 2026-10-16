@@ -1,4 +1,4 @@
-import { packingExecutionBlocker } from "../features/packing/workspaceContract";
+import { packingExecutionBlocker, packingInspectors } from "../features/packing/workspaceContract";
 import {DataSource,EntityManager,In,IsNull} from "typeorm";
 import {createHash,randomUUID} from "node:crypto";
 import {InventoryItem} from "../entity/InventoryItem";
@@ -108,9 +108,10 @@ export class PackingService {
     for(const v of this.requirements(o)){let used=0n;for(const p of o.snapshot.packages)if(o.execution.progress[p.id]?.assembled)used+=actualMaterials(o,p.id).filter(a=>a.item_id===v.item_id&&a.unit===v.unit).reduce((sum,a)=>sum+stockUnits(a.quantity),0n);if(used>this.picked(picks,v.item_id,v.unit))fail(409,"Pick the material allocated to these packages first");}
     return this.save(m,org,actor,o);
   });}
-  async qc(org:string,actor:string,key:string,id:string,revision:number,packageIds:string[],decision:"accept"|"reject",checks:Record<typeof qcChecks[number],boolean>,notes:string){return this.operation(org,actor,key,["packing.qc",id,revision,packageIds,decision,checks,notes],async m=>{
-    const u=await m.findOneBy(User,{id:actor,organization_id:org,is_active:true});if(!u||!["admin","super_admin","manager","inventory_staff"].includes(u.role))fail(403,"Packing checker permission required");
+  async qc(org:string,actor:string,key:string,id:string,revision:number,packageIds:string[],decision:"accept"|"reject",checks:Record<typeof qcChecks[number],boolean>,notes:string,protectAccepted=false){return this.operation(org,actor,key,["packing.qc",id,revision,packageIds,decision,checks,notes],async m=>{
+    const u=await m.findOneBy(User,{id:actor,organization_id:org,is_active:true});if(!u||!packingInspectors.has(u.role))fail(403,"Packing checker permission required");
     const o=await this.order(m,org,id,revision);if(o.status!=="packing")fail(409,"Active packing required");if(Object.keys(checks).length!==qcChecks.length||qcChecks.some(k=>typeof checks[k]!=="boolean"))fail(400,"All six packing checks required");if(decision==="accept"&&qcChecks.some(k=>!checks[k]))fail(409,"Required packing checks must pass");
+    if(protectAccepted)for(const packageId of packageIds){const reason=packingExecutionBlocker(o,packageId);if(reason)fail(409,reason);}
     const selected=new Set(packageIds);packageIds.forEach(v=>this.pack(o,v));for(const p of [...o.snapshot.packages].reverse().filter(p=>selected.has(p.id))){const progress=o.execution.progress[p.id]??emptyProgress();if(!progress.assembled)fail(409,"Assemble before packing QC");if(progress.qc==="accepted")fail(409,"Reopen accepted checks before reinspection");if(decision==="accept"&&(o.snapshot.packages.some(c=>c.parent_id===p.id&&o.execution.progress[c.id]?.qc!=="accepted")||o.execution.exceptions.some(e=>e.package_id===p.id&&!e.corrected_by)))fail(409,"Required child QC and exception correction incomplete");progress.qc=decision==="accept"?"accepted":"rejected";progress.checked_by=actor;progress.checked_at=new Date().toISOString();progress.checks=checks;progress.notes=notes;o.execution.progress[p.id]=progress;}
     // Reset ancestors after the batch so selected parents retain their pre-inspection assembly state.
     if(decision==="reject")for(const id of selected)this.resetAncestors(o,id);
