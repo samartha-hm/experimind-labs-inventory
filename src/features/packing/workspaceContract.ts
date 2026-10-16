@@ -1,4 +1,18 @@
 import type { PhysicalPackage } from './packingPlan';
+import type { PackingOrder } from './packingTypes';
+
+export const packingWriters = new Set(['admin', 'super_admin', 'manager', 'staff', 'inventory_staff', 'production_staff', 'project_staff', 'editor']);
+export function packingExecutionEnabled(org: string, env: Record<string, string | undefined>): boolean {
+  return packingWorkspaceEnabled(org, env) && env.PACKING_WORKSPACE_EXECUTION === 'true';
+}
+/** Restrict this integration to unaccepted package trees; legacy rework remains separate. */
+export function packingExecutionBlocker(order: PackingOrder, packageId: string): string | null {
+  if (order.status !== 'packing') return 'Active packing required; lifecycle transitions are unavailable here.';
+  const ancestry = packageAncestry(order.snapshot.packages, packageId);
+  if (!ancestry.length) return 'Package not found';
+  if (ancestry.some(p => order.execution.progress[p.id]?.qc === 'accepted')) return 'Accepted package or ancestor protected; reviewed rework is required.';
+  return null;
+}
 
 export function packingWorkspaceEnabled(org: string, env: Record<string, string | undefined>): boolean {
   return ['development', 'test'].includes(env.NODE_ENV ?? '') && env.PACKING_WORKSPACE_READ_ONLY === 'true'

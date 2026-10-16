@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { packageAncestry, packageLookupId, packingWorkspaceEnabled } from '../workspaceContract';
+import { packageAncestry, packageLookupId, packingWorkspaceEnabled, packingExecutionEnabled, packingExecutionBlocker } from '../workspaceContract';
 import type { PhysicalPackage } from '../packingPlan';
 const id = '12345678-1234-1234-1234-123456789abc', origin = 'https://erp.test';
 describe('Packing workspace safety contracts', () => {
@@ -8,6 +8,19 @@ describe('Packing workspace safety contracts', () => {
     expect(packingWorkspaceEnabled('org-a', env)).toBe(true);
     for (const patch of [{ NODE_ENV: 'production' }, { PACKING_WORKSPACE_READ_ONLY: 'false' }, { PACKING_WORKSPACE_ORGANIZATIONS: 'org-aa' }]) expect(packingWorkspaceEnabled('org-a', { ...env, ...patch })).toBe(false);
     expect(packingWorkspaceEnabled('', env)).toBe(false);
+  });
+  it('requires an additional execution flag and protects accepted ancestors', () => {
+    const env = { NODE_ENV: 'test', PACKING_WORKSPACE_READ_ONLY: 'true', PACKING_WORKSPACE_ORGANIZATIONS: 'org' };
+    expect(packingExecutionEnabled('org', env)).toBe(false);
+    expect(packingExecutionEnabled('org', { ...env, PACKING_WORKSPACE_EXECUTION: 'true' })).toBe(true);
+    expect(packingExecutionEnabled('org', { ...env, NODE_ENV: 'production', PACKING_WORKSPACE_EXECUTION: 'true' })).toBe(false);
+    const order = { status: 'packing', snapshot: { packages: [{ id: 'parent', parent_id: null }, { id: 'child', parent_id: 'parent' }] }, execution: { progress: {} } } as unknown as import('../packingTypes').PackingOrder;
+    expect(packingExecutionBlocker(order, 'child')).toBe(null);
+    order.execution.progress.parent = { qc: 'accepted' } as typeof order.execution.progress[string];
+    expect(packingExecutionBlocker(order, 'child')).toMatch(/Accepted/);
+    expect(packingExecutionBlocker(order, 'parent')).toMatch(/Accepted/);
+    expect(packingExecutionBlocker(order, 'unknown')).toMatch(/not found/);
+    order.status = 'ready'; expect(packingExecutionBlocker(order, 'child')).toMatch(/Active packing/);
   });
   it('accepts only package identities and same-origin label destinations', () => {
     for (const value of [id, `PK-${id.toUpperCase()}`, `${origin}/?packing_package=${id}`]) expect(packageLookupId(value, origin)).toBe(id);

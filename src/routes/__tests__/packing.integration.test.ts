@@ -161,7 +161,13 @@ describe.skipIf(!url)("PostgreSQL packing acceptance",()=>{
     await expect(db.query("UPDATE packing_orders SET status='ready',revision=revision+1 WHERE id=$1",[order.id])).rejects.toThrow();
     const d=await prod("GET",`/orders/${schoolOrders[0].id}`);schoolOrders[0]=d.order;
     const leaf=d.order.snapshot.packages.find((p:{id:string;parent_id:string|null})=>!d.order.snapshot.packages.some((c:{parent_id:string|null})=>c.parent_id===p.id));
-    schoolOrders[0]=await prod("POST",`/orders/${d.order.id}/checklist`,{revision:d.order.revision,package_ids:[leaf.id],assembled:true});
+    const flags=['PACKING_WORKSPACE_READ_ONLY','PACKING_WORKSPACE_EXECUTION','PACKING_WORKSPACE_ORGANIZATIONS'],savedFlags=flags.map(k=>process.env[k]);
+    try {
+      Object.assign(process.env,{PACKING_WORKSPACE_READ_ONLY:'true',PACKING_WORKSPACE_EXECUTION:'true',PACKING_WORKSPACE_ORGANIZATIONS:maker.organization_id});
+      const before=await balance(),ledger=(await db.query("SELECT count(*) n FROM stock_ledger"))[0].n;
+      schoolOrders[0]=await prod("POST",`/workspace/orders/${d.order.id}/checklist`,{revision:d.order.revision,package_ids:[leaf.id],assembled:true,notes:"Synthetic leaf contents assembled and identity confirmed"});
+      expect(await balance()).toBe(before);expect((await db.query("SELECT count(*) n FROM stock_ledger"))[0].n).toBe(ledger);
+    } finally { flags.forEach((k,i)=>{if(savedFlags[i]===undefined)delete process.env[k];else process.env[k]=savedFlags[i];}); }
     expect(Object.values(schoolOrders[0].execution.progress).filter((p:any)=>p.assembled)).toHaveLength(1);
     await prod("POST",`/orders/${d.order.id}/checklist`,{revision:d.order.revision,package_ids:[leaf.id],assembled:true},409);
     await close();await start();expect((await prod("GET",`/orders/${order.id}`)).order.assigned_team).toBe("Assembly");
@@ -183,7 +189,17 @@ describe.skipIf(!url)("PostgreSQL packing acceptance",()=>{
     expect(o.status).toBe("packing");expect(o.execution.progress[leaf.id].qc).toBe("rejected");
     await prod("POST",`/orders/${o.id}/qc`,{revision:o.revision,package_ids:[ids[0]],decision:"accept",checks},409,admin);
     o=await prod("POST",`/orders/${o.id}/checklist`,{revision:o.revision,package_ids:ids,assembled:true,notes:"Seal replaced and contents rechecked"});
-    const qcBody={revision:o.revision,package_ids:ids,decision:"accept",checks},qcKey=randomUUID();
+    // Existing QC API establishes a partially accepted synthetic fixture; workspace must protect it.
+    o=await prod("POST",`/orders/${o.id}/qc`,{revision:o.revision,package_ids:[leaf.id],decision:"accept",checks},200,admin);
+    const flags=['PACKING_WORKSPACE_READ_ONLY','PACKING_WORKSPACE_EXECUTION','PACKING_WORKSPACE_ORGANIZATIONS'];const savedFlags=flags.map(k=>process.env[k]);
+    try {
+      Object.assign(process.env,{PACKING_WORKSPACE_READ_ONLY:'true',PACKING_WORKSPACE_EXECUTION:'true',PACKING_WORKSPACE_ORGANIZATIONS:maker.organization_id});
+      const beforeProtected=await prod('GET',`/orders/${o.id}`);
+      await prod('POST',`/workspace/orders/${o.id}/checklist`,{revision:o.revision,package_ids:[leaf.id],assembled:false,notes:'Cannot reset accepted evidence'},409);
+      await prod('POST',`/workspace/orders/${o.id}/exceptions`,{revision:o.revision,package_id:leaf.id,kind:'other',notes:'Cannot reset accepted evidence'},409);
+      expect(await prod('GET',`/orders/${o.id}`)).toEqual(beforeProtected);
+    } finally {flags.forEach((k,i)=>{if(savedFlags[i]===undefined)delete process.env[k];else process.env[k]=savedFlags[i];});}
+    const qcBody={revision:o.revision,package_ids:ids.filter(id=>id!==leaf.id),decision:"accept",checks},qcKey=randomUUID();
     const accepted=await Promise.all([prod("POST",`/orders/${o.id}/qc`,qcBody,200,admin,qcKey),prod("POST",`/orders/${o.id}/qc`,qcBody,200,admin,qcKey)]);expect(accepted[0]).toEqual(accepted[1]);o=accepted[0];expect(o.status).toBe("ready");
     expect(o.execution.exceptions[0].corrected_by).toBe(maker.id);expect(Object.values(o.execution.progress).every((p:any)=>p.checked_by===admin.id)).toBe(true);
     expect(await balance()).toBe(before);expect((await db.query("SELECT count(*) n FROM stock_ledger"))[0].n).toBe(ledgerBefore);
@@ -395,6 +411,53 @@ describe.skipIf(!url)("PostgreSQL packing acceptance",()=>{
       await prod('GET', `/workspace/packages/${packageId}`, undefined, 404, viewer);
       expect(await prod('GET', `/orders/${order.id}`, undefined, 200, viewer)).toEqual(live);
       expect(await fingerprint()).toEqual(before);
+    } finally { keys.forEach((k, i) => { if (previous[i] === undefined) delete process.env[k]; else process.env[k] = previous[i]; }); }
+  });
+  it('executes only guarded packing evidence with revision locks, replay and unchanged stock', async () => {
+    const keys = ['PACKING_WORKSPACE_READ_ONLY', 'PACKING_WORKSPACE_ORGANIZATIONS', 'PACKING_WORKSPACE_EXECUTION'];
+    const previous = keys.map(k => process.env[k]);
+    try {
+      Object.assign(process.env, { PACKING_WORKSPACE_READ_ONLY: 'true', PACKING_WORKSPACE_ORGANIZATIONS: `${maker.organization_id},${other.organization_id}`, PACKING_WORKSPACE_EXECUTION: 'true' });
+      let fixture = await prod('POST', '/orders', { batch_code: '13H-SYNTHETIC', manual: { name: 'Evidence only', materials: [{ item_id: wire.id, quantity: '1', unit: 'm' }] } }, 201);
+      fixture = await prod('POST', `/orders/${fixture.id}/release`, { revision: fixture.revision }, 200, admin);
+      const pkg = fixture.snapshot.packages.at(-1).id;
+      const tables = ['inventory_items', 'stock_ledger', 'project_stock_reservations', 'packing_picks', 'planning_projects', 'product_template_versions'];
+      const fingerprint = async () => Promise.all(tables.map(t => db.query(`SELECT md5(coalesce(string_agg(row_to_json(t)::text,'' ORDER BY id),'')) hash FROM ${t} t`)));
+      const before = await fingerprint();
+      const original = structuredClone(fixture);
+      const eventsBefore = (await prod('GET', `/orders/${fixture.id}`)).history.length;
+      const path = `/workspace/orders/${fixture.id}`;
+      const body = { revision: fixture.revision, package_ids: [pkg], assembled: false, notes: 'Synthetic operator evidence' };
+      await prod('POST', `${path}/checklist`, body, 403, viewer);
+      await prod('POST', `${path}/checklist`, body, 404, other);
+      await prod('POST', `${path}/qc`, { revision: fixture.revision }, 405, admin);
+      await prod('POST', `${path}/pick`, {}, 405, admin);
+      await prod('POST', `${path}/checklist`, { ...body, notes: '' }, 400);
+      await request('POST', `/packing${path}/checklist`, maker, body, 400);
+      const key = randomUUID();
+      const duplicate = await Promise.all([prod('POST', `${path}/checklist`, body, 200, maker, key), prod('POST', `${path}/checklist`, body, 200, maker, key)]);
+      expect(duplicate[0]).toEqual(duplicate[1]); fixture = duplicate[0];
+      expect(await prod('POST', `${path}/checklist`, body, 200, maker, key)).toEqual(fixture); // response lost: exact retry
+      await prod('POST', `${path}/checklist`, { ...body, notes: 'Changed intent' }, 409, maker, key);
+      await prod('POST', `${path}/checklist`, body, 409); // stale second tab
+      await prod('POST', `${path}/checklist`, { ...body, revision: fixture.revision, assembled: true }, 409); // no stock picks
+      const exception = { revision: fixture.revision, package_id: pkg, kind: 'missing', notes: 'Synthetic missing content' };
+      const race = await Promise.all([0, 1].map(async i => {
+        const r = await fetch(base + '/api/v1/packing' + path + '/exceptions', { method: 'POST', headers: { Authorization: `Bearer ${token(maker)}`, 'Content-Type': 'application/json', 'Idempotency-Key': randomUUID() }, body: JSON.stringify({ ...exception, notes: exception.notes + i }) });
+        return { status: r.status, body: await r.json() };
+      }));
+      expect(race.map(r => r.status).sort()).toEqual([200, 409]); fixture = race.find(r => r.status === 200)!.body;
+      const evidence = fixture.execution.exceptions[0]; expect(evidence.reported_by).toBe(maker.id);
+      fixture = await prod('POST', `${path}/exceptions`, { revision: fixture.revision, package_id: pkg, exception_id: evidence.id, kind: 'missing', notes: 'Synthetic correction verified' });
+      expect(fixture.execution.exceptions[0]).toMatchObject({ corrected_by: maker.id, correction: 'Synthetic correction verified' });
+      expect(fixture.status).toBe('packing'); expect(fixture.snapshot).toEqual(original.snapshot);
+      expect(await fingerprint()).toEqual(before);
+      const current = await prod('GET', `/orders/${fixture.id}`);
+      expect(current.history.length).toBe(eventsBefore + 3);
+      expect(current.history.slice(0, 3).every((e: { actor_id: string }) => e.actor_id === maker.id)).toBe(true);
+      process.env.PACKING_WORKSPACE_EXECUTION = 'false';
+      await prod('POST', `${path}/checklist`, { ...body, revision: fixture.revision }, 405);
+      expect((await prod('GET', `/orders/${fixture.id}`)).order).toEqual(fixture);
     } finally { keys.forEach((k, i) => { if (previous[i] === undefined) delete process.env[k]; else process.env[k] = previous[i]; }); }
   });
   it("refuses destructive rollback and preserves inventory and historical ledger",async()=>{

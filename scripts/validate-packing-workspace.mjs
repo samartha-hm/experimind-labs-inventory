@@ -11,7 +11,7 @@ const db = new pg.Client({ connectionString: database.href });
 await db.connect();
 const base = process.env.PACKING_ACCEPTANCE_URL || 'http://127.0.0.1:3101';
 assert(new URL(base).hostname === '127.0.0.1');
-const output = '.local-dev/ux-13g';
+const output = process.env.PACKING_ACCEPTANCE_13H === 'true' ? '.local-dev/ux-13h' : '.local-dev/ux-13g';
 const rollback = process.env.PACKING_ACCEPTANCE_ROLLBACK === 'true';
 await mkdir(output, { recursive: true });
 const report = { checks: [], audits: [], layouts: [], errors: [], infrastructureErrors: [], workspaceRequests: [] };
@@ -41,11 +41,13 @@ try {
   if (rollback) {
     assert.equal((await get('/workspace')).enabled, false);
     assert.equal((await page.request.get(`${base}/api/v1/packing/workspace/orders`, { headers })).status(), 404);
-    const fixture = JSON.parse(await readFile(`${output}/browser-report.json`, 'utf8')).fixture;
+    const evidence = JSON.parse(await readFile(`${output}/browser-report.json`, 'utf8'));
+    const fixture = evidence.fixture;
     const legacy = await get(`/orders/${fixture.order}`);
+    if (evidence.orderAfter) assert.deepEqual(legacy, evidence.orderAfter, 'Flag rollback preserves saved execution evidence');
     const pkg = legacy.order.snapshot.packages.find(p => p.id === fixture.package); assert(pkg);
     await page.goto(`${base}/?packing_workspace=1&packing_package=${pkg.id}`);
-    await expect(page.getByRole('region', { name: 'Read-only Packing QC workspace' })).toHaveCount(0);
+    await expect(page.getByRole('region', { name: 'Packing QC workspace', exact: true })).toHaveCount(0);
     await expect(page.getByText('Packing workspace unavailable. Use the operational packing panel in Projects.')).toBeVisible();
     await expect(page.getByText(`${pkg.code} · ${pkg.name} · ${pkg.kind}`, { exact: true })).toBeVisible();
     await page.screenshot({ path: `${output}/rollback.png`, fullPage: true });
@@ -60,7 +62,7 @@ try {
   assert(pkg);
   report.fixture = { order: fixture.id, package: pkg.id, packages: detail.order.snapshot.packages.length };
   await page.goto(`${base}/?packing_workspace=1`);
-  const workspace = page.getByRole('region', { name: 'Read-only Packing QC workspace' });
+  const workspace = page.getByRole('region', { name: 'Packing QC workspace', exact: true });
   await expect(workspace).toBeVisible();
   await workspace.getByLabel('Project / school / batch').selectOption(fixture.id);
   await expect(workspace.getByLabel('Order context')).toContainText(fixture.batch_code);

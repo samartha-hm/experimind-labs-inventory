@@ -1,3 +1,4 @@
+import { packingExecutionBlocker } from "../features/packing/workspaceContract";
 import {DataSource,EntityManager,In,IsNull} from "typeorm";
 import {createHash,randomUUID} from "node:crypto";
 import {InventoryItem} from "../entity/InventoryItem";
@@ -98,8 +99,9 @@ export class PackingService {
   });}
   private pack(o:PackingOrder,id:string){const p=o.snapshot.packages.find(v=>v.id===id);if(!p)fail(404,"Package not found");return p;}
   private resetAncestors(o:PackingOrder,id:string){let parent=this.pack(o,id).parent_id;while(parent){const p=o.execution.progress[parent]??emptyProgress();p.assembled=false;p.qc="pending";o.execution.progress[parent]=p;parent=this.pack(o,parent).parent_id;}}
-  async check(org:string,actor:string,key:string,id:string,revision:number,packageIds:string[],assembled:boolean,notes:string){return this.operation(org,actor,key,["packing.check",id,revision,packageIds,assembled,notes],async m=>{
+  async check(org:string,actor:string,key:string,id:string,revision:number,packageIds:string[],assembled:boolean,notes:string,protectAccepted=false){return this.operation(org,actor,key,["packing.check",id,revision,packageIds,assembled,notes],async m=>{
     const o=await this.order(m,org,id,revision);if(o.status!=="packing")fail(409,"Active packing required");const picks=await this.picks(m,org,id);
+    if(protectAccepted)for(const packageId of packageIds){const reason=packingExecutionBlocker(o,packageId);if(reason)fail(409,reason);}
     const selected=new Set(packageIds);packageIds.forEach(v=>{this.pack(o,v);this.resetAncestors(o,v);});
     // Children first: bulk completion is explicit, with the same individual checks and audit actor.
     for(const p of [...o.snapshot.packages].reverse().filter(p=>selected.has(p.id))){const children=o.snapshot.packages.filter(c=>c.parent_id===p.id);if(assembled&&children.some(c=>!o.execution.progress[c.id]?.assembled))fail(409,"Complete child packages first");if(assembled&&o.execution.exceptions.some(e=>e.package_id===p.id&&!e.corrected_by))fail(409,"Correct open packing exceptions first");o.execution.progress[p.id]={assembled,qc:"pending",packed_by:actor,packed_at:new Date().toISOString(),notes};if(!assembled)this.resetAncestors(o,p.id);}
@@ -114,8 +116,9 @@ export class PackingService {
     if(decision==="reject")for(const id of selected)this.resetAncestors(o,id);
     if(o.snapshot.packages.every(p=>o.execution.progress[p.id]?.qc==="accepted")&&!o.execution.exceptions.some(e=>!e.corrected_by))o.status="ready";return this.save(m,org,actor,o);
   });}
-  async exception(org:string,actor:string,key:string,id:string,revision:number,packageId:string,kind:"missing"|"damaged"|"other",notes:string,exceptionId?:string){return this.operation(org,actor,key,["packing.exception",id,revision,packageId,kind,notes,exceptionId],async m=>{
+  async exception(org:string,actor:string,key:string,id:string,revision:number,packageId:string,kind:"missing"|"damaged"|"other",notes:string,exceptionId?:string,protectAccepted=false){return this.operation(org,actor,key,["packing.exception",id,revision,packageId,kind,notes,exceptionId],async m=>{
     const o=await this.order(m,org,id,revision);if(o.status!=="packing")fail(409,"Reopen and resume packing before reporting/correcting exceptions");this.pack(o,packageId);
+    if(protectAccepted){const reason=packingExecutionBlocker(o,packageId);if(reason)fail(409,reason);}
     if(exceptionId){const e=o.execution.exceptions.find(e=>e.id===exceptionId&&e.package_id===packageId);if(!e||e.corrected_by)fail(409,"Open exception required");e.correction=notes;e.corrected_by=actor;e.corrected_at=new Date().toISOString();}else o.execution.exceptions.push({id:randomUUID(),package_id:packageId,kind,notes,reported_by:actor,reported_at:new Date().toISOString()});
     o.execution.progress[packageId]=emptyProgress();this.resetAncestors(o,packageId);return this.save(m,org,actor,o);
   });}

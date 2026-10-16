@@ -25,3 +25,6 @@
 .pw-next { border-left: 4px solid var(--p-accent); padding: 16px; background: var(--p-accent-soft); border-radius: 12px; }
 .packing-workspace nav[aria-label="Package ancestry"] { display: flex; flex-wrap: wrap; gap: 6px; margin: 12px 0; }
 @media (max-width: 850px) { .pw-layout { grid-template-columns: minmax(0, 1fr); } .pw-outline { max-height: 280px; } .packing-workspace { padding: 12px; } }
+
+.precision.packing-workspace textarea { width: 100%; min-height: 96px; padding: 12px; border: 1px solid var(--p-line); border-radius: 10px; background: var(--p-surface); color: var(--p-text); }
+.precision.packing-workspace input[type="checkbox"] { width: 48px; vertical-align: middle; }

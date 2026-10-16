@@ -1,5 +1,5 @@
 import { Router, type RequestHandler } from "express";
-import { packingWorkspaceEnabled } from "../../features/packing/workspaceContract";
+import { packingExecutionEnabled, packingExecutionBlocker, packingWriters, packingWorkspaceEnabled } from "../../features/packing/workspaceContract";
 import { DataSource } from "typeorm";
 import { IsString, IsUUID, IsInt, Min, MinLength, MaxLength, IsOptional, IsObject, IsArray, ArrayNotEmpty, ArrayMaxSize, ArrayUnique, IsBoolean, IsIn } from "class-validator";
 import { authenticateJwt } from "../../middleware/auth";
@@ -56,7 +56,7 @@ class Change extends Revision {
   @IsOptional() @IsUUID() original_item_id?: string;
 }
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const writers = new Set(["admin", "super_admin", "manager", "staff", "inventory_staff", "production_staff", "project_staff", "editor"]);
+const writers = packingWriters;
 export function packingRouter(db: DataSource) {
   const r = Router(), s = new PackingService(db);
   const action = (run: RequestHandler): RequestHandler => (req, res, next) => {
@@ -82,14 +82,29 @@ export function packingRouter(db: DataSource) {
   const key = (req: Parameters<RequestHandler>[0]) => req.header("Idempotency-Key")!;
   r.get('/workspace', action(async (req, res) => {
     res.setHeader('Cache-Control', 'private, no-store');
-    res.json({ enabled: packingWorkspaceEnabled(req.user!.orgId!, process.env), role: req.user!.role, user_id: req.user!.id });
+    res.json({ enabled: packingWorkspaceEnabled(req.user!.orgId!, process.env), execution_enabled: packingExecutionEnabled(req.user!.orgId!, process.env), role: req.user!.role, user_id: req.user!.id });
   }));
   r.use('/workspace', (req, res, next) => {
     res.setHeader('Cache-Control', 'private, no-store');
     if (!packingWorkspaceEnabled(req.user!.orgId!, process.env)) { res.status(404).json({ error: 'Packing workspace unavailable' }); return; }
-    if (req.method !== 'GET' && req.method !== 'HEAD') { res.status(405).json({ error: 'Read-only workspace' }); return; }
+    if (req.method !== 'GET' && req.method !== 'HEAD' && !(req.method === 'POST' && packingExecutionEnabled(req.user!.orgId!, process.env) && /^\/orders\/[^/]+\/(checklist|exceptions)$/.test(req.path))) { res.status(405).json({ error: 'Read-only workspace' }); return; }
     next();
   });
+  r.get('/workspace/orders/:id/capabilities', action(async (req, res) => {
+    const { order } = await s.detail(req.user!.orgId!, req.params.id);
+    const reason = !packingExecutionEnabled(req.user!.orgId!, process.env) ? 'Execution flag disabled' : !packingWriters.has(req.user!.role!) ? 'Packing permission denied' : null;
+    res.json({ revision: order.revision, packages: Object.fromEntries(order.snapshot.packages.map(p => [p.id, { blocker: reason ?? packingExecutionBlocker(order, p.id) }])) });
+  }));
+  r.post('/workspace/orders/:id/checklist', action(async (req, res) => {
+    const d = await dto(req.body, Checklist);
+    if (d.package_ids.length !== 1 || !d.notes.trim()) throw new DraftKitError(400, 'One confirmed package and operator reason required');
+    res.json(await s.check(req.user!.orgId!, req.user!.id, key(req), req.params.id, d.revision, d.package_ids, d.assembled, d.notes, true));
+  }));
+  r.post('/workspace/orders/:id/exceptions', action(async (req, res) => {
+    const d = await dto(req.body, Exception);
+    if (!d.notes.trim()) throw new DraftKitError(400, 'Exception or correction reason required');
+    res.json(await s.exception(req.user!.orgId!, req.user!.id, key(req), req.params.id, d.revision, d.package_id, d.kind, d.notes, d.exception_id, true));
+  }));
   r.get('/workspace/orders', action(async (req, res) => { res.json(await s.list(req.user!.orgId!)); }));
   r.get('/workspace/orders/:id', action(async (req, res) => { res.json(await s.detail(req.user!.orgId!, req.params.id)); }));
   r.get('/workspace/packages/:id', action(async (req, res) => { res.json(await s.package(req.user!.orgId!, req.params.id)); }));
