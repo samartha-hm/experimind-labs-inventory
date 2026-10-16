@@ -14,6 +14,12 @@
 .live-studio .live-materials small, .live-studio .live-meta { color: var(--p-muted); }
 .live-studio .live-notice { background: var(--p-warn-bg); color: var(--p-warn); padding: 14px; border-radius: 8px; margin-bottom: 16px; }
 .live-studio .live-meta { margin: 12px 0; }
+.live-studio .live-review { border: 1px solid var(--p-line); border-radius: 12px; margin-bottom: 20px; display: grid; gap: 12px; }
+.live-studio .live-review li { margin-block: 8px; }
+.live-studio .live-review li button { text-align: left; overflow-wrap: anywhere; }
+.live-studio dialog { max-width: min(640px, calc(100vw - 32px)); max-height: calc(100dvh - 48px); overflow: auto; border: 1px solid var(--p-line); border-radius: 16px; padding: 24px; background: var(--p-surface); color: var(--p-text); }
+.live-studio dialog::backdrop { background: #0009; }
+.live-studio dialog p { margin-block: 16px; }
 .live-studio label { display: grid; gap: 8px; max-width: 100%; }
 .live-studio .live-skeleton { height: 120px; border-radius: 12px; background: var(--p-line); margin: 12px 0; }
 .live-studio .live-catalog { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 250px), 1fr)); gap: 16px; padding: 0; list-style: none; }
@@ -23,6 +29,8 @@
 .live-studio .studio-editor fieldset { min-width: 0; }
 .live-studio .studio-editor .text-slate-500 { color: #475569; }
 .dark .live-studio .studio-editor .text-slate-500 { color: #cbd5e1; }
+.live-studio .live-review .text-slate-500 { color: #475569; }
+.dark .live-studio .live-review .text-slate-500 { color: #cbd5e1; }
 .live-studio .studio-editor label:has(> input[type=checkbox]) { display: flex; align-items: center; min-height: 44px; }
 .live-studio .studio-editor input:not([type=checkbox]), .live-studio .studio-editor select, .live-studio .studio-editor textarea { max-width: 100%; min-height: 44px; }
 .live-studio .studio-savebar { position: sticky; bottom: 88px; z-index: 10; padding: 12px; border: 1px solid var(--p-line); border-radius: 12px; background: var(--p-surface); box-shadow: 0 4px 20px #0002; }

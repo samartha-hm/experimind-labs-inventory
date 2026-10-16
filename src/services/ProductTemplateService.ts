@@ -197,6 +197,12 @@ export function normalizeSubjects(value: unknown): KitSubject[] {
 
 export class ProductTemplateService {
   constructor(private readonly db: DataSource) {}
+  async approvalHistory(id: string, orgId: string) {
+    const draft = await this.view(id, orgId);
+    return this.db.getRepository(KitTemplateApproval).find({
+      where: { organization_id: orgId, source_version_id: draft.id }, order: { approved_at: 'DESC' },
+    });
+  }
   async approved(orgId: string) {
     return this.db.getRepository(ProductTemplateVersion).createQueryBuilder("v")
       .innerJoin(KitTemplateApproval, "a", "a.version_id = v.id AND a.organization_id = v.organization_id")

@@ -460,6 +460,43 @@ describe.skipIf(!databaseUrl)("PostgreSQL draft-kit CRUD and authorization", () 
     } finally { for (const [key, value] of Object.entries(previous)) { if (value === undefined) delete process.env[key]; else process.env[key] = value; } }
   });
 
+  it('authorizes Studio approval, preserves immutable copies and records tenant-scoped provenance', async () => {
+    const keys = ['NODE_ENV', 'KIT_STUDIO_READ_ONLY', 'KIT_STUDIO_ORGANIZATIONS', 'KIT_STUDIO_DRAFT_EDITING'];
+    const previous = keys.map(key => process.env[key]);
+    try {
+      Object.assign(process.env, { NODE_ENV: 'test', KIT_STUDIO_READ_ONLY: 'true', KIT_STUDIO_ORGANIZATIONS: `${maker.organization_id},${other.organization_id}`, KIT_STUDIO_DRAFT_EDITING: 'false' });
+      const item = await db.getRepository(InventoryItem).findOneByOrFail({ organization_id: maker.organization_id });
+      const subjects = [{ id: randomUUID(), name: 'Science', grades: [{ id: randomUUID(), name: '8', activities: [{ id: randomUUID(), name: 'Measure', materials: [{ id: randomUUID(), inventory_item_id: item.id, item_name: item.name, quantity: 0.125, unit: 'pcs' }] }] }] }];
+      const created = await (await request('POST', '', maker, { name: 'Lifecycle acceptance', subjects })).json();
+      const path = `/${created.template_id}/studio`;
+      const approvalPath = `${path}/approve`;
+      const tables = ['inventory_items', 'stock_ledger', 'project_stock_reservations'];
+      const before = await Promise.all(tables.map(table => db.query(`SELECT * FROM ${table} ORDER BY id`)));
+      expect((await request('POST', approvalPath, maker, { revision: 1 })).status).toBe(404);
+      process.env.KIT_STUDIO_DRAFT_EDITING = 'true';
+      expect((await request('POST', approvalPath, undefined, { revision: 1 })).status).toBe(401);
+      expect((await request('POST', approvalPath, viewer, { revision: 1 }, token(viewer, { role: 'admin' }))).status).toBe(403);
+      expect((await request('POST', approvalPath, other, { revision: 1 })).status).toBe(404);
+      expect((await request('POST', approvalPath, maker, { revision: 1, status: 'published' })).status).toBe(400);
+      expect((await request('POST', approvalPath, maker, { revision: 2 })).status).toBe(409);
+      const responses = await Promise.all([1, 2].map(() => request('POST', approvalPath, maker, { revision: 1 })));
+      expect(responses.map(response => response.status)).toEqual([201, 201]);
+      const approved = await Promise.all(responses.map(response => response.json()));
+      expect(approved[0].id).toBe(approved[1].id);
+      const snapshot = await db.getRepository(ProductTemplateVersion).findOneByOrFail({ id: approved[0].id });
+      const bundle = await (await request('GET', path, maker)).json();
+      expect(bundle.approvals).toEqual([expect.objectContaining({ version_id: snapshot.id, source_version_id: created.id, source_revision: 1, approved_by: maker.id })]);
+      expect((await request('GET', path, other)).status).toBe(404);
+      expect((await request('POST', `${path}/reject`, maker, { revision: 1 })).status).toBe(404);
+      const saved = await (await request('PUT', path, maker, { name: created.name, description: 'Next draft', category: '', subjects: created.subjects, revision: 1 })).json();
+      expect(saved.revision).toBe(2);
+      expect((await request('POST', approvalPath, maker, { revision: 1 })).status).toBe(409);
+      expect((await request('POST', approvalPath, maker, { revision: 2 })).status).toBe(201);
+      expect(await db.getRepository(ProductTemplateVersion).findOneByOrFail({ id: snapshot.id })).toEqual(snapshot);
+      expect(await Promise.all(tables.map(table => db.query(`SELECT * FROM ${table} ORDER BY id`)))).toEqual(before);
+    } finally { keys.forEach((key, index) => { if (previous[index] === undefined) delete process.env[key]; else process.env[key] = previous[index]; }); }
+  });
+
   it('controls Studio saves with flags, current roles, tenant scope and optimistic revisions', async () => {
     const keys = ['NODE_ENV', 'KIT_STUDIO_READ_ONLY', 'KIT_STUDIO_ORGANIZATIONS', 'KIT_STUDIO_DRAFT_EDITING'];
     const previous = keys.map(key => process.env[key]);

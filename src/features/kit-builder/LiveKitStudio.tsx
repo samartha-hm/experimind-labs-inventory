@@ -4,6 +4,8 @@ import ProductLibrary, { type DraftKit } from './ProductLibrary';
 import type { KitMaterial, KitPackingUnit, KitSubject } from '../../entity/ProductTemplateVersion';
 import { materialQuantity, type StudioBundle, type StudioSnapshot } from './studioContract';
 import { studioRead } from './studioRead';
+import { StudioLifecycle } from './StudioLifecycle';
+import { reviewTarget } from './studioReview';
 import { Badge, Panel } from '../../design/precision/primitives';
 import '../../design/precision/precision.css';
 import './liveKitStudio.css';
@@ -40,7 +42,7 @@ function MaterialList({ materials, packing, owner }: { materials?: KitMaterial[]
       return [...(unit.inventory_item_ids.includes(id) ? [path] : []), ...locations(id, unit.children ?? [], `${path} / `)];
     });
   }
-  return <ul className="live-materials">{materials.map(material => <li key={material.id}>
+  return <ul className="live-materials">{materials.map(material => <li key={material.id} id={reviewTarget(material.id)} tabIndex={-1}>
     <strong>{material.item_name || 'Material name unavailable'}</strong>
     <span>{materialQuantity(material)}</span>
     <small>Owner: {owner} · Item: {material.inventory_item_id || 'Unavailable'}</small>
@@ -50,7 +52,7 @@ function MaterialList({ materials, packing, owner }: { materials?: KitMaterial[]
   </li>)}</ul>;
 }
 function PackingTree({ units, subjects }: { units: KitPackingUnit[]; subjects: KitSubject[] }) {
-  return <ul className="live-tree">{units.map(unit => <li key={unit.id}>
+  return <ul className="live-tree">{units.map(unit => <li key={unit.id} id={reviewTarget(unit.id)} tabIndex={-1}>
     <strong>{unit.name || 'Unnamed unit'}</strong> · {unit.kind} {unit.code && `· ${unit.code}`}
     <p>Activities: {unit.activity_ids.map(id => subjects.flatMap(subject => subject.grades).flatMap(grade => grade.activities ?? []).find(activity => activity.id === id)?.name ?? `Unavailable (${id})`).join('; ') || 'No activity mappings'}</p>
     <p>Material mappings: {unit.inventory_item_ids.map(id => unit.inventory_labels?.[id] ? `${unit.inventory_labels[id]} (${id})` : `Name unavailable (${id})`).join('; ') || 'No material mappings'}</p>
@@ -60,15 +62,15 @@ function PackingTree({ units, subjects }: { units: KitPackingUnit[]; subjects: K
 }
 export function StudioContent({ snapshot }: { snapshot: Pick<StudioSnapshot, 'subjects'> }) {
   if (!snapshot.subjects) return <p role="status">Educational structure unavailable.</p>;
-  if (!snapshot.subjects.length) return <p role="status">This kit is empty. No subjects or grades configured.</p>;
-  return <div className="live-columns">
+  if (!snapshot.subjects.length) return <p id={reviewTarget('structure')} tabIndex={-1} role="status">This kit is empty. No subjects or grades configured.</p>;
+  return <div className="live-columns" id={reviewTarget('structure')} tabIndex={-1}>
     <Panel title="Education & material requirements"><div className="live-pad">
       {snapshot.subjects.map(subject => <section key={subject.id} className="live-subject"><h3>{subject.name || 'Subject name unavailable'}</h3>
         {!subject.grades.length && <p>No grades configured.</p>}
-        {subject.grades.map(grade => <details key={grade.id} open><summary>{grade.name || 'Grade name unavailable'}</summary>
+        {subject.grades.map(grade => <details key={grade.id} id={reviewTarget(grade.id)} tabIndex={-1} open><summary>{grade.name || 'Grade name unavailable'}</summary>
           {!grade.activities && <p>Activities unavailable.</p>}
           {grade.activities?.length === 0 && <p>No educational activities configured.</p>}
-          {grade.activities?.map(activity => <details key={activity.id} className="live-activity" open><summary>{activity.code ? `${activity.code} · ` : ''}{activity.name || 'Activity name unavailable'}</summary>
+          {grade.activities?.map(activity => <details key={activity.id} id={reviewTarget(activity.id)} tabIndex={-1} className="live-activity" open><summary>{activity.code ? `${activity.code} · ` : ''}{activity.name || 'Activity name unavailable'}</summary>
             {activity.description && <p>{activity.description}</p>}{activity.instructions && <p>{activity.instructions}</p>}
             <MaterialList materials={activity.materials} packing={grade.packing} owner={activity.name} />
           </details>)}
@@ -84,7 +86,7 @@ export function StudioContent({ snapshot }: { snapshot: Pick<StudioSnapshot, 'su
       <p className="p-muted">Persisted rule definitions below. Calculated quantity traces unavailable: this template read has no confirmed site/set context. No quantities are inferred.</p>
       {snapshot.subjects.map(subject => <section key={subject.id}><h3>{subject.name}</h3>
         {!subject.crates && <p>Crate definitions unavailable.</p>}{subject.crates?.length === 0 && <p>No shared crates configured.</p>}
-        {subject.crates?.map(crate => <details key={crate.id} open><summary>{crate.name} · {crate.kind} crate</summary>
+        {subject.crates?.map(crate => <details key={crate.id} id={reviewTarget(crate.id)} tabIndex={-1} open><summary>{crate.name} · {crate.kind} crate</summary>
           <p>Rule: {crate.rule.kind}</p>
           {'quantity' in crate.rule ? <p>Configured rule quantity: {crate.rule.quantity}</p> : <ul>{crate.rule.components.map(component => <li key={component.grade_id}>{snapshot.subjects?.find(s => s.id === component.subject_id)?.name ?? 'Subject unavailable'} / {snapshot.subjects?.flatMap(s => s.grades).find(g => g.id === component.grade_id)?.name ?? 'Grade unavailable'} · {component.quantity}</li>)}</ul>}
           {crate.rule.kind === 'complete_sets' && <p>Requires explicit complete-set confirmation; unavailable here.</p>}
@@ -144,7 +146,9 @@ function LiveKitStudio() {
             {bundle.approved.map(row => <option key={row.id} value={row.id}>Approved immutable version {row.version_number} · revision {row.revision}</option>)}
           </select></label>
           {bundle.canEdit && selected === 'draft' && bundle.draft.status === 'draft' && bundle.draft.subjects && <button type="button" onClick={() => setEditing(bundle.draft)}>Edit draft</button>}</div>
-          <p className="live-notice">History: latest 50 draft snapshots{!bundle.history.length ? ' — unavailable' : ''}. {!bundle.approved.length ? 'No approved snapshots returned.' : 'Approved snapshots retain their own content.'} Original approval actor/time unavailable in the existing read contract.</p>
+          {selected !== 'draft' && bundle.canEdit && <button type="button" onClick={() => setEditing(bundle.draft)}>Continue current draft · revision {bundle.draft.revision}</button>}
+          <p className="live-notice">History: latest 50 draft snapshots{!bundle.history.length ? ' — unavailable' : ''}. {!bundle.approved.length ? 'No approved snapshots returned.' : 'Approved snapshots retain their own content.'}</p>
+      {snapshot && 'template_id' in snapshot && <div key={`${snapshot.id}:${snapshot.revision}:${generation}`}><StudioLifecycle bundle={bundle} snapshot={snapshot} onApproved={() => { setNotice('Approval confirmed by server. Loading approved history.'); setGeneration(value => value + 1); }} /></div>}
           {snapshot ? <><p className="live-meta">Snapshot: {snapshot.name} · {snapshot.status} · revision {snapshot.revision} · {'version_id' in snapshot ? snapshot.version_id : snapshot.id}</p><StudioContent snapshot={snapshot} /></> : <p role="status">Selected snapshot unavailable. No draft substitution.</p>}
         </>}
       </>}

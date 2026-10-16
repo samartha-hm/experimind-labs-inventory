@@ -11,6 +11,7 @@ export interface StudioRevision {
 }
 export interface StudioBundle {
   draft: StudioSnapshot; history: StudioRevision[]; approved: StudioSnapshot[]; canEdit?: boolean;
+  approvals?: { version_id: string; source_version_id: string; source_revision: number; approved_by: string; approved_at: string }[];
 }
 export function studioEnabled(orgId: string, environment: Record<string, string | undefined>): boolean {
   return ['development', 'test'].includes(environment.NODE_ENV ?? '')

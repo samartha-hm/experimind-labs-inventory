@@ -78,9 +78,15 @@ export function productTemplateRouter(db: DataSource) {
     const draft = await service.view(req.params.id, orgId);
     const history = await service.history(req.params.id, orgId);
     const approved = (await service.approved(orgId)).filter(version => version.template_id === draft.template_id);
+    const approvals = await service.approvalHistory(req.params.id, orgId);
     const current = await service.view(req.params.id, orgId);
     if (current.id !== draft.id || current.revision !== draft.revision) throw new DraftKitError(409, 'This kit changed while loading. Refresh to load a consistent revision.');
-    res.json({ draft, history, approved, canEdit: studioEditingEnabled(orgId, process.env) && draftKitWriters.has(req.user!.role!) });
+    res.json({ draft, history, approved, approvals, canEdit: studioEditingEnabled(orgId, process.env) && draftKitWriters.has(req.user!.role!) });
+  }));
+  router.post('/:id/studio/approve', studioGate, action(async (req, res) => {
+    if (!studioEditingEnabled(req.user!.orgId!, process.env)) throw new DraftKitError(404, 'Studio lifecycle actions are unavailable. Return to the existing Kit Builder.');
+    const { revision } = await dto(req.body, ArchiveDto);
+    res.status(201).json(await service.approve(req.params.id, req.user!.orgId!, req.user!.id, revision));
   }));
   router.put('/:id/studio', studioGate, action(async (req, res) => {
     if (!studioEditingEnabled(req.user!.orgId!, process.env)) throw new DraftKitError(404, 'Draft editing is unavailable. Return to the existing Kit Builder.');
