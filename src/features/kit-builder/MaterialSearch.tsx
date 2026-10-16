@@ -8,15 +8,17 @@ export function MaterialSearch({ onPick, disabled }: { onPick: (item: InventoryP
   const [results, setResults] = useState<InventoryPick[]>([]);
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
   useEffect(() => {
     const text = query.trim();
-    if (text.length < 2) { setResults([]); setOpen(false); return; }
+    setError('');
+    if (text.length < 2) { setResults([]); setOpen(false); setBusy(false); return; }
     let mounted = true;
     setBusy(true);
     const timer = setTimeout(() => {
       apiFetch(`/api/v1/product-templates/materials?q=${encodeURIComponent(text)}`)
         .then((data: InventoryPick[]) => { if (mounted) { setResults(data); setOpen(true); } })
-        .catch(() => { if (mounted) { setResults([]); setOpen(false); } })
+        .catch((reason: unknown) => { if (mounted) { setResults([]); setOpen(false); setError(reason instanceof Error ? reason.message : 'Search unavailable. Check the connection and try again.'); } })
         .finally(() => { if (mounted) setBusy(false); });
     }, 300);
     return () => { mounted = false; clearTimeout(timer); };
@@ -36,13 +38,14 @@ export function MaterialSearch({ onPick, disabled }: { onPick: (item: InventoryP
           onChange={event => setQuery(event.target.value)}
         />
       </div>
-      {busy && <p className="mt-1 text-xs text-slate-500">Searching…</p>}
+      {busy && <p role="status" className="mt-1 text-xs text-slate-500">Searching…</p>}
+      {error && <p role="alert">{error}</p>}
       {open && !busy && (
         results.length ? (
           <ul className="mt-1 rounded-xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900 divide-y divide-slate-100 dark:divide-slate-800">
             {results.map(item => (
               <li key={item.id}>
-                <button type="button" className="w-full px-3 py-2 text-left text-sm hover:bg-slate-50 dark:hover:bg-slate-800" onClick={() => pick(item)}>
+                <button type="button" disabled={disabled} className="w-full min-h-11 px-3 py-2 text-left text-sm hover:bg-slate-50 dark:hover:bg-slate-800" onClick={() => pick(item)}>
                   <span className="font-medium">{item.name}</span>
                   {item.sku ? <span className="ml-2 text-xs text-slate-500">{item.sku}</span> : null}
                   {item.unit ? <span className="ml-2 text-xs text-slate-500">{item.unit}</span> : null}

@@ -1,4 +1,6 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
+import { studioSave } from './studioSave';
+import { StudioReadError } from './studioRead';
 import { ArrowLeft, ArrowDown, ArrowUp, Plus, Search, Archive, Package, Trash2 } from "lucide-react";
 import { useAuth } from "../../AuthContext";
 import { apiFetch } from "../../utils/api";
@@ -11,7 +13,7 @@ import { CrateEditor } from "./CrateEditor";
 import { QuantityPreview } from "./QuantityPreview";
 import type { KitMaterial, KitActivity, KitGrade, KitSubject, KitPackingUnit } from "../../entity/ProductTemplateVersion";
 
-interface DraftKit {
+export interface DraftKit {
   id: string; template_id: string; name: string; description: string; category: string;
   version_number: number; revision: number; updated_at: string; subjects?: KitSubject[];
 }
@@ -41,28 +43,51 @@ function withActivities(subjects: KitSubject[]): KitSubject[] {
   return subjects.map(subject => ({ ...subject, grades: (subject.grades ?? []).map(grade => ({ ...grade, activities: grade.activities ?? [] })) }));
 }
 
-export default function ProductLibrary() {
+interface StudioEditorOptions {
+  draft: DraftKit;
+  onClose: () => void;
+}
+export default function ProductLibrary({ studio }: { studio?: StudioEditorOptions } = {}) {
   const { role } = useAuth();
   const canWrite = writers.has(role ?? "");
   const [kits, setKits] = useState<DraftKit[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!studio);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [search, setSearch] = useState("");
-  const [editing, setEditing] = useState<DraftKit | "new" | null>(null);
-  const [content, setContent] = useState({ name: "", description: "", category: "" });
-  const [subjects, setSubjects] = useState<KitSubject[]>([]);
+  const [editing, setEditing] = useState<DraftKit | "new" | null>(studio?.draft ?? null);
+  const [content, setContent] = useState(studio ? { name: studio.draft.name, description: studio.draft.description, category: studio.draft.category } : { name: "", description: "", category: "" });
+  const [subjects, setSubjects] = useState<KitSubject[]>(() => withActivities(studio?.draft.subjects ?? []));
+  const [conflict, setConflict] = useState(false);
+  const editorRoot = useRef<HTMLElement>(null);
+  const Inspector = studio ? 'details' : 'div';
+  const Title = studio ? 'h2' : 'h1';
   const [confirmArchive, setConfirmArchive] = useState(false);
   const dirty = editing === "new" || (!!editing && (content.name !== editing.name || content.description !== editing.description || content.category !== editing.category || JSON.stringify(subjects) !== JSON.stringify(withActivities(editing.subjects ?? []))));
   useEffect(() => {
-    if (!dirty) return;
+    if (!dirty && !busy) return;
     const warn = (event: BeforeUnloadEvent) => { event.preventDefault(); event.returnValue = ""; };
     window.addEventListener("beforeunload", warn);
     return () => window.removeEventListener("beforeunload", warn);
-  }, [dirty]);
+  }, [dirty, busy]);
+  useEffect(() => {
+    if (!studio || (!dirty && !busy)) return;
+    // Includes shell workspace buttons and links outside the editor; browser back/reload
+    // is guarded by beforeunload. No local state is silently discarded.
+    const guard = (event: MouseEvent) => {
+      const target = event.target;
+      if (!(target instanceof Element) || editorRoot.current?.contains(target) || !target.closest('a,button,[role="tab"]')) return;
+      if (busy || !window.confirm('Discard unsaved draft changes and leave editing?')) {
+        event.preventDefault(); event.stopImmediatePropagation();
+      }
+    };
+    document.addEventListener('click', guard, true);
+    return () => document.removeEventListener('click', guard, true);
+  }, [studio, dirty, busy]);
 
   useEffect(() => {
+    if (studio) return;
     let mounted = true;
     apiFetch("/api/v1/product-templates").then((data: DraftKit[]) => { if (mounted) setKits(data); })
       .catch((e: Error) => { if (mounted) setError(e.message); })
@@ -89,18 +114,22 @@ export default function ProductLibrary() {
     finally { setBusy(false); }
   }
   async function save(event: React.FormEvent) {
-    event.preventDefault(); if (!editing) return;
+    event.preventDefault(); if (!editing || busy || conflict || !canWrite) return;
     setBusy(true); setError(""); setMessage("");
     try {
       const isNew = editing === "new";
-      const saved: DraftKit = await apiFetch(`/api/v1/product-templates${isNew ? "" : `/${editing.template_id}`}`, {
+      const payload = { ...content, subjects, ...(isNew ? {} : { revision: editing.revision }) };
+      const saved: DraftKit = studio ? await studioSave(studio.draft.template_id, payload) : await apiFetch(`/api/v1/product-templates${isNew ? "" : `/${editing.template_id}`}`, {
         method: isNew ? "POST" : "PUT", body: JSON.stringify({ ...content, subjects, ...(isNew ? {} : { revision: editing.revision }) }),
       });
       setEditing(saved); setContent({ name: saved.name, description: saved.description, category: saved.category });
       setSubjects(withActivities(saved.subjects ?? []));
       setKits(previous => [saved, ...previous.filter(kit => kit.template_id !== saved.template_id)]);
-      setMessage("Draft saved. You can reopen it from Product Library.");
-    } catch (e) { setError(e instanceof Error ? e.message : "Unable to save draft"); }
+      setMessage(`Draft saved · Revision ${saved.revision}. Reopen to verify persisted content.`);
+    } catch (e) {
+      if (studio && e instanceof StudioReadError && e.status === 409) setConflict(true);
+      setError(studio && !(e instanceof StudioReadError) ? "Save response unavailable. Changes remain open; close and reopen to check whether the revision was saved before retrying." : e instanceof Error ? e.message : "Unable to save draft");
+    }
     finally { setBusy(false); }
   }
   async function archive() {
@@ -209,17 +238,18 @@ export default function ProductLibrary() {
   }
   const blankName = subjects.some(subject => !subject.name.trim() || subject.grades.some(grade => !grade.name.trim() || grade.activities.some(activity => !activity.name.trim())));
   const filtered = kits.filter(kit => `${kit.name} ${kit.description} ${kit.category}`.toLowerCase().includes(search.toLowerCase()));
-  return <section className="space-y-6" aria-labelledby="library-title">
+  return <section ref={editorRoot} className={studio ? "studio-editor space-y-6" : "space-y-6"} aria-labelledby="library-title">
     <div className="flex flex-wrap items-center justify-between gap-4">
       <div><p className="text-xs font-bold uppercase tracking-widest text-indigo-600 dark:text-indigo-400">Kit Builder</p>
-        <h1 id="library-title" className="mt-2 text-2xl font-bold text-slate-900 dark:text-white">{editing === "new" ? "Create Kit" : editing ? editing.name : "Product Library"}</h1>
+        <Title id="library-title" className="mt-2 text-2xl font-bold text-slate-900 dark:text-white">{studio ? 'Editing draft · ' : ''}{editing === "new" ? "Create Kit" : editing ? editing.name : "Product Library"}</Title>
         <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">{editing ? "Define activities and materials, arrange boxes, partitions and pouches, then save the draft." : "Create and manage reusable kit drafts for your organization."}</p></div>
       {!editing && canWrite && <button onClick={create} className={`${buttonClass} bg-indigo-600 text-white flex items-center gap-2`} disabled={busy}><Plus size={18} />Create Kit</button>}
     </div>
     {error && <div role="alert" className="rounded-xl bg-red-50 dark:bg-red-950 p-4 text-red-700 dark:text-red-300">{error}</div>}
+    {conflict && <p role="alert">Another editor changed this draft. Your changes are retained here for comparison. Copy any needed values, then choose “Close editor” to discard local changes and reopen the latest revision. Saving is blocked until reopening.</p>}
     {message && <p role="status" className="rounded-xl bg-emerald-50 dark:bg-emerald-950 p-4 text-emerald-700 dark:text-emerald-300">{message}</p>}
     {editing ? <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 sm:p-8">
-      <button type="button" disabled={busy} onClick={() => { if (dirty && !window.confirm("Discard unsaved changes?")) return; setEditing(null); setConfirmArchive(false); setError(""); }} className={`${buttonClass} mb-6 flex items-center gap-2 text-slate-600 dark:text-slate-300`}><ArrowLeft size={18} />Back to Product Library</button>
+      <button type="button" disabled={busy} onClick={() => { if (dirty && !window.confirm("Discard unsaved changes?")) return; if (studio) { studio.onClose(); return; } setEditing(null); setConfirmArchive(false); setError(""); }} className={`${buttonClass} mb-6 flex items-center gap-2 text-slate-600 dark:text-slate-300`}><ArrowLeft size={18} />{studio ? 'Close editor' : 'Back to Product Library'}</button>
       <form onSubmit={save} className="max-w-2xl space-y-5">
         <label className="block text-sm font-semibold text-slate-700 dark:text-slate-200">Kit name<input autoFocus required maxLength={200} disabled={!canWrite || busy} className={`${inputClass} mt-2`} value={content.name} onChange={e => setContent({ ...content, name: e.target.value })} /></label>
         <label className="block text-sm font-semibold text-slate-700 dark:text-slate-200">Category <span className="font-normal text-slate-500">(optional)</span><input maxLength={100} disabled={!canWrite || busy} className={`${inputClass} mt-2`} value={content.category} onChange={e => setContent({ ...content, category: e.target.value })} placeholder="For example, Science or Robotics" /></label>
@@ -235,14 +265,16 @@ export default function ProductLibrary() {
               {canWrite && <button type="button" aria-label={`Remove ${subject.name || "subject"}`} disabled={busy} onClick={() => removeSubject(subject.id)} className={`${iconButtonClass} text-red-600 dark:text-red-400`}><Trash2 size={16} /></button>}
             </div>
             <CrateEditor crates={subject.crates ?? []} subjects={subjects} disabled={!canWrite || busy} onChange={crates => updateSubject(subject.id, { crates })} />
-            {subject.grades.map((grade, gradeIndex) => <div key={grade.id} className="space-y-2 sm:pl-8">
+            {subject.grades.map((grade, gradeIndex) => <Inspector key={grade.id} className="space-y-2 sm:pl-8" {...(studio ? { open: true } : {})}>
+              {studio && <summary>{grade.name || 'New grade'} · Education and packing inspector</summary>}
               <div className="flex flex-wrap items-center gap-2">
                 <input aria-label={`${subject.name || "Subject"} grade ${gradeIndex + 1} name`} placeholder="Grade name, for example Grade 8" maxLength={100} disabled={!canWrite || busy} className={`${inputClass} flex-1 min-w-48`} value={grade.name} onChange={e => updateGrade(subject.id, grade.id, { name: e.target.value })} />
                 <button type="button" aria-label={`Move ${grade.name || "grade"} up`} disabled={busy || gradeIndex === 0} onClick={() => moveGrade(subject.id, grade.id, -1)} className={iconButtonClass}><ArrowUp size={16} /></button>
                 <button type="button" aria-label={`Move ${grade.name || "grade"} down`} disabled={busy || gradeIndex === subject.grades.length - 1} onClick={() => moveGrade(subject.id, grade.id, 1)} className={iconButtonClass}><ArrowDown size={16} /></button>
                 {canWrite && <button type="button" aria-label={`Remove ${grade.name || "grade"} from ${subject.name || "subject"}`} disabled={busy} onClick={() => removeGrade(subject.id, grade.id)} className={`${iconButtonClass} text-red-600 dark:text-red-400`}><Trash2 size={16} /></button>}
               </div>
-              {grade.activities.map((activity, activityIndex) => <div key={activity.id} className="rounded-xl border border-slate-200 dark:border-slate-700 p-4 space-y-3">
+              {grade.activities.map((activity, activityIndex) => <Inspector key={activity.id} className="rounded-xl border border-slate-200 dark:border-slate-700 p-4 space-y-3" {...(studio ? { open: true } : {})}>
+                {studio && <summary>{activity.code ? `${activity.code} · ` : ''}{activity.name || 'New activity'} · {activity.materials.length} materials</summary>}
                 <div className="flex flex-wrap items-center gap-2">
                   <input aria-label={`${activity.name || "Activity"} ${activityIndex + 1} code`} placeholder="Code, e.g. 8.4.1" maxLength={50} disabled={!canWrite || busy} className={`${inputClass} w-36`} value={activity.code ?? ""} onChange={e => updateActivity(subject.id, grade.id, activity.id, { code: e.target.value })} />
                   <input aria-label={`${subject.name || "Subject"} ${grade.name || "grade"} activity ${activityIndex + 1} name`} placeholder="Activity name" maxLength={100} disabled={!canWrite || busy} className={`${inputClass} flex-1 min-w-48`} value={activity.name} onChange={e => updateActivity(subject.id, grade.id, activity.id, { name: e.target.value })} />
@@ -268,23 +300,23 @@ export default function ProductLibrary() {
                   </div>)}
                   {canWrite && <MaterialSearch disabled={!canWrite || busy || activity.materials.length >= 100} onPick={item => addMaterial(subject.id, grade.id, activity.id, item)} />}
                 </div>
-              </div>)}
+              </Inspector>)}
               {canWrite && <button type="button" disabled={busy || grade.activities.length >= 100} onClick={() => addActivity(subject.id, grade.id)} className="inline-flex items-center gap-1 text-sm font-semibold text-indigo-600 dark:text-indigo-400 disabled:opacity-50 disabled:cursor-not-allowed"><Plus size={14} />Add activity</button>}
               <fieldset className="space-y-3 pt-3"><legend className="text-sm font-semibold">Physical packing · {grade.name}</legend>
                 <p className="text-xs text-slate-500">Boxes contain partitions and pouches. Activities can share pouches; material assignments describe locations without adding demand or changing stock.</p>
                 <PackingEditor units={grade.packing ?? []} activities={grade.activities} disabled={!canWrite || busy} onChange={packing => updateGrade(subject.id, grade.id, { packing })} />
               </fieldset>
-            </div>)}
+            </Inspector>)}
             {canWrite && <button type="button" disabled={busy || subject.grades.length >= 100} onClick={() => addGrade(subject.id)} className="inline-flex items-center gap-1 text-sm font-semibold text-indigo-600 dark:text-indigo-400 disabled:opacity-50 disabled:cursor-not-allowed"><Plus size={14} />Add grade</button>}
           </div>)}
           {canWrite && <button type="button" disabled={busy || subjects.length >= 100} onClick={addSubject} className="inline-flex items-center gap-2 text-sm font-semibold text-indigo-600 dark:text-indigo-400 disabled:opacity-50 disabled:cursor-not-allowed"><Plus size={16} />Add subject</button>}
           {blankName && <p className="text-sm text-amber-700 dark:text-amber-300">Every subject, grade and activity needs a name before saving.</p>}
         </fieldset>
         <QuantityPreview subjects={subjects} templateId={editing === "new" ? undefined : editing.template_id} revision={editing === "new" ? undefined : editing.revision} dirty={dirty} disabled={busy} />
-        {canWrite && editing !== "new" && <button type="button" className={buttonClass} disabled={busy || dirty} onClick={() => void approve()}>Approve immutable version for planning</button>}
+        {!studio && canWrite && editing !== "new" && <button type="button" className={buttonClass} disabled={busy || dirty} onClick={() => void approve()}>Approve immutable version for planning</button>}
         <p aria-live="polite" className="text-sm text-slate-500">{busy ? "Saving…" : dirty ? "Unsaved changes" : "Saved"} · Draft{editing !== "new" && ` · Version ${editing.version_number} · Revision ${editing.revision}`}</p>
-        {canWrite && <div className="flex flex-wrap gap-3"><button type="submit" disabled={busy || !content.name.trim() || blankName} className={`${buttonClass} bg-indigo-600 text-white`}>{busy ? "Saving…" : "Save draft"}</button>
-          {editing !== "new" && <button type="button" disabled={busy} className={`${buttonClass} text-slate-600 dark:text-slate-300 flex items-center gap-2`} onClick={() => setConfirmArchive(true)}><Archive size={18} />Archive kit</button>}</div>}
+        {canWrite && <div className="studio-savebar flex flex-wrap gap-3"><button type="submit" disabled={busy || conflict || (Boolean(studio) && !dirty) || !content.name.trim() || blankName} className={`${buttonClass} bg-indigo-600 text-white`}>{busy ? "Saving…" : "Save draft"}</button>
+          {!studio && editing !== "new" && <button type="button" disabled={busy} className={`${buttonClass} text-slate-600 dark:text-slate-300 flex items-center gap-2`} onClick={() => setConfirmArchive(true)}><Archive size={18} />Archive kit</button>}</div>}
       </form>
       {editing !== "new" && <RevisionHistory templateId={editing.template_id} revision={editing.revision} />}
       {confirmArchive && <div role="alert" className="mt-6 rounded-xl border border-amber-200 p-4 text-slate-700 dark:text-slate-200"><p>Archive this kit? It will be removed from the active library. Its saved records will be retained.</p><div className="mt-3 flex gap-3"><button disabled={busy} onClick={archive} className={`${buttonClass} bg-amber-600 text-white`}>Confirm archive</button><button disabled={busy} onClick={() => setConfirmArchive(false)} className={buttonClass}>Cancel</button></div></div>}

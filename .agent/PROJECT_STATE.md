@@ -1,6 +1,21 @@
 # ERP state — historical implementation notes
 
-## Milestone 13D — 2026-10-16 — current
+## Milestone 13E — 2026-10-16 — current
+
+Bounded existing-draft editing integrated behind the additional default-off
+KIT_STUDIO_DRAFT_EDITING flag. Existing tenant/role checks, transactional revision
+locking, validators, calculators and immutable approved versions are reused.
+Explicit save, dirty navigation guards, conflict recovery, revision comparison
+and responsive inspectors verified. Full suite 513/513 in 70 files; focused 41;
+typecheck and frontend/PWA/server builds pass. Independent Edge desktop/tablet/
+reflow audits have zero axe violations/incomplete checks. Operational inventory,
+reservations and ledger fingerprints unchanged; seven locations reconcile.
+Flag-off browser rollback preserves saved drafts in legacy editor. Local server
+left off. See MILESTONE_13E_INTEGRATION.md and MILESTONE_13E_ACCEPTANCE.md.
+Manual device/staff/assistive acceptance and Milestone 12 gates remain pending.
+Stop for review before approval/publishing, Packing/QC, merge or deployment.
+
+## Milestone 13D — 2026-10-16 — historical
 
 Authorized development read-only Kit Studio integrated behind default-off server
 flag and exact organization allowlist; existing builder remains default. Existing

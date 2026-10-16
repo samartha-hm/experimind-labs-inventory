@@ -25,3 +25,4 @@ Open only the authority relevant to the task. Current user instructions and conf
 | Milestone 13A UX discovery — bounded 13B approved | [Decision brief](ui-ux/DECISION_BRIEF.md), [current-state audit](ui-ux/CURRENT_STATE_AUDIT.md), [workspace specifications](ui-ux/PRIORITY_WORKSPACE_SPECS.md), [roadmap](ui-ux/PHASED_IMPLEMENTATION_ROADMAP.md) |
 | Milestone 13B — foundation refined in 13C | [Implementation and library decision](ui-ux/MILESTONE_13B.md), [acceptance and evidence](ui-ux/MILESTONE_13B_ACCEPTANCE.md) |
 | Milestone 13C — awaiting design review | [Refinement](ui-ux/MILESTONE_13C.md), [verification](ui-ux/MILESTONE_13C_ACCEPTANCE.md), [integration proposal](ui-ux/MILESTONE_13C_INTEGRATION.md) |
+| Milestone 13E — draft editing review | [Integration and rollback](ui-ux/MILESTONE_13E_INTEGRATION.md), [acceptance](ui-ux/MILESTONE_13E_ACCEPTANCE.md) |

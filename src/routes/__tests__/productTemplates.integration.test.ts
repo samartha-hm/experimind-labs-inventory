@@ -460,4 +460,57 @@ describe.skipIf(!databaseUrl)("PostgreSQL draft-kit CRUD and authorization", () 
     } finally { for (const [key, value] of Object.entries(previous)) { if (value === undefined) delete process.env[key]; else process.env[key] = value; } }
   });
 
+  it('controls Studio saves with flags, current roles, tenant scope and optimistic revisions', async () => {
+    const keys = ['NODE_ENV', 'KIT_STUDIO_READ_ONLY', 'KIT_STUDIO_ORGANIZATIONS', 'KIT_STUDIO_DRAFT_EDITING'];
+    const previous = keys.map(key => process.env[key]);
+    try {
+      Object.assign(process.env, { NODE_ENV: 'test', KIT_STUDIO_READ_ONLY: 'true', KIT_STUDIO_ORGANIZATIONS: `${maker.organization_id},${other.organization_id}`, KIT_STUDIO_DRAFT_EDITING: 'false' });
+      const item = await db.getRepository(InventoryItem).findOneByOrFail({ organization_id: maker.organization_id });
+      const subjectId = randomUUID(); const gradeId = randomUUID(); const activityId = randomUUID();
+      const subjects = [{ id: subjectId, name: 'Science', grades: [{ id: gradeId, name: 'Grade 8', activities: [{ id: activityId, name: 'Measurement', materials: [{ id: randomUUID(), inventory_item_id: item.id, item_name: item.name, quantity: 0.125, unit: 'pcs' }] }], packing: [{ id: randomUUID(), kind: 'box', name: 'Box', activity_ids: [], inventory_item_ids: [], children: [{ id: randomUUID(), kind: 'partition', name: 'Partition', activity_ids: [], inventory_item_ids: [], children: [{ id: randomUUID(), kind: 'pouch', name: 'Shared pouch', activity_ids: [activityId], inventory_item_ids: [item.id], children: [] }] }] }] }], crates: [{ id: randomUUID(), name: 'Common', kind: 'common', materials: [{ id: randomUUID(), inventory_item_id: item.id, item_name: item.name, quantity: 1, unit: 'pcs', reusable: true }], rule: { kind: 'selected_sets', components: [{ subject_id: subjectId, grade_id: gradeId, quantity: 1 }] } }] }];
+      const created = await (await request('POST', '', maker, { name: 'Studio editing acceptance', subjects })).json();
+      expect(created.revision).toBe(1);
+      const path = `/${created.template_id}/studio`;
+      const payload = { name: created.name, description: 'Explicit Studio save', category: 'Science', subjects: created.subjects, revision: 1 };
+      expect((await request('PUT', path, maker, payload)).status).toBe(404);
+      expect((await (await request('GET', path, maker)).json()).canEdit).toBe(false);
+      process.env.KIT_STUDIO_DRAFT_EDITING = 'true';
+      expect((await (await request('GET', path, maker)).json()).canEdit).toBe(true);
+      expect((await (await request('GET', path, viewer)).json()).canEdit).toBe(false);
+      expect((await request('PUT', path, undefined, payload)).status).toBe(401);
+      expect((await request('PUT', path, viewer, payload, token(viewer, { role: 'admin' }))).status).toBe(403);
+      expect((await request('PUT', path, other, payload)).status).toBe(404);
+      expect((await request('PUT', path, maker, { ...payload, status: 'published' })).status).toBe(400);
+      expect((await request('PUT', path, maker, { ...payload, organization_id: other.organization_id })).status).toBe(400);
+      const service = new ProductTemplateService(db);
+      const approved = await service.approve(created.template_id, maker.organization_id, maker.id, 1);
+      const approvedBefore = await db.getRepository(ProductTemplateVersion).findOneByOrFail({ id: approved.id });
+      const inventoryBefore = await db.query('SELECT * FROM inventory_items ORDER BY id');
+      const ledgerBefore = await db.query('SELECT * FROM stock_ledger ORDER BY id');
+      payload.subjects[0].grades[0].activities[0].materials[0].quantity = 0.375;
+      payload.subjects[0].grades[0].packing[0].name = 'Updated physical box';
+      const results = await Promise.all(['A', 'B'].map(description => request('PUT', path, maker, { ...payload, description })));
+      expect(results.map(row => row.status).sort()).toEqual([200, 409]);
+      const saved = await results.find(row => row.status === 200)!.json();
+      expect(saved).toMatchObject({ revision: 2, subjects: payload.subjects });
+      expect((await request('PUT', path, maker, payload)).status).toBe(409);
+      await closeServer(); await db.destroy(); await db.initialize(); await startServer();
+      const reopened = await (await request('GET', path, maker)).json();
+      expect(reopened.draft).toMatchObject({ revision: 2, subjects: saved.subjects });
+      expect(reopened.history.map((row: { revision: number }) => row.revision)).toEqual([2, 1]);
+      expect((await (await request('GET', `/${created.template_id}`, maker)).json()).subjects).toEqual(saved.subjects);
+      const context = { grade_quantities: { [gradeId]: 2 } };
+      const preview = await (await request('POST', `/${created.template_id}/preview`, maker, { revision: 2, context })).json();
+      expect(preview.totals[0].quantity).toBe(2.75);
+      expect((await request('PUT', `/${approved.id}/studio`, maker, { ...payload, revision: 2 })).status).toBe(404);
+      expect(await db.getRepository(ProductTemplateVersion).findOneByOrFail({ id: approved.id })).toEqual(approvedBefore);
+      process.env.KIT_STUDIO_DRAFT_EDITING = 'false';
+      expect((await request('PUT', path, maker, { ...payload, revision: 2 })).status).toBe(404);
+      process.env.KIT_STUDIO_READ_ONLY = 'false';
+      expect((await request('GET', path, maker)).status).toBe(404);
+      expect((await (await request('GET', `/${created.template_id}`, maker)).json()).revision).toBe(2);
+      expect(await db.query('SELECT * FROM inventory_items ORDER BY id')).toEqual(inventoryBefore);
+      expect(await db.query('SELECT * FROM stock_ledger ORDER BY id')).toEqual(ledgerBefore);
+    } finally { keys.forEach((key, index) => { if (previous[index] === undefined) delete process.env[key]; else process.env[key] = previous[index]; }); }
+  });
 });

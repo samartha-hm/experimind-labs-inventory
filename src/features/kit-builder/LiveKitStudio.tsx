@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../../AuthContext';
-import ProductLibrary from './ProductLibrary';
+import ProductLibrary, { type DraftKit } from './ProductLibrary';
 import type { KitMaterial, KitPackingUnit, KitSubject } from '../../entity/ProductTemplateVersion';
 import { materialQuantity, type StudioBundle, type StudioSnapshot } from './studioContract';
 import { studioRead } from './studioRead';
@@ -13,8 +13,8 @@ const studioUrl = (id = '') => `${libraryUrl}&studio=${encodeURIComponent(id)}`;
 
 export default function ProductLibrarySurface() {
   const { user, token } = useAuth();
-  // Account/tenant/token transitions discard all live details, including in-flight reads.
-  return <StudioSession key={`${user?.id}:${user?.organization_id}:${token}`} />;
+  // Clear on account, tenant, role or sign-out changes; token renewal preserves pending edits.
+  return <StudioSession key={`${user?.id}:${user?.organization_id}:${user?.role}:${Boolean(token)}`} />;
 }
 function StudioSession() {
   const requested = new URLSearchParams(window.location.search).has('studio');
@@ -28,7 +28,7 @@ function StudioSession() {
     return () => { controller.abort(); clearTimeout(timer); };
   }, []);
   if (requested) return <LiveKitStudio />;
-  return <>{enabled && <a className="inline-flex min-h-11 items-center mb-4 text-indigo-700 dark:text-indigo-300 underline" href={studioUrl()}>Open read-only Kit Studio</a>}<ProductLibrary /></>;
+  return <>{enabled && <a className="inline-flex min-h-11 items-center mb-4 text-indigo-700 dark:text-indigo-300 underline" href={studioUrl()}>Open Kit Studio</a>}<ProductLibrary /></>;
 }
 
 function MaterialList({ materials, packing, owner }: { materials?: KitMaterial[]; packing?: KitPackingUnit[]; owner: string }) {
@@ -105,6 +105,7 @@ function LiveKitStudio() {
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [generation, setGeneration] = useState(0);
+  const [editing, setEditing] = useState<DraftKit | null>(null);
   useEffect(() => {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 15000);
@@ -127,12 +128,13 @@ function LiveKitStudio() {
     setGeneration(value => value + 1);
   }
   return <section className="precision live-studio" data-theme={document.documentElement.classList.contains('dark') ? 'dark' : 'light'} aria-labelledby="studio-title">
-    <header className="live-header"><div><p className="p-muted">PRECISION OPERATIONS · DEVELOPMENT REVIEW</p><h1 id="studio-title">Kit Studio</h1><p>Live persisted data · Read-only</p></div>
-      <nav aria-label="Kit Studio navigation"><a href={libraryUrl}>Return to existing Kit Builder</a>{templateId && <a href={studioUrl()}>All kits</a>}<button type="button" disabled={loading} onClick={refresh}>Refresh live data</button></nav>
+    <header className="live-header"><div><p className="p-muted">PRECISION OPERATIONS · DEVELOPMENT REVIEW</p><h1 id="studio-title">Kit Studio</h1><p>{editing ? 'Editing draft · Explicit save required' : 'Viewing saved data'}</p></div>
+      <nav aria-label="Kit Studio navigation"><a href={libraryUrl}>Return to existing Kit Builder</a>{templateId && <a href={studioUrl()}>All kits</a>}<button type="button" disabled={loading || !!editing} onClick={refresh}>Refresh live data</button></nav>
     </header>
     {notice && <p role="status" className="live-notice">{notice}</p>}
     {error && <p role="alert" className="live-notice">{error}</p>}
-    <div role="region" aria-busy={loading} aria-label="Live kit data">
+    {editing && <ProductLibrary studio={{ draft: editing, onClose: () => { setEditing(null); refresh(); } }} />}
+    {!editing && <div role="region" aria-busy={loading} aria-label="Live kit data">
       {loading ? <div role="status"><p>Loading live Kit Studio…</p><div className="live-skeleton" aria-hidden="true" /><div className="live-skeleton" aria-hidden="true" /></div> : !error && <>
         {!templateId && (kits.length ? <ul className="live-catalog">{kits.map(kit => <li key={kit.id}><a href={studioUrl(kit.template_id)}><strong>{kit.name}</strong><span>Draft · version {kit.version_number} · revision {kit.revision}</span></a></li>)}</ul> : <p role="status">No persisted kits in this organization.</p>)}
         {bundle && <><div className="live-toolbar"><div><h2>{bundle.draft.name}</h2><p>Template {bundle.draft.template_id}</p><Badge>Read-only</Badge></div>
@@ -140,11 +142,12 @@ function LiveKitStudio() {
             <option value="draft">Current draft · v{bundle.draft.version_number} · revision {bundle.draft.revision}</option>
             {bundle.history.map(row => <option key={row.id} value={`revision:${row.id}`}>Saved draft revision {row.revision} · {row.created_at}</option>)}
             {bundle.approved.map(row => <option key={row.id} value={row.id}>Approved immutable version {row.version_number} · revision {row.revision}</option>)}
-          </select></label></div>
+          </select></label>
+          {bundle.canEdit && selected === 'draft' && bundle.draft.status === 'draft' && bundle.draft.subjects && <button type="button" onClick={() => setEditing(bundle.draft)}>Edit draft</button>}</div>
           <p className="live-notice">History: latest 50 draft snapshots{!bundle.history.length ? ' — unavailable' : ''}. {!bundle.approved.length ? 'No approved snapshots returned.' : 'Approved snapshots retain their own content.'} Original approval actor/time unavailable in the existing read contract.</p>
           {snapshot ? <><p className="live-meta">Snapshot: {snapshot.name} · {snapshot.status} · revision {snapshot.revision} · {'version_id' in snapshot ? snapshot.version_id : snapshot.id}</p><StudioContent snapshot={snapshot} /></> : <p role="status">Selected snapshot unavailable. No draft substitution.</p>}
         </>}
       </>}
-    </div>
+    </div>}
   </section>;
 }
