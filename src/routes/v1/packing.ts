@@ -1,4 +1,5 @@
 import { Router, type RequestHandler } from "express";
+import { packingWorkspaceEnabled } from "../../features/packing/workspaceContract";
 import { DataSource } from "typeorm";
 import { IsString, IsUUID, IsInt, Min, MinLength, MaxLength, IsOptional, IsObject, IsArray, ArrayNotEmpty, ArrayMaxSize, ArrayUnique, IsBoolean, IsIn } from "class-validator";
 import { authenticateJwt } from "../../middleware/auth";
@@ -79,6 +80,19 @@ export function packingRouter(db: DataSource) {
   }));
   r.param("id", (_req, _res, next, id: string) => next(uuid.test(id) ? undefined : new DraftKitError(400, "Invalid identity")));
   const key = (req: Parameters<RequestHandler>[0]) => req.header("Idempotency-Key")!;
+  r.get('/workspace', action(async (req, res) => {
+    res.setHeader('Cache-Control', 'private, no-store');
+    res.json({ enabled: packingWorkspaceEnabled(req.user!.orgId!, process.env), role: req.user!.role, user_id: req.user!.id });
+  }));
+  r.use('/workspace', (req, res, next) => {
+    res.setHeader('Cache-Control', 'private, no-store');
+    if (!packingWorkspaceEnabled(req.user!.orgId!, process.env)) { res.status(404).json({ error: 'Packing workspace unavailable' }); return; }
+    if (req.method !== 'GET' && req.method !== 'HEAD') { res.status(405).json({ error: 'Read-only workspace' }); return; }
+    next();
+  });
+  r.get('/workspace/orders', action(async (req, res) => { res.json(await s.list(req.user!.orgId!)); }));
+  r.get('/workspace/orders/:id', action(async (req, res) => { res.json(await s.detail(req.user!.orgId!, req.params.id)); }));
+  r.get('/workspace/packages/:id', action(async (req, res) => { res.json(await s.package(req.user!.orgId!, req.params.id)); }));
   r.get("/", action(async (req, res) => { res.json(await s.list(req.user!.orgId!)); }));
   r.get("/orders/:id", action(async (req, res) => { res.json(await s.detail(req.user!.orgId!, req.params.id)); }));
   r.get("/packages/:id", action(async (req, res) => { res.setHeader("Cache-Control", "private, no-store"); const view = await s.package(req.user!.orgId!, req.params.id); res.json({ ...view, custody: await new DeliveryService(db).packageTrace(req.user!.orgId!, req.params.id) }); }));

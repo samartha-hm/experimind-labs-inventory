@@ -1,0 +1,22 @@
+import { describe, it, expect } from 'vitest';
+import { packageAncestry, packageLookupId, packingWorkspaceEnabled } from '../workspaceContract';
+import type { PhysicalPackage } from '../packingPlan';
+const id = '12345678-1234-1234-1234-123456789abc', origin = 'https://erp.test';
+describe('Packing workspace safety contracts', () => {
+  it('requires a separate development flag and exact tenant allowlist', () => {
+    const env = { NODE_ENV: 'development', PACKING_WORKSPACE_READ_ONLY: 'true', PACKING_WORKSPACE_ORGANIZATIONS: 'org-a, org-b' };
+    expect(packingWorkspaceEnabled('org-a', env)).toBe(true);
+    for (const patch of [{ NODE_ENV: 'production' }, { PACKING_WORKSPACE_READ_ONLY: 'false' }, { PACKING_WORKSPACE_ORGANIZATIONS: 'org-aa' }]) expect(packingWorkspaceEnabled('org-a', { ...env, ...patch })).toBe(false);
+    expect(packingWorkspaceEnabled('', env)).toBe(false);
+  });
+  it('accepts only package identities and same-origin label destinations', () => {
+    for (const value of [id, `PK-${id.toUpperCase()}`, `${origin}/?packing_package=${id}`]) expect(packageLookupId(value, origin)).toBe(id);
+    for (const value of ['unknown', `https://foreign.test/?packing_package=${id}`, `${origin}/other?packing_package=${id}`, `${origin}/?packing_package=${id}&packing_package=${id}`, `${origin}/?packing_package=${id}&role=admin`, `javascript:alert(1)`]) expect(() => packageLookupId(value, origin)).toThrow();
+  });
+  it('walks the authoritative parent hierarchy and terminates on malformed cycles', () => {
+    const a = { id: 'a', parent_id: null } as PhysicalPackage, b = { id: 'b', parent_id: 'a' } as PhysicalPackage;
+    expect(packageAncestry([a, b], 'b').map(p => p.id)).toEqual(['a', 'b']);
+    expect(packageAncestry([{ ...a, parent_id: 'b' }, b], 'b')).toHaveLength(2);
+    expect(packageAncestry([a], 'unknown')).toEqual([]);
+  });
+});

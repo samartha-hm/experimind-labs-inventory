@@ -1,0 +1,27 @@
+.packing-workspace { padding: 20px; border: 1px solid var(--p-line); border-radius: 20px; font-size: 16px; overflow-wrap: anywhere; }
+.packing-workspace h2 { font-size: 28px; }
+.packing-workspace h3 { font-size: 18px; margin-bottom: 8px; }
+.packing-workspace p { margin-bottom: 8px; }
+.precision.packing-workspace :is(button, input, select) { min-height: 48px; border: 1px solid var(--p-line); border-radius: 10px; padding: 10px 14px; background: var(--p-surface); color: var(--p-text); max-width: 100%; }
+.packing-workspace button:hover { border-color: var(--p-accent); }
+.packing-workspace input, .packing-workspace select { width: 100%; min-width: 0; }
+.packing-workspace label { display: block; font-weight: 600; margin: 12px 0 6px; }
+.pw-header, .pw-scan > div, .pw-metrics { display: flex; gap: 16px; justify-content: space-between; flex-wrap: wrap; }
+.pw-header { align-items: flex-start; }
+.pw-eyebrow { color: var(--p-accent); font-weight: 600; }
+.pw-scan { margin: 16px 0; padding: 16px; background: var(--p-accent-soft); border-radius: 12px; }
+.pw-scan input { flex: 1 1 260px; }
+.pw-layout { display: grid; grid-template-columns: minmax(240px, 300px) minmax(0, 1fr); gap: 16px; margin-top: 16px; align-items: start; }
+.pw-card { min-width: 0; padding: 18px; background: var(--p-surface); border: 1px solid var(--p-line); border-radius: 14px; }
+.pw-detail { display: grid; gap: 16px; min-width: 0; }
+.pw-outline { display: grid; gap: 8px; max-height: 65vh; overflow: auto; padding: 4px; }
+.precision.packing-workspace .pw-outline button { display: block; width: 100%; text-align: left; font-size: 16px; }
+.pw-outline span, .pw-outline small, .pw-material span, .pw-material small { display: block; }
+.pw-outline [aria-current=true] { border: 2px solid var(--p-accent); background: var(--p-accent-soft); }
+.pw-code { font-family: monospace; }
+.pw-metrics > div { flex: 1 1 200px; background: var(--p-soft); padding: 12px; border-radius: 10px; }
+.pw-alert { color: var(--p-bad); background: var(--p-bad-bg); padding: 12px; border-radius: 10px; }
+.pw-evidence, .pw-material { padding: 12px 0; border-top: 1px solid var(--p-line); }
+.pw-next { border-left: 4px solid var(--p-accent); padding: 16px; background: var(--p-accent-soft); border-radius: 12px; }
+.packing-workspace nav[aria-label="Package ancestry"] { display: flex; flex-wrap: wrap; gap: 6px; margin: 12px 0; }
+@media (max-width: 850px) { .pw-layout { grid-template-columns: minmax(0, 1fr); } .pw-outline { max-height: 280px; } .packing-workspace { padding: 12px; } }

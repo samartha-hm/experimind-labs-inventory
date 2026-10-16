@@ -27,3 +27,4 @@ Open only the authority relevant to the task. Current user instructions and conf
 | Milestone 13C — awaiting design review | [Refinement](ui-ux/MILESTONE_13C.md), [verification](ui-ux/MILESTONE_13C_ACCEPTANCE.md), [integration proposal](ui-ux/MILESTONE_13C_INTEGRATION.md) |
 | Milestone 13E — draft editing review | [Integration and rollback](ui-ux/MILESTONE_13E_INTEGRATION.md), [acceptance](ui-ux/MILESTONE_13E_ACCEPTANCE.md) |
 | Milestone 13F — supported lifecycle review | [Integration and rollback](ui-ux/MILESTONE_13F_INTEGRATION.md), [acceptance](ui-ux/MILESTONE_13F_ACCEPTANCE.md) |
+| Milestone 13G — read-only Packing/QC review | [Contract and rollback](ui-ux/MILESTONE_13G_CONTRACT_AUDIT.md), [acceptance](ui-ux/MILESTONE_13G_ACCEPTANCE.md), [future writes proposal](ui-ux/MILESTONE_13G_WRITE_PROPOSAL.md) |

@@ -1,6 +1,21 @@
 # ERP state — historical implementation notes
 
-## Milestone 13F — 2026-10-16 — current
+## Milestone 13G — 2026-10-16 — current
+
+Authenticated read-only Packing/QC foundation completed behind independent
+default-off development/test organization flags. Legacy operational panel remains
+default. Existing tenant/current-role service reads supply package hierarchy,
+contents, progress, QC and provenance; no mutation or migration. Full suite
+527/527 in 72 files (30-second label-test budget), typecheck and frontend/PWA/server
+builds pass. Standalone Edge desktop/tablet/reflow, keyboard, QR and actual flag-off
+legacy lookup pass. Scoped axe zero violations; one clipped desktop contrast
+check separately computed 15.38:1. Seven operational table fingerprints unchanged.
+See docs/erp/ui-ux/MILESTONE_13G_ACCEPTANCE.md, contract audit and write proposal.
+Temporary acceptance server stopped; no flag persisted. Physical device/printer/
+scanner/assistive acceptance and earlier Milestone 12 gates remain pending.
+Stop for review before write-enabled Packing/QC, merge or deployment.
+
+## Milestone 13F — 2026-10-16 — historical
 
 Supported Studio lifecycle completed: saved completeness review, authoritative
 quantity preview, confirmed immutable approval, provenance/history/comparison and

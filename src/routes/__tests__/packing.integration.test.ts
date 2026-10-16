@@ -363,6 +363,40 @@ describe.skipIf(!url)("PostgreSQL packing acceptance",()=>{
     const runner=db.createQueryRunner();try{await expect(new AddSharedLabelLayouts1792281600012().down(runner)).rejects.toThrow("populated");}finally{await runner.release();}
     expect(JSON.stringify(await db.query("SELECT * FROM stock_ledger ORDER BY id"))).toBe(ledger);
   });
+  it('serves the flagged read-only workspace with current-role and tenant isolation and no operational changes', async () => {
+    const keys = ['PACKING_WORKSPACE_READ_ONLY', 'PACKING_WORKSPACE_ORGANIZATIONS'];
+    const previous = keys.map(k => process.env[k]);
+    const tables = ['inventory_items', 'stock_ledger', 'project_stock_reservations', 'packing_orders', 'packing_picks', 'supply_events', 'supply_operations'];
+    const fingerprint = async () => Promise.all(tables.map(t => db.query(`SELECT md5(coalesce(string_agg(row_to_json(t)::text,'' ORDER BY id),'')) hash FROM ${t} t`)));
+    const before = await fingerprint();
+    try {
+      delete process.env.PACKING_WORKSPACE_READ_ONLY;
+      await request('GET', '/packing/workspace', undefined, undefined, 401);
+      expect((await prod('GET', '/workspace', undefined, 200, viewer)).enabled).toBe(false);
+      await prod('GET', `/workspace/orders/${order.id}`, undefined, 404, viewer);
+      Object.assign(process.env, { PACKING_WORKSPACE_READ_ONLY: 'true', PACKING_WORKSPACE_ORGANIZATIONS: `${maker.organization_id},${other.organization_id}` });
+      const capability = await request('GET', '/packing/workspace', viewer, undefined, 200, { role: 'admin' });
+      expect(capability).toMatchObject({ enabled: true, role: 'viewer', user_id: viewer.id });
+      const live = await prod('GET', `/orders/${order.id}`, undefined, 200, viewer);
+      expect(await prod('GET', `/workspace/orders/${order.id}`, undefined, 200, viewer)).toEqual(live);
+      expect(await prod('GET', '/workspace/orders', undefined, 200, viewer)).toEqual(await prod('GET', '/', undefined, 200, viewer));
+      const packageId = live.order.snapshot.packages[0].id;
+      const lookup = await prod('GET', `/workspace/packages/${packageId}`, undefined, 200, viewer);
+      expect(lookup.package).toEqual(live.order.snapshot.packages[0]);
+      await prod('GET', `/workspace/packages/${randomUUID()}`, undefined, 404, viewer);
+      await prod('GET', `/workspace/packages/${packageId}`, undefined, 404, other);
+      await prod('GET', `/workspace/orders/${order.id}`, undefined, 404, other);
+      await prod('GET', '/workspace/packages/not-a-uuid', undefined, 400, viewer);
+      await prod('POST', `/workspace/orders/${order.id}/qc`, { revision: live.order.revision }, 405, admin);
+      const role = maker.role;
+      await db.getRepository(User).update(maker.id, { role: 'suspended' });
+      try { await prod('GET', '/workspace/orders', undefined, 403); } finally { await db.getRepository(User).update(maker.id, { role }); }
+      process.env.PACKING_WORKSPACE_READ_ONLY = 'false';
+      await prod('GET', `/workspace/packages/${packageId}`, undefined, 404, viewer);
+      expect(await prod('GET', `/orders/${order.id}`, undefined, 200, viewer)).toEqual(live);
+      expect(await fingerprint()).toEqual(before);
+    } finally { keys.forEach((k, i) => { if (previous[i] === undefined) delete process.env[k]; else process.env[k] = previous[i]; }); }
+  });
   it("refuses destructive rollback and preserves inventory and historical ledger",async()=>{
     const r=db.createQueryRunner();try{await expect(new AddPacking1791849600007().down(r)).rejects.toThrow("history");}finally{await r.release();}
     expect(JSON.stringify(await db.query("SELECT * FROM inventory_items ORDER BY id"))).toBe(baseline);

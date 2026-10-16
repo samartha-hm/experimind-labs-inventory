@@ -35,6 +35,7 @@ import { ApprovalProvider } from '@/src/contexts/ApprovalContext';
 import { UserDirectoryTab } from '@/src/features/compliance/components/UserDirectoryTab';
 import ProductionPlanningPanel from "./features/production/ProductionPlanningPanel";
 import { PackingPackageLookup } from "./features/packing/PackingLabelsPanel";
+import { PackingWorkspaceEntry } from './features/packing/PackingWorkspace';
 import ProjectPlanningTab from '@/src/features/projects/ProjectPlanningTab';
 import StickerMonitoringHubTab from '@/src/features/stickers/StickerMonitoringHubTab';
 import ToastContainer from '@/src/components/ToastContainer';
@@ -311,6 +312,7 @@ function MainApp() {
           <div className="p-3 sm:p-6 md:p-8 max-w-7xl mx-auto pb-24 md:pb-8">
             <main>
               <PackingPackageLookup />
+              {new URLSearchParams(window.location.search).get('packing_workspace') === '1' && <PackingWorkspaceEntry direct />}
               {activeTab === 'product_library' && <ProductLibrary />}
               {activeTab === 'overview' && (
                 <OperationsWorkspace

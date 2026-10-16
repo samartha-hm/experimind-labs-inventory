@@ -4,10 +4,14 @@ import { apiFetch } from "../../utils/api";
 import type { PlanningView } from "../projects/planningTypes";
 import { actualMaterials, qcChecks, type PackingDetail, type PackingOrderSummary } from "./packingTypes";
 import { PackingLabelsPanel } from "./PackingLabelsPanel";
+import { PackingWorkspaceEntry } from './PackingWorkspace';
 
 const input = "min-h-11 rounded-xl border border-slate-300 bg-transparent p-3";
 const button = "min-h-11 rounded-xl border border-slate-300 px-4 py-3 disabled:opacity-40";
 export default function PackingPanel({ project }: { project?: PlanningView }) {
+  return <PackingWorkspaceEntry projectId={project?.id}><LegacyPackingPanel project={project} /></PackingWorkspaceEntry>;
+}
+function LegacyPackingPanel({ project }: { project?: PlanningView }) {
   const { currentUser } = useAuth(), role = currentUser?.role ?? "";
   const writer = ["admin", "super_admin", "manager", "staff", "inventory_staff", "production_staff", "project_staff", "editor"].includes(role);
   const approver = ["admin", "super_admin", "manager"].includes(role), inspector = approver || role === "inventory_staff";
