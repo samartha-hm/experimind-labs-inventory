@@ -1,12 +1,16 @@
-# Next bounded task — review Milestone 13F
+# Next bounded task — review Milestone 13G
 
-Review MILESTONE_13F_ACCEPTANCE.md and MILESTONE_13F_INTEGRATION.md. Both Studio
-flags are off locally. Record user feedback and complete manual staff, physical
-tablet, screen-reader and actual zoom acceptance. Earlier Milestone 12 readiness
-gates remain open in PROJECT_STATE.md. Unsupported rejection, correction workflow
-and separate draft cloning require a future authoritative API decision.
+Review docs/erp/ui-ux/MILESTONE_13G_ACCEPTANCE.md, MILESTONE_13G_CONTRACT_AUDIT.md
+and the separate MILESTONE_13G_WRITE_PROPOSAL.md. Complete manual operator,
+physical tablet, printer/scanner, screen-reader and actual zoom acceptance.
+Earlier Milestone12 operational readiness gates remain open in PROJECT_STATE.md.
 
-Stop after 13F: no further implementation, Packing/QC migration, company-data
-changes, main merge, deployment or pilot activation is authorized. Preserve
-legacy defaults, immutable snapshots, tenant/RBAC, quantity and inventory behavior,
-unrelated AGENTS.md edits and ignored browser evidence. Use /new or /compact.
+Workspace flags default off and no local flag was persisted. Legacy Packing/QC
+remains the operational default. Preserve tenant/current-role checks, immutable
+snapshots, operational inventory state, unrelated AGENTS.md edits and ignored
+browser evidence. Future writes need separate review of action capabilities,
+inspection/rework evidence, stale revisions, idempotency/duplicate scans and stock
+protections; no implementation is authorized by this handoff.
+
+Stop for review: no write-enabled Packing/QC, dispatch, company-data changes,
+main merge, deployment or pilot activation. Use /new or /compact.
