@@ -5,6 +5,7 @@ import { plainToInstance } from "class-transformer";
 import { authenticateJwt } from "../../middleware/auth.ts";
 import { User } from "../../entity/User.ts";
 import { DraftKitError, ProductTemplateService } from "../../services/ProductTemplateService.ts";
+import { studioEnabled } from "../../features/kit-builder/studioContract.ts";
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const readers = new Set(["admin", "super_admin", "staff", "manager", "editor", "inventory_staff", "project_staff", "viewer"]);
@@ -61,6 +62,26 @@ export function productTemplateRouter(db: DataSource) {
   router.param("id", (req, res, next, id: string) => {
     if (!uuid.test(id)) { res.status(400).json({ error: "Invalid kit identity" }); return; } next();
   });
+  // Development review only. This allowlist never replaces the authority checks above.
+  router.get('/studio-access', (req, res) => {
+    res.setHeader('Cache-Control', 'no-store');
+    res.json({ enabled: studioEnabled(req.user!.orgId!, process.env) });
+  });
+  const studioGate: RequestHandler = (req, res, next) => {
+    res.setHeader('Cache-Control', 'no-store');
+    if (!studioEnabled(req.user!.orgId!, process.env)) { res.status(404).json({ error: 'Kit Studio is unavailable. Return to Product Library.' }); return; }
+    next();
+  };
+  router.get('/studio', studioGate, action(async (req, res) => { res.json(await service.list(req.user!.orgId!)); }));
+  router.get('/:id/studio', studioGate, action(async (req, res) => {
+    const orgId = req.user!.orgId!;
+    const draft = await service.view(req.params.id, orgId);
+    const history = await service.history(req.params.id, orgId);
+    const approved = (await service.approved(orgId)).filter(version => version.template_id === draft.template_id);
+    const current = await service.view(req.params.id, orgId);
+    if (current.id !== draft.id || current.revision !== draft.revision) throw new DraftKitError(409, 'This kit changed while loading. Refresh to load a consistent revision.');
+    res.json({ draft, history, approved });
+  }));
   router.get("/", action(async (req, res) => { res.json(await service.list(req.user!.orgId!)); }));
   router.get("/approved", action(async (req, res) => { res.json(await service.approved(req.user!.orgId!)); }));
   // Material picker search; registered before /:id so "materials" is not read as a kit identity.

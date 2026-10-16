@@ -1,6 +1,21 @@
 # ERP state — historical implementation notes
 
-## Milestone 13C — 2026-10-16 — current
+## Milestone 13D — 2026-10-16 — current
+
+Authorized development read-only Kit Studio integrated behind default-off server
+flag and exact organization allowlist; existing builder remains default. Existing
+authenticated tenant/role authority, services and approved snapshots preserved.
+No schema, quantity calculator, inventory/ledger or permission changes.
+Full suite 503 passed, zero failed/pending, 69 files; HTTP/PostgreSQL 21 passed;
+Studio focused 10 passed; typecheck and frontend/PWA/server builds pass.
+Authenticated browser/DB fingerprints and rollback pass; three scoped axe audits
+have zero violations/incomplete checks. Local review server left flag-off.
+Quantity traces and original approval metadata remain explicitly unavailable
+under the existing template read contract. See MILESTONE_13D_INTEGRATION.md and
+MILESTONE_13D_ACCEPTANCE.md. Manual device/assistive testing and Milestone 12 gates
+remain pending. Stop for review before write integration; no deployment authorized.
+
+## Milestone 13C — 2026-10-16 — historical
 
 User-authorized DEV-only synthetic refinement completed; awaiting design review.
 Kit Studio preserves education/BOM/packaging context on tablets, explicit shared

@@ -14,7 +14,7 @@ import OperationsWorkspace from '@/src/features/core/OperationsWorkspace';
 import InventoryTab from '@/src/features/inventory/components/InventoryTab';
 import StocktakePanel from '@/src/features/inventory/StocktakePanel';
 import KittingTab from '@/src/features/kitting/components/KittingTab';
-import ProductLibrary from '@/src/features/kit-builder/ProductLibrary';
+import ProductLibrary from '@/src/features/kit-builder/LiveKitStudio';
 import SupplyPlanningPanel from '@/src/features/procurement/components/SupplyPlanningPanel';
 import SalesOrdersTab from '@/src/features/sales/components/SalesOrdersTab';
 import PartnersTab from '@/src/features/partners/components/PartnersTab';

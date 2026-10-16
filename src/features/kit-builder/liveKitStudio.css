@@ -1,0 +1,21 @@
+.live-studio { padding: 20px; border-radius: 16px; min-width: 0; overflow-wrap: anywhere; }
+.live-studio .live-header, .live-studio .live-toolbar { display: flex; justify-content: space-between; align-items: start; flex-wrap: wrap; gap: 20px; margin-bottom: 20px; }
+.live-studio nav { display: flex; flex-wrap: wrap; gap: 12px; }
+.live-studio nav a, .live-studio button { display: inline-flex; align-items: center; min-height: 44px; padding: 10px 14px; border: 1px solid var(--p-line); border-radius: 8px; background: var(--p-surface); color: var(--p-text); }
+.live-studio .live-columns { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+.live-studio .live-stack { display: grid; gap: 16px; min-width: 0; }
+.live-studio .live-pad { padding: 16px; }
+.live-studio .live-subject + .live-subject { margin-top: 24px; }
+.live-studio summary { min-height: 44px; padding: 12px 4px; cursor: pointer; font-weight: 600; }
+.live-studio .live-activity { border-top: 1px solid var(--p-line); margin-left: 8px; }
+.live-studio .live-materials, .live-studio .live-tree { padding-left: 20px; }
+.live-studio .live-materials li { padding: 12px 0; border-top: 1px solid var(--p-line); }
+.live-studio .live-materials li > * { display: block; }
+.live-studio .live-materials small, .live-studio .live-meta { color: var(--p-muted); }
+.live-studio .live-notice { background: var(--p-warn-bg); color: var(--p-warn); padding: 14px; border-radius: 8px; margin-bottom: 16px; }
+.live-studio .live-meta { margin: 12px 0; }
+.live-studio label { display: grid; gap: 8px; max-width: 100%; }
+.live-studio .live-skeleton { height: 120px; border-radius: 12px; background: var(--p-line); margin: 12px 0; }
+.live-studio .live-catalog { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 250px), 1fr)); gap: 16px; padding: 0; list-style: none; }
+.live-studio .live-catalog a { display: grid; gap: 12px; padding: 20px; min-height: 100px; border: 1px solid var(--p-line); border-radius: 12px; background: var(--p-surface); }
+@media (max-width: 900px) { .live-studio .live-columns { grid-template-columns: minmax(0, 1fr); } .live-studio { padding: 12px; } }

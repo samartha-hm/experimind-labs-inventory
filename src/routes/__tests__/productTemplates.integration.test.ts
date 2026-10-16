@@ -1,5 +1,5 @@
 import "reflect-metadata";
-import { beforeAll, afterAll, describe, it, expect } from "vitest";
+import { beforeAll, afterAll, describe, it, expect, vi } from "vitest";
 import { DataSource } from "typeorm";
 import express from "express";
 import type { Server } from "node:http";
@@ -418,4 +418,46 @@ describe.skipIf(!databaseUrl)("PostgreSQL draft-kit CRUD and authorization", () 
     } catch (error) { await runner.rollbackTransaction(); throw error; }
     finally { await runner.release(); }
   });
+
+  it("gates live Studio reads, preserves snapshots and introduces no database mutations", async () => {
+    const previous = { NODE_ENV: process.env.NODE_ENV, KIT_STUDIO_READ_ONLY: process.env.KIT_STUDIO_READ_ONLY, KIT_STUDIO_ORGANIZATIONS: process.env.KIT_STUDIO_ORGANIZATIONS };
+    try {
+      process.env.NODE_ENV = "test"; delete process.env.KIT_STUDIO_READ_ONLY;
+      expect((await request("GET", "/studio-access", viewer)).status).toBe(200);
+      expect(await (await request("GET", "/studio-access", viewer)).json()).toEqual({ enabled: false });
+      expect((await request("GET", "/studio", viewer)).status).toBe(404);
+      process.env.KIT_STUDIO_READ_ONLY = "true"; process.env.KIT_STUDIO_ORGANIZATIONS = maker.organization_id;
+      const created = await (await request("POST", "", maker, { name: "Studio snapshot", subjects: [{ id: randomUUID(), name: "Science", grades: [{ id: randomUUID(), name: "Grade 8", activities: [] }] }] })).json();
+      const service = new ProductTemplateService(db);
+      const approved = await service.approve(created.template_id, maker.organization_id, maker.id, 1);
+      const changed = await service.change(created.template_id, maker.organization_id, maker.id, 1, { name: "Later draft", description: created.description, category: created.category, subjects: created.subjects });
+      const path = `/${created.template_id}/studio`;
+      const tables = ['product_templates', 'product_template_versions', 'product_template_revisions', 'kit_template_approvals', 'inventory_items', 'stock_ledger'];
+      const before = await Promise.all(tables.map(table => db.query(`SELECT * FROM ${table} ORDER BY 1`)));
+      expect((await request("GET", "/studio")).status).toBe(401);
+      expect((await request("GET", "/studio", other)).status).toBe(404);
+      expect((await request("GET", path, viewer, undefined, token(viewer, { orgId: other.organization_id }))).status).toBe(403);
+      const response = await request("GET", path, viewer);
+      expect(response.status).toBe(200); expect(response.headers.get("cache-control")).toBe("no-store");
+      const bundle = await response.json(); expect(bundle.draft.name).toBe(changed.name); expect(bundle.draft.revision).toBe(2); expect(bundle.history[1].subjects).toEqual(created.subjects); expect(bundle.approved[0]).toMatchObject({ id: approved.id, name: created.name, revision: 1, status: 'published' });
+      const originalView = ProductTemplateService.prototype.view;
+      let reads = 0;
+      const spy = vi.spyOn(ProductTemplateService.prototype, 'view').mockImplementation(async function (id, org) {
+        const value = await originalView.call(this, id, org); return ++reads >= 2 ? { ...value, revision: value.revision + 1 } : value;
+      });
+      try { expect((await request('GET', path, viewer)).status).toBe(409); } finally { spy.mockRestore(); }
+      process.env.KIT_STUDIO_ORGANIZATIONS += `,${other.organization_id}`;
+      expect((await request("GET", path, other)).status).toBe(404);
+      await db.getRepository(User).update(viewer.id, { is_active: false });
+      expect((await request("GET", path, viewer)).status).toBe(403);
+      await db.getRepository(User).update(viewer.id, { is_active: true });
+      process.env.NODE_ENV = "production";
+      expect((await request("GET", path, viewer)).status).toBe(404);
+      process.env.NODE_ENV = "test"; process.env.KIT_STUDIO_READ_ONLY = "false";
+      expect((await request("GET", path, viewer)).status).toBe(404);
+      expect((await request("GET", `/${created.template_id}`, viewer)).status).toBe(200);
+      expect(await Promise.all(tables.map(table => db.query(`SELECT * FROM ${table} ORDER BY 1`)))).toEqual(before);
+    } finally { for (const [key, value] of Object.entries(previous)) { if (value === undefined) delete process.env[key]; else process.env[key] = value; } }
+  });
+
 });
