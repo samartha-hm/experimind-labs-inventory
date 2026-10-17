@@ -1,6 +1,21 @@
 # ERP state — historical implementation notes
 
-## Milestone 13H — 2026-10-16 — current
+## Milestone 13J — 2026-10-17 — current
+
+Read-only Projects/Schools workspace implemented with an independent default-off
+development/test tenant flag. Existing saved requirements, revision/provenance,
+authoritative demand and independent stage evidence reused without business writes.
+Focused 16/16; full suite 537/537 in 74 files; final React rerun 4/4; typecheck and
+frontend/PWA/server builds pass. All 83 business-table fingerprints unchanged,
+including audit logs. Actual flag-off API/browser rollback passes. Desktop/tablet
+harness scoped axe zero violations/incomplete. Full development server stalls;
+built-frontend existing-router harness used, so full-server acceptance remains
+blocked. Exploratory phone reflow fails in existing shell; physical devices/staff/
+assistive acceptance pending. See MILESTONE_13J_ACCEPTANCE.md for limits.
+Implementation 786a1696597d509a636715f1e84e6c87186918a9 pushed and verified.
+Stop for review before writes or another module, merge or deployment.
+
+## Milestone 13H — 2026-10-16 — historical
 
 Bounded package assembly/reset and exception report/correction integrated behind
 additional default-off execution flag. Existing tenant/current-role, revision
