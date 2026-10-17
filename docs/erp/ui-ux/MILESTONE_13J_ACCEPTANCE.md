@@ -1,5 +1,7 @@
 # Milestone 13J acceptance — 2026-10-17
 
+Historical checkpoint: [13J-R full-server recovery and responsive acceptance](MILESTONE_13J_R_ACCEPTANCE.md) supersedes the server/phone blockers below, with its documented environment recovery and manual acceptance limits.
+
 Result: PASS for the bounded read-only implementation and desktop/tablet harness acceptance. Full development-server acceptance remains BLOCKED; this is not an unrestricted operational acceptance.
 
 ## Delivered and fidelity

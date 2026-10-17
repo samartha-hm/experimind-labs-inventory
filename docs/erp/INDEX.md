@@ -31,3 +31,4 @@ Open only the authority relevant to the task. Current user instructions and conf
 | Milestone 13H — bounded packing execution review | [Supported contracts and rollback](ui-ux/MILESTONE_13H_CONTRACT_MATRIX.md), [acceptance and reconciliation](ui-ux/MILESTONE_13H_ACCEPTANCE.md) |
 | Milestone 13I — bounded inspection rejection review | [Transition contracts](ui-ux/MILESTONE_13I_CONTRACT_MATRIX.md), [acceptance and reconciliation](ui-ux/MILESTONE_13I_ACCEPTANCE.md) |
 | Milestone 13J — read-only Projects/Schools review | [Contracts and rollback](ui-ux/MILESTONE_13J_CONTRACT_MATRIX.md), [acceptance and limits](ui-ux/MILESTONE_13J_ACCEPTANCE.md), [future writes](ui-ux/MILESTONE_13J_WRITE_PROPOSAL.md) |
+| Milestone 13J-R — server recovery and phone reflow | [Acceptance, recovery and remaining manual checks](ui-ux/MILESTONE_13J_R_ACCEPTANCE.md) |

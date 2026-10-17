@@ -5,15 +5,15 @@ import pg from 'pg';
 const url = new URL(process.env.DATABASE_URL);
 assert(url.hostname === '127.0.0.1' && url.port === '55432' && url.pathname === '/experimind_kitbuilder_development');
 const db = new pg.Client({ connectionString: url.href }); await db.connect();
-const output = '.local-dev/ux-13j'; await mkdir(output, { recursive: true });
+const output = process.env.PROJECTS_WORKSPACE_EVIDENCE_DIR || '.local-dev/ux-13j'; await mkdir(output, { recursive: true });
 const accounts = JSON.parse(await readFile('.local-dev/pilot-accounts.json', 'utf8'));
 const admin = accounts.find(a => a.role === 'admin' && a.organization === 'Kit Builder Development'); assert(admin);
 const base = 'http://127.0.0.1:3101/api/v1';
-const login = await fetch(`${base}/auth/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: admin.email, password: admin.password }) });
+const login = await fetch(`${base}/auth/login`, { signal: AbortSignal.timeout(8000), method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: admin.email, password: admin.password }) });
 if (!login.ok) throw new Error(`Synthetic login failed (${login.status}): ${(await login.json()).error}`);
 const { token } = await login.json();
 const api = async (path, method = 'GET', body) => {
-  const response = await fetch(`${base}${path}`, { method, headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, ...(body ? { body: JSON.stringify(body) } : {}) });
+  const response = await fetch(`${base}${path}`, { signal: AbortSignal.timeout(8000), method, headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, ...(body ? { body: JSON.stringify(body) } : {}) });
   assert(response.ok, `${method} ${path}: ${response.status}`); return response.json();
 };
 const fingerprint = async () => {
@@ -44,7 +44,7 @@ try {
     assert.deepEqual(await api('/planning-projects'), report.projects);
     if (process.argv[2] === 'rollback') {
       assert.deepEqual(await api('/planning-projects/workspace-access'), { enabled: false });
-      const response = await fetch(`${base}/planning-projects/workspace/projects`, { headers: { Authorization: `Bearer ${token}` } }); assert.equal(response.status, 404);
+      const response = await fetch(`${base}/planning-projects/workspace/projects`, { signal: AbortSignal.timeout(8000), headers: { Authorization: `Bearer ${token}` } }); assert.equal(response.status, 404);
     }
     await writeFile(`${output}/${process.argv[2] === 'rollback' ? 'rollback' : 'verified'}.json`, JSON.stringify(report, null, 2));
     console.log(JSON.stringify({ mode: process.argv[2], tablesUnchanged: Object.keys(report.before).length, projects: report.checked.length }));

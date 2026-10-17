@@ -20,7 +20,7 @@ http.createServer(async (request, response) => {
       button.onclick = async () => {
         const result = await axe.run('.projects-workspace', {runOnly: {type:'tag',values:['wcag2a','wcag2aa','wcag21aa','best-practice']}});
         let output = document.getElementById('synthetic-audit');
-        if (!output) { output = document.createElement('pre'); output.id = 'synthetic-audit'; document.body.append(output); }
+        if (!output) { output = document.createElement('pre'); output.id = 'synthetic-audit'; output.style.whiteSpace = 'pre-wrap'; output.style.overflowWrap = 'anywhere'; document.body.append(output); }
         output.textContent = JSON.stringify({width:innerWidth,height:innerHeight,violations:result.violations.map(v=>({id:v.id,impact:v.impact,nodes:v.nodes.map(n=>n.target)})),passes:result.passes.length,incomplete:result.incomplete.map(v=>v.id)});
       }; document.body.append(button);
     });`); return;
