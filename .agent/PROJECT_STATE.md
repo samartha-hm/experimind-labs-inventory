@@ -1,6 +1,19 @@
 # ERP state — historical implementation notes
 
-## Milestone 13J — 2026-10-17 — current
+## Milestone 13J-R — 2026-10-17 — current
+
+Bounded automated full-server acceptance PASS using existing DISABLE_HMR=true.
+Normal watcher/HMR path stalls; internal cause unresolved after two approaches.
+Fixed mobile caption collapse and audit-output overflow; all five widths
+320/360/390/768/1280px fit. Scoped axe zero violations; 320px has one incomplete
+contrast check, others zero incomplete. Physical devices/staff/assistive review pending.
+Fresh focused 16/16, full 537/537, typecheck and all builds pass. All 83 business
+fingerprints unchanged; six projects reconcile. Actual full-server flag-off
+API/browser rollback passes. No business writes or permission/schema changes.
+Implementation 369b9be01ac1b627aacbe22c0060fc5405c557be pushed and verified.
+See MILESTONE_13J_R_ACCEPTANCE.md for recovery/evidence. Stop for review, no 13K.
+
+## Milestone 13J — 2026-10-17 — historical
 
 Read-only Projects/Schools workspace implemented with an independent default-off
 development/test tenant flag. Existing saved requirements, revision/provenance,
