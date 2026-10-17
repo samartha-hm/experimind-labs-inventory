@@ -6,6 +6,10 @@ import { User } from "../../entity/User.ts";
 import { ProjectPlanningService } from "../../services/ProjectPlanningService.ts";
 import { DraftKitError } from "../../services/ProductTemplateService.ts";
 import { dto, draftKitWriters } from "./product-templates.ts";
+import { projectsWorkspaceEnabled } from '../../features/projects/projectsWorkspaceContract';
+import { ProductTemplateService } from '../../services/ProductTemplateService';
+import { KitTemplateApproval } from '../../entity/PlanningProject';
+import { In } from 'typeorm';
 
 class ProjectDto {
   @IsString() @MinLength(1) @MaxLength(200) name!: string;
@@ -44,6 +48,26 @@ export function planningProjectRouter(db: DataSource) {
     } next();
   }));
   router.param("id", (_req, res, next, id: string) => { if (!uuid.test(id)) { res.status(400).json({ error: "Invalid project identity" }); return; } next(); });
+  router.get('/workspace-access', action(async (req, res) => {
+    res.setHeader('Cache-Control', 'private, no-store');
+    res.json({ enabled: projectsWorkspaceEnabled(req.user!.orgId!, process.env) });
+  }));
+  router.use('/workspace', (req, res, next) => {
+    res.setHeader('Cache-Control', 'private, no-store');
+    if (!projectsWorkspaceEnabled(req.user!.orgId!, process.env)) { res.status(404).json({ error: 'Projects workspace unavailable' }); return; }
+    if (!['GET', 'HEAD'].includes(req.method)) { res.status(405).json({ error: 'Read-only projects workspace' }); return; }
+    next();
+  });
+  router.get('/workspace/projects', action(async (req, res) => { res.json(await service.list(req.user!.orgId!)); }));
+  router.get('/workspace/projects/:id', action(async (req, res) => {
+    const org = req.user!.orgId!, project = await service.view(req.params.id, org);
+    const preview = await service.preview(project.id, org, project.revision);
+    const history = await service.history(project.id, org);
+    if (history[0]?.revision !== project.revision) throw new DraftKitError(409, 'Project changed. Refresh before reviewing.');
+    const versions = (await new ProductTemplateService(db).approved(org)).filter(v => project.sites.some(s => s.selections.some(k => k.version_id === v.id)));
+    const approvals = versions.length ? await db.getRepository(KitTemplateApproval).findBy({ organization_id: org, version_id: In(versions.map(v => v.id)) }) : [];
+    res.json({ project, preview, history, versions, approvals });
+  }));
   router.get("/", action(async (req, res) => { res.json(await service.list(req.user!.orgId!)); }));
   router.get("/:id", action(async (req, res) => { res.json(await service.view(req.params.id, req.user!.orgId!)); }));
   router.get("/:id/revisions", action(async (req, res) => { res.json(await service.history(req.params.id, req.user!.orgId!)); }));

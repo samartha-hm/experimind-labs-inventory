@@ -169,6 +169,43 @@ describe.skipIf(!databaseUrl)("PostgreSQL multi-school planning", () => {
     await db.getRepository(InventoryItem).update(fixture.itemId, { unit: "m" });
     inventoryBefore = await db.getRepository(InventoryItem).find({ order: { id: "ASC" } });
   });
+  it("gates the read-only workspace, reconciles existing contracts and preserves all persisted tables", async () => {
+    const original = { flag: process.env.PROJECTS_WORKSPACE_READ_ONLY, orgs: process.env.PROJECTS_WORKSPACE_ORGANIZATIONS };
+    const snapshot = async () => {
+      const result: Record<string, unknown> = {};
+      const tables = await db.query('SELECT tablename FROM pg_tables WHERE schemaname=$1 ORDER BY tablename', [schema]);
+      for (const { tablename } of tables) result[tablename] = await db.query(`SELECT count(*)::int rows, md5(coalesce(string_agg(row_to_json(t)::text,'' ORDER BY row_to_json(t)::text),'')) hash FROM "${schema}"."${tablename}" t`);
+      return result;
+    };
+    try {
+      const before = await snapshot();
+      delete process.env.PROJECTS_WORKSPACE_READ_ONLY;
+      expect(await (await request('GET', '/planning-projects/workspace-access', viewer)).json()).toEqual({ enabled: false });
+      expect((await request('GET', '/planning-projects/workspace/projects', viewer)).status).toBe(404);
+      process.env.PROJECTS_WORKSPACE_READ_ONLY = 'true'; process.env.PROJECTS_WORKSPACE_ORGANIZATIONS = `${maker.organization_id},${other.organization_id}`;
+      expect((await request('GET', '/planning-projects/workspace/projects')).status).toBe(401);
+      const response = await request('GET', `/planning-projects/workspace/projects/${project.id}`, viewer);
+      expect(response.status).toBe(200); expect(response.headers.get('cache-control')).toContain('no-store');
+      const detail = await response.json();
+      expect(detail.project).toEqual(await (await request('GET', `/planning-projects/${project.id}`, viewer)).json());
+      expect(detail.preview).toEqual(await (await request('POST', `/planning-projects/${project.id}/preview`, viewer, { revision: project.revision })).json());
+      expect(detail.history).toEqual(await (await request('GET', `/planning-projects/${project.id}/revisions`, viewer)).json());
+      expect(detail.versions.map((v: { id: string }) => v.id)).toEqual([approved.id]);
+      expect(detail.approvals[0]).toMatchObject({ version_id: approved.id, approved_by: maker.id });
+      expect(await (await request('GET', '/planning-projects/workspace/projects', viewer)).json()).toEqual(await (await request('GET', '/planning-projects', viewer)).json());
+      expect((await request('GET', `/planning-projects/workspace/projects/${project.id}`, other)).status).toBe(404);
+      for (const method of ['POST', 'PUT', 'PATCH', 'DELETE']) expect((await request(method, `/planning-projects/workspace/projects/${project.id}`, maker, {})).status).toBe(405);
+
+      expect(await snapshot()).toEqual(before);
+      await db.getRepository(User).update(viewer.id, { is_active: false });
+      expect((await request('GET', '/planning-projects/workspace/projects', viewer)).status).toBe(403);
+      await db.getRepository(User).update(viewer.id, { is_active: true });
+    } finally {
+      for (const [key, value] of [['PROJECTS_WORKSPACE_READ_ONLY', original.flag], ['PROJECTS_WORKSPACE_ORGANIZATIONS', original.orgs]]) {
+        if (value === undefined) delete process.env[key]; else process.env[key] = value;
+      }
+    }
+  });
   it("refuses populated rollback, archives with revision control and never mutates inventory", async () => {
     const runner = db.createQueryRunner(); await runner.connect();
     try { await expect(new AddProjectPlanning1791417600002().down(runner)).rejects.toThrow("Rollback blocked"); } finally { await runner.release(); }

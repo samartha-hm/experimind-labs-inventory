@@ -37,6 +37,7 @@ import ProductionPlanningPanel from "./features/production/ProductionPlanningPan
 import { PackingPackageLookup } from "./features/packing/PackingLabelsPanel";
 import { PackingWorkspaceEntry } from './features/packing/PackingWorkspace';
 import ProjectPlanningTab from '@/src/features/projects/ProjectPlanningTab';
+import { ProjectsWorkspaceEntry } from './features/projects/ProjectsWorkspace';
 import StickerMonitoringHubTab from '@/src/features/stickers/StickerMonitoringHubTab';
 import ToastContainer from '@/src/components/ToastContainer';
 import MobileBottomNav from '@/src/shared/components/MobileBottomNav';
@@ -313,6 +314,7 @@ function MainApp() {
             <main>
               <PackingPackageLookup />
               {new URLSearchParams(window.location.search).get('packing_workspace') === '1' && <PackingWorkspaceEntry direct />}
+              {new URLSearchParams(window.location.search).get('projects_workspace') === '1' && <ProjectsWorkspaceEntry direct />}
               {activeTab === 'product_library' && <ProductLibrary />}
               {activeTab === 'overview' && (
                 <OperationsWorkspace
@@ -347,7 +349,7 @@ function MainApp() {
               )}
 
               {activeTab === 'projects_hub' && (
-                <ProjectPlanningTab />
+                <ProjectsWorkspaceEntry><ProjectPlanningTab /></ProjectsWorkspaceEntry>
               )}
 
               {activeTab === 'production_command' && (
