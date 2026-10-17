@@ -1,29 +1,27 @@
-# Milestone 13L review checkpoint — 2026-10-17
+# Milestone 13L-R review checkpoint — 2026-10-17
 
-Branch: feature/kit-builder-milestone-1. Feature checkpoint
-6500b018f2671f8178756d547a37b131eb7bc66c pushed; local/remote hashes verified.
+Branch: feature/kit-builder-milestone-1. Documentation checkpoint
+ffdc6ea9427111075c8ab68c6055c5261f818fa8 pushed; remote hash verified.
 This separate continuity checkpoint follows; resolve its HEAD with git.
 
-Read docs/erp/ui-ux/MILESTONE_13L_ACCEPTANCE.md and
-MILESTONE_13L_CONTRACT_MATRIX.md. Saved requirement review PASS;
-requirement approval BLOCKED because no backend approval contract exists.
-Opt-in Projects compares immutable saved revisions, school quantities,
-metadata and overrides with actor/time context. Unsaved edits are excluded.
-No approval endpoint, state, migration or operational mutation was added.
-Existing Kit and Packing approvals remain independent.
+Read docs/erp/ui-ux/MILESTONE_13L_R_REQUIREMENT_APPROVAL_RECONCILIATION.md.
+Finding D: no authoritative project/school requirement approval contract.
+Existing approved records are Kit publications; project revisions are saved
+history, not requirement approvals. Workspace approvals contain Kit provenance.
+No alternative supported requirement approval producer or endpoint was found.
+Per-company historical row provenance was not audited.
 
-Verified: full 546 tests in 75 files; typecheck; frontend/PWA/server builds.
-Synthetic authenticated desktop/tablet/phone browser review, history,
-GET-failure recovery, restart persistence and flag-off legacy rollback passed.
-Scoped axe: zero violations/incomplete findings at 1280/768/360px.
-Phone/tablet screenshots inspected. Authorization, tenant isolation,
-stale/retry rejection and immutable-history checks passed.
-83 business tables and all six projects/histories remained unchanged;
-authentication tables were explicitly excluded from fingerprints.
+Proposed next milestone: Milestone 13M-A — Authoritative project requirement
+approval backend. Requires user decisions on project versus school scope,
+approver permissions/self-approval, readiness blockers and execution gating.
+Proposal: immutable saved project revision attestation, tenant authorization,
+concurrency/idempotency, durable audit and closure guards. No hidden operational
+side effects or retrospective approval backfill. UI integration follows separately.
 
-Evidence: ignored .local-dev/ux-13l and 13l logs. Temporary server/proxy
-stopped; retained PostgreSQL remains running. Unrelated AGENTS.md edit
-remains unstaged. Physical devices, staff, screen-reader, native unload
-and production/high-volume performance validation remain pending.
-Stop for review; require separately authorized backend approval work before
-approval integration. No main merge or deployment. Use /new or /compact.
+Verified now: 14 PostgreSQL integration and 30 requirement/workspace tests passed.
+Initial temp EPERM recovered using local TEMP/TMP; loopback EACCES recovered
+with authorized elevated integration run. Unique synthetic test schema retained;
+no company data changes. No runtime changes, full regression or browser rerun.
+Report and docs/erp/INDEX.md updated; this checkpoint updates continuity only.
+Unrelated AGENTS.md edit remains unstaged. No mutation/migration implemented,
+main merge or deployment. Stop for user review; use /new or /compact.
