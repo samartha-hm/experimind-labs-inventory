@@ -206,6 +206,37 @@ describe.skipIf(!databaseUrl)("PostgreSQL multi-school planning", () => {
       }
     }
   });
+  it('blocks unsupported requirement approvals, including concurrent and repeated submissions, without persistence', async () => {
+    const keys = ['PROJECTS_WORKSPACE_READ_ONLY', 'PROJECTS_WORKSPACE_ORGANIZATIONS', 'PROJECTS_WORKSPACE_EDITING'];
+    const original = keys.map(k => process.env[k]);
+    const fingerprint = async () => {
+      const result: Record<string, unknown> = {};
+      for (const { tablename } of await db.query('SELECT tablename FROM pg_tables WHERE schemaname=$1 ORDER BY tablename', [schema])) {
+        result[tablename] = await db.query(`SELECT count(*)::int rows, md5(coalesce(string_agg(row_to_json(t)::text,'' ORDER BY row_to_json(t)::text),'')) hash FROM "${schema}"."${tablename}" t`);
+      }
+      return result;
+    };
+    try {
+      process.env.PROJECTS_WORKSPACE_READ_ONLY = 'true'; process.env.PROJECTS_WORKSPACE_ORGANIZATIONS = `${maker.organization_id},${other.organization_id}`; process.env.PROJECTS_WORKSPACE_EDITING = 'true';
+      const before = await fingerprint();
+      const path = `/planning-projects/workspace/projects/${project.id}/approve`;
+      const body = { revision: project.revision, site_id: content.sites[0].id };
+      expect((await request('POST', path, undefined, body)).status).toBe(401);
+      expect((await request('POST', path, viewer, body)).status).toBe(403);
+      expect((await request('POST', path, other, body)).status).toBe(405);
+      const replies = await Promise.all([body, { ...body, revision: 1 }, body].map(value => request('POST', path, maker, value)));
+      expect(replies.map(r => r.status)).toEqual([405, 405, 405]);
+      expect((await request('POST', path, maker, body)).status).toBe(405);
+      expect((await request('POST', `/planning-projects/${project.id}/approve`, maker, body)).status).toBe(404);
+      const detail = await (await request('GET', `/planning-projects/workspace/projects/${project.id}`, viewer)).json();
+      expect(detail.project.revision).toBe(project.revision);
+      expect(detail.history[0].updated_by).toBe(maker.id);
+      expect(detail.history.at(-1).content).toEqual(content);
+      expect(await fingerprint()).toEqual(before);
+      delete process.env.PROJECTS_WORKSPACE_READ_ONLY;
+      expect((await request('POST', path, maker, body)).status).toBe(404);
+    } finally { keys.forEach((k, i) => { if (original[i] === undefined) delete process.env[k]; else process.env[k] = original[i]; }); }
+  });
   it('allows only opted-in draft saves, rejects cross-school races/retries, and reconciles every table', async () => {
     const keys = ['PROJECTS_WORKSPACE_READ_ONLY', 'PROJECTS_WORKSPACE_ORGANIZATIONS', 'PROJECTS_WORKSPACE_EDITING'];
     const original = keys.map(k => process.env[k]);

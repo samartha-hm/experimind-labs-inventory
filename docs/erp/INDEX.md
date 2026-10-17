@@ -33,3 +33,4 @@ Open only the authority relevant to the task. Current user instructions and conf
 | Milestone 13J — read-only Projects/Schools review | [Contracts and rollback](ui-ux/MILESTONE_13J_CONTRACT_MATRIX.md), [acceptance and limits](ui-ux/MILESTONE_13J_ACCEPTANCE.md), [future writes](ui-ux/MILESTONE_13J_WRITE_PROPOSAL.md) |
 | Milestone 13J-R — server recovery and phone reflow | [Acceptance, recovery and remaining manual checks](ui-ux/MILESTONE_13J_R_ACCEPTANCE.md) |
 | Milestone 13K — safe draft project planning review | [Supported contracts and rollback](ui-ux/MILESTONE_13K_CONTRACT_MATRIX.md), [acceptance and reconciliation](ui-ux/MILESTONE_13K_ACCEPTANCE.md) |
+| Milestone 13L — saved requirement review; approval blocked | [Approval contract matrix](ui-ux/MILESTONE_13L_CONTRACT_MATRIX.md), [acceptance and unchanged-data proof](ui-ux/MILESTONE_13L_ACCEPTANCE.md) |
