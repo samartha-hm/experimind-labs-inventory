@@ -4,7 +4,11 @@ export function projectsWorkspaceEnabled(org: string, env: Record<string, string
   return ['development', 'test'].includes(env.NODE_ENV ?? '') && env.PROJECTS_WORKSPACE_READ_ONLY === 'true'
     && !!org && (env.PROJECTS_WORKSPACE_ORGANIZATIONS ?? '').split(',').map(v => v.trim()).includes(org);
 }
+export function projectsWorkspaceEditingEnabled(org: string, env: Record<string, string | undefined>): boolean {
+  return projectsWorkspaceEnabled(org, env) && env.PROJECTS_WORKSPACE_EDITING === 'true';
+}
 export interface ProjectsWorkspaceDetail {
+  canEdit?: boolean;
   project: PlanningView;
   preview: PlanningPreview;
   history: { revision: number; updated_by: string; created_at: string; archived: boolean; content: PlanningContent }[];

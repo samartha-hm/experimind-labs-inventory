@@ -276,6 +276,7 @@ function MainApp() {
   }
 
   const handleNavigateTab = (tab: string) => {
+    if (!window.dispatchEvent(new Event('projects-workspace-leave', { cancelable: true }))) return;
     if (!canAccessTab(role, tab)) {
       return;
     }

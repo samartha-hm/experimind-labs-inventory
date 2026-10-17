@@ -6,7 +6,7 @@ import { User } from "../../entity/User.ts";
 import { ProjectPlanningService } from "../../services/ProjectPlanningService.ts";
 import { DraftKitError } from "../../services/ProductTemplateService.ts";
 import { dto, draftKitWriters } from "./product-templates.ts";
-import { projectsWorkspaceEnabled } from '../../features/projects/projectsWorkspaceContract';
+import { projectsWorkspaceEnabled, projectsWorkspaceEditingEnabled } from '../../features/projects/projectsWorkspaceContract';
 import { ProductTemplateService } from '../../services/ProductTemplateService';
 import { KitTemplateApproval } from '../../entity/PlanningProject';
 import { In } from 'typeorm';
@@ -24,6 +24,10 @@ class RevisionDto { @IsInt() @Min(1) revision!: number; }
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export function planningProjectRouter(db: DataSource) {
   const router = Router(); const service = new ProjectPlanningService(db);
+  const closed = async (id: string, org: string): Promise<boolean> => {
+    const [table] = await db.query("SELECT to_regclass(current_schema()||'.project_completions') installed");
+    return !!table.installed && !!(await db.query("SELECT 1 FROM project_completions WHERE project_id=$1 AND organization_id=$2 AND status='closed' LIMIT 1", [id, org])).length;
+  };
   const action = (run: RequestHandler): RequestHandler => (req, res, next) => {
     Promise.resolve(run(req, res, next)).catch((error: unknown) => {
       if (error instanceof DraftKitError) res.status(error.status).json({ error: error.message });
@@ -55,10 +59,18 @@ export function planningProjectRouter(db: DataSource) {
   router.use('/workspace', (req, res, next) => {
     res.setHeader('Cache-Control', 'private, no-store');
     if (!projectsWorkspaceEnabled(req.user!.orgId!, process.env)) { res.status(404).json({ error: 'Projects workspace unavailable' }); return; }
-    if (!['GET', 'HEAD'].includes(req.method)) { res.status(405).json({ error: 'Read-only projects workspace' }); return; }
+    if (!['GET', 'HEAD'].includes(req.method) && !(req.method === 'PUT' && projectsWorkspaceEditingEnabled(req.user!.orgId!, process.env))) { res.status(405).json({ error: 'Read-only projects workspace' }); return; }
     next();
   });
   router.get('/workspace/projects', action(async (req, res) => { res.json(await service.list(req.user!.orgId!)); }));
+  router.get('/workspace/approved-kits', action(async (req, res) => {
+    res.json(await new ProductTemplateService(db).approved(req.user!.orgId!));
+  }));
+  router.put('/workspace/projects/:id', action(async (req, res) => {
+    if (await closed(req.params.id, req.user!.orgId!)) throw new DraftKitError(409, 'Closed project is read-only.');
+    const { revision, ...content } = await dto(req.body, EditProjectDto);
+    res.json(await service.save(req.user!.orgId!, req.user!.id, content, req.params.id, revision));
+  }));
   router.get('/workspace/projects/:id', action(async (req, res) => {
     const org = req.user!.orgId!, project = await service.view(req.params.id, org);
     const preview = await service.preview(project.id, org, project.revision);
@@ -66,7 +78,7 @@ export function planningProjectRouter(db: DataSource) {
     if (history[0]?.revision !== project.revision) throw new DraftKitError(409, 'Project changed. Refresh before reviewing.');
     const versions = (await new ProductTemplateService(db).approved(org)).filter(v => project.sites.some(s => s.selections.some(k => k.version_id === v.id)));
     const approvals = versions.length ? await db.getRepository(KitTemplateApproval).findBy({ organization_id: org, version_id: In(versions.map(v => v.id)) }) : [];
-    res.json({ project, preview, history, versions, approvals });
+    res.json({ project, preview, history, versions, approvals, canEdit: projectsWorkspaceEditingEnabled(org, process.env) && draftKitWriters.has(req.user!.role!) && !await closed(project.id, org) });
   }));
   router.get("/", action(async (req, res) => { res.json(await service.list(req.user!.orgId!)); }));
   router.get("/:id", action(async (req, res) => { res.json(await service.view(req.params.id, req.user!.orgId!)); }));

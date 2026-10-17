@@ -28,8 +28,9 @@ http.createServer(async (request, response) => {
   let mode = {};
   delete request.headers['if-none-match'];
   delete request.headers['if-modified-since'];
-  if (request.method === 'GET' && request.url.includes('/planning-projects/workspace/projects')) {
+  if (['GET', 'PUT'].includes(request.method) && request.url.includes('/planning-projects/workspace/projects')) {
     try { mode = JSON.parse(await readFile(control, 'utf8')); } catch {}
+    if (mode.method && mode.method !== request.method) mode = {};
     if (mode.status) { response.writeHead(mode.status, { 'Content-Type': 'application/json' }); response.end(JSON.stringify({ error: 'Synthetic browser acceptance fault' })); return; }
   }
   const upstream = http.request({ hostname: '127.0.0.1', port: 3101, path: request.url, method: request.method, headers: { ...request.headers, host: '127.0.0.1:3101', 'accept-encoding': 'identity' } }, result => {

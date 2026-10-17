@@ -2,8 +2,8 @@ import type { KitSubject } from "../../entity/ProductTemplateVersion";
 import type { QuantityContext } from "../kit-builder/quantityRules";
 
 const input = "min-h-11 w-full rounded-xl border border-slate-300 bg-transparent p-3";
-export function SelectionQuantities({ subjects, value, onChange, onlyOverrides = false }: {
-  subjects: KitSubject[]; value: QuantityContext; onChange: (value: QuantityContext) => void; onlyOverrides?: boolean;
+export function SelectionQuantities({ subjects, value, onChange, onlyOverrides = false, preserveUnknown = false }: {
+  subjects: KitSubject[]; value: QuantityContext; onChange: (value: QuantityContext) => void; onlyOverrides?: boolean; preserveUnknown?: boolean;
 }) {
   const crates = subjects.flatMap(s => s.crates ?? []);
   const activities = subjects.flatMap(s => s.grades.flatMap(g => g.activities));
@@ -12,7 +12,11 @@ export function SelectionQuantities({ subjects, value, onChange, onlyOverrides =
   return <div className="space-y-3">
     {!onlyOverrides && <>
       {subjects.flatMap(s => s.grades.map(g => <label key={g.id} className="block text-sm">{s.name} / {g.name} sets
-        <input className={input} type="number" min={0} max={1000000} step={1} value={value.grade_quantities[g.id] ?? 0} onChange={e => onChange({ ...value, grade_quantities: { ...value.grade_quantities, [g.id]: Number(e.target.value) } })} />
+        <input className={input} type="number" min={0} max={1000000} step={1} placeholder={preserveUnknown ? 'Unknown / not provided' : undefined} value={value.grade_quantities[g.id] ?? (preserveUnknown ? '' : 0)} onChange={e => {
+          const quantities = { ...value.grade_quantities };
+          if (preserveUnknown && e.target.value === '') delete quantities[g.id]; else quantities[g.id] = Number(e.target.value);
+          onChange({ ...value, grade_quantities: quantities });
+        }} />
       </label>))}
       {crates.filter(c => c.rule.kind === "complete_sets").map(c => <label key={c.id} className="block text-sm">{c.name}: explicit complete sets (enter 0 for partial selections)
         <input className={input} type="number" min={0} max={1000000} step={1} placeholder="Required explicit allocation" value={value.complete_sets?.[c.id] ?? ""} onChange={e => {

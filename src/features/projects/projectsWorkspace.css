@@ -9,6 +9,9 @@
 .projects-workspace summary { min-height:48px; padding:12px 0; cursor:pointer; font-weight:600; } .projects-workspace details { min-width:0; } .pj-school { border-top:1px solid var(--p-line); padding:8px 0; }
 .pj-projects { display:grid; gap:8px; max-height:60vh; overflow:auto; padding:4px; } .pj-projects button { text-align:left; } .pj-projects small { display:block; } .pj-projects [aria-current=true] { outline:2px solid var(--p-accent); }
 .pj-error { color:var(--p-bad); background:var(--p-bad-bg); padding:12px; } .pj-notice { background:var(--p-warn-bg); color:var(--p-warn); padding:12px; border-radius:10px; }
+.pj-editor fieldset { min-width:0; border:0; padding:0; } .pj-editor textarea { width:100%; min-height:96px; background:var(--p-surface); color:var(--p-text); border:1px solid var(--p-line); border-radius:10px; padding:12px; }
+.pj-draft-schools { display:flex; flex-wrap:wrap; gap:8px; margin:12px 0; } .pj-draft-schools button { flex:1 1 180px; text-align:left; } .pj-draft-schools [aria-current=true] { outline:2px solid var(--p-accent); }
+.pj-editor article { border-top:1px solid var(--p-line); margin:16px 0; padding:12px 0; } .pj-editor :disabled { opacity:.65; } .pj-editor input[type=checkbox] { width:24px; min-height:24px; }
 .projects-workspace table { width:100%; border-collapse:collapse; table-layout:fixed; margin:12px 0; } .projects-workspace :is(th,td) { text-align:left; padding:10px; vertical-align:top; border-bottom:1px solid var(--p-line); }
 .pj-stages>div { padding:12px; margin:8px 0; background:var(--p-soft); border-radius:10px; } .pj-materials { display:grid; gap:12px; grid-template-columns:repeat(auto-fit,minmax(min(100%,280px),1fr)); }
 .pj-materials article { border:1px solid var(--p-line); border-radius:12px; padding:12px; } .pj-materials dl>div { display:flex; gap:12px; justify-content:space-between; padding:4px 0; } .pj-materials dd { text-align:right; }

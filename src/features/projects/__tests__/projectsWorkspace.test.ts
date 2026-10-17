@@ -2,12 +2,39 @@ import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import { planningFixture } from './planningFixture';
-import { projectsWorkspaceEnabled, requirementRows } from '../projectsWorkspaceContract';
+import { projectsWorkspaceEnabled, projectsWorkspaceEditingEnabled, requirementRows } from '../projectsWorkspaceContract';
+import { draftIssues, planningContent } from '../projectDraft';
+import { SelectionQuantities } from '../SelectionQuantities';
 import type { ProductTemplateVersion } from '../../../entity/ProductTemplateVersion';
 import { ProjectsWorkspace } from '../ProjectsWorkspace';
 import { ProjectStages } from '../ProjectStages';
 
 describe('Projects workspace evidence', () => {
+  it('requires explicit editing opt-in in addition to the tenant workspace flag', () => {
+    const env = { NODE_ENV: 'test', PROJECTS_WORKSPACE_READ_ONLY: 'true', PROJECTS_WORKSPACE_ORGANIZATIONS: 'a', PROJECTS_WORKSPACE_EDITING: 'true' };
+    expect(projectsWorkspaceEditingEnabled('a', env)).toBe(true);
+    expect(projectsWorkspaceEditingEnabled('b', env)).toBe(false);
+    expect(projectsWorkspaceEditingEnabled('a', { ...env, PROJECTS_WORKSPACE_EDITING: undefined })).toBe(false);
+    expect(projectsWorkspaceEditingEnabled('a', { ...env, PROJECTS_WORKSPACE_READ_ONLY: 'false' })).toBe(false);
+  });
+  it('validates explicit bundles and reasoned overrides without changing persisted content', () => {
+    const f = planningFixture(), versions = [f.version as ProductTemplateVersion];
+    const original = structuredClone(f.content);
+    const draft = planningContent({ ...f.content, id: 'project', revision: 2, updated_at: '' });
+    expect(draft).toEqual(original); expect(draft).not.toBe(f.content);
+    expect(draftIssues(draft, versions)).toEqual([]);
+    delete draft.sites[0].selections[0].context.complete_sets;
+    expect(draftIssues(draft, versions).length).toBeGreaterThan(0);
+    expect(f.content).toEqual(original);
+    expect(draftIssues(original, []).join(' ')).toContain('unavailable');
+  });
+  it('renders unknown grade quantities as blank and preserves explicit zero', () => {
+    const f = planningFixture();
+    const html = renderToStaticMarkup(React.createElement(SelectionQuantities, { subjects: f.subjects, value: f.content.sites[1].selections[0].context, preserveUnknown: true, onChange: () => {} }));
+    expect(html).toContain('Unknown / not provided');
+    expect(html).toContain('value=""'); expect(html).toContain('value="0"');
+    expect(html).toContain('Site overrides');
+  });
   it('requires a separate development flag and exact tenant allowlist', () => {
     const env = { NODE_ENV: 'development', PROJECTS_WORKSPACE_READ_ONLY: 'true', PROJECTS_WORKSPACE_ORGANIZATIONS: 'tenant-a, tenant-b' };
     expect(projectsWorkspaceEnabled('tenant-a', env)).toBe(true);

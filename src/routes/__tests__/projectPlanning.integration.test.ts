@@ -206,6 +206,52 @@ describe.skipIf(!databaseUrl)("PostgreSQL multi-school planning", () => {
       }
     }
   });
+  it('allows only opted-in draft saves, rejects cross-school races/retries, and reconciles every table', async () => {
+    const keys = ['PROJECTS_WORKSPACE_READ_ONLY', 'PROJECTS_WORKSPACE_ORGANIZATIONS', 'PROJECTS_WORKSPACE_EDITING'];
+    const original = keys.map(k => process.env[k]);
+    const fresh = structuredClone(content);
+    for (const site of fresh.sites) { site.id = randomUUID(); for (const selection of site.selections) selection.id = randomUUID(); }
+    const created = await request('POST', '/planning-projects', maker, fresh);
+    expect(created.status).toBe(201); const saved = await created.json();
+    const path = `/planning-projects/workspace/projects/${saved.id}`;
+    const fingerprint = async () => {
+      const result: Record<string, unknown> = {};
+      for (const { tablename } of await db.query('SELECT tablename FROM pg_tables WHERE schemaname=$1 ORDER BY tablename', [schema])) {
+        result[tablename] = await db.query(`SELECT count(*)::int rows, md5(coalesce(string_agg(row_to_json(t)::text,'' ORDER BY row_to_json(t)::text),'')) hash FROM "${schema}"."${tablename}" t`);
+      }
+      return result;
+    };
+    try {
+      process.env.PROJECTS_WORKSPACE_READ_ONLY = 'true'; process.env.PROJECTS_WORKSPACE_ORGANIZATIONS = `${maker.organization_id},${other.organization_id}`;
+      delete process.env.PROJECTS_WORKSPACE_EDITING;
+      expect((await request('PUT', path, maker, { ...fresh, revision: 1 })).status).toBe(405);
+      process.env.PROJECTS_WORKSPACE_EDITING = 'true';
+      expect((await (await request('GET', path, viewer)).json()).canEdit).toBe(false);
+      expect((await (await request('GET', path, maker)).json()).canEdit).toBe(true);
+      expect((await request('PUT', path, viewer, { ...fresh, revision: 1 }, token(viewer, { role: 'admin' }))).status).toBe(403);
+      expect((await request('PUT', path, other, { ...fresh, revision: 1 })).status).toBe(404);
+      expect(await (await request('GET', '/planning-projects/workspace/approved-kits', other)).json()).toEqual([]);
+      for (const suffix of ['/approve', '/archive', '/dispatch']) expect((await request('POST', `${path}${suffix}`, maker, { revision: 1 })).status).toBe(405);
+      const before = await fingerprint();
+      const edits = [0, 1].map(index => { const edit = structuredClone(fresh); edit.sites[index].notes = `Concurrent school ${index}`; return { ...edit, revision: 1 }; });
+      const replies = await Promise.all(edits.map(edit => request('PUT', path, maker, edit)));
+      expect(replies.map(r => r.status).sort()).toEqual([200, 409]);
+      const winner = edits[replies.findIndex(r => r.status === 200)];
+      expect((await request('PUT', path, maker, winner)).status).toBe(409);
+      const detail = await (await request('GET', path, maker)).json();
+      expect(detail.project).toMatchObject({ revision: 2, sites: winner.sites });
+      expect(detail.history).toHaveLength(2);
+      expect(detail.history[0]).toMatchObject({ revision: 2, updated_by: maker.id, content: { sites: winner.sites } });
+      expect(detail.history[1].content).toEqual(fresh);
+      expect(detail.preview.materials[0]).toMatchObject({ gross_demand: 3.3, verified_on_hand: null, immediate_shortage: null });
+      const after = await fingerprint();
+      const changed = Object.keys(before).filter(k => JSON.stringify(before[k]) !== JSON.stringify(after[k]));
+      expect(changed.sort()).toEqual(['planning_project_revisions', 'planning_projects', 'planning_sites']);
+      delete process.env.PROJECTS_WORKSPACE_READ_ONLY;
+      expect((await request('PUT', path, maker, { ...fresh, revision: 2 })).status).toBe(404);
+      expect((await (await request('GET', `/planning-projects/${saved.id}`, maker)).json()).revision).toBe(2);
+    } finally { keys.forEach((k, i) => { if (original[i] === undefined) delete process.env[k]; else process.env[k] = original[i]; }); }
+  });
   it("refuses populated rollback, archives with revision control and never mutates inventory", async () => {
     const runner = db.createQueryRunner(); await runner.connect();
     try { await expect(new AddProjectPlanning1791417600002().down(runner)).rejects.toThrow("Rollback blocked"); } finally { await runner.release(); }
