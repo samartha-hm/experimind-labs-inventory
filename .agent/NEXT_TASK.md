@@ -1,6 +1,7 @@
 # Next task
 
-Review Milestone 13J-R acceptance and remaining manual 320px contrast,
-physical-device, staff and screen-reader checks. Stop for approval before
-13K, project writes, other module integration, main merge or deployment.
-Preserve unrelated AGENTS.md edits. Start with /new or /compact.
+Review Milestone 13K acceptance and supported/blocked contract matrix;
+record remaining physical-device, staff, screen-reader and native unload
+dialog acceptance. Stop for approval before further integration, project
+approval, operational changes, main merge or deployment. Preserve unrelated
+AGENTS.md edits. Start with /new or /compact.
