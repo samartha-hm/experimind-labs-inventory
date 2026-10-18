@@ -1,27 +1,28 @@
-# Milestone 13L-R review checkpoint — 2026-10-17
+# Milestone 13M-A backend checkpoint — 2026-10-18
 
-Branch: feature/kit-builder-milestone-1. Documentation checkpoint
-ffdc6ea9427111075c8ab68c6055c5261f818fa8 pushed; remote hash verified.
-This separate continuity checkpoint follows; resolve its HEAD with git.
+Branch: feature/kit-builder-milestone-1. Implementation commit: 5354085.
+This continuity checkpoint follows; resolve final HEAD with git and verify origin.
 
-Read docs/erp/ui-ux/MILESTONE_13L_R_REQUIREMENT_APPROVAL_RECONCILIATION.md.
-Finding D: no authoritative project/school requirement approval contract.
-Existing approved records are Kit publications; project revisions are saved
-history, not requirement approvals. Workspace approvals contain Kit provenance.
-No alternative supported requirement approval producer or endpoint was found.
-Per-company historical row provenance was not audited.
+Authoritative immutable project revision approval now covers all saved schools.
+Active tenant admin/super_admin may approve, including their own edits (explicit
+user decision). Exact snapshots, canonical SHA-256, actor/time, durable retries,
+concurrency serialization and downstream immutable bindings are implemented.
+Approval has no operational stock effects. Historical evidence is not backfilled.
 
-Proposed next milestone: Milestone 13M-A — Authoritative project requirement
-approval backend. Requires user decisions on project versus school scope,
-approver permissions/self-approval, readiness blockers and execution gating.
-Proposal: immutable saved project revision attestation, tenant authorization,
-concurrency/idempotency, durable audit and closure guards. No hidden operational
-side effects or retrospective approval backfill. UI integration follows separately.
+Read docs/erp/ui-ux/MILESTONE_13M_A_BACKEND_CONTRACT.md and
+MILESTONE_13M_A_ACCEPTANCE.md; committed fingerprints reconcile 22 operational
+tables with zero approval-time changes. Current approved execution is guarded
+across reservations, procurement, production, packing, delivery, installation and
+closure, including child and ledger writes. Historical/superseded execution is
+blocked pending separately authorized reconciliation. Exception reasons do not
+bypass approval. Populated migration rollback refuses evidence deletion; use
+reviewed forward recovery.
 
-Verified now: 14 PostgreSQL integration and 30 requirement/workspace tests passed.
-Initial temp EPERM recovered using local TEMP/TMP; loopback EACCES recovered
-with authorized elevated integration run. Unique synthetic test schema retained;
-no company data changes. No runtime changes, full regression or browser rerun.
-Report and docs/erp/INDEX.md updated; this checkpoint updates continuity only.
-Unrelated AGENTS.md edit remains unstaged. No mutation/migration implemented,
-main merge or deployment. Stop for user review; use /new or /compact.
+Verification: 11 focused PostgreSQL tests; all 76 files / 557 tests; typecheck;
+frontend/PWA/server builds pass. Existing large-chunk warning remains. Tests use
+isolated synthetic PostgreSQL and external temporary storage; no company data.
+
+Stop after 13M-A for separate backend enforcement review. No approval UI,
+deployment or main merge. Preserve unrelated unstaged AGENTS.md. Next work:
+review cross-cutting trigger coverage and approve historical reconciliation policy
+before operational adoption or UI integration. Start with /new or /compact.
