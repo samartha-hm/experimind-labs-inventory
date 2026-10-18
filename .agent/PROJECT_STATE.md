@@ -1,6 +1,18 @@
 # ERP state — historical implementation notes
 
-## Milestone 13M-D2A — 2026-10-18 — current
+## Milestone 13M-D2A-R — 2026-10-18 — current
+
+Independent review CONDITIONAL PASS; no production/schema defect reproduced.
+Checkpoint 86c54de30a564f13daec5344f68c428c0cc6d8fd pushed/remote verified.
+Added adversarial reservation/approval race, rollback, retry and runtime SQL checks.
+Fresh focused 37/37, full 583/583 across 76 files, typecheck and all builds PASS.
+Fresh recovery: 24 accounts, 69 events, 12 matching table fingerprints, 11 pinned
+functions. No fresh timeout; historical packing-label reliability remains open.
+See MILESTONE_13M_D2A_R_INDEPENDENT_REVIEW.md and its fingerprint evidence.
+Stop after D2A-R; separate authorization required for isolated D2B.
+All production cutover, historical lineage and downstream gates remain in place.
+
+## Milestone 13M-D2A — 2026-10-18 — historical
 
 CONDITIONAL PASS, isolated reservation commitment adapter only.
 Checkpoint a4c902349cb991e3e29a1ba19ab2d59e439b4024 pushed/remote verified.

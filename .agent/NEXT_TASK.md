@@ -1,11 +1,9 @@
 # Next task
 
-Review D2A conditional acceptance at
-docs/erp/ui-ux/MILESTONE_13M_D2A_RESERVATION_COMMITMENTS.md. Stop after D2A;
-D2B/D3 require explicit user authorization.
+Review the D2A-R conditional pass and D2B prerequisites in
+docs/erp/ui-ux/MILESTONE_13M_D2A_R_INDEPENDENT_REVIEW.md.
+Stop after D2A-R; isolated D2B requires separate user authorization.
 
-Preserve unrelated AGENTS.md. Fulfillment and downstream writers remain blocked
-until exclusive consumption lineage is integrated. Historical reconciliation,
-production adapter/pool, staging roles/ACLs/TLS/secrets/startup smoke, identity
-SELECT exposure and packing-label reliability remain open. No deployment, main
-merge, UI expansion or company inventory changes. Use /new or /compact.
+Preserve unrelated AGENTS.md. Fulfillment, packing and downstream consumption
+remain blocked. No operational writer cutover, deployment, main merge or real
+inventory changes. Use /new or /compact before another milestone.

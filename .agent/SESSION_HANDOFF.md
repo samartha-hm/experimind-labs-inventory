@@ -1,31 +1,30 @@
-# Milestone 13M-D2A — 2026-10-18
+# Milestone 13M-D2A-R — 2026-10-18
 
 Branch: feature/kit-builder-milestone-1.
-Checkpoint a4c902349cb991e3e29a1ba19ab2d59e439b4024 pushed; full remote HEAD
-matched. This separate continuity commit follows.
+Review checkpoint 86c54de30a564f13daec5344f68c428c0cc6d8fd pushed; live
+GitHub HEAD matched. This separate continuity commit follows.
 
-Verdict: CONDITIONAL PASS, isolated synthetic development only. Atomic reservation
-create/adjust/untouched release/cancel share cumulative approved demand with
-exclusive ledger H. Capability executor, immutable mapping/receipt, audit and
-approval binding commit together. Runtime SQL and legacy reservation writes fail
-closed. Fulfillment, historical attachment, unsupported transfers and downstream
-roots remain blocked. No production HTTP adapter/pool.
+Verdict: CONDITIONAL PASS for the isolated reservation boundary. No reproducible
+production defect; no production/schema changes. Added adversarial PostgreSQL
+checks for concurrent increases, duplicate release, stale approval lock contention,
+audit-failure rollback, unsupported ledger consumption/release, source reuse,
+precision limits and restricted-runtime source/event/projection/receipt writes.
 
-Read docs/erp/ui-ux/MILESTONE_13M_D2A_RESERVATION_COMMITMENTS.md and fingerprints.
-Changed: reservation service/migration, authority/database ACL boundary,
-integration/HTTP checks, recovery runner and report/index.
+Read docs/erp/ui-ux/MILESTONE_13M_D2A_R_INDEPENDENT_REVIEW.md and
+MILESTONE_13M_D2A_R_FINGERPRINTS.json. Changed reservationCommitment.cases.ts,
+review/evidence and docs index.
 
-Verification: focused PostgreSQL 37/37; idle two-worker suite 583/583 in 76 files;
-typecheck and frontend/PWA/server builds PASS. Initial full run had two attachment
-failures from TEMP inside source; external TEMP resolved them. Build-overlapping
-rerun reproduced packing-label 5000ms timeout (582/583); idle full rerun passed.
-No assertions/timeouts relaxed; reliability remains open.
-Nonempty restore/replay PASS: 24 accounts, 65 events, 12 equal table fingerprints,
-11 pinned functions and restored witnesses. Twenty unrelated operational tables
-unchanged; only synthetic reservations/audit legitimately changed.
+Fresh verification: focused PostgreSQL 37/37; complete two-worker suite 583/583
+in 76 files; typecheck and frontend/PWA/server builds PASS. No fresh timeout.
+Initial sandbox permission/local-network failures resolved through reviewed
+elevated test execution; assertions/timeouts unchanged.
+Fresh nonempty restore/replay PASS: 24 accounts, 69 events, 12 equal table
+fingerprints, 11 pinned functions and restored witnesses. Reservation tests left
+physical inventory/ledger and unrelated operational fingerprints unchanged.
 
-Next: user review of D2A acceptance. Stop before D2B/D3. Production activation,
-downstream consumption lineage, historical reconciliation, staging roles/ACLs/
-TLS/secrets/startup smoke and identity SELECT exposure remain open.
-No deployment, main merge, UI expansion or company inventory changes.
+Stop after D2A-R. D2B may begin only with separate user authorization and exclusive
+PR/PO lineage; fulfillment/packing/downstream consumption remain blocked.
+Production adapter/pool, historical reconciliation, staging roles/ACLs/TLS/secrets/
+startup smoke, identity SELECT exposure and historical packing-label reliability
+remain open. No deployment, main merge, operational cutover or real inventory changes.
 Unrelated AGENTS.md remains uncommitted. Use /new or /compact.
