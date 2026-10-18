@@ -163,3 +163,17 @@ flag and organization allowlist, using existing tenant-scoped authenticated read
 This is documentation, not integration authorization. User design review and
 explicit approval precede implementation. No operational route change, merge,
 deployment or pilot activation is authorized by prototype acceptance.
+
+## ADR-031 — Trusted ledger authority separation — 2026-10-18
+
+D1T replaces UUID-only authority with a private writer credential behind server
+signature validation and transactional active tenant-admin checks. Identity writes
+also require a separate credential; otherwise runtime SQL could replace passwords
+or elevate roles. Migration credentials stay out of the HTTP process. Invoker
+functions, fixed paths and explicit grants preserve the SQL boundary; session
+variables, advisory locks and SECURITY DEFINER are not authentication mechanisms.
+
+The guarantee covers compromise of normal runtime SQL credentials, not arbitrary
+trusted-server code execution or privileged credential/signing-key theft. No ledger
+production pool/HTTP route or operational adapter is enabled. Independent review,
+manual restricted-role/CA provisioning and staging smoke precede deployment.

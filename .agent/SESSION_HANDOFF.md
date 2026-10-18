@@ -1,30 +1,35 @@
-# Milestone 13M-D1S boundary assessment — 2026-10-18
+# Milestone 13M-D1T — 2026-10-18
 
 Branch: feature/kit-builder-milestone-1.
-Assessment checkpoint: abfa25a046fbc3fb413fdaddb23a7e0611a1cf67, pushed.
-This separate continuity commit follows.
+Implementation checkpoint: c582bacc064bb2593a0465f8364b25b4495f8ddf,
+pushed and remote verified. This separate continuity commit follows.
 
-Verdict: BLOCKED for operational integration; no remediation implemented.
-Read docs/erp/ui-ux/MILESTONE_13M_D1S_TRUST_BOUNDARY.md.
+Verdict: PASS for the bounded restricted-runtime-SQL ledger authority boundary.
+Operational writer integration remains BLOCKED. No production deployment or rotation.
+Read docs/erp/ui-ux/MILESTONE_13M_D1T_TRUSTED_EXECUTION.md.
 
-Fresh focused approval/ledger PostgreSQL suite: 36/36 passed. Its restricted
-NOLOGIN/NOSUPERUSER role with table DML successfully supplied an administrator
-UUID. Green characterization coverage does not prove impersonation prevention.
-All 22 synthetic operational before/after fingerprints matched. Test login
-kitbuilder_dev is SUPERUSER/CREATEROLE/CREATEDB/BYPASSRLS. Configured development
-database is absent (3D000); actual runtime path was not validated.
+Separate migration, runtime, identity and private ledger authorities. Auth/RBAC/user/
+session writes use IdentityDataSource. TrustedLedgerAuthority verifies signed expiring
+administrator tokens and transactions reload/lock current active tenant membership.
+Runtime cannot change identity or ledger evidence. Startup rejects privileged,
+overgranted, substituted or insufficient credentials and unsafe SQL lookup paths.
+Owner-only provisioning applies explicit grants; remote connections verify TLS.
 
-Shared runtime/migration datasource and caller-supplied LedgerContext provide no
-database-enforced authenticated actor binding. No verified replacement boundary
-was implemented. Stopped under the user's explicit BLOCKED rule; no source,
-migration, grant, credential, deployment or company-data changes.
+Fresh full suite: 76 files / 583 tests pass; typecheck and frontend/PWA/server builds
+pass (existing chunk-size warning). Actual restricted LOGIN adversarial tests deny
+UUID impersonation, cross-tenant access, DML/functions, session/temp/search-path forgery,
+grants/roles and identity substitution. Real password login, trusted account/entitlement/
+event creation, actor attribution, retry and pool isolation pass. Existing unsafe-DML
+positive control remains a vulnerability characterization, not remediation PASS.
+All 22 operational fingerprints unchanged. Nonempty restore: 22 accounts, 47 events,
+eight pinned functions; conservation/immutable evidence/replay pass.
 
-Not rerun: full suite, typecheck, builds, nonempty recovery; no new restricted
-LOGIN, session injection, cross-tenant, PUBLIC or pool-isolation acceptance tests.
-Earlier D1R results are not claimed as fresh D1S evidence.
+Changed: security boundary, datasource/startup, identity services, owner scripts,
+adversarial/recovery tests and deployment report/index. Unrelated AGENTS.md preserved.
+Ignored synthetic evidence/logs remain in .local-dev/13md1t-*.
 
-Changed: assessment report, docs index, continuity files. Ignored synthetic
-13md1s-boundary-evidence.json retained locally. Unrelated AGENTS.md preserved.
-Next: establish an enforceable identity boundary and actual runtime/migration
-role separation before writer integration. No D2, adapters, main merge or cutover.
+Manual prerequisites: fresh restricted roles, audited database, secret-manager
+configuration, CA trust and staging startup/route smoke. Production startup was not
+tested. Identity-read confidentiality remains a documented risk.
+Next: independent D1T review. No operational adapters, main merge or activation.
 Use /new or /compact for the next authorized slice.

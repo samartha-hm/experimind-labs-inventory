@@ -1,6 +1,19 @@
 # ERP state — historical implementation notes
 
-## Milestone 13M-D1 — 2026-10-18 — current
+## Milestone 13M-D1T — 2026-10-18 — current
+
+Restricted-runtime-SQL ledger authority boundary PASS in isolated PostgreSQL.
+Checkpoint c582bacc064bb2593a0465f8364b25b4495f8ddf pushed/remote verified.
+Distinct migration/runtime/identity/ledger authorities; signed token actor binding,
+current membership locking, explicit grants and fail-closed startup. Actual restricted
+LOGIN impersonation/session/temp/role attacks denied; trusted authenticated writes pass.
+Full 583/583 tests in 76 files, typecheck and frontend/PWA/server builds pass.
+Nonempty recovery: 22 accounts/47 events; 22 operational fingerprints unchanged.
+See MILESTONE_13M_D1T_TRUSTED_EXECUTION.md for grants and deployment prerequisites.
+Production credentials/startup remain untested; no deployment/rotation occurred.
+Operational integration remains BLOCKED pending independent review and authorization.
+
+## Milestone 13M-D1 — 2026-10-18 — historical
 
 Isolated central commitment ledger foundation PASS; implementation 34bcf3d pushed
 and remote verified. Seven additive tables, immutable provenance, A/F/H conservation,
