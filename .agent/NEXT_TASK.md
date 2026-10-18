@@ -1,13 +1,13 @@
 # Next task
 
-Independently review Milestone 13M-D1 at implementation checkpoint
-34bcf3dc8eb1c628ab9ce731a0613a62adb2f756 and the acceptance, foundation and shadow
-reports in docs/erp/ui-ux/.
+Await user review of Milestone 13M-D1R at checkpoint
+a9218102909165f32aff60f4ad9110d17b7f6a24 and
+docs/erp/ui-ux/MILESTONE_13M_D1R_INDEPENDENT_REVIEW.md.
 
-Assess conservation, tenant/approval guards, immutable provenance, SQL protections,
-locking/retries/replay, migration preservation and the documented synthetic-only limits.
-Review real-source exclusivity/settlement proof and revision compatibility before
-authorizing any bounded consequential writer integration.
+Before authorizing any writer work, agree on authenticated actor/tenant enforcement
+and actual least-privilege database roles; known administrator-UUID impersonation
+remains HIGH and blocks integration. This file grants no implementation authority.
 
-No writer cutover, historical activation, UI, deployment or main merge is authorized.
-Preserve unrelated AGENTS.md and company data. Use /new or /compact for the review.
+No 13M-D2, operational adapters, historical activation, deployment or main merge.
+Preserve unrelated AGENTS.md and company data. Start /new or /compact for any
+newly authorized slice.
