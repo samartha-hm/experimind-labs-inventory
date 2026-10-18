@@ -10,6 +10,7 @@ import { projectsWorkspaceEnabled, projectsWorkspaceEditingEnabled } from '../..
 import { ProductTemplateService } from '../../services/ProductTemplateService';
 import { KitTemplateApproval } from '../../entity/PlanningProject';
 import { In } from 'typeorm';
+import { RequirementApprovalService } from '../../services/RequirementApprovalService';
 
 class ProjectDto {
   @IsString() @MinLength(1) @MaxLength(200) name!: string;
@@ -21,6 +22,7 @@ class ProjectDto {
 }
 class EditProjectDto extends ProjectDto { @IsInt() @Min(1) revision!: number; }
 class RevisionDto { @IsInt() @Min(1) revision!: number; }
+class RequirementApprovalDto extends RevisionDto { @IsString() @MinLength(1) @MaxLength(100) key!: string; }
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export function planningProjectRouter(db: DataSource) {
   const router = Router(); const service = new ProjectPlanningService(db);
@@ -31,7 +33,7 @@ export function planningProjectRouter(db: DataSource) {
   const action = (run: RequestHandler): RequestHandler => (req, res, next) => {
     Promise.resolve(run(req, res, next)).catch((error: unknown) => {
       if (error instanceof DraftKitError) res.status(error.status).json({ error: error.message });
-      else if (error && typeof error === "object" && "code" in error && error.code === "23505") res.status(409).json({ error: "Planning identity conflict. Reopen or create fresh site/selection identities." });
+      else if (error && typeof error === "object" && "code" in error && ["23505", "23514", "P0001", "40001", "40P01"].includes(String(error.code))) res.status(409).json({ error: "Planning requirement conflict. Refresh the saved revision and approval before retrying." });
       else { console.error("Project planning failed", error instanceof Error ? error.name : "Error"); res.status(500).json({ error: "Unable to save or load project planning" }); }
     });
   };
@@ -83,6 +85,12 @@ export function planningProjectRouter(db: DataSource) {
   router.get("/", action(async (req, res) => { res.json(await service.list(req.user!.orgId!)); }));
   router.get("/:id", action(async (req, res) => { res.json(await service.view(req.params.id, req.user!.orgId!)); }));
   router.get("/:id/revisions", action(async (req, res) => { res.json(await service.history(req.params.id, req.user!.orgId!)); }));
+  router.get("/:id/requirement-approvals", action(async (req, res) => {
+    res.json(await new RequirementApprovalService(db).list(req.user!.orgId!, req.params.id));
+  }));
+  router.post("/:id/requirement-approvals", action(async (req, res) => {
+    res.status(201).json(await new RequirementApprovalService(db).approve(req.user!.orgId!, req.user!.id, req.params.id, await dto(req.body, RequirementApprovalDto)));
+  }));
   router.post("/", action(async (req, res) => { res.status(201).json(await service.save(req.user!.orgId!, req.user!.id, await dto(req.body, ProjectDto))); }));
   router.put("/:id", action(async (req, res) => {
     const { revision, ...content } = await dto(req.body, EditProjectDto);

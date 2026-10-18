@@ -1,5 +1,6 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, Unique } from "typeorm";
 import type { PlanningContent, PlanningSite } from "../features/projects/planningTypes";
+import { requirementApprovalEntities } from "./RequirementApproval";
 
 @Entity("planning_projects")
 @Unique(["id", "organization_id"])
@@ -53,4 +54,4 @@ export class KitTemplateApproval {
   @Column("uuid") approved_by!: string;
   @CreateDateColumn({ type: "timestamptz" }) approved_at!: Date;
 }
-export const planningEntities = [PlanningProject, PlanningSchoolSite, PlanningVersionLink, PlanningProjectRevision, KitTemplateApproval];
+export const planningEntities = [PlanningProject, PlanningSchoolSite, PlanningVersionLink, PlanningProjectRevision, KitTemplateApproval, ...requirementApprovalEntities];

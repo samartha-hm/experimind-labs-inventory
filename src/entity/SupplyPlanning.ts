@@ -2,7 +2,7 @@ import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateCol
 export interface SupplyLine {
   id:string; item_id:string; quantity:string; unit:string; canonical_quantity:string; canonical_unit:string;
   conversion_id?:string; conversion_factor?:string; project_id?:string; site_id?:string;
-  demand_revision?:number; demand_basis?:unknown; qc_required:boolean; notes:string;
+  demand_revision?:number; requirement_approval_id?:string; demand_basis?:unknown; qc_required:boolean; notes:string;
 }
 @Entity("project_stock_reservations")
 @Unique(["id","organization_id"])

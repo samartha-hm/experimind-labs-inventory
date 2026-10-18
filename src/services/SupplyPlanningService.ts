@@ -112,7 +112,7 @@ export class SupplyPlanningService {
       if(id){const found=await m.findOne(PurchaseRequest,{where:{id,organization_id:org},lock:{mode:"pessimistic_write"}});if(!found)fail(404,"Purchase request not found");if(found.revision!==revision||found.status!=="draft")fail(409,"Only the current draft can be edited");r=found;r.revision++;}
       else r=m.create(PurchaseRequest,{organization_id:org,pr_number:"PR-"+randomUUID(),created_by:actor});
       r.lines=[];for(const raw of lines)r.lines.push(await this.line(m,org,raw));r.notes=notes;
-      const saved=await m.save(r);await this.audit(m,org,actor,"request",saved,saved.revision);return saved;
+      await m.save(r);const saved=await m.findOneByOrFail(PurchaseRequest,{id:r.id,organization_id:org});await this.audit(m,org,actor,"request",saved,saved.revision);return saved;
     });
   }
   async shortageRequest(org:string,actor:string,key:string,project:string,site:string,revision:number,qc:boolean) {
@@ -145,7 +145,7 @@ export class SupplyPlanningService {
         l.demand_revision=revision;l.demand_basis=siteLines;lines.push(l);
       }
       if(!lines.length)fail(409,"No uncovered demand for the selected site");
-      const r=await m.save(PurchaseRequest,m.create(PurchaseRequest,{organization_id:org,pr_number:"PR-"+randomUUID(),lines,notes:"Generated from verified project shortage; selected site allocation",created_by:actor}));await this.audit(m,org,actor,"request",r,r.revision);return r;
+      const saved=await m.save(PurchaseRequest,m.create(PurchaseRequest,{organization_id:org,pr_number:"PR-"+randomUUID(),lines,notes:"Generated from verified project shortage; selected site allocation",created_by:actor}));const r=await m.findOneByOrFail(PurchaseRequest,{id:saved.id,organization_id:org});await this.audit(m,org,actor,"request",r,r.revision);return r;
     });
   }
   async requestTransition(org:string,actor:string,key:string,id:string,revision:number,action:"review"|"approve"|"cancel") {

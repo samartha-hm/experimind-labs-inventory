@@ -75,6 +75,7 @@ export class ProjectPlanningService {
     const approvals = ids.length ? await manager.findBy(KitTemplateApproval, { version_id: In(ids), organization_id: orgId }) : [];
     if (approvals.length !== ids.length) throw new DraftKitError(400, "Select an approved immutable kit version from your organization");
     const versions = ids.length ? await manager.findBy(ProductTemplateVersion, { id: In(ids), organization_id: orgId, status: "published" }) : [];
+    if (versions.length !== ids.length) throw new DraftKitError(400, "Every selected Kit revision must remain published and available");
     const itemIds = new Set<string>();
     for (const v of versions) for (const s of v.subjects) {
       for (const c of s.crates ?? []) for (const m of c.materials) itemIds.add(m.inventory_item_id);
