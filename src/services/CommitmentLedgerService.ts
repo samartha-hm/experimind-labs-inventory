@@ -39,7 +39,7 @@ export function planningUnits(text: string): bigint {
 
 /** Internal synthetic foundation. Never mounted on an HTTP router or used by operational writers. */
 export class CommitmentLedgerService {
-  constructor(private readonly db: DataSource) {}
+  constructor(private readonly db: DataSource | EntityManager) {}
   private async actor(m: EntityManager, context: LedgerContext): Promise<void> {
     if (!(await m.query(`SELECT id FROM users WHERE id=$1 AND organization_id=$2 AND is_active
       AND role IN ('admin','super_admin') FOR SHARE`, [context.actor, context.organization])).length)

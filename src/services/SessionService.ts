@@ -61,29 +61,22 @@ export class SessionService {
   }
 
   async revokeSession(sessionId: string, userId: string): Promise<void> {
-    const session = await this.sessionRepo.findOne({
-      where: { id: sessionId, user_id: userId }
+    await AppDataSource.transaction(async m => {
+      await m.query("SELECT id FROM users WHERE id=$1 FOR UPDATE", [userId]);
+      await m.query("UPDATE sessions SET is_revoked=true WHERE id=$1 AND user_id=$2", [sessionId,userId]);
+      await m.query(`UPDATE refresh_tokens SET is_revoked=true WHERE user_id=$1 AND token_hash IN
+        (SELECT refresh_token_hash FROM sessions WHERE id=$2 AND user_id=$1)`, [userId,sessionId]);
     });
-    if (session) {
-      session.is_revoked = true;
-      await this.sessionRepo.save(session);
-    }
   }
 
   async revokeAllOtherSessions(currentRefreshToken: string, userId: string): Promise<number> {
     const currentHash = this.hashToken(currentRefreshToken);
-    const sessions = await this.sessionRepo.find({
-      where: { user_id: userId, is_revoked: false }
+    return AppDataSource.transaction(async m => {
+      await m.query("SELECT id FROM users WHERE id=$1 FOR UPDATE", [userId]);
+      const revoked: {id:string}[] = await m.query(`UPDATE sessions SET is_revoked=true
+        WHERE user_id=$1 AND NOT is_revoked AND refresh_token_hash<>$2 RETURNING id`, [userId,currentHash]);
+      await m.query("UPDATE refresh_tokens SET is_revoked=true WHERE user_id=$1 AND token_hash<>$2", [userId,currentHash]);
+      return revoked.length;
     });
-
-    let revokedCount = 0;
-    for (const session of sessions) {
-      if (session.refresh_token_hash !== currentHash) {
-        session.is_revoked = true;
-        await this.sessionRepo.save(session);
-        revokedCount++;
-      }
-    }
-    return revokedCount;
   }
 }

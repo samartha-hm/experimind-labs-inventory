@@ -37,7 +37,7 @@ export function trustedLedgerBoundaryTests(get: () => Harness, fixture: () => Pr
         connection.username = role; connection.password = password;
         pools.push(new DataSource({ ...h.db.options as Extract<import("typeorm").DataSourceOptions, { type: "postgres" }>,
           url: connection.toString(), logging: false,
-          extra: { max: 1, options: `-c search_path=pg_catalog,${schema},pg_temp` } }));
+          extra: { max: role === roles.runtime ? 1 : 4, options: `-c search_path=pg_catalog,${schema},pg_temp` } }));
       }
       await h.db.transaction(m => configureDatabaseBoundary(m, schema, roles));
       for (const pool of pools) await pool.initialize();
@@ -111,19 +111,23 @@ export function trustedLedgerBoundaryTests(get: () => Harness, fixture: () => Pr
       expect(login.status).toBe(200); const {token}=await login.json();
       const [original] = await writer.query("SELECT item_key FROM commitment_accounts WHERE id=$1", [f.account]);
       const site = f.project.sites[1].id;
-      const account = await authority.createAccount(token, {project:f.project.id,site,obligation:"trusted wire",
-        dimension:"material",item:original.item_key,unit:"m",selector:{item:original.item_key}});
+      const accountRequest = {action:"createAccount" as const,key:randomUUID(),input:{project:f.project.id,site,obligation:"trusted wire",
+        dimension:"material" as const,item:original.item_key,unit:"m",selector:{item:original.item_key}}};
+      const account = await authority.createAccount(await authority.issue(token,accountRequest),accountRequest.input,accountRequest.key);
       const [demand] = await writer.query(`SELECT sum((l->>'quantity')::numeric)::text cap,jsonb_agg(l ORDER BY l::text) proof
         FROM requirement_approvals a,LATERAL jsonb_array_elements(a.snapshot->'lines') l
         WHERE a.id=$1 AND l->>'site_id'=$2 AND l->>'inventory_item_id'=$3 AND l ? 'material_id'`,[f.approval.id,site,original.item_key]);
-      const entitlement = await authority.entitlement(token,account,f.approval.id,1,demand.cap,demand.proof);
-      expect((await authority.execute(token,account,entitlement,randomUUID(),"Trusted authorization",{kind:"authorize",payload:{}})).actor_id).toBe(h.admin.id);
+      const entitlementRequest = {action:"entitlement" as const,key:randomUUID(),account,approval:f.approval.id,revision:1,cap:demand.cap,provenance:demand.proof};
+      const entitlement = await authority.entitlement(await authority.issue(token,entitlementRequest),account,f.approval.id,1,demand.cap,demand.proof,entitlementRequest.key);
+      const authorize = {action:"execute" as const,key:randomUUID(),account,entitlement,reason:"Trusted authorization",operation:{kind:"authorize" as const,payload:{}}};
+      expect((await authority.perform(await authority.issue(token,authorize),authorize) as {actor_id:string}).actor_id).toBe(h.admin.id);
       const key=randomUUID(), claim=randomUUID(), operation={kind:"open",payload:{claim,quantity:"0.2",source:{kind:"synthetic:test",id:randomUUID(),slice:"whole"}}};
       async function invoke(bearer:string,op=operation,k=key) {
         return fetch(base+"/ledger",{method:"POST",headers:{Authorization:`Bearer ${bearer}`,"Content-Type":"application/json"},body:JSON.stringify({key:k,operation:op})});
       }
-      const result=await invoke(token);const event=await result.json();expect(result.status,JSON.stringify(event)).toBe(200);expect(event.actor_id).toBe(h.admin.id);
-      const retry=await invoke(token);expect(retry.status).toBe(200);expect((await retry.json()).id).toBe(event.id);
+      const capability=await authority.issue(token,{action:"execute",account:f.account,entitlement:f.entitlement,key,reason:"Authenticated synthetic event",operation:operation as import("../../services/CommitmentLedgerService").LedgerOperation});
+      const result=await invoke(capability);const event=await result.json();expect(result.status,JSON.stringify(event)).toBe(200);expect(event.actor_id).toBe(h.admin.id);
+      const retry=await invoke(capability);expect(retry.status).toBe(200);expect((await retry.json()).id).toBe(event.id);
       const signed=(u:User,overrides={})=>jwt.sign({sub:u.id,orgId:u.organization_id,role:u.role,...overrides},env.jwtSecret,{expiresIn:"5m"});
       for (const bad of ["",signed(h.maker),signed(h.other),signed(h.maker,{role:"admin",orgId:h.admin.organization_id}),
         jwt.sign({sub:h.admin.id,orgId:h.admin.organization_id,role:"admin"},"attacker"),
@@ -131,12 +135,12 @@ export function trustedLedgerBoundaryTests(get: () => Harness, fixture: () => Pr
         signed(h.admin,{type:"mfa_challenge"}), jwt.sign({sub:h.admin.id,orgId:h.admin.organization_id,role:"admin",exp:1},env.jwtSecret)])
         expect((await invoke(bad)).status).toBe(403);
       await identity.getRepository(User).update(h.admin.id,{role:"viewer"});
-      expect((await invoke(token)).status).toBe(403);
+      expect((await invoke(capability)).status).toBe(403);
       await identity.getRepository(User).update(h.admin.id,{role:"admin",is_active:false});
-      expect((await invoke(token)).status).toBe(403);
+      expect((await invoke(capability)).status).toBe(403);
       await identity.getRepository(User).update(h.admin.id,{is_active:true});
       await independentIdentityReview({runtime,identity,writer,auth,authority,admin:h.admin,token,
-        account:f.account,entitlement:f.entitlement,password,evidence:h.evidence});
+        account:f.account,entitlement:f.entitlement,password,evidence:h.evidence,resourceRequests:[accountRequest,entitlementRequest]});
       // Single-connection pools retain attacker session state only in the runtime pool.
       expect((await runtime.query("SELECT current_setting('app.actor_id') actor"))[0].actor).toBe(h.admin.id);
       expect((await writer.query("SELECT current_setting('app.actor_id',true) actor"))[0].actor).toBeNull();

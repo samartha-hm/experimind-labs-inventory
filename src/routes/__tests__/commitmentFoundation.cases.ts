@@ -1,3 +1,4 @@
+import { AddLedgerCapabilities1792540800017 } from "../../migration/1792540800017-AddLedgerCapabilities";
 import { randomUUID } from "node:crypto";
 import { expect, it } from "vitest";
 import type { DataSource } from "typeorm";
@@ -68,6 +69,7 @@ export function commitmentFoundationTests(get: () => Harness) {
       const m = new AddCommitmentLedger1792540800015(); await m.up(runner); await m.down(runner); await m.up(runner);
       const hardening = new HardenCommitmentEventEvidence1792540800016();
       await hardening.up(runner); await hardening.down(runner); await hardening.up(runner);
+      await new AddLedgerCapabilities1792540800017().up(runner);
       await runner.commitTransaction();
     } catch (e) { await runner.rollbackTransaction(); throw e; } finally { await runner.release(); }
     expect(await get().fingerprint()).toEqual(before);

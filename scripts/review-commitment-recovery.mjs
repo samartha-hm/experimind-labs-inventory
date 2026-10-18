@@ -5,7 +5,7 @@ import { resolve, join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { replayCommitments, planningUnits } from '../src/services/CommitmentLedgerService.ts';
 const milestone = process.env.COMMITMENT_RECOVERY_MILESTONE ?? '13md1r';
-if (!['13md1r','13md1t','13md1u'].includes(milestone)) throw Error('Unsupported recovery milestone');
+if (!['13md1r','13md1t','13md1u','13md1v'].includes(milestone)) throw Error('Unsupported recovery milestone');
 const evidence = JSON.parse(await readFile(`.local-dev/${milestone}-evidence.json`, 'utf8'));
 const schema = evidence.schema;
 const url = new URL(process.env.KIT_BUILDER_TEST_DATABASE_URL);
@@ -22,7 +22,7 @@ await writeFile(path,dump.replaceAll(schema,target));
 run('psql',['-X','--single-transaction','--set','ON_ERROR_STOP=1','--quiet','--file',path],{PGOPTIONS:`-c search_path=${target},public`});
 const client = new pg.Client({connectionString:url.toString()}); await client.connect();
 try {
- const tables=['accounts','entitlements','balances','claims','sources','events','reconciliation_cases'];
+ const tables=['accounts','entitlements','balances','claims','sources','events','reconciliation_cases',...(milestone==='13md1v'?['authorizations']:[])];
  const fingerprints=async namespace=>{
   const result={};
   for(const t of tables) {
@@ -56,7 +56,7 @@ try {
   shadowRecords.push(...rows.filter(r=>diagnostics.some(d=>d.kind===table&&d.source===r.id)).map(r=>({kind:table,...r})));
  }
  const {rows:roles}=await client.query('SELECT current_user,rolsuper,rolcreaterole FROM pg_roles WHERE rolname=current_user');
- const output={source_schema:schema,target_schema:target,all_seven_table_fingerprints_match:true,pinned_functions:functions.length,deferred_witness_restored:true,replayed_accounts:balances.length,before,after,backup_restore:'PASS',migration_role:roles[0],shadow:grouped,shadow_records:shadowRecords};
+ const output={source_schema:schema,target_schema:target,all_table_fingerprints_match:true,verified_table_count:tables.length,pinned_functions:functions.length,deferred_witness_restored:true,replayed_accounts:balances.length,before,after,backup_restore:'PASS',migration_role:roles[0],shadow:grouped,shadow_records:shadowRecords};
  await writeFile(`.local-dev/${milestone}-recovery-evidence.json`,JSON.stringify(output,null,2));
  console.log(JSON.stringify({backup_restore:output.backup_restore,replayed_accounts:output.replayed_accounts,events:before.events.count,pinned_functions:output.pinned_functions}));
 } finally {await client.end();}

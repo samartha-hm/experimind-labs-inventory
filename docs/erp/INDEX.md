@@ -43,3 +43,4 @@ Open only the authority relevant to the task. Current user instructions and conf
 | Milestone 13M-D1S — trusted actor boundary assessment | [BLOCKED: impersonation reproduced; runtime boundary unimplemented](ui-ux/MILESTONE_13M_D1S_TRUST_BOUNDARY.md) |
 | Milestone 13M-D1T — trusted ledger execution | [Restricted LOGIN boundary and deployment procedure; operational integration blocked](ui-ux/MILESTONE_13M_D1T_TRUSTED_EXECUTION.md) |
 | Milestone 13M-D1U — independent boundary review | [BLOCKED: token revocation, replay and execution-scope findings](ui-ux/MILESTONE_13M_D1U_INDEPENDENT_REVIEW.md) |
+| Milestone 13M-D1V — token lifecycle remediation | [Contract and scope matrix](ui-ux/MILESTONE_13M_D1V_TOKEN_LIFECYCLE.md), [conditional acceptance](ui-ux/MILESTONE_13M_D1V_ACCEPTANCE.md), [fingerprints](ui-ux/MILESTONE_13M_D1V_FINGERPRINTS.json) |

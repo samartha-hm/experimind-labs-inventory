@@ -1,4 +1,4 @@
-import { Column, Entity, PrimaryColumn, PrimaryGeneratedColumn } from "typeorm";
+import { Column, Entity, PrimaryColumn, PrimaryGeneratedColumn, Unique } from "typeorm";
 
 @Entity("commitment_accounts")
 export class CommitmentAccount {
@@ -85,5 +85,16 @@ export class CommitmentReconciliationCase {
   @Column("boolean") active!: false;
   @Column("timestamptz") created_at!: Date;
 }
+@Entity("commitment_authorizations")
+@Unique(["organization_id", "actor_id", "operation_key"])
+export class CommitmentAuthorization {
+  @PrimaryColumn("uuid") id!: string;
+  @Column("uuid") organization_id!: string;
+  @Column("uuid") actor_id!: string;
+  @Column("text") operation_key!: string;
+  @Column("text") fingerprint!: string;
+  @Column("jsonb") result!: unknown;
+  @Column("timestamptz") created_at!: Date;
+}
 export const commitmentEntities = [CommitmentAccount, CommitmentEntitlement, CommitmentBalance, CommitmentClaim,
-  CommitmentSource, CommitmentEventRecord, CommitmentReconciliationCase];
+  CommitmentSource, CommitmentEventRecord, CommitmentReconciliationCase, CommitmentAuthorization];

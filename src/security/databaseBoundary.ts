@@ -1,7 +1,7 @@
 import type { DataSource, EntityManager } from "typeorm";
 
 export const ledgerTables = ["commitment_accounts", "commitment_entitlements", "commitment_balances",
-  "commitment_claims", "commitment_sources", "commitment_events", "commitment_reconciliation_cases"];
+  "commitment_claims", "commitment_sources", "commitment_events", "commitment_reconciliation_cases", "commitment_authorizations"];
 export const identityTables = ["users", "roles", "refresh_tokens", "sessions"];
 export const sqlIdentifier = (name: string): string => `"${name.replaceAll('"', '""')}"`;
 type Sql = Pick<EntityManager, "query">;
@@ -43,7 +43,7 @@ export async function configureDatabaseBoundary(db: Sql, schema: string,
   for (const table of ledgerTables)
     await db.query(`REVOKE ALL ON ${s}.${sqlIdentifier(table)} FROM ${identity};
       GRANT SELECT,INSERT,UPDATE ON ${s}.${sqlIdentifier(table)} TO ${ledger}`);
-  for (const table of ["users", "planning_projects", "planning_sites", "requirement_approvals", "project_completions"])
+  for (const table of ["users", "refresh_tokens", "sessions", "planning_projects", "planning_sites", "requirement_approvals", "project_completions"])
     await db.query(`GRANT SELECT ON ${s}.${sqlIdentifier(table)} TO ${ledger}`);
   await db.query(`GRANT UPDATE(updated_at) ON ${s}.planning_projects TO ${ledger}`);
   const functions: { signature: string; proname: string; prosecdef: boolean }[] = await db.query(`
@@ -125,6 +125,9 @@ export async function assertDatabaseBoundary(db: DataSource, kind: "runtime" | "
       !(c.attname === "updated_at" && (relname === "users" && kind === "runtime" || kind === "ledger" && ["users","planning_projects"].includes(relname))))) fail();
   }
   // Missing authority is also unsafe: never silently substitute runtime credentials for identity/writer credentials.
+  if (kind === "ledger") for (const table of ["refresh_tokens", "sessions"])
+    if (!(await db.query("SELECT has_table_privilege($1,'SELECT') allowed",
+      [`${sqlIdentifier(schema)}.${sqlIdentifier(table)}`]))[0].allowed) fail();
   for (const table of kind === "identity" ? identityTables : kind === "ledger" ? ledgerTables : [...ledgerTables,...identityTables]) {
     for (const privilege of kind === "runtime" ? ["SELECT"] : ["SELECT","INSERT","UPDATE"]) {
       if (!(await db.query("SELECT has_table_privilege($1,$2) allowed",[`${sqlIdentifier(schema)}.${sqlIdentifier(table)}`,privilege]))[0].allowed) fail();
