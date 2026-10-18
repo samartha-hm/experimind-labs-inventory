@@ -46,6 +46,59 @@ export async function verifyReservationCommitments(h: {
     .map(t=>`SELECT '${t}' object,count(*)::int n,md5(coalesce(string_agg(row_to_json(t)::text,'' ORDER BY row_to_json(t)::text),'')) hash FROM ${t} t`).join(" UNION ALL "));
   async function reject(work:()=>Promise<unknown>) { const before=await snapshot();await expect(work()).rejects.toThrow();expect(await snapshot()).toEqual(before); }
   const before=await h.fingerprint();
+  // Independent D2A-R challenges use real authority transactions and compare all
+  // operational/ledger/receipt tables after rejected or rolled-back mutations.
+  const independent=await perform(create("0.01"));
+  const increases=["0.02","0.03"].map(quantity=>request({...demand,id:independent.id,
+    transition:"adjust",revision:1,quantity,reason:"Independent concurrent increase"}));
+  const increased=await Promise.allSettled(increases.map(perform));
+  expect(increased.filter(result=>result.status==="fulfilled")).toHaveLength(1);
+  const [increasedRow]:ReservationResult[]=await h.writer.query("SELECT * FROM project_stock_reservations WHERE id=$1",[independent.id]);
+  expect(increasedRow.revision).toBe(2);
+  const [independentClaim]:{id:string}[]=await h.writer.query("SELECT id FROM commitment_claims WHERE source_id=$1 AND held>0 ORDER BY id LIMIT 1",[independent.id]);
+  const independentLedger=new CommitmentLedgerService(h.writer);
+  await reject(()=>independentLedger.execute(context,f.account,f.entitlement,randomUUID(),"Independent consumption bypass",
+    {kind:"consume",payload:{claim:independentClaim.id,quantity:"0.0001"}}));
+  await reject(()=>independentLedger.execute(context,f.account,f.entitlement,randomUUID(),"Independent unmatched release",
+    {kind:"release",payload:{claim:independentClaim.id,quantity:"0.0001",untouched:true,unencumbered:true,evidence:"Forged assertion"}}));
+  await reject(()=>independentLedger.execute(context,f.account,f.entitlement,randomUUID(),"Independent reused source",
+    {kind:"open",payload:{claim:randomUUID(),quantity:"0.01",source:{kind:"project_reservation",id:independent.id,slice:"1"}}}));
+  const releaseRetry=request({...demand,id:independent.id,transition:"release",revision:2,reason:"Independent duplicate release"});
+  const releaseCapability=await authority.issue(token,releaseRetry);
+  const releases=await Promise.all([authority.perform(releaseCapability,releaseRetry),authority.perform(releaseCapability,releaseRetry)]);
+  expect(releases[0]).toEqual(releases[1]);
+  await reject(()=>perform({...releaseRetry,key:randomUUID()}));
+  await h.db.query(`CREATE FUNCTION d2ar_fail_audit() RETURNS trigger LANGUAGE plpgsql AS $$
+    BEGIN RAISE EXCEPTION 'D2A-R injected audit failure'; END $$;
+    CREATE TRIGGER d2ar_fail_audit BEFORE INSERT ON supply_events FOR EACH ROW
+    WHEN (NEW.kind='reservation') EXECUTE FUNCTION d2ar_fail_audit()`);
+  try { await reject(()=>perform(create("0.01"))); }
+  finally { await h.db.query("DROP TRIGGER d2ar_fail_audit ON supply_events; DROP FUNCTION d2ar_fail_audit()"); }
+  await reject(()=>perform(create("0.000001")));
+  await reject(()=>perform(create("999999999999999999999999.9999")));
+  const staleRequest=create("0.01"), staleCapability=await authority.issue(token,staleRequest);
+  const revisionRunner=h.db.createQueryRunner();
+  await revisionRunner.connect();await revisionRunner.startTransaction();
+  try {
+    const [{pid}]:{pid:number}[]=await revisionRunner.query("SELECT pg_backend_pid() pid");
+    await revisionRunner.query("UPDATE planning_projects SET revision=revision+1 WHERE id=$1",[demand.project]);
+    const stable=await snapshot();
+    const pending=authority.perform(staleCapability,staleRequest).then(()=>"committed",()=>"rejected");
+    let blocked=false;
+    for(let attempt=0;attempt<100&&!blocked;attempt++) {
+      const [state]:{blocked:boolean}[]=await h.db.query("SELECT EXISTS(SELECT 1 FROM pg_stat_activity WHERE $1=ANY(pg_blocking_pids(pid))) blocked",[pid]);
+      blocked=state.blocked;
+      if(!blocked) await h.db.query("SELECT pg_sleep(0.01)");
+    }
+    await revisionRunner.commitTransaction();
+    expect(await pending).toBe("rejected");
+    expect(blocked,"Reservation must wait for the approval revision transaction").toBe(true);
+    expect(await snapshot()).toEqual(stable);
+  } finally {
+    if(revisionRunner.isTransactionActive) await revisionRunner.rollbackTransaction();
+    await revisionRunner.release();
+    await h.db.query("UPDATE planning_projects SET revision=revision-1 WHERE id=$1",[demand.project]);
+  }
   await reject(()=>perform(request({project:historical.project.id,site:historical.site,item:historicalAccount.item_key,
     unit:historicalAccount.unit,approval:historical.approval.id,demandRevision:1,id:legacy.id,transition:"release",revision:1,reason:"Historical lineage unknown"})));
   const cap=planningUnits(f.demand.cap), remaining=200000n;
@@ -114,6 +167,10 @@ export async function verifyReservationCommitments(h: {
   await reject(()=>authority.perform(pending2,another));
   await h.identity.query("UPDATE users SET role='admin' WHERE id=$1",[h.admin.id]);
   const s=sqlIdentifier(h.schema);
+  for(const table of ["commitment_claims","commitment_sources","commitment_events","commitment_balances","commitment_authorizations"])
+    await expect(h.runtime.query(`INSERT INTO ${s}.${table} DEFAULT VALUES`)).rejects.toMatchObject({code:"42501"});
+  await expect(h.runtime.query(`SELECT ${s}.commitment_reservation_clean($1,$2)`,[context.organization,demand.project]))
+    .rejects.toMatchObject({code:"42501"});
   for(const sql of [`UPDATE ${s}.project_stock_reservations SET quantity=999 WHERE id=$1`,
     `UPDATE ${s}.commitment_balances SET held=0 WHERE account_id=$1`,
     `INSERT INTO ${s}.commitment_reservations SELECT * FROM ${s}.commitment_reservations WHERE reservation_id=$1`])
