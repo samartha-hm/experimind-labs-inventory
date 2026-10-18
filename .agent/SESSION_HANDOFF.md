@@ -1,29 +1,28 @@
-# Milestone 13M-B independent backend review — 2026-10-18
+# Milestone 13M-C design review — 2026-10-18
 
-Branch: feature/kit-builder-milestone-1. Review/fix checkpoint:
-5dc279714683e64b3626c318e0c8435acd24c5dc, pushed and remote hash verified.
-This separate continuity commit follows it.
+Branch: feature/kit-builder-milestone-1.
+Starting local/remote: cc3d0c6be17cd1e7e580c4f5205a442981a875f1.
+Design checkpoint: 2ddac1fa92ccb4783cdfa4e35fdf65956f75eb55,
+pushed and remote hash verified. This separate continuity commit follows.
 
-Verdict: CONDITIONAL PASS. Reproduced a P1 packing bypass: additional/substitute
-execution changes could alter approved demand. Additive migration 14 now rejects
-nonempty changes on project packing rows; save and approve a new requirement
-revision instead. No historical rows were rewritten. Historical/superseded
-execution remains blocked; reconciliation and cumulative demand budgets require
-separate business decisions. Admin self-approval remains explicitly allowed.
+Read docs/erp/ui-ux/MILESTONE_13M_C_DEMAND_AND_RECONCILIATION_DESIGN.md.
+Proposal recommends a central commitment ledger with total-to-date revision caps,
+separate material/deliverable dimensions, exclusive source lineage and transactional
+capacity checks. Historical evidence remains immutable; administrator-reviewed
+mappings and current authorization overlays precede continued execution.
 
-Read docs/erp/ui-ux/MILESTONE_13M_B_INDEPENDENT_REVIEW.md and
-MILESTONE_13M_B_FINGERPRINTS.json. The report distinguishes static route tracing
-from representative adversarial HTTP/service/database tests. Modified code:
-src/db.ts, src/migration/1792454400014-HardenApprovedPackingDemand.ts and
-src/routes/__tests__/requirementApproval.integration.test.ts.
+Includes evidence, alternative comparison, endpoint/transaction matrix, concurrency
+and retries, multi-school/Science crate examples, historical classifications,
+unsafe automatic cases, migration/rollback and implementation acceptance tests.
+Recommendations remain proposals, not authorized operational policy changes.
 
-Verified on isolated synthetic PostgreSQL: 20 focused tests; full suite 76 files /
-566 tests; typecheck and frontend/PWA/server builds pass. Frontend chunk-size
-warning remains. Evidence covers 22 table fingerprints, approval races, injected
-failures and rollback, durable retries, quantity reconciliation, pinned Kit versions
-and unknown versus verified-zero stock. Approval causes no operational changes.
+Modified paths: new design and docs/erp/INDEX.md; this handoff and NEXT_TASK.md.
+Checks: design relative links resolve; staged whitespace/path review passes.
+No application tests/builds or database mutations: documentation-only scope.
+13M-B test results remain historical evidence, not rerun results.
 
-Stop for review. No approval UI, deployment, main merge or production-data change.
-Preserve the unrelated unstaged AGENTS.md modification. Next: review this backend
-checkpoint and decide whether to authorize one bounded current-revision approval
-UI task. Start with /new or /compact.
+Next: human review of ledger/carry-forward policy, draft holds, recipe/rework resource
+authority and reconciliation controls; then authorize a bounded backend milestone.
+No UI integration, gate relaxation, operational/company-data changes, deployment or
+main merge. Preserve unrelated unstaged AGENTS.md. Stop for review; /new or /compact
+before implementation.
