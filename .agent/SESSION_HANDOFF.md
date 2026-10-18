@@ -1,30 +1,31 @@
-# Milestone 13M-D2A-R — 2026-10-18
+# Milestone 13M-D2B1 — 2026-10-18
 
 Branch: feature/kit-builder-milestone-1.
-Review checkpoint 86c54de30a564f13daec5344f68c428c0cc6d8fd pushed; live
-GitHub HEAD matched. This separate continuity commit follows.
+Implementation c44f01b5931d7fde7519b4f681440e1a03132756 pushed; live GitHub
+HEAD matched. This separate continuity commit follows.
 
-Verdict: CONDITIONAL PASS for the isolated reservation boundary. No reproducible
-production defect; no production/schema changes. Added adversarial PostgreSQL
-checks for concurrent increases, duplicate release, stale approval lock contention,
-audit-failure rollback, unsupported ledger consumption/release, source reuse,
-precision limits and restricted-runtime source/event/projection/receipt writes.
+CONDITIONAL PASS for isolated synthetic PR integration. One canonical school/material
+line per PR: manual/verified-shortage create, draft quantity adjustment, review,
+approve and clean cancellation. Exact current approval, immutable source mapping,
+shared reservation/PR A/F/H/U, atomic audit/receipt and D1V/D1W capabilities enforced.
+No reservation transfer, PO/receipt/QC implementation, historical activation or UI/
+operational writer cutover. New migration is synthetic-only, absent startup.
 
-Read docs/erp/ui-ux/MILESTONE_13M_D2A_R_INDEPENDENT_REVIEW.md and
-MILESTONE_13M_D2A_R_FINGERPRINTS.json. Changed reservationCommitment.cases.ts,
-review/evidence and docs index.
+Closed missing-PO-planning-line bypass: direct integrated PR references and linked
+receipts blocked; existing linked POs prevent PR release certification. Rollback-only
+corruption fixture verifies gates. Runtime direct PR/ledger writes remain denied.
 
-Fresh verification: focused PostgreSQL 37/37; complete two-worker suite 583/583
-in 76 files; typecheck and frontend/PWA/server builds PASS. No fresh timeout.
-Initial sandbox permission/local-network failures resolved through reviewed
-elevated test execution; assertions/timeouts unchanged.
-Fresh nonempty restore/replay PASS: 24 accounts, 69 events, 12 equal table
-fingerprints, 11 pinned functions and restored witnesses. Reservation tests left
-physical inventory/ledger and unrelated operational fingerprints unchanged.
+Fresh full suite 583/583 across 76 files with one worker; final test-only corruption
+extension focused 37/37. Typecheck and frontend/PWA/server builds PASS. Initial
+2-worker run: packing-label 5-second timeout, 582 passed; isolated packing retry
+19/19. Timeouts/assertions unchanged. UUID/text fixture setup failure fixed.
+Recovery PASS: 27 accounts, 83 events, 14 matching fingerprints, 13 pinned functions,
+restored witnesses and receipt gate. Physical stock, reservations and downstream
+fingerprints unchanged.
 
-Stop after D2A-R. D2B may begin only with separate user authorization and exclusive
-PR/PO lineage; fulfillment/packing/downstream consumption remain blocked.
-Production adapter/pool, historical reconciliation, staging roles/ACLs/TLS/secrets/
-startup smoke, identity SELECT exposure and historical packing-label reliability
-remain open. No deployment, main merge, operational cutover or real inventory changes.
+Read docs/erp/ui-ux/MILESTONE_13M_D2B1_PR_COMMITMENTS.md and companion fingerprints.
+Changed PR service/migration, trusted boundary, entities, tests, recovery script/index.
+Independent review, historical reconciliation, private pools/ACLs/TLS/keys/startup,
+identity SELECT exposure and packing reliability remain open. Stop D2B1; further
+PO/receipt work requires authorization. No real data, deployment or main merge.
 Unrelated AGENTS.md remains uncommitted. Use /new or /compact.

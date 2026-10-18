@@ -1,6 +1,20 @@
 # ERP state — historical implementation notes
 
-## Milestone 13M-D2A-R — 2026-10-18 — current
+## Milestone 13M-D2B1 — 2026-10-18 — current
+
+CONDITIONAL PASS for isolated single-line school/material PR adapter only.
+Checkpoint c44f01b5931d7fde7519b4f681440e1a03132756 pushed/remote verified.
+Manual/shortage creation, draft quantity edits, review/approve and clean cancel share
+reservation demand caps with immutable lineage and atomic trusted audit/receipts.
+Closed PO missing-planning-line bypass; PR-linked PO/receipt writes stay blocked.
+Full 583/583 in 76 files; final test-only corruption fixture focused 37/37; typecheck
+and frontend/PWA/server builds PASS. Initial packing timeout retained separately;
+isolated retry 19/19, no assertion/timeout changes. Nonempty recovery: 27 accounts,
+83 events, 14 equal fingerprints, 13 pinned functions and restored receipt guard.
+No reservation/stock/downstream effects. See MILESTONE_13M_D2B1_PR_COMMITMENTS.md
+and fingerprints. No startup activation, historical mapping, UI or operational
+cutover. Stop D2B1; independent review and separate PO/receipt authorization remain.
+## Milestone 13M-D2A-R — 2026-10-18 — historical
 
 Independent review CONDITIONAL PASS; no production/schema defect reproduced.
 Checkpoint 86c54de30a564f13daec5344f68c428c0cc6d8fd pushed/remote verified.
