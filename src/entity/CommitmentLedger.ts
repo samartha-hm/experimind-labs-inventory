@@ -98,3 +98,17 @@ export class CommitmentAuthorization {
 }
 export const commitmentEntities = [CommitmentAccount, CommitmentEntitlement, CommitmentBalance, CommitmentClaim,
   CommitmentSource, CommitmentEventRecord, CommitmentReconciliationCase, CommitmentAuthorization];
+
+/** Isolated D2B1 migration only; not registered in startup synchronization. */
+@Entity("commitment_pr_lines")
+@Unique(["request_id"])
+export class CommitmentPurchaseRequestLine {
+  @PrimaryColumn("uuid") line_id!: string;
+  @Column("uuid") request_id!: string;
+  @Column("uuid") organization_id!: string;
+  @Column("uuid") account_id!: string;
+  @Column("uuid") entitlement_id!: string;
+  @Column("jsonb") frozen_line!: unknown;
+  @Column("text") operation_key!: string;
+  @Column("timestamptz") created_at!: Date;
+}

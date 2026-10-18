@@ -5,12 +5,14 @@ import { CommitmentLedgerService, type LedgerAccountInput, type LedgerOperation,
 import { canonicalRequirementJSON } from "../services/RequirementApprovalService";
 import { assertDatabaseBoundary } from "./databaseBoundary";
 import { mutateReservation, type ReservationMutation, type ReservationResult } from "../services/ReservationCommitmentService";
+import { mutatePurchaseRequest, type PurchaseRequestMutation, type PurchaseRequestResult } from "../services/PurchaseRequestCommitmentService";
 
 export type LedgerRequest =
   | { action: "createAccount"; key: string; input: LedgerAccountInput }
   | { action: "entitlement"; key: string; account: string; approval: string; revision: number; cap: string; provenance: unknown }
   | { action: "execute"; key: string; account: string; entitlement: string; reason: string; operation: LedgerOperation }
-  | { action: "reservation"; key: string; input: ReservationMutation };
+  | { action: "reservation"; key: string; input: ReservationMutation }
+  | { action: "purchaseRequest"; key: string; input: PurchaseRequestMutation };
 const issuer = "experimind-ledger";
 const audience = "experimind-ledger-execution";
 const fingerprint = (request: LedgerRequest) => createHash("sha256").update(canonicalRequirementJSON(request)).digest("hex");
@@ -70,7 +72,7 @@ export class TrustedLedgerAuthority {
         jwtid: randomUUID(), expiresIn: Math.min(60, p.exp! - Math.floor(Date.now()/1000)) });
     });
   }
-  async perform(token: string, request: LedgerRequest): Promise<string | LedgerEvent | ReservationResult> {
+  async perform(token: string, request: LedgerRequest): Promise<string | LedgerEvent | ReservationResult | PurchaseRequestResult> {
     const normalized = JSON.parse(JSON.stringify(request)) as LedgerRequest;
     const p = this.claims(token, true), digest = fingerprint(normalized);
     if (p.action !== normalized.action || p.operationKey !== normalized.key || p.fingerprint !== digest)
@@ -87,14 +89,14 @@ export class TrustedLedgerAuthority {
           receipt.actor_id !== p.sub || receipt.operation_key !== normalized.key)
           throw new Error("Authorization replay conflict");
         await this.current(m, p);
-        if (normalized.action === "reservation") {
+        if (normalized.action === "reservation" || normalized.action === "purchaseRequest") {
           const i=normalized.input;
           await m.query("SELECT requirement_assert($1,$2,$3,$4,$5)",[p.orgId,i.project,i.site,i.demandRevision,i.approval]);
         }
         return receipt.result;
       }
       const service = new CommitmentLedgerService(m), context = { actor: p.sub!, organization: p.orgId as string };
-      let result: string | LedgerEvent | ReservationResult;
+      let result: string | LedgerEvent | ReservationResult | PurchaseRequestResult;
       switch (normalized.action) {
         case "createAccount": result = await service.createAccount(context, normalized.input); break;
         case "entitlement": result = await service.entitlement(context, normalized.account, normalized.approval,
@@ -102,12 +104,13 @@ export class TrustedLedgerAuthority {
         case "execute": result = await service.executeInTransaction(m, context, normalized.account,
           normalized.entitlement, normalized.key, normalized.reason, normalized.operation); break;
         case "reservation": result = await mutateReservation(m,context,normalized.input,normalized.key); break;
+        case "purchaseRequest": result = await mutatePurchaseRequest(m,context,normalized.input,normalized.key); break;
         default: throw new Error("Unknown ledger action");
       }
       await m.query(`INSERT INTO commitment_authorizations(id,organization_id,actor_id,operation_key,fingerprint,result)
         VALUES($1,$2,$3,$4,$5,$6::jsonb)`, [p.jti,p.orgId,p.sub,normalized.key,digest,JSON.stringify(result)]);
       await this.current(m, p);
-      return JSON.parse(JSON.stringify(result)) as string | LedgerEvent | ReservationResult;
+      return JSON.parse(JSON.stringify(result)) as string | LedgerEvent | ReservationResult | PurchaseRequestResult;
     });
   }
   createAccount(token: string, input: LedgerAccountInput, key: string) {

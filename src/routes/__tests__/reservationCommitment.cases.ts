@@ -12,13 +12,15 @@ import { CommitmentLedgerService, planningUnits, replayCommitments } from "../..
 import type { ReservationMutation, ReservationResult } from "../../services/ReservationCommitmentService";
 import { SupplyPlanningService } from "../../services/SupplyPlanningService";
 import { reservationHttpChecks } from "./reservationHttp.cases";
+import { verifyPurchaseRequestCommitments } from "./purchaseRequestCommitment.cases";
+import type { planningFixture } from "../../features/projects/__tests__/planningFixture";
 
 interface Fixture {account:string;entitlement:string;site:string;approval:{id:string};project:{id:string};demand:{cap:string}}
 /** Runs last: activating D2 deliberately disables the legacy reservation writer in this schema. */
 export async function verifyReservationCommitments(h: {
   db:DataSource;runtime:DataSource;writer:DataSource;identity:DataSource;schema:string;
   roles:{runtime:string;identity:string;ledger:string};auth:AuthService;admin:User;other:User;password:string;
-  fixture:()=>Promise<Fixture>;fingerprint:()=>Promise<unknown>;evidence:Record<string,unknown>;
+  fixture:(custom?:ReturnType<typeof planningFixture>)=>Promise<Fixture>;fingerprint:()=>Promise<unknown>;evidence:Record<string,unknown>;
 }) {
   const f=await h.fixture(), runner=h.db.createQueryRunner(), migration=new AddReservationCommitments1792540800018();
   const historical=await h.fixture();
@@ -205,4 +207,5 @@ export async function verifyReservationCommitments(h: {
   h.evidence.reservation_commitments={schema:h.schema,acceptance:"CONDITIONAL PASS",race:"one winner",retry:"same capability and immutable result",
     adjustment:"delta only",release:"untouched only",fulfillment:"BLOCKED: downstream lineage",recovery:"nonempty rollback refused; independent replay through new connection",
     before,after,projection:await snapshot()};
+  await verifyPurchaseRequestCommitments(h);
 }
