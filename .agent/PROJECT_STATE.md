@@ -1,6 +1,15 @@
 # ERP state — historical implementation notes
 
-## Milestone 13J-R — 2026-10-17 — current
+## Milestone 13M-B — 2026-10-18 — current
+
+Independent approval backend review: CONDITIONAL PASS after fixing the packing
+demand-change bypass with additive migration 14. Checkpoint 5dc2797 pushed and
+remote verified. Focused PostgreSQL 20/20; full suite 566/566 in 76 files;
+typecheck and builds pass. See MILESTONE_13M_B_INDEPENDENT_REVIEW.md for route
+coverage, evidence and remaining business decisions. Stop for review before UI;
+historical reconciliation remains blocked without separate authorization.
+
+## Milestone 13J-R — 2026-10-17 — historical
 
 Bounded automated full-server acceptance PASS using existing DISABLE_HMR=true.
 Normal watcher/HMR path stalls; internal cause unresolved after two approaches.

@@ -1,14 +1,13 @@
 # Next task
 
-Review Milestone 13M-A backend enforcement before authorizing approval UI work.
-Read docs/erp/ui-ux/MILESTONE_13M_A_BACKEND_CONTRACT.md,
-MILESTONE_13M_A_ACCEPTANCE.md and MILESTONE_13M_A_FINGERPRINTS.json.
-Implementation commit: 5354085; final continuity HEAD follows it.
+Review Milestone 13M-B checkpoint 5dc2797 and decide whether to authorize a bounded
+approval UI task for current saved requirement revisions.
 
-Admin self-approval is explicitly allowed. Current approved revision execution
-is enforced; historical/superseded execution is blocked without backfill.
-Review cross-cutting database guards and separately authorize historical
-reconciliation or override policy. Do not implement approval UI, deploy, merge
-main or enter real inventory without further authorization.
-All 557 tests, typecheck and frontend/PWA/server builds pass.
-Preserve unrelated AGENTS.md. Start with /new or /compact.
+Read docs/erp/ui-ux/MILESTONE_13M_B_INDEPENDENT_REVIEW.md and its fingerprint
+artifact. Verdict is conditional pass after the packing bypass fix in migration
+14. All 566 tests, typecheck and builds pass. Historical reconciliation and
+cumulative demand budgets remain separate business decisions.
+
+Do not start UI implementation, historical overrides, deployment, main merge or
+real inventory work without authorization. Preserve unrelated AGENTS.md.
+Use /new or /compact for the next task.
