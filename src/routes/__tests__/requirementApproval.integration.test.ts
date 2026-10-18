@@ -1,6 +1,10 @@
+import { HardenApprovedPackingDemand1792454400014 } from "../../migration/1792454400014-HardenApprovedPackingDemand";
 import { AddRequirementApproval1792368000013 } from "../../migration/1792368000013-AddRequirementApproval";
 import { productionPlanningRouter } from "../v1/production-planning";
 import { createHash } from "node:crypto";
+import { writeFileSync } from "node:fs";
+import { PackingService } from "../../services/PackingService";
+import { legacyOperationalPaths, legacyOperationsGate } from "../../middleware/legacyOperationsGate";
 import { canonicalRequirementJSON } from "../../services/RequirementApprovalService";
 import { labelLayoutRouter } from "../v1/labelLayouts";
 import { AddSharedLabelLayouts1792281600012 } from "../../migration/1792281600012-AddSharedLabelLayouts";
@@ -51,10 +55,11 @@ describe.skipIf(!url)("PostgreSQL authoritative requirement approval",()=>{
   let db:DataSource;let server:Server;let base:string;let maker:User;let admin:User;let viewer:User;let other:User;
   let wire:InventoryItem;let finished:InventoryItem;let unknown:InventoryItem;let session:Stocktake;let baseline:string;let projectId:string;
   const schema=`requirement_test_${randomUUID().replaceAll("-","")}`;
+  const evidence:Record<string,unknown>={schema};
   const token=(u:User,claims={})=>jwt.sign({sub:u.id,orgId:u.organization_id,role:u.role,...claims},env.jwtSecret,{expiresIn:"10m"});
   async function request(method:string,path:string,u?:User,body?:unknown,expected=200,claims={}) {
     const r=await fetch(base+"/api/v1"+path,{method,headers:{"Content-Type":"application/json",...(u?{Authorization:`Bearer ${token(u,claims)}`}:{})},...(body===undefined?{}:{body:JSON.stringify(body)})});
-    const text=await r.text();expect(r.status,text).toBe(expected);return text?JSON.parse(text):null;
+    const text=await r.text();expect(r.status,text.slice(0,300)).toBe(expected);return text?JSON.parse(text):null;
   }
   async function start(){const app=express();app.use(express.json());app.use("/api/v1/production-planning",productionPlanningRouter(db));app.use("/api/v1/attachments",attachmentRouter(db));app.use("/api/v1/packing-label-layouts",labelLayoutRouter(db));app.use("/api/v1/packing",packingRouter(db));app.use("/api/v1/delivery",deliveryRouter(db));app.use("/api/v1/supply-planning",supplyPlanningRouter(db));app.use("/api/v1/stocktakes",stocktakeRouter(db));app.use("/api/v1/product-templates",productTemplateRouter(db));app.use("/api/v1/planning-projects",planningProjectRouter(db));server=await new Promise<Server>(resolve=>{const s=app.listen(0,"127.0.0.1",()=>resolve(s));});const a=server.address();if(!a||typeof a==="string")throw new Error("Missing port");base=`http://127.0.0.1:${a.port}`;}
   const close=()=>new Promise<void>((resolve,reject)=>server.close(e=>e?reject(e):resolve()));
@@ -79,7 +84,7 @@ describe.skipIf(!url)("PostgreSQL authoritative requirement approval",()=>{
     await db.query(`INSERT INTO stock_ledger(organization_id,item_id,item_name,item_sku,qty_delta,running_balance,unit_cost,transaction_type) VALUES($1,$2,'Preserved wire','WIRE',987,987,123,'INITIAL_BALANCE')`,[a.id,wire.id]);
     finished=await db.getRepository(InventoryItem).save({organization_id:a.id,name:"Synthetic laser parts",sku:"PARTS",unit:"m",quantity:777,base_price:42,threshold:0});baseline=JSON.stringify(await db.query("SELECT * FROM inventory_items ORDER BY id"));await start();
   },30000);
-  afterAll(async()=>{if(server)await close();if(db?.isInitialized)await db.destroy();});
+  afterAll(async()=>{if(process.env.REQUIREMENT_REVIEW_EVIDENCE_PATH)writeFileSync(process.env.REQUIREMENT_REVIEW_EVIDENCE_PATH,JSON.stringify(evidence,null,2)+"\n");if(server)await close();if(db?.isInitialized)await db.destroy();});
   async function prod(method:string,path:string,body?:unknown,status=200,u=maker,key=randomUUID()) {
     const r=await fetch(base+"/api/v1/packing"+path,{method,headers:{Authorization:`Bearer ${token(u)}`,"Content-Type":"application/json","Idempotency-Key":key},...(body===undefined?{}:{body:JSON.stringify(body)})});
     const t=await r.text();expect(r.status,t).toBe(status);return t?JSON.parse(t):null;
@@ -90,12 +95,11 @@ describe.skipIf(!url)("PostgreSQL authoritative requirement approval",()=>{
 
   let project:any, content:any, historical:any, approval:any, reservation:any; let approvalKey = randomUUID();
   const approvals=(id=project.id)=>`/planning-projects/${id}/requirement-approvals`;
-  async function newProject(creator=maker) {
-    const f=planningFixture(wire.id);
+  async function newProject(creator=maker,f=planningFixture(wire.id)) {
     const d=await request("POST","/product-templates",maker,{name:"Approval demand",subjects:f.subjects},201);
     const v=await request("POST",`/product-templates/${d.template_id}/approve`,maker,{revision:1},201);
     for(const site of f.content.sites)site.selections[0].version_id=v.id;
-    return {content:f.content,project:await request("POST","/planning-projects",creator,f.content,201)};
+    return {content:f.content,template:d,version:v,project:await request("POST","/planning-projects",creator,f.content,201)};
   }
   async function fingerprint(){
     const result:Record<string,unknown>={};
@@ -109,8 +113,9 @@ describe.skipIf(!url)("PostgreSQL authoritative requirement approval",()=>{
     historical=await prod("POST","/orders",{batch_code:"HISTORICAL",project_id:project.id,site_id:project.sites[0].id,demand_revision:1},201);
     const before=await fingerprint();
     const runner=db.createQueryRunner();await runner.connect();await runner.startTransaction();
-    try{const migration=new AddRequirementApproval1792368000013();await migration.up(runner);await migration.down(runner);await migration.up(runner);await runner.commitTransaction();}catch(e){await runner.rollbackTransaction();throw e;}finally{await runner.release();}
+    try{const migration=new AddRequirementApproval1792368000013();await migration.up(runner);await migration.down(runner);await migration.up(runner);const guard=new HardenApprovedPackingDemand1792454400014();await guard.up(runner);await guard.down(runner);await guard.up(runner);await runner.commitTransaction();}catch(e){await runner.rollbackTransaction();throw e;}finally{await runner.release();}
     const after=await fingerprint();expect(after).toEqual(before);
+    evidence.migration={before,after};
     console.info("13M-A migration fingerprint",JSON.stringify({schema,before,after}));
     expect(await db.query("SELECT * FROM requirement_execution_bindings")).toHaveLength(0);
     await prod("POST",`/orders/${historical.id}/release`,{revision:historical.revision},409,admin);
@@ -145,6 +150,7 @@ describe.skipIf(!url)("PostgreSQL authoritative requirement approval",()=>{
     expect(approval.snapshot_hash).toBe(createHash("sha256").update(canonicalRequirementJSON(approval.snapshot)).digest("hex"));
     expect(approval.snapshot.lines.filter((l:any)=>l.inventory_item_id===wire.id).reduce((n:number,l:any)=>n+l.quantity,0)).toBeCloseTo(3.3);
     const after=await fingerprint();expect(after).toEqual(before);
+    evidence.approval={before,after,approval_id:approval.id,snapshot_hash:approval.snapshot_hash,approval_rows:1,retry_rows:2};
     console.info("13M-A approval fingerprint",JSON.stringify({schema,before,after,approval_rows:(await db.query("SELECT count(*)::int n FROM requirement_approvals"))[0].n,retry_rows:(await db.query("SELECT count(*)::int n FROM requirement_approval_retries"))[0].n}));
     expect(await request("GET",approvals(),viewer)).toEqual([approval]);
     await request("GET",approvals(),other,undefined,404);
@@ -239,5 +245,126 @@ describe.skipIf(!url)("PostgreSQL authoritative requirement approval",()=>{
     await supply(`/reservations/${reservation.id}/release`,{revision:reservation.revision,reason:"Old approval remains stale"},409);
     expect(JSON.stringify(await db.query("SELECT * FROM inventory_items ORDER BY id"))).toBe(baseline);
     expect(await balance()).toBeCloseTo(19.1);
+  });
+  it("rejects additional and substituted packing demand outside the approved snapshot",async()=>{
+    const f=await newProject();
+    await request("POST",approvals(f.project.id),admin,{revision:1,key:randomUUID()},201);
+    let p=await prod("POST","/orders",{batch_code:"ADVERSARIAL-CHANGE",project_id:f.project.id,site_id:f.project.sites[0].id,demand_revision:1},201);
+    p=await prod("POST",`/orders/${p.id}/release`,{revision:p.revision},200,admin);
+    const packageId=p.snapshot.packages.find((v:any)=>v.materials?.length)?.id??p.snapshot.packages[0].id;
+    const before=await fingerprint();
+    await prod("POST",`/orders/${p.id}/changes`,{revision:p.revision,package_id:packageId,kind:"additional",item_id:wire.id,quantity:"9",unit:"m",reason:"Attempt unapproved demand"},409,admin);
+    await prod("POST",`/orders/${p.id}/changes`,{revision:p.revision,package_id:packageId,kind:"substitute",item_id:finished.id,original_item_id:wire.id,quantity:"1",unit:"m",reason:"Attempt unapproved substitution"},409,admin);
+    await expect(new PackingService(db).change(admin.organization_id,admin.id,randomUUID(),p.id,p.revision,packageId,"additional",wire.id,"9","m","Direct service bypass")).rejects.toThrow("newly saved and approved");
+    await expect(db.query(`UPDATE packing_orders SET revision=revision+1,execution=jsonb_set(execution,'{changes}','[{"kind":"additional"}]') WHERE id=$1`,[p.id])).rejects.toThrow("newly saved and approved");
+    expect(await fingerprint()).toEqual(before);
+  });
+  it("reconciles independent Mathematics, explicit universal zero and pinned Kit revisions",async()=>{
+    const fixture=planningFixture(wire.id);
+    fixture.content.sites[0].selections[0].context.grade_quantities[fixture.mathGradeId]=1;
+    fixture.content.sites[0].selections[0].context.complete_sets[fixture.universalId]=0;
+    const f=await newProject(maker,fixture),before=await fingerprint();
+    const a=await request("POST",approvals(f.project.id),admin,{revision:1,key:randomUUID()},201);
+    const lines=a.snapshot.lines as any[];
+    const sum=(site:string,source?:string,subject?:string)=>lines.filter(l=>l.inventory_item_id===wire.id&&l.unit==="m"&&l.site_id===site&&(!source||l.source===source)&&(!subject||l.subject_id===subject)).reduce((n,l)=>n+l.quantity,0);
+    expect(sum(f.project.sites[0].id,"activity",fixture.subjectId)).toBeCloseTo(.6);
+    expect(sum(f.project.sites[0].id,"crate",fixture.subjectId)).toBeCloseTo(1.2);
+    expect(sum(f.project.sites[0].id,"activity",fixture.mathId)).toBeCloseTo(.4);
+    expect(sum(f.project.sites[0].id)).toBeCloseTo(2.2);expect(sum(f.project.sites[1].id)).toBeCloseTo(.9);
+    expect(a.snapshot.packing_assignments.every((p:any)=>p.demand===false)).toBe(true);
+    expect(await fingerprint()).toEqual(before);
+    fixture.subjects[0].grades[0].activities[0].materials[0].quantity=9;
+    const changed=await request("PUT",`/product-templates/${f.template.template_id}`,maker,{revision:f.template.revision,name:"Later master",subjects:fixture.subjects});
+    await request("POST",`/product-templates/${f.template.template_id}/approve`,maker,{revision:changed.revision},201);
+    const preview=await request("POST",`/planning-projects/${f.project.id}/preview`,viewer,{revision:1});
+    expect(preview.lines).toEqual(a.snapshot.lines);
+    expect(preview.lines.every((l:any)=>l.version_id===f.version.id)).toBe(true);
+    evidence.quantity_matrix={school_a_science_activity:.6,school_a_common:1.2,school_a_explicit_universal:0,school_a_math:.4,school_a_total:2.2,school_b_total:.9,pinned_version:f.version.id};
+  });
+  it("approves unknown and verified zero stock without embedding live balances or moving stock",async()=>{
+    const f=await newProject(maker,planningFixture(unknown.id)),key=randomUUID();
+    const preview=()=>request("POST",`/planning-projects/${f.project.id}/preview`,viewer,{revision:1});
+    expect((await preview()).materials[0]).toMatchObject({stock_status:"unverified",verified_on_hand:null});
+    const before=await fingerprint(),a=await request("POST",approvals(f.project.id),admin,{revision:1,key},201);
+    expect(await fingerprint()).toEqual(before);expect(a.snapshot.materials[0]).not.toHaveProperty("verified_on_hand");
+    let s=await create([target(unknown,["Zero shelf"])]);s=await count(s,"0","Zero shelf",unknown);s=await step(s,"review",{reason:"Explicit verified zero"});s=await step(s,"approve");await step(s,"post");
+    expect((await preview()).materials[0]).toMatchObject({stock_status:"verified",verified_on_hand:0});
+    const verified=await fingerprint();expect(await request("POST",approvals(f.project.id),admin,{revision:1,key},201)).toEqual(a);expect(await fingerprint()).toEqual(verified);
+    evidence.unknown_zero={before_approval:before,after_approval:before,after_explicit_stocktake:verified,after_retry:await fingerprint(),approval_id:a.id};
+  });
+  it("serializes concurrent reuse of one approval key for conflicting projects",async()=>{
+    const f=await newProject(),g=await newProject(),key=randomUUID();
+    const results=await Promise.all([f,g].map(p=>fetch(base+"/api/v1"+approvals(p.project.id),{method:"POST",headers:{Authorization:`Bearer ${token(admin)}`,"Content-Type":"application/json"},body:JSON.stringify({revision:1,key})})));
+    expect(results.map(r=>r.status).sort()).toEqual([201,409]);
+    expect(await db.query("SELECT key FROM requirement_approval_retries WHERE key=$1",[key])).toHaveLength(1);
+    expect(await db.query("SELECT id FROM requirement_approvals WHERE project_id=ANY($1::uuid[])",[[f.project.id,g.project.id]])).toHaveLength(1);
+    evidence.conflicting_key_race={statuses:results.map(r=>r.status),retry_rows:1,approval_rows:1};
+  });
+  it("rolls back approval evidence when durable retry insertion fails, then safely retries",async()=>{
+    const f=await newProject(),key="review-forced-failure";
+    const before=await fingerprint();
+    await db.query(`CREATE FUNCTION review_fail_retry() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'Synthetic approval failure'; END $$;
+      CREATE TRIGGER review_fail BEFORE INSERT ON requirement_approval_retries FOR EACH ROW WHEN (NEW.key='review-forced-failure') EXECUTE FUNCTION review_fail_retry()`);
+    try{
+      const r=await fetch(base+"/api/v1"+approvals(f.project.id),{method:"POST",headers:{Authorization:`Bearer ${token(admin)}`,"Content-Type":"application/json"},body:JSON.stringify({revision:1,key})});
+      expect(r.status).toBe(409);
+      expect(await db.query("SELECT id FROM requirement_approvals WHERE project_id=$1",[f.project.id])).toHaveLength(0);
+      expect(await db.query("SELECT key FROM requirement_approval_retries WHERE key=$1",[key])).toHaveLength(0);
+      expect(await fingerprint()).toEqual(before);
+    }finally{await db.query("DROP TRIGGER review_fail ON requirement_approval_retries; DROP FUNCTION review_fail_retry()");}
+    const a=await request("POST",approvals(f.project.id),admin,{revision:1,key},201);
+    expect(await request("POST",approvals(f.project.id),admin,{revision:1,key},201)).toEqual(a);
+    expect(await db.query("SELECT id FROM requirement_approvals WHERE project_id=$1",[f.project.id])).toHaveLength(1);
+    evidence.approval_rollback={before,after:await fingerprint(),approval_id:a.id};
+  });
+  it("serializes simultaneous approval and packing execution on the saved project",async()=>{
+    const f=await newProject();
+    const runner=db.createQueryRunner();await runner.connect();await runner.startTransaction();
+    await runner.query("SELECT id FROM planning_projects WHERE id=$1 FOR UPDATE",[f.project.id]);
+    const body={batch_code:"CONCURRENT-EXECUTION",project_id:f.project.id,site_id:f.project.sites[1].id,demand_revision:1};
+    const pendingApproval=request("POST",approvals(f.project.id),admin,{revision:1,key:randomUUID()},201);
+    const pendingExecution=fetch(base+"/api/v1/packing/orders",{method:"POST",headers:{Authorization:`Bearer ${token(maker)}`,"Content-Type":"application/json","Idempotency-Key":randomUUID()},body:JSON.stringify(body)});
+    await runner.commitTransaction();await runner.release();
+    const [a,r]=await Promise.all([pendingApproval,pendingExecution]);expect([201,409]).toContain(r.status);
+    const p=r.status===201?await r.json():await prod("POST","/orders",body,201);
+    const bindings=await db.query("SELECT approval_id,revision FROM requirement_execution_bindings WHERE record_id=$1",[p.id]);
+    expect(bindings).toEqual([{approval_id:a.id,revision:1}]);
+    expect(await db.query("SELECT id FROM requirement_approvals WHERE project_id=$1",[f.project.id])).toHaveLength(1);
+    evidence.approval_execution_race={initial_execution_status:r.status,approval_id:a.id,bindings};
+  });
+  it("rolls back packing, its binding, audit and retry if the audit write fails",async()=>{
+    const f=await newProject();await request("POST",approvals(f.project.id),admin,{revision:1,key:randomUUID()},201);
+    const key=randomUUID(),body={batch_code:"ROLLBACK-PACKING",project_id:f.project.id,site_id:f.project.sites[0].id,demand_revision:1};
+    const before=await fingerprint(),bindings=await db.query("SELECT * FROM requirement_execution_bindings ORDER BY record_id"),operations=await db.query("SELECT * FROM supply_operations ORDER BY id");
+    await db.query(`CREATE FUNCTION review_fail_audit() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'Synthetic audit failure'; END $$;
+      CREATE TRIGGER review_fail BEFORE INSERT ON supply_events FOR EACH ROW WHEN (NEW.kind='packing') EXECUTE FUNCTION review_fail_audit()`);
+    try{
+      const r=await fetch(base+"/api/v1/packing/orders",{method:"POST",headers:{Authorization:`Bearer ${token(maker)}`,"Content-Type":"application/json","Idempotency-Key":key},body:JSON.stringify(body)});
+      expect(r.status).toBe(409);expect(await fingerprint()).toEqual(before);
+      expect(await db.query("SELECT * FROM requirement_execution_bindings ORDER BY record_id")).toEqual(bindings);
+      expect(await db.query("SELECT * FROM supply_operations ORDER BY id")).toEqual(operations);
+    }finally{await db.query("DROP TRIGGER review_fail ON supply_events; DROP FUNCTION review_fail_audit()");}
+    const p=await prod("POST","/orders",body,201,maker,key);
+    expect(await prod("POST","/orders",body,201,maker,key)).toEqual(p);
+    expect(await db.query("SELECT id FROM supply_events WHERE record_id=$1",[p.id])).toHaveLength(1);
+    evidence.execution_rollback={before,after_failed_attempt:before,retry_record_id:p.id};
+  });
+  it("rejects wrong school, foreign tenant and forged approval fields on direct HTTP calls",async()=>{
+    const f=await newProject(),g=await newProject();await request("POST",approvals(f.project.id),admin,{revision:1,key:randomUUID()},201);
+    const body={batch_code:"FORGED",project_id:f.project.id,site_id:g.project.sites[0].id,demand_revision:1};
+    const before=await fingerprint();
+    await prod("POST","/orders",body,404);
+    await prod("POST","/orders",{...body,site_id:f.project.sites[0].id},404,other);
+    await prod("POST","/orders",{...body,site_id:f.project.sites[0].id,requirement_approval_id:randomUUID()},400);
+    await supply("/reservations",{project_id:f.project.id,site_id:g.project.sites[0].id,item_id:wire.id,quantity:"1",unit:"m"},404);
+    await request("POST",approvals(g.project.id),admin,{revision:1,key:approvalKey},409);
+    expect(await fingerprint()).toEqual(before);
+  });
+  it("retains fail-closed legacy aliases for authenticated direct HTTP execution",async()=>{
+    const app=express();for(const path of legacyOperationalPaths)app.use(path,legacyOperationsGate());
+    const legacy=await new Promise<Server>(resolve=>{const s=app.listen(0,"127.0.0.1",()=>resolve(s));}),address=legacy.address();
+    if(!address||typeof address==="string")throw new Error("Missing legacy port");
+    try{for(const path of legacyOperationalPaths){const r=await fetch(`http://127.0.0.1:${address.port}${path}/orders`,{method:"POST",headers:{Authorization:`Bearer ${token(admin)}`}});expect(r.status).toBe(503);}}
+    finally{await new Promise<void>((resolve,reject)=>legacy.close(e=>e?reject(e):resolve()));}
   });
 });

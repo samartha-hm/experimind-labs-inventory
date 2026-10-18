@@ -1,3 +1,4 @@
+import { HardenApprovedPackingDemand1792454400014 } from "./migration/1792454400014-HardenApprovedPackingDemand";
 import { AddRequirementApproval1792368000013 } from "./migration/1792368000013-AddRequirementApproval";
 import { AddPacking1791849600007 } from "./migration/1791849600007-AddPacking.ts";
 import { HardenPackingReadiness1791936000008 } from "./migration/1791936000008-HardenPackingReadiness.ts";
@@ -162,6 +163,7 @@ export const AppDataSource = new DataSource({
     ComponentAlternate,
   ],
   migrations: [
+    HardenApprovedPackingDemand1792454400014,
     AddRequirementApproval1792368000013,
     AddPacking1791849600007,
     HardenPackingReadiness1791936000008,
