@@ -36,3 +36,5 @@ Open only the authority relevant to the task. Current user instructions and conf
 | Milestone 13L — saved requirement review; approval blocked | [Approval contract matrix](ui-ux/MILESTONE_13L_CONTRACT_MATRIX.md), [acceptance and unchanged-data proof](ui-ux/MILESTONE_13L_ACCEPTANCE.md) |
 | Milestone 13L-R — requirement approval contract reconciliation | [Evidence, proposed backend contract and authorization decisions](ui-ux/MILESTONE_13L_R_REQUIREMENT_APPROVAL_RECONCILIATION.md) |
 | Milestone 13M-A — authoritative approval backend review | [API, permissions and enforcement](ui-ux/MILESTONE_13M_A_BACKEND_CONTRACT.md), [acceptance and recovery](ui-ux/MILESTONE_13M_A_ACCEPTANCE.md), [fingerprints](ui-ux/MILESTONE_13M_A_FINGERPRINTS.json) |
+| Milestone 13M-B — independent backend review | [Findings and conditional acceptance](ui-ux/MILESTONE_13M_B_INDEPENDENT_REVIEW.md) |
+| Milestone 13M-C — proposed demand and historical contracts | [Accounting, reconciliation, transactions and acceptance plan](ui-ux/MILESTONE_13M_C_DEMAND_AND_RECONCILIATION_DESIGN.md) |
