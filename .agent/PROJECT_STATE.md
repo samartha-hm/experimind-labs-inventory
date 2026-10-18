@@ -1,6 +1,20 @@
 # ERP state — historical implementation notes
 
-## Milestone 13M-D1T — 2026-10-18 — current
+## Milestone 13M-D1U — 2026-10-18 — current
+
+Independent review BLOCKED; no isolated D2 development or operational integration.
+Checkpoint 1329b0ff9070a6eb3cd592941014b6d428ce739d pushed/GitHub verified.
+Restricted LOGIN SQL impersonation remains denied, but post-logout access JWTs,
+unrelated audience/scope/account/operation claims and new-key bearer replay can
+authorize new writes. Scoped issuance/revocation/replay policy requires approval.
+Focused PostgreSQL 37/37; recovery 22 accounts/51 events/eight functions;
+conservation, immutable replay and 22 operational fingerprints pass.
+Typecheck and all builds pass. Full suite 582 pass/one packing-label timeout in
+three runs; packing alone 19/19. Full-suite acceptance remains blocked.
+Only tests/recovery selector/report/index changed; runtime and grants unchanged.
+See MILESTONE_13M_D1U_INDEPENDENT_REVIEW.md for findings and staging prerequisites.
+
+## Milestone 13M-D1T — 2026-10-18 — historical
 
 Restricted-runtime-SQL ledger authority boundary PASS in isolated PostgreSQL.
 Checkpoint c582bacc064bb2593a0465f8364b25b4495f8ddf pushed/remote verified.

@@ -1,35 +1,33 @@
-# Milestone 13M-D1T — 2026-10-18
+# Milestone 13M-D1U — 2026-10-18
 
 Branch: feature/kit-builder-milestone-1.
-Implementation checkpoint: c582bacc064bb2593a0465f8364b25b4495f8ddf,
-pushed and remote verified. This separate continuity commit follows.
+Review checkpoint: 1329b0ff9070a6eb3cd592941014b6d428ce739d,
+pushed and GitHub HEAD verified. This separate continuity commit follows.
+Reviewed D1T base: 0b50166bd1dd47362e63a26d76e70ce6dca3c979.
 
-Verdict: PASS for the bounded restricted-runtime-SQL ledger authority boundary.
-Operational writer integration remains BLOCKED. No production deployment or rotation.
-Read docs/erp/ui-ux/MILESTONE_13M_D1T_TRUSTED_EXECUTION.md.
+Verdict: BLOCKED. No isolated D2 development or operational writer integration.
+Read docs/erp/ui-ux/MILESTONE_13M_D1U_INDEPENDENT_REVIEW.md.
 
-Separate migration, runtime, identity and private ledger authorities. Auth/RBAC/user/
-session writes use IdentityDataSource. TrustedLedgerAuthority verifies signed expiring
-administrator tokens and transactions reload/lock current active tenant membership.
-Runtime cannot change identity or ledger evidence. Startup rejects privileged,
-overgranted, substituted or insufficient credentials and unsafe SQL lookup paths.
-Owner-only provisioning applies explicit grants; remote connections verify TLS.
+Restricted-runtime-SQL impersonation remains denied under three actual LOGINs.
+Known UUIDs, forged tokens/settings/temp objects, DML/functions/escalation and
+pool leakage fail. Legitimate authenticated execution and current-user checks pass.
+New findings: revoked-refresh/logout access JWT still writes; unrelated audience,
+read-only scope/account/operation claims are ignored; reusable bearers create new
+events with fresh keys. These require an approved scoped capability/revocation/
+replay contract, not an unreviewed change to existing bearer semantics.
 
-Fresh full suite: 76 files / 583 tests pass; typecheck and frontend/PWA/server builds
-pass (existing chunk-size warning). Actual restricted LOGIN adversarial tests deny
-UUID impersonation, cross-tenant access, DML/functions, session/temp/search-path forgery,
-grants/roles and identity substitution. Real password login, trusted account/entitlement/
-event creation, actor attribution, retry and pool isolation pass. Existing unsafe-DML
-positive control remains a vulnerability characterization, not remediation PASS.
-All 22 operational fingerprints unchanged. Nonempty restore: 22 accounts, 47 events,
-eight pinned functions; conservation/immutable evidence/replay pass.
+Focused PostgreSQL: 37/37 pass, including explicit successful-attack findings.
+Recovery: 22 accounts/51 events/eight functions; immutable replay/conservation and
+22 operational fingerprints pass. Typecheck and frontend/PWA/server builds pass.
+Full suite: 582 pass/one packing-label timeout across three runs; packing alone
+passes 19/19. Full-suite acceptance remains blocked; timeouts unchanged.
 
-Changed: security boundary, datasource/startup, identity services, owner scripts,
-adversarial/recovery tests and deployment report/index. Unrelated AGENTS.md preserved.
-Ignored synthetic evidence/logs remain in .local-dev/13md1t-*.
+Changed: adversarial tests, unsafe positive-control fixture, recovery milestone
+selector, review report/index. No runtime/migration/grant changes. Unrelated
+AGENTS.md remains uncommitted. Ignored evidence: .local-dev/13md1u-*.
 
-Manual prerequisites: fresh restricted roles, audited database, secret-manager
-configuration, CA trust and staging startup/route smoke. Production startup was not
-tested. Identity-read confidentiality remains a documented risk.
-Next: independent D1T review. No operational adapters, main merge or activation.
-Use /new or /compact for the next authorized slice.
+Runtime identity SELECT still exposes hashes/MFA material. Staging needs fresh
+roles, audited ACLs, secrets/CA, restricted startup/route smoke and restore grants.
+No deployment, company-data change, credential rotation or adapter occurred.
+Next: approve the bounded token lifecycle contract, then authorize remediation.
+Use /new or /compact for the next slice.
