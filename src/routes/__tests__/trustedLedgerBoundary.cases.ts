@@ -8,6 +8,7 @@ import { User } from "../../entity/User";
 import { AuthService } from "../../services/AuthService";
 import { CommitmentLedgerService, replayCommitments } from "../../services/CommitmentLedgerService";
 import { TrustedLedgerAuthority } from "../../security/TrustedLedgerAuthority";
+import { independentIdentityReview } from "./trustedLedgerIndependentReview.cases";
 import { assertDatabaseBoundary, configureDatabaseBoundary, ledgerTables, sqlIdentifier } from "../../security/databaseBoundary";
 
 interface Harness {
@@ -134,6 +135,8 @@ export function trustedLedgerBoundaryTests(get: () => Harness, fixture: () => Pr
       await identity.getRepository(User).update(h.admin.id,{role:"admin",is_active:false});
       expect((await invoke(token)).status).toBe(403);
       await identity.getRepository(User).update(h.admin.id,{is_active:true});
+      await independentIdentityReview({runtime,identity,writer,auth,authority,admin:h.admin,token,
+        account:f.account,entitlement:f.entitlement,password,evidence:h.evidence});
       // Single-connection pools retain attacker session state only in the runtime pool.
       expect((await runtime.query("SELECT current_setting('app.actor_id') actor"))[0].actor).toBe(h.admin.id);
       expect((await writer.query("SELECT current_setting('app.actor_id',true) actor"))[0].actor).toBeNull();

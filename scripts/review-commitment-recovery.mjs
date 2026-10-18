@@ -5,7 +5,7 @@ import { resolve, join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { replayCommitments, planningUnits } from '../src/services/CommitmentLedgerService.ts';
 const milestone = process.env.COMMITMENT_RECOVERY_MILESTONE ?? '13md1r';
-if (!['13md1r','13md1t'].includes(milestone)) throw Error('Unsupported recovery milestone');
+if (!['13md1r','13md1t','13md1u'].includes(milestone)) throw Error('Unsupported recovery milestone');
 const evidence = JSON.parse(await readFile(`.local-dev/${milestone}-evidence.json`, 'utf8'));
 const schema = evidence.schema;
 const url = new URL(process.env.KIT_BUILDER_TEST_DATABASE_URL);

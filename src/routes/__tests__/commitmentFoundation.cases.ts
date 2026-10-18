@@ -143,6 +143,9 @@ export function commitmentFoundationTests(get: () => Harness) {
       await runner.query(`CREATE ROLE ${role} NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT`);
       await runner.query(`GRANT USAGE ON SCHEMA ${schema} TO ${role}`);
       await runner.query(`GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA ${schema} TO ${role}`);
+      // The intentionally unsafe positive control must not depend on PUBLIC defaults
+      // revoked by D1T provisioning in earlier runs of this isolated database.
+      await runner.query(`GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA ${schema} TO ${role}`);
       await runner.query(`SET LOCAL ROLE ${role}`);
       for (const sql of ["UPDATE commitment_balances SET approved=999", "DELETE FROM commitment_events", "CREATE TABLE commitment_unauthorized(id int)",
         "ALTER TABLE commitment_balances DISABLE TRIGGER ALL",
