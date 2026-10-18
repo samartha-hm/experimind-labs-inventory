@@ -40,3 +40,4 @@ Open only the authority relevant to the task. Current user instructions and conf
 | Milestone 13M-C — proposed demand and historical contracts | [Accounting, reconciliation, transactions and acceptance plan](ui-ux/MILESTONE_13M_C_DEMAND_AND_RECONCILIATION_DESIGN.md) |
 | Milestone 13M-D1 — isolated ledger foundation | [Schema and recovery](ui-ux/MILESTONE_13M_D1_LEDGER_FOUNDATION.md), [shadow verification](ui-ux/MILESTONE_13M_D1_SHADOW_VERIFICATION.md), [acceptance evidence](ui-ux/MILESTONE_13M_D1_ACCEPTANCE.md) |
 | Milestone 13M-D1R — independent security and integrity review | [Conditional foundation pass; writer integration blocked](ui-ux/MILESTONE_13M_D1R_INDEPENDENT_REVIEW.md) |
+| Milestone 13M-D1S — trusted actor boundary assessment | [BLOCKED: impersonation reproduced; runtime boundary unimplemented](ui-ux/MILESTONE_13M_D1S_TRUST_BOUNDARY.md) |
