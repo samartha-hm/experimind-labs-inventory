@@ -1,10 +1,10 @@
 # Next task
 
-Independently review D1V checkpoint bf0ee93b9c662612514a21675aba15a007045f00.
-Read SESSION_HANDOFF.md and the D1V lifecycle/acceptance reports. Verify the three
-D1U findings, exact scope, revocation race/expiry, atomic receipts and actual LOGIN
-boundaries; assess documented packing worker contention and remaining risks.
+Obtain user acceptance of the conditional D1W independent review at
+docs/erp/ui-ux/MILESTONE_13M_D1W_INDEPENDENT_REVIEW.md before beginning isolated
+13M-D2 development. No D2 implementation is authorized by this handoff alone.
 
-Stop before D2 or operational writer integration. Preserve unrelated AGENTS.md.
-No deployment, activation, real credential rotation, company-data changes or main
-merge. Use /new or /compact for this separate review.
+Preserve unrelated AGENTS.md. Staging/activation gates remain open: restricted
+roles/ACLs/TLS/secrets/startup smoke, runtime identity SELECT exposure and packing
+default-worker reliability. No deployment, operational writer integration,
+credential rotation, historical activation or main merge. Use /new or /compact.
