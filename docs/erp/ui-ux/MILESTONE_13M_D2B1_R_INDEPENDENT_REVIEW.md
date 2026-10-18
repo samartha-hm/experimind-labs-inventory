@@ -172,8 +172,9 @@ See [fresh fingerprints and independent probe outcomes](MILESTONE_13M_D2B1_R_FIN
 
 Audited GitHub SHA: `46eb1cf097a9b9dc67bf6b3da20bcc16c5731bdc`, verified through
 live `git ls-remote origin refs/heads/feature/kit-builder-milestone-1`.
-Review documentation is pushed on the same feature branch; the separate continuity
-checkpoint records its verified review-commit SHA, and the final response records
-the final local/remote HEAD comparison. No force-push, main merge, deployment,
+Review checkpoint `a3046e3a2531bd85183831b50a72e29f7908d4d8` was pushed and
+verified through the same live remote query. The separate continuity checkpoint
+records that SHA; the final response records the final local/remote HEAD comparison.
+No force-push, main merge, deployment,
 real inventory change, historical activation or operational cutover occurred.
 Stop after D2B1-R; use `/new` or `/compact` before another milestone.
