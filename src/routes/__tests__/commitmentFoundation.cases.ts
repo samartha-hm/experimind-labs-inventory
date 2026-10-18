@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { expect, it } from "vitest";
 import type { DataSource } from "typeorm";
 import { AddCommitmentLedger1792540800015 } from "../../migration/1792540800015-AddCommitmentLedger";
+import { HardenCommitmentEventEvidence1792540800016 } from "../../migration/1792540800016-HardenCommitmentEventEvidence";
 import { CommitmentLedgerService, planningStock, planningUnits, replayCommitments } from "../../services/CommitmentLedgerService";
 import type { LedgerContext, LedgerOperation, LedgerSource } from "../../services/CommitmentLedgerService";
 import { CommitmentShadowService } from "../../services/CommitmentShadowService";
@@ -53,6 +54,8 @@ export function commitmentFoundationTests(get: () => Harness) {
       await runner.query(`SET LOCAL search_path TO ${schema},public`);
       const migration = new AddCommitmentLedger1792540800015();
       await migration.up(runner); await migration.down(runner); await migration.up(runner);
+      const hardening = new HardenCommitmentEventEvidence1792540800016();
+      await hardening.up(runner); await hardening.down(runner); await hardening.up(runner);
       expect((await runner.query("SELECT count(*)::int n FROM commitment_events"))[0].n).toBe(0);
       get().evidence.commitment_empty_migration = { empty_prerequisite_schema: true, up_down_up: "PASS", cleanup: "transaction rollback" };
     } finally { await runner.rollbackTransaction(); await runner.release(); }
@@ -62,6 +65,8 @@ export function commitmentFoundationTests(get: () => Harness) {
     const runner = get().db.createQueryRunner(); await runner.connect(); await runner.startTransaction();
     try {
       const m = new AddCommitmentLedger1792540800015(); await m.up(runner); await m.down(runner); await m.up(runner);
+      const hardening = new HardenCommitmentEventEvidence1792540800016();
+      await hardening.up(runner); await hardening.down(runner); await hardening.up(runner);
       await runner.commitTransaction();
     } catch (e) { await runner.rollbackTransaction(); throw e; } finally { await runner.release(); }
     expect(await get().fingerprint()).toEqual(before);
@@ -92,6 +97,125 @@ export function commitmentFoundationTests(get: () => Harness) {
     const duplicates = await Promise.allSettled([1, 2].map(() => f.run({kind:"open",payload:{claim:randomUUID(),quantity:"0.1",source:duplicateSource}})));
     expect(duplicates.filter(r => r.status === "fulfilled")).toHaveLength(1);
     get().evidence.commitment_concurrency = { capacity_successes: 1, same_key_event: retries[0].id, duplicate_source_successes: 1, projection: await replay(f.account) };
+  });
+  it("13M-D1R refuses discarded conflicting events without orphaning projections", async () => {
+    const h = get(), f = await fixture(), claim = randomUUID(), key = randomUUID();
+    await f.run({ kind: "open", payload: { claim, quantity: "1", source: source() } }, key);
+    const previous = await replay(f.account);
+    await expect(h.db.transaction(async m => {
+      await m.query(`INSERT INTO commitment_events(organization_id,account_id,entitlement_id,actor_id,key,kind,payload,reason)
+        VALUES($1,$2,$3,$4,$5,'consume',$6,'conflicting SQL retry') ON CONFLICT DO NOTHING`,
+      [ctx().organization, f.account, f.entitlement, ctx().actor, key, JSON.stringify({ claim, quantity: "0.5" })]);
+    })).rejects.toThrow();
+    expect(await replay(f.account)).toEqual(previous);
+  });
+  it("13M-D1R rejects invalid quantities and serializes competing consume/release and parent operations", async () => {
+    const f = await fixture(), claim = randomUUID();
+    for (const quantity of ["-1", "0", "2.400001", "1000000001", "0.1234567"])
+      await expect(f.run({ kind: "open", payload: { claim: randomUUID(), quantity, source: source() } })).rejects.toThrow();
+    await f.run({ kind: "open", payload: { claim, quantity: "1", source: source() } });
+    const outcomes = await Promise.allSettled([
+      f.run({ kind: "consume", payload: { claim, quantity: "0.7" } }),
+      f.run({ kind: "release", payload: { claim, quantity: "0.7", untouched: true, unencumbered: true, evidence: "Synthetic untouched remainder" } }),
+    ]);
+    expect(outcomes.filter(o => o.status === "fulfilled")).toHaveLength(1);
+    await replay(f.account);
+    const parent = randomUUID();
+    await f.run({ kind: "open", payload: { claim: parent, quantity: "1", source: source() } });
+    const parentOutcomes = await Promise.allSettled([
+      f.run({ kind: "consume", payload: { claim: parent, quantity: "0.1" } }),
+      f.run({ kind: "split", payload: { claim: parent, children: [
+        { claim: randomUUID(), quantity: "0.5", source: source() },
+        { claim: randomUUID(), quantity: "0.5", source: source() },
+      ] } }),
+    ]);
+    expect(parentOutcomes.filter(o => o.status === "fulfilled")).toHaveLength(1);
+    await replay(f.account);
+  });
+  it("13M-D1R characterizes restricted SQL role guards and caller-identity trust", async () => {
+    const h = get(), f = await fixture(), role = `commitment_review_${randomUUID().replaceAll("-", "")}`;
+    const runner = h.db.createQueryRunner();
+    await runner.connect(); await runner.startTransaction();
+    try {
+      const [{ current_schema: schema }] = await runner.query("SELECT current_schema()");
+      if (!/^requirement_test_[a-f0-9]+$/.test(schema)) throw new Error("Isolated test schema required");
+      await runner.query(`CREATE ROLE ${role} NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT`);
+      await runner.query(`GRANT USAGE ON SCHEMA ${schema} TO ${role}`);
+      await runner.query(`GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA ${schema} TO ${role}`);
+      await runner.query(`SET LOCAL ROLE ${role}`);
+      for (const sql of ["UPDATE commitment_balances SET approved=999", "DELETE FROM commitment_events", "CREATE TABLE commitment_unauthorized(id int)",
+        "ALTER TABLE commitment_balances DISABLE TRIGGER ALL",
+        "CREATE TRIGGER commitment_unauthorized BEFORE INSERT ON commitment_claims FOR EACH ROW EXECUTE FUNCTION commitment_projection_guard()"] ) {
+        await runner.query("SAVEPOINT denied");
+        await expect(runner.query(sql)).rejects.toThrow();
+        await runner.query("ROLLBACK TO SAVEPOINT denied");
+      }
+      // Broad table DML trusts the supplied active administrator UUID; it is not authentication.
+      const rows = await runner.query(`INSERT INTO commitment_events(organization_id,account_id,entitlement_id,actor_id,key,kind,payload,reason)
+        VALUES($1,$2,$3,$4,$5,'open',$6,'Restricted role characterization') RETURNING id`,
+      [ctx().organization, f.account, f.entitlement, ctx().actor, randomUUID(), JSON.stringify({ claim: randomUUID(), quantity: "0.1", source: source() })]);
+      expect(rows).toHaveLength(1);
+      await runner.query(`CREATE TEMP TABLE commitment_balances (LIKE ${schema}.commitment_balances) ON COMMIT DROP`);
+      await runner.query(`INSERT INTO pg_temp.commitment_balances SELECT * FROM ${schema}.commitment_balances`);
+      await runner.query("UPDATE pg_temp.commitment_balances SET approved=999");
+      await runner.query("SAVEPOINT shadow");
+      await expect(runner.query(`INSERT INTO ${schema}.commitment_events(organization_id,account_id,entitlement_id,actor_id,key,kind,payload,reason)
+        VALUES($1,$2,$3,$4,$5,'open',$6,'Temporary table shadow attempt')`,
+      [ctx().organization, f.account, f.entitlement, ctx().actor, randomUUID(), JSON.stringify({ claim: randomUUID(), quantity: "3", source: source() })])).rejects.toThrow();
+      await runner.query("ROLLBACK TO SAVEPOINT shadow");
+      await runner.query(`CREATE TEMP TABLE commitment_events (LIKE ${schema}.commitment_events) ON COMMIT DROP`);
+      await runner.query("SET CONSTRAINTS ALL IMMEDIATE");
+      h.evidence.commitment_role = { role: "NOLOGIN NOSUPERUSER, schema USAGE, table DML only", projection_tamper: "REFUSED", event_delete: "REFUSED", schema_create: "REFUSED", temporary_balance_shadow: "OVER-CAP REFUSED", temporary_event_shadow: "REAL WITNESS VERIFIED", supplied_admin_identity: "TRUSTED; integration prerequisite", cleanup: "transaction rollback" };
+    } finally { await runner.rollbackTransaction(); await runner.release(); }
+  });
+  it("13M-D1R rolls back serialization and deadlock victims and permits caller retry with the same key", async () => {
+    const h = get(), f = await fixture(), key = randomUUID();
+    const op: LedgerOperation = { kind: "open", payload: { claim: randomUUID(), quantity: "0.1", source: source() } };
+    const stale = h.db.createQueryRunner(); await stale.connect(); await stale.startTransaction("SERIALIZABLE");
+    try {
+      await stale.query("SELECT * FROM commitment_balances WHERE account_id=$1", [f.account]);
+      await f.run({ kind: "open", payload: { claim: randomUUID(), quantity: "0.1", source: source() } });
+      await expect(service().executeInTransaction(stale.manager, ctx(), f.account, f.entitlement, key, "Synthetic conservation verification", op)).rejects.toMatchObject({ driverError: { code: "40001" } });
+    } finally { await stale.rollbackTransaction(); await stale.release(); }
+    await f.run(op, key); await replay(f.account);
+    const a = await fixture(), b = await fixture();
+    const runners = [h.db.createQueryRunner(), h.db.createQueryRunner()];
+    const fixtures = [a, b], keys = [randomUUID(), randomUUID()];
+    const operations: LedgerOperation[] = fixtures.map(() => ({ kind: "open", payload: { claim: randomUUID(), quantity: "0.1", source: source() } }));
+    const locks = [randomUUID(), randomUUID()];
+    try {
+      for (let i = 0; i < 2; i++) {
+        await runners[i].connect(); await runners[i].startTransaction();
+        await runners[i].query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))", [locks[i]]);
+        await service().executeInTransaction(runners[i].manager, ctx(), fixtures[i].account, fixtures[i].entitlement, keys[i], "Synthetic conservation verification", operations[i]);
+      }
+      const outcomes = await Promise.allSettled(runners.map(async (r, i) => {
+        await r.query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))", [locks[1-i]]);
+        await r.commitTransaction();
+      }));
+      expect(outcomes.filter(o => o.status === "fulfilled")).toHaveLength(1);
+      for (let i = 0; i < 2; i++) if (outcomes[i].status === "rejected") {
+        expect((outcomes[i] as PromiseRejectedResult).reason).toMatchObject({ driverError: { code: "40P01" } });
+        await runners[i].rollbackTransaction();
+        await fixtures[i].run(operations[i], keys[i]);
+      }
+      await replay(a.account); await replay(b.account);
+      h.evidence.commitment_recovery = { serialization: "40001 rollback + caller same-key retry PASS", deadlock: "40P01 victim rollback + caller same-key retry PASS", automatic_retry: false };
+    } finally {
+      for (const r of runners) { if (r.isTransactionActive) await r.rollbackTransaction(); await r.release(); }
+    }
+  });
+  it("13M-D1R refuses hardening over existing drift and refuses removing populated protection", async () => {
+    const h = get(), f = await fixture(), runner = h.db.createQueryRunner();
+    await runner.connect(); await runner.startTransaction();
+    try {
+      await expect(new HardenCommitmentEventEvidence1792540800016().down(runner)).rejects.toThrow("Preserve commitment evidence");
+      // Owner-only fault injection is rolled back; runtime DML cannot disable these triggers.
+      await runner.query("ALTER TABLE commitment_balances DISABLE TRIGGER ALL");
+      await runner.query("UPDATE commitment_balances SET sequence=sequence+1 WHERE account_id=$1", [f.account]);
+      await expect(new HardenCommitmentEventEvidence1792540800016().up(runner)).rejects.toThrow("Existing commitment evidence drift");
+    } finally { await runner.rollbackTransaction(); await runner.release(); }
+    await replay(f.account);
   });
   it("13M-D1 partitions an untouched slice and explicit remainder without minting capacity", async () => {
     const f = await fixture(), parent = randomUUID(), child = randomUUID();
@@ -136,6 +260,26 @@ export function commitmentFoundationTests(get: () => Harness) {
     expect(await replay(f.account)).toEqual(previous);
     expect(await h.db.query("SELECT * FROM commitment_claims WHERE id=$1",[claim])).toHaveLength(0);
     await f.run(op,key);await replay(f.account);
+  });
+  it("13M-D1R serializes a revised lower cap against a competing new hold", async () => {
+    const h = get(), f = await fixture(), content = structuredClone(f.content);
+    content.sites[0].selections[0].context.complete_sets[Object.keys(content.sites[0].selections[0].context.complete_sets)[0]] = 0;
+    const [hold, revision] = await Promise.allSettled([
+      f.run({ kind: "open", payload: { claim: randomUUID(), quantity: "2", source: source() } }),
+      h.save(f.project.id, { revision: 1, ...content }),
+    ]);
+    expect(revision.status).toBe("fulfilled");
+    const approval = await h.approve(f.project.id, 2);
+    const [demand] = await h.db.query(`SELECT sum((l->>'quantity')::numeric)::text cap,jsonb_agg(l ORDER BY l::text) proof
+      FROM requirement_approvals a,LATERAL jsonb_array_elements(a.snapshot->'lines') l
+      WHERE a.id=$1 AND l->>'site_id'=$2 AND l ? 'material_id'`, [approval.id, f.site]);
+    expect(demand.cap).toBe("1.8");
+    const entitlement = await service().entitlement(ctx(), f.account, approval.id, 2, demand.cap, demand.proof);
+    const authorize = service().execute(ctx(), f.account, entitlement, randomUUID(), "Concurrent revised total", { kind: "authorize", payload: {} });
+    if (hold.status === "fulfilled") await expect(authorize).rejects.toThrow();
+    else await authorize;
+    const balance = await replay(f.account);
+    expect(planningUnits(balance.approved) - planningUnits(balance.fulfilled) - planningUnits(balance.held)).toBeGreaterThanOrEqual(0n);
   });
   it("13M-D1 preserves F/H under total-to-date revisions and rejects stale retries and underfunded caps", async () => {
     const h=get(),f=await fixture(),claim=randomUUID(),key=randomUUID(),op:LedgerOperation={kind:"open",payload:{claim,quantity:"2",source:source()}};

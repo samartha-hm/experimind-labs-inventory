@@ -1,4 +1,5 @@
 import { AddCommitmentLedger1792540800015 } from "./migration/1792540800015-AddCommitmentLedger";
+import { HardenCommitmentEventEvidence1792540800016 } from "./migration/1792540800016-HardenCommitmentEventEvidence";
 import { commitmentEntities } from "./entity/CommitmentLedger";
 import { HardenApprovedPackingDemand1792454400014 } from "./migration/1792454400014-HardenApprovedPackingDemand";
 import { AddRequirementApproval1792368000013 } from "./migration/1792368000013-AddRequirementApproval";
@@ -167,6 +168,7 @@ export const AppDataSource = new DataSource({
   ],
   migrations: [
     AddCommitmentLedger1792540800015,
+    HardenCommitmentEventEvidence1792540800016,
     HardenApprovedPackingDemand1792454400014,
     AddRequirementApproval1792368000013,
     AddPacking1791849600007,
