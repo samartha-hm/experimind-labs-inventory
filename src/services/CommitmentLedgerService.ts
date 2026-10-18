@@ -4,7 +4,7 @@ import { canonicalRequirementJSON } from "./RequirementApprovalService";
 import { stockText, stockUnits } from "../features/inventory/physicalQuantity";
 
 export interface LedgerContext { organization: string; actor: string }
-export interface LedgerSource { kind: `synthetic:${string}`; id: string; slice: string }
+export interface LedgerSource { kind: `synthetic:${string}` | "project_reservation"; id: string; slice: string }
 export type LedgerOperation =
   | { kind: "authorize"; payload: Record<string, never> }
   | { kind: "open"; payload: { claim: string; quantity: string; source: LedgerSource } }

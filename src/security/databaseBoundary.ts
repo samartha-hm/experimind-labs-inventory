@@ -5,6 +5,10 @@ export const ledgerTables = ["commitment_accounts", "commitment_entitlements", "
 export const identityTables = ["users", "roles", "refresh_tokens", "sessions"];
 export const sqlIdentifier = (name: string): string => `"${name.replaceAll('"', '""')}"`;
 type Sql = Pick<EntityManager, "query">;
+const reservationWrites = ["project_stock_reservations", "supply_events", "requirement_execution_bindings"];
+async function reservationInstalled(db: Sql, schema: string): Promise<boolean> {
+  return (await db.query("SELECT to_regclass($1) IS NOT NULL installed",[`${sqlIdentifier(schema)}.commitment_reservations`]))[0].installed;
+}
 
 /** Explicit operator action, under the schema owner. Never called by server startup. */
 export async function configureDatabaseBoundary(db: Sql, schema: string,
@@ -12,6 +16,8 @@ export async function configureDatabaseBoundary(db: Sql, schema: string,
   if (new Set(Object.values(roles)).size !== 3) throw new Error("Distinct boundary roles required");
   const s = sqlIdentifier(schema), runtime = sqlIdentifier(roles.runtime);
   const identity = sqlIdentifier(roles.identity), ledger = sqlIdentifier(roles.ledger);
+  const d2 = await reservationInstalled(db,schema);
+  const protectedTables = [...ledgerTables,...(d2 ? ["commitment_reservations",...reservationWrites] : [])];
   await db.query(`REVOKE ALL ON SCHEMA ${s} FROM PUBLIC;
     REVOKE ALL ON ALL TABLES IN SCHEMA ${s} FROM PUBLIC;
     REVOKE ALL ON ALL SEQUENCES IN SCHEMA ${s} FROM PUBLIC;
@@ -26,7 +32,7 @@ export async function configureDatabaseBoundary(db: Sql, schema: string,
   for (const { relname } of operational)
     await db.query(`GRANT SELECT,INSERT,UPDATE,DELETE ON ${s}.${sqlIdentifier(relname)} TO ${runtime}`);
   await db.query(`GRANT USAGE,SELECT ON ALL SEQUENCES IN SCHEMA ${s} TO ${runtime}`);
-  for (const table of [...ledgerTables, ...identityTables]) {
+  for (const table of [...protectedTables, ...identityTables]) {
     const t = `${s}.${sqlIdentifier(table)}`;
     await db.query(`REVOKE ALL ON ${t} FROM ${runtime}; GRANT SELECT ON ${t} TO ${runtime}`);
     // Table REVOKE does not remove pre-existing column ACLs.
@@ -46,6 +52,13 @@ export async function configureDatabaseBoundary(db: Sql, schema: string,
   for (const table of ["users", "refresh_tokens", "sessions", "planning_projects", "planning_sites", "requirement_approvals", "project_completions"])
     await db.query(`GRANT SELECT ON ${s}.${sqlIdentifier(table)} TO ${ledger}`);
   await db.query(`GRANT UPDATE(updated_at) ON ${s}.planning_projects TO ${ledger}`);
+  if (d2) {
+    await db.query(`GRANT SELECT,INSERT,UPDATE ON ${["commitment_reservations",...reservationWrites].map(t=>`${s}.${sqlIdentifier(t)}`).join(",")} TO ${ledger};
+      GRANT UPDATE(updated_at) ON ${s}.inventory_items TO ${ledger}`);
+    for (const table of ["inventory_items","stock_ledger","physical_stocktakes","physical_stock_scopes",
+      "production_work_orders","production_input_reservations","packing_orders","delivery_orders","site_installations","purchase_requests","purchase_orders"])
+      await db.query(`GRANT SELECT ON ${s}.${sqlIdentifier(table)} TO ${ledger}`);
+  }
   const functions: { signature: string; proname: string; prosecdef: boolean }[] = await db.query(`
     SELECT p.oid::regprocedure::text signature,p.proname,p.prosecdef FROM pg_proc p
     JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname=$1`, [schema]);
@@ -63,7 +76,7 @@ export async function configureDatabaseBoundary(db: Sql, schema: string,
         await db.query(`GRANT EXECUTE ON FUNCTION ${f.signature} TO ${ledger}`);
     } else if (f.proname === "uuid_generate_v4" && !f.prosecdef) {
       // Legacy entity defaults use uuid-ossp; this pure UUID generator conveys no authority.
-      await db.query(`GRANT EXECUTE ON FUNCTION ${f.signature} TO ${runtime},${identity}`);
+      await db.query(`GRANT EXECUTE ON FUNCTION ${f.signature} TO ${runtime},${identity}${d2 ? `,${ledger}` : ""}`);
     }
   }
 }
@@ -72,6 +85,8 @@ export async function configureDatabaseBoundary(db: Sql, schema: string,
 export async function assertDatabaseBoundary(db: DataSource, kind: "runtime" | "identity" | "ledger",
   schema: string): Promise<void> {
   const fail = () => { throw new Error(`Unsafe ${kind} database authority; operator provisioning required`); };
+  const d2=await reservationInstalled(db,schema);
+  const d2Tables=d2 ? ["commitment_reservations",...reservationWrites] : [];
   const [{ path }] = await db.query("SELECT current_setting('search_path') path");
   if (path.replace(/\s/g, "") !== `pg_catalog,${schema},pg_temp`) fail();
   const [role] = await db.query(`SELECT r.rolsuper,r.rolcreaterole,r.rolcreatedb,r.rolreplication,r.rolbypassrls,
@@ -111,8 +126,8 @@ export async function assertDatabaseBoundary(db: DataSource, kind: "runtime" | "
     WHERE n.nspname=$1 AND c.relkind IN ('r','p')`, [schema]);
   for (const {relname} of tables) {
     const t = `${sqlIdentifier(schema)}.${sqlIdentifier(relname)}`;
-    const operational = ![...ledgerTables,...identityTables,"migrations","typeorm_metadata"].includes(relname);
-    const writable = kind === "runtime" ? operational : kind === "identity" ? identityTables.includes(relname) : ledgerTables.includes(relname);
+    const operational = ![...ledgerTables,...d2Tables,...identityTables,"migrations","typeorm_metadata"].includes(relname);
+    const writable = kind === "runtime" ? operational : kind === "identity" ? identityTables.includes(relname) : [...ledgerTables,...d2Tables].includes(relname);
     for (const privilege of ["INSERT","UPDATE","DELETE","TRUNCATE","REFERENCES","TRIGGER"]) {
       const allowed = writable && ["INSERT","UPDATE",...(kind === "ledger" ? [] : ["DELETE"])].includes(privilege) ||
         kind === "identity" && relname === "audit_logs" && privilege === "INSERT";
@@ -122,13 +137,13 @@ export async function assertDatabaseBoundary(db: DataSource, kind: "runtime" | "
       (has_column_privilege($1,attname,'INSERT') OR has_column_privilege($1,attname,'UPDATE')) writable
       FROM pg_attribute WHERE attrelid=$1::regclass AND attnum>0 AND NOT attisdropped`,[t]);
     if (!writable && !(kind === "identity" && relname === "audit_logs") && columns.some(c=>c.writable &&
-      !(c.attname === "updated_at" && (relname === "users" && kind === "runtime" || kind === "ledger" && ["users","planning_projects"].includes(relname))))) fail();
+      !(c.attname === "updated_at" && (relname === "users" && kind === "runtime" || kind === "ledger" && ["users","planning_projects",...(d2?["inventory_items"]:[])].includes(relname))))) fail();
   }
   // Missing authority is also unsafe: never silently substitute runtime credentials for identity/writer credentials.
   if (kind === "ledger") for (const table of ["refresh_tokens", "sessions"])
     if (!(await db.query("SELECT has_table_privilege($1,'SELECT') allowed",
       [`${sqlIdentifier(schema)}.${sqlIdentifier(table)}`]))[0].allowed) fail();
-  for (const table of kind === "identity" ? identityTables : kind === "ledger" ? ledgerTables : [...ledgerTables,...identityTables]) {
+  for (const table of kind === "identity" ? identityTables : kind === "ledger" ? [...ledgerTables,...d2Tables] : [...ledgerTables,...d2Tables,...identityTables]) {
     for (const privilege of kind === "runtime" ? ["SELECT"] : ["SELECT","INSERT","UPDATE"]) {
       if (!(await db.query("SELECT has_table_privilege($1,$2) allowed",[`${sqlIdentifier(schema)}.${sqlIdentifier(table)}`,privilege]))[0].allowed) fail();
     }

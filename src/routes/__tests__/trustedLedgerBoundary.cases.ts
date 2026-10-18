@@ -10,6 +10,7 @@ import { CommitmentLedgerService, replayCommitments } from "../../services/Commi
 import { TrustedLedgerAuthority } from "../../security/TrustedLedgerAuthority";
 import { independentIdentityReview } from "./trustedLedgerIndependentReview.cases";
 import { verifyD1W } from "./trustedLedgerD1W.cases";
+import { verifyReservationCommitments } from "./reservationCommitment.cases";
 import { assertDatabaseBoundary, configureDatabaseBoundary, ledgerTables, sqlIdentifier } from "../../security/databaseBoundary";
 
 interface Harness {
@@ -154,6 +155,7 @@ export function trustedLedgerBoundaryTests(get: () => Harness, fixture: () => Pr
       expect(await h.fingerprint()).toEqual(before);
       h.evidence.trusted_boundary={actual_login:true,denied,functions_denied:functions.length,authenticated_http:"PASS",retry:"same immutable event",
         actor:event.actor_id,pool_identity_isolated:true,operational_tables_unchanged:true,role_cleanup:"DROP OWNED / DROP ROLE"};
+      await verifyReservationCommitments({...h,runtime,writer,identity,schema,roles,auth,password,fixture});
     } finally {
       if(close) await close();
       for(const pool of pools) if(pool.isInitialized) await pool.destroy();
