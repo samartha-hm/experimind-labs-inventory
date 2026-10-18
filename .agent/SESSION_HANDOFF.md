@@ -1,33 +1,32 @@
-# Milestone 13M-D1U — 2026-10-18
+# Milestone 13M-D1V — 2026-10-18
 
 Branch: feature/kit-builder-milestone-1.
-Review checkpoint: 1329b0ff9070a6eb3cd592941014b6d428ce739d,
-pushed and GitHub HEAD verified. This separate continuity commit follows.
-Reviewed D1T base: 0b50166bd1dd47362e63a26d76e70ce6dca3c979.
+Implementation checkpoint: bf0ee93b9c662612514a21675aba15a007045f00,
+pushed and remote HEAD verified. This separate continuity commit follows.
 
-Verdict: BLOCKED. No isolated D2 development or operational writer integration.
-Read docs/erp/ui-ux/MILESTONE_13M_D1U_INDEPENDENT_REVIEW.md.
+Verdict: CONDITIONAL PASS. All three D1U token findings are closed in isolated
+restricted-LOGIN tests. Independent review is required before D2; no operational
+writer integration or production capability route was added.
 
-Restricted-runtime-SQL impersonation remains denied under three actual LOGINs.
-Known UUIDs, forged tokens/settings/temp objects, DML/functions/escalation and
-pool leakage fail. Legitimate authenticated execution and current-user checks pass.
-New findings: revoked-refresh/logout access JWT still writes; unrelated audience,
-read-only scope/account/operation claims are ignored; reusable bearers create new
-events with fresh keys. These require an approved scoped capability/revocation/
-replay contract, not an unreviewed change to existing bearer semantics.
+Read docs/erp/ui-ux/MILESTONE_13M_D1V_TOKEN_LIFECYCLE.md and
+MILESTONE_13M_D1V_ACCEPTANCE.md. Immutable atomic receipts bind exact request,
+actor, tenant, action and operation key. Logout/refresh/session revocation serialize
+against execution on the user row. Revoked/expired tokens also deny committed
+retry; a new capability cannot recover an existing key through mutation execution.
 
-Focused PostgreSQL: 37/37 pass, including explicit successful-attack findings.
-Recovery: 22 accounts/51 events/eight functions; immutable replay/conservation and
-22 operational fingerprints pass. Typecheck and frontend/PWA/server builds pass.
-Full suite: 582 pass/one packing-label timeout across three runs; packing alone
-passes 19/19. Full-suite acceptance remains blocked; timeouts unchanged.
+Verification: focused PostgreSQL 37/37; final full suite 583/583 in 76 files with
+--maxWorkers=2 (two passing runs); typecheck and frontend/PWA/server builds PASS.
+Default workers twice timed out the existing packing QR/PDF test; isolated packing
+19/19 passes. Assertions/timeouts unchanged. Worker contention is supported by
+bounded-worker passes; default-worker reliability remains open.
 
-Changed: adversarial tests, unsafe positive-control fixture, recovery milestone
-selector, review report/index. No runtime/migration/grant changes. Unrelated
-AGENTS.md remains uncommitted. Ignored evidence: .local-dev/13md1u-*.
+Recovery PASS: eight ledger tables, 22 accounts/50 events/eight pinned functions;
+operational fingerprints unchanged. Separate disposable PostgreSQL restart proves
+receipt/revocation durability with no extra writes. Evidence: checked-in D1V
+fingerprints and ignored .local-dev/13md1v-* logs.
 
-Runtime identity SELECT still exposes hashes/MFA material. Staging needs fresh
-roles, audited ACLs, secrets/CA, restricted startup/route smoke and restore grants.
-No deployment, company-data change, credential rotation or adapter occurred.
-Next: approve the bounded token lifecycle contract, then authorize remediation.
-Use /new or /compact for the next slice.
+Remaining: independent review, staging roles/ACLs/TLS/secrets/startup smoke,
+existing runtime identity SELECT exposure and packing performance disposition.
+Unrelated AGENTS.md remains uncommitted. No deployment, credential rotation,
+company-data changes, main merge or reconciliation activation occurred.
+Use /new or /compact for independent review before D2.

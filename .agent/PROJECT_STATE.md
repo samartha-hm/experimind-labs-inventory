@@ -1,6 +1,18 @@
 # ERP state — historical implementation notes
 
-## Milestone 13M-D1U — 2026-10-18 — current
+## Milestone 13M-D1V — 2026-10-18 — current
+
+CONDITIONAL PASS; independent review required before D2 or operational adapters.
+Checkpoint bf0ee93b9c662612514a21675aba15a007045f00 pushed/remote verified.
+Three D1U findings closed through session-bound scoped capabilities, live revocation
+checks and immutable atomic operation receipts. Eight additive ledger tables.
+Focused PostgreSQL 37/37; full 583/583 with two workers; typecheck and all builds PASS.
+Default-worker packing PDF timeout repeats; isolated 19/19 and bounded full runs pass.
+Timeouts/assertions unchanged; contention limitation retained in acceptance report.
+Nonempty restore 22 accounts/50 events/eight functions and real disposable restart
+PASS. Operational fingerprints unchanged. No production issuer/adapter/deployment.
+See MILESTONE_13M_D1V_TOKEN_LIFECYCLE.md and MILESTONE_13M_D1V_ACCEPTANCE.md.
+## Milestone 13M-D1U — 2026-10-18 — historical
 
 Independent review BLOCKED; no isolated D2 development or operational integration.
 Checkpoint 1329b0ff9070a6eb3cd592941014b6d428ce739d pushed/GitHub verified.
