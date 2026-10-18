@@ -1,0 +1,201 @@
+{
+  "baseline": "cd37b38698e01364de0c6e026c7355b10e73c2a7",
+  "schema": "requirement_test_eaa08cd6213e4fd9a66925326400cfc9",
+  "restricted": {
+    "verdict": "PASS",
+    "actual_logins": [
+      {
+        "login": "rt_78dab1f4778b0e7f",
+        "session": "rt_78dab1f4778b0e7f"
+      },
+      {
+        "login": "id_78dab1f4778b0e7f",
+        "session": "id_78dab1f4778b0e7f"
+      },
+      {
+        "login": "lg_78dab1f4778b0e7f",
+        "session": "lg_78dab1f4778b0e7f"
+      }
+    ],
+    "logout_new_authorization": "DENIED",
+    "pre_logout_capability": "DENIED",
+    "post_logout_committed_retry": "DENIED without writes",
+    "scope_matrix": "DENIED without writes",
+    "distinct_operation_replay": "DENIED",
+    "same_operation_retry": "one event and receipt",
+    "role_revocation": "DENIED",
+    "account_disable": "DENIED",
+    "in_flight_logout": "execution SHARE lock precedes logout; later retry denied",
+    "queued_expiration": "full rollback"
+  },
+  "independent": {
+    "verdict": "PASS",
+    "distinct_backend_connections": true,
+    "quantity_source_kind_and_alternate_entry": "DENIED; eight ledger hashes unchanged",
+    "canonical_property_order_retry": "same committed result; no writes",
+    "cross_connection_logout_retry": "DENIED; immutable history preserved",
+    "logout_wins_barrier": "waiting execution denied after revocation commit; no writes"
+  },
+  "runtime_boundary": {
+    "actual_login": true,
+    "denied": [
+      "known administrator UUID",
+      "cross-tenant administrator UUID",
+      "commitment_accounts INSERT",
+      "commitment_accounts UPDATE",
+      "commitment_accounts DELETE",
+      "commitment_accounts TRUNCATE",
+      "commitment_entitlements INSERT",
+      "commitment_entitlements UPDATE",
+      "commitment_entitlements DELETE",
+      "commitment_entitlements TRUNCATE",
+      "commitment_balances INSERT",
+      "commitment_balances UPDATE",
+      "commitment_balances DELETE",
+      "commitment_balances TRUNCATE",
+      "commitment_claims INSERT",
+      "commitment_claims UPDATE",
+      "commitment_claims DELETE",
+      "commitment_claims TRUNCATE",
+      "commitment_sources INSERT",
+      "commitment_sources UPDATE",
+      "commitment_sources DELETE",
+      "commitment_sources TRUNCATE",
+      "commitment_events INSERT",
+      "commitment_events UPDATE",
+      "commitment_events DELETE",
+      "commitment_events TRUNCATE",
+      "commitment_reconciliation_cases INSERT",
+      "commitment_reconciliation_cases UPDATE",
+      "commitment_reconciliation_cases DELETE",
+      "commitment_reconciliation_cases TRUNCATE",
+      "commitment_authorizations INSERT",
+      "commitment_authorizations UPDATE",
+      "commitment_authorizations DELETE",
+      "commitment_authorizations TRUNCATE",
+      "identity escalation",
+      "identity escalation",
+      "identity escalation",
+      "direct privileged function invocation",
+      "forged session variables",
+      "temporary table and search path",
+      "schema creation",
+      "role escalation",
+      "unauthorized grant",
+      "grant option escalation (no privilege conveyed)",
+      "trigger removal"
+    ],
+    "functions_denied": 8,
+    "authenticated_http": "PASS",
+    "retry": "same immutable event",
+    "actor": "7576ed0e-60e3-4fa6-98a9-4c63e349c769",
+    "pool_identity_isolated": true,
+    "operational_tables_unchanged": true,
+    "role_cleanup": "DROP OWNED / DROP ROLE"
+  },
+  "recovery": {
+    "source_schema": "requirement_test_eaa08cd6213e4fd9a66925326400cfc9",
+    "target_schema": "commitment_restore_8aa93e2b8f9945c99b6842f69d45dc2e",
+    "all_table_fingerprints_match": true,
+    "verified_table_count": 8,
+    "pinned_functions": 8,
+    "deferred_witness_restored": true,
+    "replayed_accounts": 22,
+    "before": {
+      "accounts": {
+        "count": 22,
+        "hash": "b0e580aa478b63f7371890b8c2721e8b"
+      },
+      "entitlements": {
+        "count": 24,
+        "hash": "a2573df9eff8ac206e9cf3912ecaad1a"
+      },
+      "balances": {
+        "count": 22,
+        "hash": "16dfca4d63acf76c177c8ccead26bc44"
+      },
+      "claims": {
+        "count": 22,
+        "hash": "532847670affc93ae2508cad9f128d1f"
+      },
+      "sources": {
+        "count": 23,
+        "hash": "db354cdc974547cbf385e13fe3631fc8"
+      },
+      "events": {
+        "count": 51,
+        "hash": "b9b4680f6c236bab972fe54b0cdfb952"
+      },
+      "reconciliation_cases": {
+        "count": 0,
+        "hash": "d41d8cd98f00b204e9800998ecf8427e"
+      },
+      "authorizations": {
+        "count": 8,
+        "hash": "90b2c067805b52fffb14722c494a1f1e"
+      }
+    },
+    "after": {
+      "accounts": {
+        "count": 22,
+        "hash": "b0e580aa478b63f7371890b8c2721e8b"
+      },
+      "entitlements": {
+        "count": 24,
+        "hash": "a2573df9eff8ac206e9cf3912ecaad1a"
+      },
+      "balances": {
+        "count": 22,
+        "hash": "16dfca4d63acf76c177c8ccead26bc44"
+      },
+      "claims": {
+        "count": 22,
+        "hash": "532847670affc93ae2508cad9f128d1f"
+      },
+      "sources": {
+        "count": 23,
+        "hash": "db354cdc974547cbf385e13fe3631fc8"
+      },
+      "events": {
+        "count": 51,
+        "hash": "b9b4680f6c236bab972fe54b0cdfb952"
+      },
+      "reconciliation_cases": {
+        "count": 0,
+        "hash": "d41d8cd98f00b204e9800998ecf8427e"
+      },
+      "authorizations": {
+        "count": 8,
+        "hash": "90b2c067805b52fffb14722c494a1f1e"
+      }
+    },
+    "backup_restore": "PASS",
+    "migration_role": {
+      "current_user": "kitbuilder_dev",
+      "rolsuper": true,
+      "rolcreaterole": true
+    },
+    "shadow": {
+      "project_stock_reservations:missing_source_lineage": 1,
+      "project_stock_reservations:historical_reconciliation_required": 1,
+      "purchase_requests:missing_source_lineage": 1,
+      "purchase_requests:historical_reconciliation_required": 1,
+      "production_work_orders:missing_source_lineage": 1,
+      "production_work_orders:historical_reconciliation_required": 1,
+      "packing_orders:missing_source_lineage": 6,
+      "packing_orders:historical_reconciliation_required": 6,
+      "delivery_orders:missing_source_lineage": 1,
+      "delivery_orders:historical_reconciliation_required": 1
+    }
+  },
+  "restart": {
+    "verdict": "PASS",
+    "disposable_clone": true,
+    "restricted_ledger_login": true,
+    "receipt_recovery": true,
+    "revocation_durable": true,
+    "fresh_key_replay_denied": true,
+    "changed_authorization_denied": true,
+    "ledger_and_sessions_unchanged": true
+  }
+}

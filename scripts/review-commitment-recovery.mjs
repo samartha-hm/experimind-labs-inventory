@@ -5,7 +5,7 @@ import { resolve, join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { replayCommitments, planningUnits } from '../src/services/CommitmentLedgerService.ts';
 const milestone = process.env.COMMITMENT_RECOVERY_MILESTONE ?? '13md1r';
-if (!['13md1r','13md1t','13md1u','13md1v'].includes(milestone)) throw Error('Unsupported recovery milestone');
+if (!['13md1r','13md1t','13md1u','13md1v','13md1w'].includes(milestone)) throw Error('Unsupported recovery milestone');
 const evidence = JSON.parse(await readFile(`.local-dev/${milestone}-evidence.json`, 'utf8'));
 const schema = evidence.schema;
 const url = new URL(process.env.KIT_BUILDER_TEST_DATABASE_URL);
@@ -22,7 +22,7 @@ await writeFile(path,dump.replaceAll(schema,target));
 run('psql',['-X','--single-transaction','--set','ON_ERROR_STOP=1','--quiet','--file',path],{PGOPTIONS:`-c search_path=${target},public`});
 const client = new pg.Client({connectionString:url.toString()}); await client.connect();
 try {
- const tables=['accounts','entitlements','balances','claims','sources','events','reconciliation_cases',...(milestone==='13md1v'?['authorizations']:[])];
+ const tables=['accounts','entitlements','balances','claims','sources','events','reconciliation_cases',...(['13md1v','13md1w'].includes(milestone)?['authorizations']:[])];
  const fingerprints=async namespace=>{
   const result={};
   for(const t of tables) {

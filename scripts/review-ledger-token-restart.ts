@@ -12,11 +12,13 @@ import { configureDatabaseBoundary, sqlIdentifier } from "../src/security/databa
 import { TrustedLedgerAuthority, type LedgerRequest } from "../src/security/TrustedLedgerAuthority";
 
 // A disposable clone; never stop/restart the shared development cluster.
-const evidence=JSON.parse(await readFile(".local-dev/13md1v-evidence.json","utf8"));
+const milestone=process.env.COMMITMENT_RECOVERY_MILESTONE ?? "13md1v";
+assert(["13md1v","13md1w"].includes(milestone));
+const evidence=JSON.parse(await readFile(`.local-dev/${milestone}-evidence.json`,"utf8"));
 const schema=evidence.schema as string, source=new URL(process.env.KIT_BUILDER_TEST_DATABASE_URL!);
 assert(source.hostname==="127.0.0.1" && source.port==="55432" && source.pathname==="/experimind_kitbuilder_test");
 assert(/^requirement_test_[a-f0-9]{32}$/.test(schema));
-const directory=resolve(".local-dev/13md1v-restart",randomUUID()), cluster=join(directory,"data");
+const directory=resolve(`.local-dev/${milestone}-restart`,randomUUID()), cluster=join(directory,"data");
 await mkdir(directory,{recursive:true});
 const bin=resolve(".local-dev/tools/postgresql-17.5/pgsql/bin");
 const serverBin=resolve(".local-dev/tools/node_modules/@embedded-postgres/windows-x64/native/bin");
@@ -76,10 +78,10 @@ try {
   await assert.rejects(authority.perform(sign(active.token_hash,randomUUID()),request));
   await assert.rejects(authority.perform(revokedCap,request));
   assert.deepEqual(await fingerprint(),before);
-  await writeFile(".local-dev/13md1v-restart-evidence.json",JSON.stringify({verdict:"PASS",disposable_clone:true,
+  await writeFile(`.local-dev/${milestone}-restart-evidence.json`,JSON.stringify({verdict:"PASS",disposable_clone:true,
     restricted_ledger_login:true,receipt_recovery:true,revocation_durable:true,fresh_key_replay_denied:true,
     changed_authorization_denied:true,ledger_and_sessions_unchanged:true},null,2));
-  console.log("D1V disposable PostgreSQL restart: PASS");
+  console.log(`${milestone} disposable PostgreSQL restart: PASS`);
 } finally {
   if(writer?.isInitialized) await writer.destroy();
   if(owner) await owner.end();
