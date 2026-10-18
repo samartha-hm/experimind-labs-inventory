@@ -38,3 +38,4 @@ Open only the authority relevant to the task. Current user instructions and conf
 | Milestone 13M-A — authoritative approval backend review | [API, permissions and enforcement](ui-ux/MILESTONE_13M_A_BACKEND_CONTRACT.md), [acceptance and recovery](ui-ux/MILESTONE_13M_A_ACCEPTANCE.md), [fingerprints](ui-ux/MILESTONE_13M_A_FINGERPRINTS.json) |
 | Milestone 13M-B — independent backend review | [Findings and conditional acceptance](ui-ux/MILESTONE_13M_B_INDEPENDENT_REVIEW.md) |
 | Milestone 13M-C — proposed demand and historical contracts | [Accounting, reconciliation, transactions and acceptance plan](ui-ux/MILESTONE_13M_C_DEMAND_AND_RECONCILIATION_DESIGN.md) |
+| Milestone 13M-D1 — isolated ledger foundation | [Schema and recovery](ui-ux/MILESTONE_13M_D1_LEDGER_FOUNDATION.md), [shadow verification](ui-ux/MILESTONE_13M_D1_SHADOW_VERIFICATION.md), [acceptance evidence](ui-ux/MILESTONE_13M_D1_ACCEPTANCE.md) |

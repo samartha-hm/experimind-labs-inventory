@@ -1,3 +1,5 @@
+import { AddCommitmentLedger1792540800015 } from "./migration/1792540800015-AddCommitmentLedger";
+import { commitmentEntities } from "./entity/CommitmentLedger";
 import { HardenApprovedPackingDemand1792454400014 } from "./migration/1792454400014-HardenApprovedPackingDemand";
 import { AddRequirementApproval1792368000013 } from "./migration/1792368000013-AddRequirementApproval";
 import { AddPacking1791849600007 } from "./migration/1791849600007-AddPacking.ts";
@@ -105,6 +107,7 @@ export const AppDataSource = new DataSource({
     connectionTimeoutMillis: 5000,
   },
   entities: [
+    ...commitmentEntities,
     ...productionEntities,
     ...supplyEntities,
     ...planningEntities,
@@ -163,6 +166,7 @@ export const AppDataSource = new DataSource({
     ComponentAlternate,
   ],
   migrations: [
+    AddCommitmentLedger1792540800015,
     HardenApprovedPackingDemand1792454400014,
     AddRequirementApproval1792368000013,
     AddPacking1791849600007,

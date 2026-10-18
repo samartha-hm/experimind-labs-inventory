@@ -1,4 +1,6 @@
 import { HardenApprovedPackingDemand1792454400014 } from "../../migration/1792454400014-HardenApprovedPackingDemand";
+import { commitmentEntities } from "../../entity/CommitmentLedger";
+import { commitmentFoundationTests } from "./commitmentFoundation.cases";
 import { AddRequirementApproval1792368000013 } from "../../migration/1792368000013-AddRequirementApproval";
 import { productionPlanningRouter } from "../v1/production-planning";
 import { createHash } from "node:crypto";
@@ -72,7 +74,7 @@ describe.skipIf(!url)("PostgreSQL authoritative requirement approval",()=>{
     const parsed=new URL(url!);if(parsed.hostname!=="127.0.0.1"||parsed.port!=="55432"||parsed.pathname!=="/experimind_kitbuilder_test")throw new Error("Refusing non-isolated PostgreSQL");
     const raw=new DataSource({type:"postgres",url});await raw.initialize();try{await raw.query(`CREATE SCHEMA "${schema}"`);}finally{await raw.destroy();}
     const options={type:"postgres" as const,url,schema,ssl:false,uuidExtension:"pgcrypto" as const,entities:AppDataSource.options.entities,migrations:[],extra:{options:`-c search_path=${schema},public`}};
-    const bootstrap=new DataSource({...options,entities:(options.entities as Function[]).filter(e=>![ProductTemplate,ProductTemplateVersion,ProductTemplateRevision,...planningEntities,...stocktakeEntities,...supplyEntities,...productionEntities].includes(e as typeof ProductTemplate))});
+    const bootstrap=new DataSource({...options,entities:(options.entities as Function[]).filter(e=>![ProductTemplate,ProductTemplateVersion,ProductTemplateRevision,...planningEntities,...stocktakeEntities,...supplyEntities,...productionEntities,...commitmentEntities].includes(e as typeof ProductTemplate))});
     await bootstrap.initialize();await bootstrap.synchronize();const runner=bootstrap.createQueryRunner();await runner.connect();await runner.startTransaction();
     try{await new AddProductTemplates1791417600000().up(runner);await new AddKitSubjectsAndGrades1791417600001().up(runner);await new AddProjectPlanning1791417600002().up(runner);const migration=new AddPhysicalStocktake1791504000003();await migration.up(runner);await migration.down(runner);await migration.up(runner);const supplyMigration=new AddReservationsAndProcurement1791676800004();await supplyMigration.up(runner);await supplyMigration.down(runner);await supplyMigration.up(runner);const productionMigration=new AddProductionPlanning1791763200005();await productionMigration.up(runner);await productionMigration.down(runner);await productionMigration.up(runner);const hardening=new HardenProductionReconciliation1791763200006();await hardening.up(runner);await hardening.down(runner);await hardening.up(runner);const packing=new AddPacking1791849600007();await packing.up(runner);await packing.down(runner);await packing.up(runner);const readiness=new HardenPackingReadiness1791936000008();await readiness.up(runner);await readiness.down(runner);await readiness.up(runner);const delivery=new AddDeliveryCustody1792022400009();await delivery.up(runner);await delivery.down(runner);await delivery.up(runner);const completion=new AddProjectCompletion1792108800010();await completion.up(runner);await completion.down(runner);await completion.up(runner);const attachments=new AddPrivateAttachments1792195200011();await attachments.up(runner);await attachments.down(runner);await attachments.up(runner);const layouts=new AddSharedLabelLayouts1792281600012();await layouts.up(runner);await layouts.down(runner);await layouts.up(runner);await runner.commitTransaction();}catch(e){await runner.rollbackTransaction();throw e;}finally{await runner.release();await bootstrap.destroy();}
     db=new DataSource(options);await db.initialize();const a=await db.getRepository(Organization).save({name:schema});const b=await db.getRepository(Organization).save({name:schema+"other"});
@@ -367,4 +369,8 @@ describe.skipIf(!url)("PostgreSQL authoritative requirement approval",()=>{
     try{for(const path of legacyOperationalPaths){const r=await fetch(`http://127.0.0.1:${address.port}${path}/orders`,{method:"POST",headers:{Authorization:`Bearer ${token(admin)}`}});expect(r.status).toBe(503);}}
     finally{await new Promise<void>((resolve,reject)=>legacy.close(e=>e?reject(e):resolve()));}
   });
+  commitmentFoundationTests(() => ({ db, admin, maker, other, wire, newProject,
+    approve: (id: string, revision = 1) => request("POST", approvals(id), admin, {revision,key:randomUUID()},201),
+    save: (id: string, body: unknown) => request("PUT", `/planning-projects/${id}`, maker, body),
+    fingerprint, evidence }));
 });
