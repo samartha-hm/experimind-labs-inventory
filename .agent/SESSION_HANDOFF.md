@@ -1,29 +1,31 @@
-# Milestone 13M-D1W — 2026-10-18
+# Milestone 13M-D2A — 2026-10-18
 
 Branch: feature/kit-builder-milestone-1.
-Review checkpoint: 626208af180bba52b5f948724fb8ea8dac8fffbe,
-pushed and full remote HEAD verified. This separate continuity commit follows.
+Checkpoint a4c902349cb991e3e29a1ba19ab2d59e439b4024 pushed; full remote HEAD
+matched. This separate continuity commit follows.
 
-Verdict: CONDITIONAL PASS. Independent source review and additional restricted
-LOGIN attacks found no new reproducible token defect. D1U's three findings are
-closed within the runtime-SQL/captured-token threat model. Trusted signing key,
-identity/writer credentials and process compromise are excluded.
+Verdict: CONDITIONAL PASS, isolated synthetic development only. Atomic reservation
+create/adjust/untouched release/cancel share cumulative approved demand with
+exclusive ledger H. Capability executor, immutable mapping/receipt, audit and
+approval binding commit together. Runtime SQL and legacy reservation writes fail
+closed. Fulfillment, historical attachment, unsupported transfers and downstream
+roots remain blocked. No production HTTP adapter/pool.
 
-Read docs/erp/ui-ux/MILESTONE_13M_D1W_INDEPENDENT_REVIEW.md and its fingerprints.
-Changes: independent connection, quantity/source/kind/alternate-entry attacks,
-canonical retry and logout-first blocking barrier; D1W recovery runner support.
-No production authorization changes. Execution-first and expiry barriers pass;
-committed history stays immutable after logout.
+Read docs/erp/ui-ux/MILESTONE_13M_D2A_RESERVATION_COMMITMENTS.md and fingerprints.
+Changed: reservation service/migration, authority/database ACL boundary,
+integration/HTTP checks, recovery runner and report/index.
 
-Verification: focused 37/37; full two-worker 583/583 (76 files); typecheck and
-frontend/PWA/server builds PASS. Default full run 582/583: unchanged packing label
-5000ms timeout. Packing overlapping build 18/19; idle-isolated 19/19. Resource
-contention supported; default reliability unresolved. No timeouts changed.
-Backup/restore and disposable restart PASS: eight table fingerprints, 22 accounts,
-51 events, eight pinned functions; synthetic operational hashes equal.
+Verification: focused PostgreSQL 37/37; idle two-worker suite 583/583 in 76 files;
+typecheck and frontend/PWA/server builds PASS. Initial full run had two attachment
+failures from TEMP inside source; external TEMP resolved them. Build-overlapping
+rerun reproduced packing-label 5000ms timeout (582/583); idle full rerun passed.
+No assertions/timeouts relaxed; reliability remains open.
+Nonempty restore/replay PASS: 24 accounts, 65 events, 12 equal table fingerprints,
+11 pinned functions and restored witnesses. Twenty unrelated operational tables
+unchanged; only synthetic reservations/audit legitimately changed.
 
-Next: user acceptance before isolated D2 development. Staging roles/ACLs/TLS/secrets/
-startup smoke, identity SELECT exposure and packing reliability remain open.
-No deployment, operational integration, credential rotation, historical activation,
-company-data changes or main merge. Unrelated AGENTS.md remains uncommitted.
-Use /new or /compact before D2.
+Next: user review of D2A acceptance. Stop before D2B/D3. Production activation,
+downstream consumption lineage, historical reconciliation, staging roles/ACLs/
+TLS/secrets/startup smoke and identity SELECT exposure remain open.
+No deployment, main merge, UI expansion or company inventory changes.
+Unrelated AGENTS.md remains uncommitted. Use /new or /compact.

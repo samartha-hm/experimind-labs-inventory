@@ -177,3 +177,17 @@ The guarantee covers compromise of normal runtime SQL credentials, not arbitrary
 trusted-server code execution or privileged credential/signing-key theft. No ledger
 production pool/HTTP route or operational adapter is enabled. Independent review,
 manual restricted-role/CA provisioning and staging smoke precede deployment.
+
+## ADR-032 — Isolated reservation commitment adapter — 2026-10-18
+
+D2A pairs operational reservation mutations with exclusive held claims, approval
+binding, audit and response receipt in one private-writer transaction. Deferred
+witnesses require exact quantity/account/approval lineage. Runtime reservation,
+audit and binding writes are revoked in the explicitly activated synthetic schema;
+legacy execution cannot bypass cumulative accounting.
+
+Unknown historical/mixed-stage evidence blocks release. Mapped projects block
+unintegrated downstream roots even after cancellation. Fulfillment remains blocked
+until exclusive consumption and physical-stock lineage can be proved atomically.
+No production adapter/pool is enabled. Empty rollback is supported; nonempty
+evidence requires restore/replay, with no automatic restoration of legacy grants.

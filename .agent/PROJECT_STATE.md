@@ -1,6 +1,20 @@
 # ERP state — historical implementation notes
 
-## Milestone 13M-D1V — 2026-10-18 — current
+## Milestone 13M-D2A — 2026-10-18 — current
+
+CONDITIONAL PASS, isolated reservation commitment adapter only.
+Checkpoint a4c902349cb991e3e29a1ba19ab2d59e439b4024 pushed/remote verified.
+Atomic create/adjust/untouched release/cancel enforce cumulative material demand;
+runtime SQL and legacy reservation writers fail closed in activated test schemas.
+Fulfillment, historical attachment and unintegrated downstream roots stay blocked.
+Focused 37/37, idle two-worker full 583/583, typecheck and all builds PASS.
+Nonempty restore/replay: 24 accounts, 65 events, 12 matching table fingerprints,
+11 pinned functions. Twenty unrelated operational tables unchanged.
+Packing-label timeout recurred during overlapping build; idle suite passed.
+No production adapter/pool, deployment, main merge, UI expansion or D2B/D3 work.
+See MILESTONE_13M_D2A_RESERVATION_COMMITMENTS.md and its evidence JSON.
+
+## Milestone 13M-D1V — 2026-10-18 — historical
 
 CONDITIONAL PASS; independent review required before D2 or operational adapters.
 Checkpoint bf0ee93b9c662612514a21675aba15a007045f00 pushed/remote verified.
