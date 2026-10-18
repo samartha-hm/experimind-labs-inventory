@@ -1,6 +1,19 @@
 # ERP state — historical implementation notes
 
-## Milestone 13M-B — 2026-10-18 — current
+## Milestone 13M-D1 — 2026-10-18 — current
+
+Isolated central commitment ledger foundation PASS; implementation 34bcf3d pushed
+and remote verified. Seven additive tables, immutable provenance, A/F/H conservation,
+synthetic source lineage, exact quantities, replay and read-only shadow diagnostics.
+Focused PostgreSQL 30/30; full suite 576/576 in 76 files; typecheck and builds pass.
+Empty/populated synthetic migration round-trips pass; populated downgrade refused.
+All 22 operational fingerprints unchanged. Shadow finds 10 records lacking lineage.
+See MILESTONE_13M_D1_ACCEPTANCE.md and linked foundation/shadow reports.
+Stop for independent review before any writer integration; no historical activation,
+UI, deployment or main merge. Real source/settlement adapters and revision compatibility
+remain follow-up work. Preserve unrelated unstaged AGENTS.md.
+
+## Milestone 13M-B — 2026-10-18 — historical
 
 Independent approval backend review: CONDITIONAL PASS after fixing the packing
 demand-change bypass with additive migration 14. Checkpoint 5dc2797 pushed and

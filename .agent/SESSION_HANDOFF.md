@@ -1,28 +1,28 @@
-# Milestone 13M-C design review — 2026-10-18
+# Milestone 13M-D1 foundation — 2026-10-18
 
 Branch: feature/kit-builder-milestone-1.
-Starting local/remote: cc3d0c6be17cd1e7e580c4f5205a442981a875f1.
-Design checkpoint: 2ddac1fa92ccb4783cdfa4e35fdf65956f75eb55,
-pushed and remote hash verified. This separate continuity commit follows.
+Baseline local/remote: 52dd7c48847d6d747ef885129ed384da78c6babc.
+Implementation: 34bcf3dc8eb1c628ab9ce731a0613a62adb2f756, pushed and remote verified.
+This separate continuity commit follows.
 
-Read docs/erp/ui-ux/MILESTONE_13M_C_DEMAND_AND_RECONCILIATION_DESIGN.md.
-Proposal recommends a central commitment ledger with total-to-date revision caps,
-separate material/deliverable dimensions, exclusive source lineage and transactional
-capacity checks. Historical evidence remains immutable; administrator-reviewed
-mappings and current authorization overlays precede continued execution.
+Read docs/erp/ui-ux/MILESTONE_13M_D1_ACCEPTANCE.md and linked foundation/shadow reports.
+Added seven tenant-safe ledger tables, immutable entitlement/event/source evidence, transactional
+A/F/H conservation, synthetic exclusive claims, transfer/consume/release/split, revised total caps,
+exact planning/stock quantities, independent replay and read-only diagnostic comparison.
+No operational writer, route, UI or historical activation was added.
 
-Includes evidence, alternative comparison, endpoint/transaction matrix, concurrency
-and retries, multi-school/Science crate examples, historical classifications,
-unsafe automatic cases, migration/rollback and implementation acceptance tests.
-Recommendations remain proposals, not authorized operational policy changes.
+Verified: focused PostgreSQL 30/30; full suite 76 files/576 tests; typecheck;
+frontend/PWA/server builds; migration empty-prerequisite and populated-synthetic up/down/up;
+populated-ledger downgrade refusal; concurrency/retries/SQL tampering/injected rollback.
+All 22 operational-table before/after counts and hashes match. Shadow found 10 records
+without lineage; findings grant no execution rights. Build reports bundle-size warning.
 
-Modified paths: new design and docs/erp/INDEX.md; this handoff and NEXT_TASK.md.
-Checks: design relative links resolve; staged whitespace/path review passes.
-No application tests/builds or database mutations: documentation-only scope.
-13M-B test results remain historical evidence, not rerun results.
+Changed: src/db.ts, ledger entity/migration/services, integration helper/harness,
+docs/erp/INDEX.md and three D1 reports; continuity files updated separately.
+No new dependencies. Ignored test cluster/logs remain local; company data untouched.
+Unrelated unstaged AGENTS.md remains preserved.
 
-Next: human review of ledger/carry-forward policy, draft holds, recipe/rework resource
-authority and reconciliation controls; then authorize a bounded backend milestone.
-No UI integration, gate relaxation, operational/company-data changes, deployment or
-main merge. Preserve unrelated unstaged AGENTS.md. Stop for review; /new or /compact
-before implementation.
+Next: independent review before any reservation/procurement/production/packing/delivery integration.
+Review real-source exclusivity, settlement proof, revision compatibility, shadow adapters,
+multi-account locks and DB privilege boundaries. No deployment or main merge.
+Use /new or /compact for the review phase.
