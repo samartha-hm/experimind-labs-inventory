@@ -13,7 +13,8 @@ import compression from "compression";
 import { createServer as createViteServer } from "vite";
 import { GoogleGenAI } from "@google/genai";
 import { env } from "./src/config/env.ts";
-import { AppDataSource } from "./src/db.ts";
+import { AppDataSource, IdentityDataSource, databaseSchema } from "./src/db.ts";
+import { assertDatabaseBoundary } from "./src/security/databaseBoundary";
 import authRoutes from "./src/routes/v1/auth.ts";
 import { authenticateJwt } from "./src/middleware/auth.ts";
 import { requireTenant } from "./src/middleware/tenant.ts";
@@ -69,12 +70,19 @@ async function connectDatabase(retries = 3): Promise<void> {
   for (let attempt = 1; attempt <= retries; attempt++) {
     try {
       await AppDataSource.initialize();
+      if (!process.env.IDENTITY_DATABASE_URL) throw new Error("IDENTITY_DATABASE_URL required");
+      const schema = databaseSchema;
+      await assertDatabaseBoundary(AppDataSource, "runtime", schema);
+      await IdentityDataSource.initialize();
+      await assertDatabaseBoundary(IdentityDataSource, "identity", schema);
       console.log("✅ PostgreSQL connected");
       return;
     } catch (err) {
-      console.error(`❌ DB connection attempt ${attempt}/${retries} failed:`, (err as Error).message);
+      console.error(`DB startup validation failed (${attempt}/${retries}); verify restricted credentials and grants`);
+      if (IdentityDataSource.isInitialized) await IdentityDataSource.destroy();
+      if (AppDataSource.isInitialized) await AppDataSource.destroy();
       if (attempt === retries) {
-        throw err;
+        throw new Error("Database authority validation failed; connection details suppressed");
       }
       // Wait before retry
       await new Promise(resolve => setTimeout(resolve, 1000 * attempt));

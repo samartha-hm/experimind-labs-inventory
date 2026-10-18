@@ -95,17 +95,21 @@ import { AddStockIntegrityAndSpatialTree1689500000014 } from "./migration/168950
 import { AddReservedQuantity1689500000015 } from "./migration/1689500000015-AddReservedQuantity.ts";
 
 const isLocalhostDb = env.databaseUrl.includes("localhost") || env.databaseUrl.includes("127.0.0.1");
+export const databaseSchema = process.env.DATABASE_SCHEMA ?? "public";
+if (!/^[a-z_][a-z0-9_]*$/.test(databaseSchema)) throw new Error("Invalid DATABASE_SCHEMA");
 
 export const AppDataSource = new DataSource({
   type: "postgres",
   url: env.databaseUrl,
-  ssl: isLocalhostDb ? false : { rejectUnauthorized: false },
+  schema: databaseSchema,
+  ssl: isLocalhostDb ? false : { rejectUnauthorized: true },
   synchronize: false, // Use migrations for production DB schema changes
   logging: env.nodeEnv === "development" ? ["error", "warn"] : ["error"],
   extra: {
     max: 25, // Connection pool size
     idleTimeoutMillis: 30000,
     connectionTimeoutMillis: 5000,
+    options: `-c search_path=pg_catalog,${databaseSchema},pg_temp`,
   },
   entities: [
     ...commitmentEntities,
@@ -201,4 +205,14 @@ export const AppDataSource = new DataSource({
     AddReservedQuantity1689500000015,
   ],
   subscribers: [],
+});
+
+// Separate credentials; missing identity credentials fail at server startup, never fall back.
+export const IdentityDataSource = new DataSource({
+  ...AppDataSource.options as Extract<import("typeorm").DataSourceOptions, { type: "postgres" }>,
+  url: process.env.IDENTITY_DATABASE_URL,
+  logging: false,
+  ssl: process.env.IDENTITY_DATABASE_URL && ["localhost","127.0.0.1"].includes(new URL(process.env.IDENTITY_DATABASE_URL).hostname)
+    ? false : { rejectUnauthorized: true },
+  extra: { max: 5, connectionTimeoutMillis: 5000, options: `-c search_path=pg_catalog,${databaseSchema},pg_temp` },
 });

@@ -1,4 +1,4 @@
-import { AppDataSource } from "../db";
+import { IdentityDataSource as AppDataSource } from "../db";
 import { Role } from "../entity/Role";
 import { User } from "../entity/User";
 

@@ -7,6 +7,7 @@ import { CommitmentLedgerService, planningStock, planningUnits, replayCommitment
 import type { LedgerContext, LedgerOperation, LedgerSource } from "../../services/CommitmentLedgerService";
 import { CommitmentShadowService } from "../../services/CommitmentShadowService";
 import { planningFixture } from "../../features/projects/__tests__/planningFixture";
+import { trustedLedgerBoundaryTests } from "./trustedLedgerBoundary.cases";
 
 interface Harness {
   db: DataSource; admin: any; maker: any; other: any; wire: any;
@@ -334,4 +335,5 @@ export function commitmentFoundationTests(get: () => Harness) {
     try{await expect(new AddCommitmentLedger1792540800015().down(runner)).rejects.toThrow("Preserve commitment evidence");await runner.rollbackTransaction();}finally{await runner.release();}
     h.evidence.commitment_rollback={populated_ledger_downgrade:"REFUSED",events_preserved:true};
   });
+  trustedLedgerBoundaryTests(get, fixture);
 }

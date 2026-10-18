@@ -1,11 +1,12 @@
 import { User } from "../entity/User.ts";
 import { RefreshToken } from "../entity/RefreshToken.ts";
-import { AppDataSource } from "../db.ts";
+import { IdentityDataSource as AppDataSource } from "../db.ts";
 import { env } from "../config/env.ts";
 import { validatePasswordStrength, generateSingleUseToken, hashToken } from "../utils/passwordPolicy.ts";
 import { generateBase32Secret, verifyTotpCode, generateOtpAuthUrl, generateBackupRecoveryCodes } from "../utils/totp.ts";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
+import type { DataSource } from "typeorm";
 
 export interface LoginResult {
   mfaRequired?: boolean;
@@ -16,12 +17,13 @@ export interface LoginResult {
 }
 
 export class AuthService {
+  constructor(private readonly db: DataSource = AppDataSource) {}
   private get userRepo() {
-    return AppDataSource.getRepository(User);
+    return this.db.getRepository(User);
   }
 
   private get tokenRepo() {
-    return AppDataSource.getRepository(RefreshToken);
+    return this.db.getRepository(RefreshToken);
   }
 
   async hashPassword(password: string): Promise<string> {

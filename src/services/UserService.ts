@@ -1,7 +1,7 @@
 import bcrypt from "bcryptjs";
 import { User } from "../entity/User.ts";
 import { AuditLog } from "../entity/AuditLog.ts";
-import { AppDataSource } from "../db.ts";
+import { IdentityDataSource as AppDataSource } from "../db.ts";
 
 export class UserService {
   private get repo() {

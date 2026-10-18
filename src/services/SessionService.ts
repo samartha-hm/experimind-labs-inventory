@@ -1,5 +1,5 @@
 import crypto from "crypto";
-import { AppDataSource } from "../db";
+import { IdentityDataSource as AppDataSource } from "../db";
 import { Session } from "../entity/Session";
 
 export class SessionService {

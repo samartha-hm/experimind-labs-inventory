@@ -4,12 +4,14 @@ import { execFileSync } from 'node:child_process';
 import { resolve, join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { replayCommitments, planningUnits } from '../src/services/CommitmentLedgerService.ts';
-const evidence = JSON.parse(await readFile('.local-dev/13md1r-evidence.json', 'utf8'));
+const milestone = process.env.COMMITMENT_RECOVERY_MILESTONE ?? '13md1r';
+if (!['13md1r','13md1t'].includes(milestone)) throw Error('Unsupported recovery milestone');
+const evidence = JSON.parse(await readFile(`.local-dev/${milestone}-evidence.json`, 'utf8'));
 const schema = evidence.schema;
 const url = new URL(process.env.KIT_BUILDER_TEST_DATABASE_URL);
 if (url.hostname !== '127.0.0.1' || url.port !== '55432' || url.pathname !== '/experimind_kitbuilder_test' || !/^requirement_test_[a-f0-9]{32}$/.test(schema)) throw Error('Isolated synthetic database/schema required');
 const target = `commitment_restore_${randomUUID().replaceAll('-', '')}`;
-const directory = resolve('.local-dev/13md1r-recovery', target);
+const directory = resolve(`.local-dev/${milestone}-recovery`, target);
 await mkdir(directory, {recursive:true});
 const tools = resolve('.local-dev/tools/postgresql-17.5/pgsql/bin');
 const env = {...process.env, PGHOST:url.hostname, PGPORT:url.port, PGUSER:decodeURIComponent(url.username), PGPASSWORD:decodeURIComponent(url.password), PGDATABASE:url.pathname.slice(1)};
@@ -55,6 +57,6 @@ try {
  }
  const {rows:roles}=await client.query('SELECT current_user,rolsuper,rolcreaterole FROM pg_roles WHERE rolname=current_user');
  const output={source_schema:schema,target_schema:target,all_seven_table_fingerprints_match:true,pinned_functions:functions.length,deferred_witness_restored:true,replayed_accounts:balances.length,before,after,backup_restore:'PASS',migration_role:roles[0],shadow:grouped,shadow_records:shadowRecords};
- await writeFile('.local-dev/13md1r-recovery-evidence.json',JSON.stringify(output,null,2));
- console.log(JSON.stringify(output));
+ await writeFile(`.local-dev/${milestone}-recovery-evidence.json`,JSON.stringify(output,null,2));
+ console.log(JSON.stringify({backup_restore:output.backup_restore,replayed_accounts:output.replayed_accounts,events:before.events.count,pinned_functions:output.pinned_functions}));
 } finally {await client.end();}
