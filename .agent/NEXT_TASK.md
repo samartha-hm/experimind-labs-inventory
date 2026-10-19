@@ -1,22 +1,24 @@
-# D3 completion in progress
+# D3 next task — exclusive material authority
 
-Read `docs/erp/ui-ux/D3_PRODUCTION_PACKING_EXECUTION_REPORT.md`.
-Integrated production/packing execution remains BLOCKED by missing trusted
-source-transfer, irreversible consumption, exact obligation allocation and
-QC-accepted output custody contracts. Preserve all existing commitments.
+Implement a trusted transaction that binds an approved school-output claim to
+one immutable trusted recipe version and one work order, and derives the capped
+material entitlements using the existing exact recipe budget helper. Prevent
+cross-school allocation and reuse of the output claim. No stock mutation until
+this exclusive authority is established.
 
-Authenticated read-only operator readiness and fail-closed service/SQL guards
-are implemented. No historical mapping, real stock activation, deployment,
-main merge, force push or D4 work was performed or authorized.
+Then implement Priority 1 physical material issue and exactly-once H-to-F through
+the immutable stock/commitment ledgers, with authenticated HTTP success/denial,
+concurrency, rollback, independent availability and accounting reconciliation.
 
-The user has now authorized D3 completion. Read
-`docs/erp/ui-ux/D3_COMPLETION_ACCEPTANCE.md`: the user resolved raw-material
-authority as an approved recipe plus exclusively claimed output quantity,
-deriving a separate capped material entitlement. Exact calculation and partition
-helpers are tested; they do not authorize or enable any execution writes.
-Implement the forward database contracts, trusted adapters, custody and operator
-actions, then verify conservation, HTTP authorization, concurrency and recovery.
-Do not ask for another milestone authorization. D3 remains incomplete.
-Dispatch and installation remain outside the D3 implementation scope.
+Recipe publication prerequisite is implemented in code checkpoint
+`d53a87ff8fb50d7ce509baced4ba9b2a9aa7540d`:
+`POST /api/v1/production-planning/recipe-versions`, canonical units only,
+admin/session capability required, synthetic migration 23 explicit activation.
+See `docs/erp/ui-ux/D3_TRUSTED_RECIPE_PUBLICATION.md` and
+`docs/erp/ui-ux/D3_COMPLETION_ACCEPTANCE.md`.
 
-Preserve unrelated AGENTS.md edits. Use `/new` or `/compact` for new work.
+D3 remains incomplete. Keep all other execution guards; do not route approved
+recipes through legacy material issue. Historical recipe families remain
+untrusted. Custody, packing/QC, UI mutations and recovery acceptance follow
+Priority 1. No dispatch, deployment, real data activation or D4.
+Preserve unrelated AGENTS.md. No new authorization needed. Use `/compact`.

@@ -1,6 +1,18 @@
 # ERP state — historical implementation notes
 
-## Milestone 13M-D2B2-B — 2026-10-19 — current
+## D3 partial implementation — 2026-10-19 — current
+
+Trusted immutable canonical recipe publication is implemented and tested through
+authenticated HTTP and the existing session capability writer. Synthetic-only
+migration 23 preserves historical recipes and other execution guards. Final
+suite: 605 passed, one opt-in recovery skipped; typecheck and all builds passed.
+Stock/commitment fingerprints unchanged. Material issue itself, exclusive output
+binding/material entitlements, output custody, packing/QC integration, operator
+mutations and fresh recovery acceptance remain incomplete. D3 is authorized;
+continue without another milestone approval. See
+docs/erp/ui-ux/D3_TRUSTED_RECIPE_PUBLICATION.md for current evidence and limits.
+
+## Milestone 13M-D2B2-B — 2026-10-19 — historical
 
 PASS for isolated synthetic receipt/QC acceptance; production remains gated.
 Legacy receipt paths fail closed. Trusted HTTP receipt/QC, exact stock posting,
