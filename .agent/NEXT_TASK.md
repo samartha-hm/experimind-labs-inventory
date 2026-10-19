@@ -1,20 +1,17 @@
-# Next substantial phase
+# D3 stopping point
 
-Current mission complete: D2B2-B isolated receipt/QC accepted and packing timeout
-fixed. Acceptance checkpoint: `8ba7cc5565f29197eb6c9f80e3249719fcbdb96e` (pushed,
-full remote/local SHA verified). Read SESSION_HANDOFF.md and the consolidated
-`docs/erp/ui-ux/MILESTONE_13M_D2B2_B_S_FALLBACK_AND_RECOVERY.md` first.
+Read `docs/erp/ui-ux/D3_PRODUCTION_PACKING_EXECUTION_REPORT.md`.
+Integrated production/packing execution remains BLOCKED by missing trusted
+source-transfer, irreversible consumption, exact obligation allocation and
+QC-accepted output custody contracts. Preserve all existing commitments.
 
-Stop here. Do not start D3 without separate user authorization.
+Authenticated read-only operator readiness and fail-closed service/SQL guards
+are implemented. No historical mapping, real stock activation, deployment,
+main merge, force push or D4 work was performed or authorized.
 
-Proposed next coherent phase: approved school demand → reserved/accepted stock →
-production → packing/QC/QR, with trusted adapters, usable role-aware screens,
-capability issuance and integrated conservation/concurrency/recovery acceptance.
-Preserve Science grade common crates, complete-set universal crates, independent
-Math kits and exclusive shared materials. Then integrate dispatch, installation
-and closure; complete operational readiness after independent review and real
-hardware/stock/staff evidence. The acceptance report lists dependencies and gates.
+A separately authorized phase must resolve the listed domain contracts and
+demonstrate conservation, capability authorization, concurrency and recovery
+before enabling mutation. Dispatch and installation additionally require a
+trusted package custody handoff and real hardware/staff validation.
 
-Preserve unrelated AGENTS.md. No real stock mutation, production activation,
-historical lineage guesses, deployment, main merge or force push.
-Use `/new` or `/compact` before the separately authorized next phase.
+Preserve unrelated AGENTS.md edits. Use `/new` or `/compact` for new work.

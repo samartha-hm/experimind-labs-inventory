@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useExecutionReadiness } from "../production/useExecutionReadiness";
 import { useAuth } from "../../AuthContext";
 import { apiFetch } from "../../utils/api";
 import type { PlanningView } from "../projects/planningTypes";
@@ -13,8 +14,9 @@ export default function PackingPanel({ project }: { project?: PlanningView }) {
 }
 function LegacyPackingPanel({ project }: { project?: PlanningView }) {
   const { currentUser } = useAuth(), role = currentUser?.role ?? "";
-  const writer = ["admin", "super_admin", "manager", "staff", "inventory_staff", "production_staff", "project_staff", "editor"].includes(role);
-  const approver = ["admin", "super_admin", "manager"].includes(role), inspector = approver || role === "inventory_staff";
+  const readiness = useExecutionReadiness('packing');
+  const writer = readiness.enabled && ["admin", "super_admin", "manager", "staff", "inventory_staff", "production_staff", "project_staff", "editor"].includes(role);
+  const approver = readiness.enabled && ["admin", "super_admin", "manager"].includes(role), inspector = readiness.enabled && (approver || role === "inventory_staff");
   const [orders, setOrders] = useState<PackingOrderSummary[]>([]), [detail, setDetail] = useState<PackingDetail>();
   const [busy, setBusy] = useState(false), [error, setError] = useState("");
   const [site, setSite] = useState(""), [batch, setBatch] = useState("");
@@ -36,15 +38,16 @@ function LegacyPackingPanel({ project }: { project?: PlanningView }) {
   const act = (verb: string, extra: object = {}) => void run(async () => { await write(`/orders/${order!.id}/${verb}`, { revision:order!.revision, ...extra }); await open(order!.id); });
   return <section className="space-y-4 rounded-2xl border border-slate-300 p-4">
     <h2 className="text-xl font-bold">Assembly, packing and QC</h2>
+    {readiness.notice}
     {error && <p role="alert" className="text-red-600">{error}</p>}
     {writer && project && <div className="flex flex-wrap gap-2">
       <select aria-label="Packing school" className={input} value={site} onChange={e=>setSite(e.target.value)}>{project.sites.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</select>
       <input aria-label="Packing batch code" placeholder="Batch code" className={input} value={batch} onChange={e=>setBatch(e.target.value)}/>
       <button className={button} disabled={busy || !site || !batch.trim()} onClick={()=>void run(async()=>{const o=await write("/orders",{project_id:project.id,site_id:site,demand_revision:project.revision,batch_code:batch});await open(o.id);setSelected([]);})}>Generate packing order</button>
     </div>}
-    <div className="flex flex-wrap gap-2">{orders.filter(o=>!project || o.project_id===project.id).map(o=><button className={button} disabled={busy} key={o.id} onClick={()=>void run(async()=>{await open(o.id);setSelected([]);})}>{o.site_name || o.number} · {o.batch_code} · {o.status === "ready" ? "Ready for Delivery" : o.status}</button>)}</div>
+    <div className="flex flex-wrap gap-2">{orders.filter(o=>!project || o.project_id===project.id).map(o=><button className={button} disabled={busy} key={o.id} onClick={()=>void run(async()=>{await open(o.id);setSelected([]);})}>{o.site_name || o.number} · {o.batch_code} · {o.status === "ready" ? "Packing QC complete · dispatch authorization required" : o.status}</button>)}</div>
     {order && <>
-      <p>{order.number} · {order.snapshot.project_name} / {order.snapshot.site_name} · revision {order.revision} · <strong>{order.status === "ready" ? "Ready for Delivery" : order.status}</strong></p>
+      <p>{order.number} · {order.snapshot.project_name} / {order.snapshot.site_name} · revision {order.revision} · <strong>{order.status === "ready" ? "Packing QC complete · dispatch authorization required" : order.status}</strong></p>
       <p className="text-sm">Assigned: {order.assigned_team || "No team"} · {order.assigned_employee_id || "No operator"}</p>
       {writer && <div className="flex flex-wrap gap-2">
         {approver && order.status==="draft" && <button className={button} disabled={busy} onClick={()=>act("release")}>Release for packing</button>}

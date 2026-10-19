@@ -10,6 +10,8 @@ import { replayCommitments, planningUnits } from "../../services/CommitmentLedge
 import { TrustedLedgerAuthority, type LedgerRequest } from "../../security/TrustedLedgerAuthority";
 import { assertDatabaseBoundary, configureDatabaseBoundary, sqlIdentifier } from "../../security/databaseBoundary";
 import { withReceiptHttp } from "./receiptHttp.cases";
+import { blockedExecutionTables } from "../../migration/1792886400022-BlockUnintegratedExecution";
+import { executionReadiness } from "../../services/ExecutionReadinessService";
 
 const phase=process.env.RECEIPT_RECOVERY_PHASE;
 it.skipIf(!phase)("restarts restricted authenticated receipt HTTP against a nonempty recovered database",async()=>{
@@ -24,7 +26,7 @@ it.skipIf(!phase)("restarts restricted authenticated receipt HTTP against a none
     extra:{max:2,options:`-c search_path=pg_catalog,${schema},pg_temp`}};
   const owner=await new DataSource(options).initialize(),pools:DataSource[]=[],suffix=randomBytes(8).toString("hex");
   const roles={runtime:`rrt_${suffix}`,identity:`rid_${suffix}`,ledger:`rlg_${suffix}`};
-  const tables=["commitment_accounts","commitment_entitlements","commitment_balances","commitment_claims","commitment_sources",
+  const tables=[...blockedExecutionTables,"commitment_accounts","commitment_entitlements","commitment_balances","commitment_claims","commitment_sources",
     "commitment_events","commitment_authorizations","commitment_reservations","commitment_pr_lines","commitment_po_lines",
     "commitment_po_coverage","commitment_receipts","commitment_receipt_decisions","project_stock_reservations","supply_events",
     "requirement_execution_bindings","purchase_requests","purchase_orders","purchase_goods_receipts","stock_ledger","physical_stock_scopes"];
@@ -40,6 +42,9 @@ it.skipIf(!phase)("restarts restricted authenticated receipt HTTP against a none
     await owner.transaction(m=>configureDatabaseBoundary(m,schema,roles));
     for(const pool of pools)await pool.initialize();
     const [runtime,identity,writer]=pools;
+    expect((await executionReadiness(runtime)).execution_enabled).toBe(false);
+    await expect(owner.query("UPDATE production_work_orders SET id=id")).rejects.toMatchObject({code:"23514"});
+    for(const pool of pools) await expect(pool.query("UPDATE packing_orders SET id=id")).rejects.toMatchObject({code:"42501"});
     for(const [index,kind] of (["runtime","identity","ledger"] as const).entries())await assertDatabaseBoundary(pools[index],kind,schema);
     const fingerprint=async()=>Object.fromEntries(await Promise.all(tables.map(async t=>[t,(await runtime.query(
       `SELECT count(*)::int count,md5(coalesce(string_agg(row_to_json(t)::text,'' ORDER BY row_to_json(t)::text),'')) hash FROM ${t} t`))[0]])));

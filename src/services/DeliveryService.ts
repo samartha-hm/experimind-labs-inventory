@@ -6,6 +6,7 @@ import { SupplyEvent, SupplyOperation } from "../entity/SupplyPlanning";
 import { DraftKitError } from "./ProductTemplateService";
 import type { PackingOrder } from "../features/packing/packingTypes";
 import type { DeliveryOrder, DeliveryState, CustodyEvent } from "../features/delivery/deliveryTypes";
+import { assertExecutionSupported } from "./ExecutionReadinessService";
 const fail = (status: number, message: string): never => { throw new DraftKitError(status, message); };
 export class DeliveryService {
   constructor(protected readonly db: DataSource) {}
@@ -13,6 +14,7 @@ export class DeliveryService {
     if (!key || key.length > 100) fail(400, "Idempotency key required");
     const fingerprint = createHash("sha256").update(JSON.stringify(input)).digest("hex");
     return this.db.transaction(async m => {
+      await assertExecutionSupported(m);
       await m.query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))", [org + ":" + key]);
       const old = await m.findOneBy(SupplyOperation, { organization_id: org, key });
       if (old) { if (old.actor_id !== actor || old.fingerprint !== fingerprint) fail(409, "Idempotency key already used"); return old.result as T; }

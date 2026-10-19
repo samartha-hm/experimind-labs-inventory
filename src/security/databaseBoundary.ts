@@ -1,10 +1,14 @@
 import type { DataSource, EntityManager } from "typeorm";
+import { blockedExecutionTables } from "../migration/1792886400022-BlockUnintegratedExecution";
 
 export const ledgerTables = ["commitment_accounts", "commitment_entitlements", "commitment_balances",
   "commitment_claims", "commitment_sources", "commitment_events", "commitment_reconciliation_cases", "commitment_authorizations"];
 export const identityTables = ["users", "roles", "refresh_tokens", "sessions"];
 export const sqlIdentifier = (name: string): string => `"${name.replaceAll('"', '""')}"`;
 type Sql = Pick<EntityManager, "query">;
+async function executionBlockedTables(db: Sql): Promise<string[]> {
+  return (await db.query("SELECT to_regprocedure('guard_d3_execution()') IS NOT NULL installed"))[0].installed ? blockedExecutionTables : [];
+}
 const reservationWrites = ["project_stock_reservations", "supply_events", "requirement_execution_bindings"];
 const receiptWrites = ["commitment_receipts", "commitment_receipt_decisions", "purchase_goods_receipts", "stock_ledger"];
 async function receiptInstalled(db: Sql, schema: string): Promise<boolean> {
@@ -33,7 +37,8 @@ export async function configureDatabaseBoundary(db: Sql, schema: string,
   const receipt=await receiptInstalled(db,schema);
   const poWrites=[...(po?["commitment_po_lines","commitment_po_coverage","purchase_orders"]:[]),...(receipt?receiptWrites:[])];
   const prWrites=[...(pr?["commitment_pr_lines","purchase_requests"]:[]),...poWrites];
-  const protectedTables = [...ledgerTables,...(d2 ? ["commitment_reservations",...reservationWrites] : []),...prWrites];
+  const executionTables = await executionBlockedTables(db);
+  const protectedTables = [...ledgerTables,...(d2 ? ["commitment_reservations",...reservationWrites] : []),...prWrites,...executionTables];
   await db.query(`REVOKE ALL ON SCHEMA ${s} FROM PUBLIC;
     REVOKE ALL ON ALL TABLES IN SCHEMA ${s} FROM PUBLIC;
     REVOKE ALL ON ALL SEQUENCES IN SCHEMA ${s} FROM PUBLIC;
@@ -79,6 +84,12 @@ export async function configureDatabaseBoundary(db: Sql, schema: string,
   if (po) await db.query(`GRANT SELECT ON ${s}.vendors,${s}.purchase_goods_receipts,${s}.purchase_order_lines TO ${ledger}`);
   // Stock is append-only. Other protected receipt tables also have immutable/final-state guards.
   if (receipt) await db.query(`REVOKE UPDATE ON ${s}.stock_ledger FROM ${ledger}`);
+  for (const table of executionTables) for (const role of [identity, ledger]) {
+    const t = `${s}.${sqlIdentifier(table)}`;
+    await db.query(`REVOKE ALL ON ${t} FROM ${role}; GRANT SELECT ON ${t} TO ${role}`);
+    const columns: {attname:string}[] = await db.query("SELECT attname FROM pg_attribute WHERE attrelid=$1::regclass AND attnum>0 AND NOT attisdropped", [t]);
+    for (const {attname} of columns) await db.query(`REVOKE ALL (${sqlIdentifier(attname)}) ON ${t} FROM ${role}`);
+  }
   const functions: { signature: string; proname: string; prosecdef: boolean }[] = await db.query(`
     SELECT p.oid::regprocedure::text signature,p.proname,p.prosecdef FROM pg_proc p
     JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname=$1`, [schema]);
@@ -106,6 +117,7 @@ export async function assertDatabaseBoundary(db: DataSource, kind: "runtime" | "
   schema: string): Promise<void> {
   const fail = () => { throw new Error(`Unsafe ${kind} database authority; operator provisioning required`); };
   const d2=await reservationInstalled(db,schema);
+  const executionTables=await executionBlockedTables(db);
   const pr=await purchaseRequestInstalled(db,schema);
   const po=await purchaseOrderInstalled(db,schema);
   const receipt=await receiptInstalled(db,schema);
@@ -149,7 +161,7 @@ export async function assertDatabaseBoundary(db: DataSource, kind: "runtime" | "
     WHERE n.nspname=$1 AND c.relkind IN ('r','p')`, [schema]);
   for (const {relname} of tables) {
     const t = `${sqlIdentifier(schema)}.${sqlIdentifier(relname)}`;
-    const operational = ![...ledgerTables,...d2Tables,...identityTables,"migrations","typeorm_metadata"].includes(relname);
+    const operational = ![...ledgerTables,...d2Tables,...identityTables,...executionTables,"migrations","typeorm_metadata"].includes(relname);
     const writable = kind === "runtime" ? operational : kind === "identity" ? identityTables.includes(relname) : [...ledgerTables,...d2Tables].includes(relname);
     for (const privilege of ["INSERT","UPDATE","DELETE","TRUNCATE","REFERENCES","TRIGGER"]) {
       const allowed = writable && ["INSERT",...(kind === "ledger" && receipt && relname === "stock_ledger" ? [] : ["UPDATE"]),...(kind === "ledger" ? [] : ["DELETE"])].includes(privilege) ||

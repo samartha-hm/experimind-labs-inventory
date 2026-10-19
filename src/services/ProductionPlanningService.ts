@@ -1,4 +1,5 @@
 import {DataSource,EntityManager,IsNull} from "typeorm";
+import {assertExecutionSupported} from "./ExecutionReadinessService";
 import {randomUUID,createHash} from "node:crypto";
 import {InventoryItem} from "../entity/InventoryItem";
 import {User} from "../entity/User";
@@ -22,6 +23,7 @@ export class ProductionPlanningService {
     if(!key||key.length>100)fail(400,"Idempotency key required");
     const fingerprint=createHash("sha256").update(JSON.stringify(input)).digest("hex");
     return this.db.transaction(async m=>{
+      await assertExecutionSupported(m);
       await m.query(`SELECT pg_advisory_xact_lock(hashtextextended($1,0))`,[org+":"+key]);
       const old=await m.findOneBy(SupplyOperation,{organization_id:org,key});
       if(old){if(old.fingerprint!==fingerprint||old.actor_id!==actor)fail(409,"Idempotency key already used");return old.result as T;}

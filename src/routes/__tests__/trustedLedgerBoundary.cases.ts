@@ -156,6 +156,7 @@ export function trustedLedgerBoundaryTests(get: () => Harness, fixture: () => Pr
       h.evidence.trusted_boundary={actual_login:true,denied,functions_denied:functions.length,authenticated_http:"PASS",retry:"same immutable event",
         actor:event.actor_id,pool_identity_isolated:true,operational_tables_unchanged:true,role_cleanup:"DROP OWNED / DROP ROLE"};
       await verifyReservationCommitments({...h,runtime,writer,identity,schema,roles,auth,password,fixture});
+      await verifyExecutionBoundary({...h,runtime,writer,identity,schema,roles});
     } finally {
       if(close) await close();
       for(const pool of pools) if(pool.isInitialized) await pool.destroy();
@@ -165,3 +166,4 @@ export function trustedLedgerBoundaryTests(get: () => Harness, fixture: () => Pr
     }
   },30000);
 }
+import { verifyExecutionBoundary } from "./executionBoundary.cases";

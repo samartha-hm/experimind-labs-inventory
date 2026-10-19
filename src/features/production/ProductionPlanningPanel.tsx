@@ -1,4 +1,5 @@
 import {useEffect,useState} from "react";
+import {useExecutionReadiness} from "./useExecutionReadiness";
 import {useAuth} from "../../AuthContext";
 import {apiFetch} from "../../utils/api";
 import type {ProductionRecipe,ProductionWorkOrder,ProductionInputReservation,ProductionInputIssue,ProductionBatch,RecipeInput,RecipeDefinition} from "../../entity/ProductionPlanning";
@@ -9,7 +10,8 @@ interface Detail {order:ProductionWorkOrder;availability:{id:string;name:string;
 const input="min-h-11 rounded-xl border border-slate-300 bg-transparent p-3",button="min-h-11 rounded-xl border border-slate-300 px-4 py-3 disabled:opacity-40";
 export default function ProductionPlanningPanel({project,onChange}:{project?:PlanningView;onChange?:()=>void}){
   const {currentUser}=useAuth(),role=currentUser?.role??"";
-  const writer=["admin","super_admin","manager","staff","inventory_staff","production_staff","project_staff","editor"].includes(role),approver=["admin","super_admin","manager"].includes(role),inspector=["admin","super_admin","manager","inventory_staff"].includes(role);
+  const readiness=useExecutionReadiness("production-planning");
+  const writer=readiness.enabled&&["admin","super_admin","manager","staff","inventory_staff","production_staff","project_staff","editor"].includes(role),approver=readiness.enabled&&["admin","super_admin","manager"].includes(role),inspector=readiness.enabled&&["admin","super_admin","manager","inventory_staff"].includes(role);
   const [items,setItems]=useState<Item[]>([]),[recipes,setRecipes]=useState<ProductionRecipe[]>([]),[orders,setOrders]=useState<ProductionWorkOrder[]>([]),[detail,setDetail]=useState<Detail>();
   const [error,setError]=useState(""),[busy,setBusy]=useState(false),[retryKeys]=useState(()=>new Map<string,string>());
   const [recipeName,setRecipeName]=useState(""),[output,setOutput]=useState(""),[yieldQ,setYield]=useState("1"),[inputs,setInputs]=useState<RecipeInput[]>([]),[editing,setEditing]=useState<ProductionRecipe>();
@@ -29,6 +31,7 @@ export default function ProductionPlanningPanel({project,onChange}:{project?:Pla
   const selectItem=(value:string,set:(s:string)=>void,setU:(s:string)=>void)=>{set(value);setU(items.find(i=>i.id===value)?.unit??"");};
   return <section className="space-y-4 rounded-2xl border border-slate-300 p-4">
     <h2 className="text-xl font-semibold">Production and in-house preparation</h2>
+    {readiness.notice}
     <p className="text-sm text-slate-500">Input allocations share verified stock with project reservations. Only issued inputs and QC-accepted output move physical stock. Count every declared output location, including an explicit zero opening count, before release. Production recipes are separate from educational kit templates.</p>
     {error&&<p role="alert" className="text-red-600">{error}</p>}
     <fieldset disabled={busy} className="space-y-4"><button className={button} onClick={()=>void run(async()=>{await load();if(w)await open(w.id);})}>Refresh production</button>

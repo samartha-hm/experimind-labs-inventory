@@ -1,5 +1,17 @@
 # Session handoff — 2026-10-19
 
+D3 supersedes the next-phase instructions below. Its consolidated report is
+`docs/erp/ui-ux/D3_PRODUCTION_PACKING_EXECUTION_REPORT.md`. Integrated execution
+is BLOCKED: trusted source transfer, consumption and output custody are absent.
+Readiness/UI and service guards fail closed; explicit synthetic migration 22
+also blocks production/packing/dispatch/installation/closure SQL and restricts
+all three LOGIN roles. Preserve the guard and historical provenance.
+Final full suite: 582 passed, one separately executed opt-in recovery skipped.
+See the D3 report for fresh build/recovery evidence and checkpoint ancestry.
+Stop after D3. No D4, deployment, real data activation or main merge authorized.
+
+## Prior receipt acceptance context
+
 D2B2-B receipt/QC acceptance is complete for isolated synthetic PostgreSQL.
 Acceptance commit `8ba7cc5565f29197eb6c9f80e3249719fcbdb96e` was pushed to
 `feature/kit-builder-milestone-1`; full local/remote SHA matched.

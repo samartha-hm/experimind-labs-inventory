@@ -61,6 +61,7 @@ export function productionPlanningRouter(db:DataSource){
     if(read?!writers.has(current.role)&&current.role!=="viewer":!roles.has(current.role))throw new DraftKitError(403,"Production permission denied");if(!read&&!req.header("Idempotency-Key"))throw new DraftKitError(400,"Idempotency-Key required");next();}));
   r.param("id",(_req,_res,next,id:string)=>next(uuid.test(id)?undefined:new DraftKitError(400,"Invalid identity")));
   const key=(req:Parameters<RequestHandler>[0])=>req.header("Idempotency-Key")!;
+  r.get("/execution-readiness",action(async(_req,res)=>{res.setHeader("Cache-Control","no-store");res.json(await executionReadiness(db));}));
   r.get("/",action(async(req,res)=>{res.json(await s.list(req.user!.orgId!));}));
   r.get("/orders/:id",action(async(req,res)=>{res.json(await s.detail(req.user!.orgId!,req.params.id));}));
   r.post("/recipes",action(async(req,res)=>{const d=await dto(req.body,RecipeDto);res.status(201).json(await s.recipe(req.user!.orgId!,req.user!.id,key(req),d.name,d.definition));}));
@@ -75,3 +76,4 @@ export function productionPlanningRouter(db:DataSource){
   r.post("/orders/:id/qc",action(async(req,res)=>{const d=await dto(req.body,QcDto);res.status(201).json(await s.qc(req.user!.orgId!,req.user!.id,key(req),req.params.id,d.revision,d.batch_id,d.batch_revision,d.quantity,d.decision,d.notes));}));
   r.use(((e:unknown,_req,res,next)=>{if(e instanceof DraftKitError)res.status(e.status).json({error:e.message});else next(e);}) as import("express").ErrorRequestHandler);return r;
 }
+import { executionReadiness } from "../../services/ExecutionReadinessService";

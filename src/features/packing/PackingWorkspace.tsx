@@ -26,7 +26,7 @@ export function PackingWorkspace({ projectId }: { projectId?: string; key?: stri
   const [orders, setOrders] = useState<PackingOrderSummary[]>([]), [detail, setDetail] = useState<PackingDetail>();
   const [selected, setSelected] = useState(''), [scan, setScan] = useState(''), [filter, setFilter] = useState('');
   const [busy, setBusy] = useState(false), [error, setError] = useState(''), [notice, setNotice] = useState('');
-  const [identity, setIdentity] = useState<{ role: string; user_id: string; execution_enabled: boolean }>();
+  const [identity, setIdentity] = useState<{ role: string; user_id: string; execution_enabled: boolean; blocker?: string | null }>();
   const [locked, setLocked] = useState(false);
   const [focusRequest, setFocusRequest] = useState(0);
   const generation = useRef(0), heading = useRef<HTMLHeadingElement>(null), scanner = useRef<HTMLInputElement>(null);
@@ -37,7 +37,7 @@ export function PackingWorkspace({ projectId }: { projectId?: string; key?: stri
   async function load(id?: string, packageId?: string) {
     const request = ++generation.current; setBusy(true); setError(''); setNotice('');
     try {
-      const capabilities: { enabled: boolean; role: string; user_id: string; execution_enabled: boolean } = await apiFetch(root);
+      const capabilities: { enabled: boolean; role: string; user_id: string; execution_enabled: boolean; blocker?: string | null } = await apiFetch(root);
       if (!capabilities.enabled) throw new Error('Packing workspace unavailable. Return to operational packing.');
       const list: PackingOrderSummary[] = await apiFetch(`${root}/orders`);
       const target = id ? await apiFetch(`${root}/orders/${id}`) as PackingDetail : undefined;
@@ -89,6 +89,7 @@ export function PackingWorkspace({ projectId }: { projectId?: string; key?: stri
       <label htmlFor="pw-scan">Scan or enter package label</label><div><input ref={scanner} id="pw-scan" value={scan} onChange={e => setScan(e.target.value)} placeholder="PK code, package UUID or ERP QR URL" autoComplete="off" spellCheck={false} /><button disabled={busy || locked || !scan.trim()}>Look up package</button></div><p>Keyboard scanner input + Enter performs lookup only. Physical scanner validation pending.</p>
     </form>
     {busy && <p role="status">Loading authorized records…</p>}{error && <p className="pw-alert" role="alert">{error}</p>}{notice && <p role="status">{notice}</p>}
+    {identity?.blocker && <p className="pw-alert" role="status">{identity.blocker}</p>}
     {identity?.execution_enabled && <PackingExecution detail={detail} selected={selected} actor={`${identity.user_id}`} onReload={load} onLock={setLocked} />}
     <div className="pw-layout"><nav aria-label="Packing orders and packages" className="pw-card">
       <h3>Destination queue</h3><p>Latest 200 authorized orders{projectId ? ' · current project' : ''}. Refresh for new records.</p>

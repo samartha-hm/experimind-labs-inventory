@@ -1,4 +1,5 @@
 import { packingExecutionBlocker, packingInspectors } from "../features/packing/workspaceContract";
+import {assertExecutionSupported} from "./ExecutionReadinessService";
 import {DataSource,EntityManager,In,IsNull} from "typeorm";
 import {createHash,randomUUID} from "node:crypto";
 import {InventoryItem} from "../entity/InventoryItem";
@@ -22,7 +23,7 @@ export class PackingService {
   constructor(private readonly db:DataSource){}
   private async operation<T>(org:string,actor:string,key:string,input:unknown,run:(m:EntityManager)=>Promise<T>):Promise<T>{
     if(!key||key.length>100)fail(400,"Idempotency key required");const fingerprint=createHash("sha256").update(JSON.stringify(input)).digest("hex");
-    return this.db.transaction(async m=>{await m.query(`SELECT pg_advisory_xact_lock(hashtextextended($1,0))`,[org+":"+key]);const old=await m.findOneBy(SupplyOperation,{organization_id:org,key});
+    return this.db.transaction(async m=>{await assertExecutionSupported(m);await m.query(`SELECT pg_advisory_xact_lock(hashtextextended($1,0))`,[org+":"+key]);const old=await m.findOneBy(SupplyOperation,{organization_id:org,key});
       if(old){if(old.actor_id!==actor||old.fingerprint!==fingerprint)fail(409,"Idempotency key already used");return old.result as T;}
       const result=await run(m);await m.insert(SupplyOperation,{organization_id:org,actor_id:actor,key,fingerprint,result:JSON.parse(JSON.stringify(result)) as unknown});return result;});
   }

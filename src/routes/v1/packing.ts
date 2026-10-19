@@ -80,9 +80,11 @@ export function packingRouter(db: DataSource) {
   }));
   r.param("id", (_req, _res, next, id: string) => next(uuid.test(id) ? undefined : new DraftKitError(400, "Invalid identity")));
   const key = (req: Parameters<RequestHandler>[0]) => req.header("Idempotency-Key")!;
+  r.get('/execution-readiness', action(async (_req,res) => { res.setHeader('Cache-Control','private, no-store'); res.json(await executionReadiness(db)); }));
   r.get('/workspace', action(async (req, res) => {
     res.setHeader('Cache-Control', 'private, no-store');
-    res.json({ enabled: packingWorkspaceEnabled(req.user!.orgId!, process.env), execution_enabled: packingExecutionEnabled(req.user!.orgId!, process.env), role: req.user!.role, user_id: req.user!.id });
+    const readiness = await executionReadiness(db);
+    res.json({ enabled: packingWorkspaceEnabled(req.user!.orgId!, process.env), execution_enabled: readiness.execution_enabled && packingExecutionEnabled(req.user!.orgId!, process.env), blocker: readiness.blocker, role: req.user!.role, user_id: req.user!.id });
   }));
   r.use('/workspace', (req, res, next) => {
     res.setHeader('Cache-Control', 'private, no-store');
@@ -92,7 +94,8 @@ export function packingRouter(db: DataSource) {
   });
   r.get('/workspace/orders/:id/capabilities', action(async (req, res) => {
     const { order } = await s.detail(req.user!.orgId!, req.params.id);
-    const reason = !packingExecutionEnabled(req.user!.orgId!, process.env) ? 'Execution flag disabled' : !packingWriters.has(req.user!.role!) ? 'Packing permission denied' : null;
+    const readiness = await executionReadiness(db);
+    const reason = readiness.blocker ?? (!packingExecutionEnabled(req.user!.orgId!, process.env) ? 'Execution flag disabled' : !packingWriters.has(req.user!.role!) ? 'Packing permission denied' : null);
     res.json({ revision: order.revision, packages: Object.fromEntries(order.snapshot.packages.map(p => [p.id, { blocker: reason ?? packingExecutionBlocker(order, p.id), inspection_blocker: reason ?? packingInspectionBlocker(order, p.id, req.user!.role!) }])) });
   }));
   r.post('/workspace/orders/:id/inspection-rejection', action(async (req, res) => {
@@ -129,3 +132,4 @@ export function packingRouter(db: DataSource) {
   r.use(((e: unknown, _req, res, next) => { if (e instanceof DraftKitError) res.status(e.status).json({ error: e.message }); else next(e); }) as import("express").ErrorRequestHandler);
   return r;
 }
+import { executionReadiness } from "../../services/ExecutionReadinessService";
