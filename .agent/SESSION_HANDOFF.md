@@ -1,5 +1,14 @@
 # Session handoff — 2026-10-19
 
+The subsequent D3 completion request is authorized and remains incomplete.
+Read `docs/erp/ui-ux/D3_COMPLETION_ACCEPTANCE.md` first. The user explicitly
+authorized separate capped raw-material entitlements derived from an approved
+recipe and exclusively claimed output quantity. Exact arithmetic/partition
+helpers are implemented and tested; database authority, source transfer, stock
+issue, output custody and supported operator mutations remain unimplemented.
+Continue that work without requesting another milestone authorization.
+The checkpoint below is historical; its blocked execution guards still apply.
+
 D3 supersedes the next-phase instructions below. Its consolidated report is
 `docs/erp/ui-ux/D3_PRODUCTION_PACKING_EXECUTION_REPORT.md`. Integrated execution
 is BLOCKED: trusted source transfer, consumption and output custody are absent.
