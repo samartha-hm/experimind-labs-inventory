@@ -1,10 +1,9 @@
 # Next task
 
-Stop after D2B2-A. Await separate authorization for independent review of exact
-partial PO coverage, authority and settlement blocks using
-`docs/erp/ui-ux/MILESTONE_13M_D2B2_A_PO_COMMITMENTS.md` and its fingerprints.
+Stop after D2B2-A-R. Await separate authorization before isolated D2B2-B supplier
+receipt/QC work. Read docs/erp/ui-ux/MILESTONE_13M_D2B2_A_R_INDEPENDENT_REVIEW.md
+for exact lineage, conservation, retry, QC ownership and settlement prerequisites.
 
-Do not begin D2B2-B supplier receipts automatically. Its prerequisites are recorded
-in the acceptance report. Preserve unrelated AGENTS.md; no operational activation,
-historical matching, real stock changes, deployment or main merge.
+Cancellation, decrease and return-to-PR stay blocked. Preserve unrelated AGENTS.md.
+No deployment, main merge, historical activation or real stock changes.
 Use /new or /compact before the next milestone.
