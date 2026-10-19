@@ -178,36 +178,9 @@ export class SupplyPlanningService {
     });
   }
   async receive(org:string,actor:string,key:string,id:string,revision:number,lineId:string,q:string,unit:string,location:string) {
-    return this.operation(org,actor,key,["receive",id,revision,lineId,q,unit,location],async m=>{
-      const po=await m.findOne(PurchaseOrder,{where:{id,organization_id:org,planning_revision:Not(IsNull())},lock:{mode:"pessimistic_write"}});if(!po)fail(404,"Verified purchase order not found");
-      if(po.planning_revision!==revision||po.status!=="approved"||!po.approved_by)fail(409,"Current approved order required before receipt");
-      const l=po.planning_lines!.find(l=>l.id===lineId);if(!l)fail(404,"Purchase order line not found");
-      const item=await this.item(m,org,l.item_id,true);const converted=await this.canonical(m,org,item,q,unit);
-      const delivered:{q:string}[]=await m.query(`SELECT COALESCE(SUM(quantity),0)::text q FROM purchase_goods_receipts WHERE organization_id=$1 AND po_id=$2 AND line_id=$3`,[org,id,lineId]);
-      if(stockUnits(delivered[0].q)+stockUnits(converted.canonical_quantity)>stockUnits(l.canonical_quantity))fail(409,"Receipt exceeds authorized remaining quantity; a new approved order is required");
-      const scope=await m.query(`SELECT locations FROM physical_stock_scopes WHERE organization_id=$1 AND item_id=$2 AND unit=$3`,[org,item.id,item.unit]) as {locations:string[]}[];
-      if(!scope[0]?.locations.includes(location))fail(409,"Receipt location must belong to the declared verified item scope");
-      const g=await m.save(PurchaseGoodsReceipt,m.create(PurchaseGoodsReceipt,{organization_id:org,po_id:id,line_id:lineId,item_id:item.id,quantity:converted.canonical_quantity,unit:item.unit,location,received_by:actor,source:{quantity:q,unit,conversion_id:converted.conversion_id,conversion_factor:converted.conversion_factor}}));
-      await this.audit(m,org,actor,"receipt",g,1);
-      // Non-QC orders explicitly authorize acceptance at receipt; QC orders require an inspector action.
-      if(!l.qc_required)return this.inspectInTransaction(m,org,actor,g,"accept","PO does not require QC");return g;
-    });
-  }
-  private async inspectInTransaction(m:EntityManager,org:string,actor:string,g:PurchaseGoodsReceipt,action:"accept"|"reject"|"quarantine",reason:string) {
-    const item=await this.item(m,org,g.item_id,true);
-    if(!["pending","quarantined"].includes(g.status))fail(409,"Receipt already finalized");
-    if(action==="quarantine"&&g.status==="quarantined")fail(409,"Receipt already quarantined");
-    g.status=action==="accept"?"accepted":action==="reject"?"rejected":"quarantined";g.inspected_by=actor;g.reason=reason;g.revision++;
-    if(action==="accept")g.ledger_id=randomUUID();const saved=await m.save(g);
-    if(action==="accept")await postVerifiedSupplyMovement(m,org,item,g.location,stockUnits(g.quantity),actor,{receipt:g.id,ledger_id:g.ledger_id!});
-    await this.audit(m,org,actor,"receipt",saved,saved.revision);return saved;
+    fail(503,"Legacy receipt execution is disabled; use the guarded receipt authority with approved coverage");
   }
   async inspect(org:string,actor:string,key:string,id:string,revision:number,action:"accept"|"reject"|"quarantine",reason:string) {
-    return this.operation(org,actor,key,["inspect",id,revision,action,reason],async m=>{
-      const current=await m.findOneBy(PurchaseGoodsReceipt,{id,organization_id:org});if(!current)fail(404,"Goods receipt not found");
-      const po=await m.findOne(PurchaseOrder,{where:{id:current.po_id,organization_id:org},lock:{mode:"pessimistic_write"}});if(!po||po.status!=="approved")fail(409,"Approved order required");
-      const g=await m.findOne(PurchaseGoodsReceipt,{where:{id,organization_id:org},lock:{mode:"pessimistic_write"}});if(!g)fail(404,"Goods receipt not found");
-      if(g.revision!==revision)fail(409,"Goods receipt changed; reopen it");return this.inspectInTransaction(m,org,actor,g,action,reason);
-    });
+    fail(503,"Legacy QC execution is disabled; use the guarded receipt authority");
   }
 }

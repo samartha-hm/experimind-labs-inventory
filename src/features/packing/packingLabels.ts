@@ -29,7 +29,19 @@ export async function packingLabelPDF(order:PackingOrder, ids:string[], origin:s
     line(`Operator: ${progress?.packed_by??"unassigned"}`,52,t.width-39);
     line(`Inspector: ${progress?.checked_by??"pending"}`,57,t.width-39);
     if(t.materials){const materials=actualMaterials(order,id);const limit=Math.max(0,Math.floor((t.height-65)/4));materials.slice(0,limit).forEach((m,i)=>line(`${m.name}: ${m.quantity} ${m.unit}`,63+i*4,t.width-39));if(materials.length>limit)line("Full contents: scan QR",t.height-5,t.width-39);}
-    doc.addImage(await QRCode.toDataURL(packageDestination(origin,id),{errorCorrectionLevel:"M",margin:2,width:360}),"PNG",t.width-33,46,28,28);
+    // Draw native QR modules directly: PNG encoding/decoding scales poorly for whole batches.
+    // Keep the existing two-module quiet zone and 28 mm footprint on every reprint.
+    const { modules }=QRCode.create(packageDestination(origin,id),{errorCorrectionLevel:"M"});
+    const moduleSize=28/(modules.size+4), left=t.width-33+2*moduleSize, top=46+2*moduleSize;
+    doc.setFillColor("#000000");
+    for(let row=0;row<modules.size;row++) {
+      for(let column=0;column<modules.size;) {
+        if(!modules.get(row,column)){column++;continue;}
+        const start=column;
+        while(column<modules.size&&modules.get(row,column))column++;
+        doc.rect(left+start*moduleSize,top+row*moduleSize,(column-start)*moduleSize,moduleSize,"F");
+      }
+    }
   }
   return doc;
 }

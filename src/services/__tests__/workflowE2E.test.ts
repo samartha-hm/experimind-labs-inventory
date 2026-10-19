@@ -10,7 +10,7 @@ import { describe, it, expect, beforeAll, vi } from "vitest";
  * dispatch chain is exercised without a live PostgreSQL instance.
  *
  * Covered chain (readiness plan section 8, item 1):
- *   low stock -> replenishment request + approval -> partial receipt/backorder
+ *   low stock -> replenishment request + approval -> legacy receipt denial
  *   -> project readiness/shortage -> reservation -> dispatch
  */
 
@@ -352,6 +352,7 @@ vi.mock("../../db.ts", () => {
 });
 
 import { AppDataSource } from "../../db.ts";
+import { InventoryItem } from "../../entity/InventoryItem.ts";
 import { InventoryService } from "../InventoryService.ts";
 import { PurchaseOrderService } from "../PurchaseOrderService.ts";
 import { SalesOrderService } from "../SalesOrderService.ts";
@@ -476,83 +477,19 @@ describe("End-to-end operational workflow: low stock -> replenishment -> readine
     expect(Number(po.total_amount)).toBe(20 * 85);
   });
 
-  it("step 4 — records a partial receipt, keeps the backorder open, and posts the ledger", async () => {
+  it("step 4 — refuses legacy receipts without approved coverage and leaves stock unchanged", async () => {
     const [po] = await purchaseOrderService.list(ORG);
-    const line = po.lines[0];
-
-    const afterPartial = await purchaseOrderService.receiveItems(
-      po.id,
-      [{ lineId: line.id, quantityReceived: 8 }],
-      ORG,
-      "Receiver One",
-    );
-
-    // Stock increased by the received quantity only.
-    const refreshed = await inventoryService.getById(lowStockItem.id, ORG);
-    expect(Number(refreshed!.quantity)).toBe(4 + 8);
-
-    // PO stays open until every line is fully received.
-    expect(afterPartial.status).toBe("approved");
-    expect(afterPartial.lines[0].qty_received).toBe(8);
-
-    // An immutable PO_RECEIPT ledger entry was posted with the running balance.
-    const ledger = (AppDataSource as any).__rows("StockLedger");
-    const receiptEntry = ledger.find((e: any) => e.reference_id === po.po_number);
-    expect(receiptEntry).toBeDefined();
-    expect(receiptEntry.transaction_type).toBe("PO_RECEIPT");
-    expect(Number(receiptEntry.qty_delta)).toBe(8);
-    expect(Number(receiptEntry.running_balance)).toBe(12);
-
-    // The replenishment summary reports the remaining backorder quantity.
-    const summary = summarizeReplenishmentOrder(
-      {
-        status: afterPartial.status,
-        expectedDate: String(afterPartial.expected_date),
-        items: afterPartial.lines.map((l: any) => ({
-          quantity: l.qty_ordered,
-          receivedQty: l.qty_received,
-        })),
-      },
-      new Date("2026-09-24T00:00:00Z"),
-    );
-    expect(summary.status).toBe("backordered");
-    expect(summary.isOverdue).toBe(true);
-    expect(summary.remainingQty).toBe(12);
+    const before=JSON.stringify((AppDataSource as any).__rows("StockLedger"));
+    for(const quantityReceived of [8,12]) {
+      await expect(purchaseOrderService.receiveItems(po.id,[{lineId:po.lines[0].id,quantityReceived}],ORG,"Receiver"))
+        .rejects.toThrow(/guarded receipt authority/);
+    }
+    expect(Number((await inventoryService.getById(lowStockItem.id,ORG))!.quantity)).toBe(4);
+    expect(JSON.stringify((AppDataSource as any).__rows("StockLedger"))).toBe(before);
+    expect((await purchaseOrderService.list(ORG))[0].lines[0].qty_received).toBe(0);
   });
 
-  it("step 5 — closes the replenishment order after the backorder arrives", async () => {
-    const [po] = await purchaseOrderService.list(ORG);
-    const line = po.lines[0];
-
-    const afterFull = await purchaseOrderService.receiveItems(
-      po.id,
-      [{ lineId: line.id, quantityReceived: 12 }],
-      ORG,
-      "Receiver Two",
-    );
-
-    expect(afterFull.status).toBe("received");
-    expect(afterFull.lines[0].qty_received).toBe(20);
-
-    const refreshed = await inventoryService.getById(lowStockItem.id, ORG);
-    expect(Number(refreshed!.quantity)).toBe(24);
-
-    const summary = summarizeReplenishmentOrder(
-      {
-        status: afterFull.status,
-        expectedDate: String(afterFull.expected_date),
-        items: afterFull.lines.map((l: any) => ({
-          quantity: l.qty_ordered,
-          receivedQty: l.qty_received,
-        })),
-      },
-      new Date("2026-09-24T00:00:00Z"),
-    );
-    expect(summary.status).toBe("received");
-    expect(summary.remainingQty).toBe(0);
-  });
-
-  it("step 6 — surfaces the project shortage and resolves it after replenishment", async () => {
+  it("step 6 — surfaces the project shortage after legacy receipt denial", async () => {
     const project = {
       id: "PRJ-E2E-01",
       code: "PRJ-E2E",
@@ -593,8 +530,8 @@ describe("End-to-end operational workflow: low stock -> replenishment -> readine
     expect(shortages[0]).toMatchObject({
       name: "IR Sensor Board",
       required: 30,
-      available: 24,
-      shortage: 6,
+      available: 4,
+      shortage: 26,
     });
 
     const readiness = getProjectReadinessSummary(project);
@@ -609,7 +546,8 @@ describe("End-to-end operational workflow: low stock -> replenishment -> readine
   });
 
   it("step 7 — reserves stock with soft-locks and rejects over-reservation", async () => {
-    // 24 on hand after replenishment.
+    // Independent mock shipment fixture; legacy receipt denial above cannot replenish it.
+    await AppDataSource.getRepository(InventoryItem).save({...lowStockItem,quantity:24});
     const first = await CartReservationService.reserveStock({
       cartId: "cart-e2e-1",
       itemId: lowStockItem.id,
@@ -740,9 +678,9 @@ describe("End-to-end operational workflow: low stock -> replenishment -> readine
     const auditLogs = (AppDataSource as any).__rows("AuditLog");
     const ledger = (AppDataSource as any).__rows("StockLedger");
 
-    // Ledger covers receipts and shipments across the whole workflow.
+    // Only the independent shipment fixture produces ledger movements.
     const types = ledger.map((e: any) => e.transaction_type).sort();
-    expect(types).toEqual(["PO_RECEIPT", "PO_RECEIPT", "SO_SHIPMENT", "SO_SHIPMENT", "SO_SHIPMENT"]);
+    expect(types).toEqual(["SO_SHIPMENT", "SO_SHIPMENT", "SO_SHIPMENT"]);
 
     // Every ledger entry carries a reference to its source document.
     for (const entry of ledger) {

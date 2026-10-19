@@ -121,32 +121,24 @@ describe.skipIf(!url)("PostgreSQL reservation and procurement acceptance",()=>{
     supplierId=(await supply("POST","/suppliers",maker,{name:"Synthetic supplier"},201)).id;
     po=await supply("POST","/orders",maker,{request_id:pr.id,revision:pr.revision,supplier_id:supplierId},201);
     expect((await preview()).materials[0].incoming).toBe(0);
-    await supply("POST",`/orders/${po.id}/receipts`,maker,{revision:po.planning_revision,line_id:po.planning_lines[0].id,quantity:"0.5",unit:"m",location:"Shelf A"},409);
+    await supply("POST",`/orders/${po.id}/receipts`,maker,{revision:po.planning_revision,line_id:po.planning_lines[0].id,quantity:"0.5",unit:"m",location:"Shelf A"},503);
     po=await supply("POST",`/orders/${po.id}/review`,admin,{revision:po.planning_revision});
     await supply("POST",`/orders/${po.id}/approve`,maker,{revision:po.planning_revision},403);
     po=await supply("POST",`/orders/${po.id}/approve`,admin,{revision:po.planning_revision});
     expect((await preview()).materials[0]).toMatchObject({incoming:1.3,projected_shortage:0,immediate_shortage:1.3});
   });
-  it("keeps partial pending and quarantined receipts unavailable and accepts once",async()=>{
-    const body={revision:po.planning_revision,line_id:po.planning_lines[0].id,quantity:"0.5",unit:"m",location:"Shelf A"};const receiveKey=randomUUID();
-    receipt=await supply("POST",`/orders/${po.id}/receipts`,maker,body,201,receiveKey);expect(await supply("POST",`/orders/${po.id}/receipts`,maker,body,201,receiveKey)).toEqual(receipt);
-    expect(await balance()).toBe(2);receipt=await supply("POST",`/receipts/${receipt.id}/quarantine`,admin,{revision:receipt.revision,reason:"Await inspection"});expect(await balance()).toBe(2);
-    await supply("POST",`/receipts/${receipt.id}/accept`,maker,{revision:receipt.revision,reason:"Unauthorized"},403);
-    const accept={revision:receipt.revision,reason:"Inspection passed"};const key=randomUUID();receipt=await supply("POST",`/receipts/${receipt.id}/accept`,admin,accept,200,key);
-    expect(await supply("POST",`/receipts/${receipt.id}/accept`,admin,accept,200,key)).toEqual(receipt);
-    await supply("POST",`/receipts/${receipt.id}/accept`,admin,{revision:receipt.revision,reason:"Again"},409);
-    expect(await balance()).toBe(2.5);expect((await preview()).materials[0]).toMatchObject({verified_on_hand:2.5,active_reservations:2,available_to_promise:0.5,incoming:0.8,immediate_shortage:0.8});
-    expect((await db.query("SELECT COUNT(*)::int n FROM stock_ledger WHERE goods_receipt_id=$1",[receipt.id]))[0].n).toBe(1);
+  it("fails closed for old clients and QC without authority, including concurrent requests",async()=>{
+    const before=await db.query("SELECT * FROM stock_ledger ORDER BY id");
+    const receipts=await db.query("SELECT * FROM purchase_goods_receipts ORDER BY id");
+    const body={revision:po.planning_revision,line_id:po.planning_lines[0].id,quantity:"0.5",unit:"m",location:"Shelf A"};
+    await Promise.all([1,2].map(()=>supply("POST",`/orders/${po.id}/receipts`,maker,body,503)));
+    for(const verb of ["accept","reject","quarantine"])
+      await supply("POST",`/receipts/${randomUUID()}/${verb}`,admin,{revision:1,reason:"Legacy client"},503);
+    expect(await db.query("SELECT * FROM stock_ledger ORDER BY id")).toEqual(before);
+    expect(await db.query("SELECT * FROM purchase_goods_receipts ORDER BY id")).toEqual(receipts);
+    expect(await balance()).toBe(2);
   });
-  it("excludes rejected deliveries and prevents concurrent over-receipt",async()=>{
-    let rejected=await supply("POST",`/orders/${po.id}/receipts`,maker,{revision:po.planning_revision,line_id:po.planning_lines[0].id,quantity:"0.3",unit:"m",location:"Shelf B"},201);
-    rejected=await supply("POST",`/receipts/${rejected.id}/reject`,admin,{revision:rejected.revision,reason:"Failed inspection"});expect(rejected.ledger_id).toBeNull();expect(await balance()).toBe(2.5);
-    const body={revision:po.planning_revision,line_id:po.planning_lines[0].id,quantity:"0.4",unit:"m",location:"Shelf A"};
-    const responses=await Promise.all([1,2].map(()=>fetch(base+`/api/v1/supply-planning/orders/${po.id}/receipts`,{method:"POST",headers:{Authorization:`Bearer ${token(maker)}`,"Content-Type":"application/json","Idempotency-Key":randomUUID()},body:JSON.stringify(body)})));
-    expect(responses.map(r=>r.status).sort()).toEqual([201,409]);expect(await balance()).toBe(2.5);expect((await preview()).materials[0].incoming).toBe(0.5);
-    await supply("POST",`/receipts/${receipt.id}/accept`,other,{revision:receipt.revision,reason:"Foreign"},404);
-  });
-  it("supports manual request edits, cancellation and explicitly non-QC converted receipts",async()=>{
+  it("supports request edits and cancellation but denies automatic non-QC receipt",async()=>{
     await supply("POST","/requests",maker,{lines:[{item_id:wire.id,quantity:"0",unit:"m"}]},400);
     await supply("POST","/requests",maker,{lines:[{item_id:wire.id,quantity:"1",unit:"invalid"}]},400);
     let manual=await supply("POST","/requests",maker,{lines:[{item_id:wire.id,quantity:"10",unit:"cm",qc_required:false}]},201);
@@ -159,8 +151,8 @@ describe.skipIf(!url)("PostgreSQL reservation and procurement acceptance",()=>{
     order=await supply("POST",`/orders/${order.id}/review`,admin,{revision:order.planning_revision});
     order=await supply("POST",`/orders/${order.id}/approve`,admin,{revision:order.planning_revision});
     const before=await balance();
-    const received=await supply("POST",`/orders/${order.id}/receipts`,maker,{revision:order.planning_revision,line_id:order.planning_lines[0].id,quantity:"20",unit:"cm",location:"Shelf B"},201);
-    expect(received).toMatchObject({status:"accepted",quantity:"0.2000",unit:"m"});expect(await balance()).toBe(before+0.2);
+    await supply("POST",`/orders/${order.id}/receipts`,maker,{revision:order.planning_revision,line_id:order.planning_lines[0].id,quantity:"20",unit:"cm",location:"Shelf B"},503);
+    expect(await balance()).toBe(before);
     let cancelled=await supply("POST","/requests",maker,{lines:[{item_id:wire.id,quantity:"1",unit:"m"}]},201);
     cancelled=await supply("POST",`/requests/${cancelled.id}/cancel`,maker,{revision:cancelled.revision});
     expect(cancelled.status).toBe("cancelled");await supply("POST",`/requests/${cancelled.id}/review`,admin,{revision:cancelled.revision},409);
@@ -169,11 +161,14 @@ describe.skipIf(!url)("PostgreSQL reservation and procurement acceptance",()=>{
   it("fulfills once, protects reserved stock against counts and keeps planning read-only",async()=>{
     const before=JSON.stringify(await db.query("SELECT * FROM stock_ledger ORDER BY id"));await preview();await preview();expect(JSON.stringify(await db.query("SELECT * FROM stock_ledger ORDER BY id"))).toBe(before);
     let s=await create();s=await count(s,"0","Shelf A");s=await count(s,"0","Shelf B");s=await step(s,"review",{reason:"Insufficient reserved count"});s=await step(s,"approve");await request("POST",`/stocktakes/${s.id}/post`,admin,{revision:s.revision},409);
+    // Fulfillment chooses one physical location; consolidate existing counted stock explicitly.
+    let consolidated=await create();consolidated=await count(consolidated,"2","Shelf A");consolidated=await count(consolidated,"0","Shelf B");
+    consolidated=await step(consolidated,"review",{reason:"Consolidated physical count"});consolidated=await step(consolidated,"approve");await step(consolidated,"post");
     const key=randomUUID(),body={revision:reservation.revision,reason:"Explicit future fulfillment test",location:"Shelf A"};
     const fulfilled=await supply("POST",`/reservations/${reservation.id}/fulfill`,admin,body,200,key);expect(await supply("POST",`/reservations/${reservation.id}/fulfill`,admin,body,200,key)).toEqual(fulfilled);
-    expect(await balance()).toBe(0.7);expect((await preview()).materials[0]).toMatchObject({active_reservations:0,fulfilled_quantity:2,immediate_shortage:0.6});
+    expect(await balance()).toBe(0);expect((await preview()).materials[0]).toMatchObject({active_reservations:0,fulfilled_quantity:2,immediate_shortage:1.3});
     expect(JSON.stringify(await db.query("SELECT * FROM inventory_items ORDER BY id"))).toBe(baseline);
     const runner=db.createQueryRunner();await runner.connect();try{await expect(new AddReservationsAndProcurement1791676800004().down(runner)).rejects.toThrow(/refus/i);}finally{await runner.release();}
-    await close();await db.destroy();await db.initialize();await start();expect(await balance()).toBe(0.7);expect((await supply("GET","/",viewer)).orders[0].vendor_id).toBe(supplierId);
+    await close();await db.destroy();await db.initialize();await start();expect(await balance()).toBe(0);expect((await supply("GET","/",viewer)).orders[0].vendor_id).toBe(supplierId);
   });
 });

@@ -23,4 +23,32 @@ describe("physical package labels",()=>{
     await expect(packingLabelPDF(order,[id,id],"https://erp.example")).rejects.toThrow();
     await expect(packingLabelPDF(order,[randomUUID()],"https://erp.example")).rejects.toThrow();
   });
+  it("prints each package QR as exact vector modules with its quiet zone and no snapshot writes",async()=>{
+    const ids=[randomUUID(),randomUUID()];
+    const order={number:"PACK-TEST",batch_code:"BATCH-TEST",status:"ready",demand_revision:1,
+      snapshot:{project_name:"Project",site_name:"School",packages:ids.map(id=>({id,kind:"crate",name:"Science",
+        pack_number:1,subject:"Science",grade:"8",version_number:1,code:`PK-${id}`,parent_id:null,
+        version_id:randomUUID(),materials:[]}))},execution:{progress:{},changes:[]}} as unknown as PackingOrder;
+    const before=JSON.stringify(order);
+    const doc=await packingLabelPDF(order,ids,"https://erp.example/private?token=secret");
+    expect(doc.getNumberOfPages()).toBe(2);
+    expect(doc.output()).not.toContain("/Subtype /Image");
+    const pages=(doc.internal as typeof doc.internal & {pages:string[][]}).pages;
+    const scale=doc.internal.scaleFactor,height=doc.internal.pageSize.getHeight();
+    for(const [index,id] of ids.entries()) {
+      const matrix=QRCode.create(packageDestination("https://erp.example",id),{errorCorrectionLevel:"M"}).modules;
+      const size=matrix.size+4,moduleSize=28/size;
+      const rectangles=[...pages[index+1].join("\n").matchAll(/(-?[\d.]+) (-?[\d.]+) (-?[\d.]+) (-?[\d.]+) re\nf/g)]
+        .map(m=>({x:Number(m[1])/scale,y:height-Number(m[2])/scale,w:Number(m[3])/scale,h:-Number(m[4])/scale}));
+      expect(rectangles.length).toBeGreaterThan(0);
+      const printed:boolean[]=[],expected:boolean[]=[];
+      for(let row=0;row<size;row++)for(let column=0;column<size;column++) {
+        const x=defaultLabelTemplate.width-33+(column+.5)*moduleSize,y=46+(row+.5)*moduleSize;
+        printed.push(rectangles.some(r=>x>r.x&&x<r.x+r.w&&y>r.y&&y<r.y+r.h));
+        expected.push(row>=2&&row<size-2&&column>=2&&column<size-2&&!!matrix.get(row-2,column-2));
+      }
+      expect(printed).toEqual(expected);
+    }
+    expect(JSON.stringify(order)).toBe(before);
+  });
 });

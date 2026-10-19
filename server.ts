@@ -13,7 +13,8 @@ import compression from "compression";
 import { createServer as createViteServer } from "vite";
 import { GoogleGenAI } from "@google/genai";
 import { env } from "./src/config/env.ts";
-import { AppDataSource, IdentityDataSource, databaseSchema } from "./src/db.ts";
+import { AppDataSource, IdentityDataSource, ReceiptLedgerDataSource, databaseSchema } from "./src/db.ts";
+import { TrustedLedgerAuthority } from "./src/security/TrustedLedgerAuthority";
 import { assertDatabaseBoundary } from "./src/security/databaseBoundary";
 import authRoutes from "./src/routes/v1/auth.ts";
 import { authenticateJwt } from "./src/middleware/auth.ts";
@@ -66,6 +67,7 @@ import { startReservationReaper } from "./src/workers/reservationReaper.ts";
 import { openApiSpec, renderSwaggerUiHtml } from "./src/docs/openapi.ts";
 
 // Initialize Postgres (with retry)
+let receiptAuthority: TrustedLedgerAuthority | undefined;
 async function connectDatabase(retries = 3): Promise<void> {
   for (let attempt = 1; attempt <= retries; attempt++) {
     try {
@@ -75,10 +77,23 @@ async function connectDatabase(retries = 3): Promise<void> {
       await assertDatabaseBoundary(AppDataSource, "runtime", schema);
       await IdentityDataSource.initialize();
       await assertDatabaseBoundary(IdentityDataSource, "identity", schema);
+      if (ReceiptLedgerDataSource) {
+        const target=new URL(process.env.RECEIPT_LEDGER_DATABASE_URL!);
+        const runtime=new URL(process.env.DATABASE_URL!);
+        if(target.hostname!=="127.0.0.1" || target.port!=="55432" || target.pathname!=="/experimind_kitbuilder_test" ||
+          target.hostname!==runtime.hostname || target.port!==runtime.port || target.pathname!==runtime.pathname ||
+          !/^requirement_test_[a-f0-9]{32}$/.test(schema)) throw new Error("Synthetic receipt activation only");
+        await ReceiptLedgerDataSource.initialize();
+        receiptAuthority=await TrustedLedgerAuthority.create(ReceiptLedgerDataSource,env.jwtSecret,schema);
+        const [installed]=await ReceiptLedgerDataSource.query("SELECT to_regclass('commitment_receipts') IS NOT NULL installed");
+        if(!installed.installed)throw new Error("Receipt migration required");
+      }
       console.log("✅ PostgreSQL connected");
       return;
     } catch (err) {
       console.error(`DB startup validation failed (${attempt}/${retries}); verify restricted credentials and grants`);
+      receiptAuthority=undefined;
+      if (ReceiptLedgerDataSource?.isInitialized) await ReceiptLedgerDataSource.destroy();
       if (IdentityDataSource.isInitialized) await IdentityDataSource.destroy();
       if (AppDataSource.isInitialized) await AppDataSource.destroy();
       if (attempt === retries) {
@@ -228,7 +243,7 @@ async function startServer() {
   app.use("/api/v1/product-templates", productTemplateRouter(AppDataSource));
   app.use("/api/v1/planning-projects", planningProjectRouter(AppDataSource));
   app.use("/api/v1/stocktakes", stocktakeRouter(AppDataSource));
-  app.use("/api/v1/supply-planning", supplyPlanningRouter(AppDataSource));
+  app.use("/api/v1/supply-planning", supplyPlanningRouter(AppDataSource,receiptAuthority));
   app.use("/api/v1/production-planning", productionPlanningRouter(AppDataSource));
   app.use("/api/v1/packing", packingRouter(AppDataSource));
   app.use("/api/v1/delivery", deliveryRouter(AppDataSource));

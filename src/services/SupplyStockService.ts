@@ -52,6 +52,15 @@ export async function supplyAvailability(m:EntityManager,org:string,materials:Ma
 }
 /** Same physical ledger and item lock as stocktakes. Never writes legacy balances. Caller stores provenance atomically. */
 export async function postVerifiedSupplyMovement(m:EntityManager,org:string,item:InventoryItem,location:string,quantity:bigint,actor:string,source:{receipt?:string;reservation?:string;ledger_id:string}) {
+  if(source.receipt) {
+    const [installed]=await m.query("SELECT to_regclass('commitment_receipts') IS NOT NULL installed");
+    if(!installed.installed)throw new DraftKitError(503,"Guarded receipt stock posting unavailable");
+    const [receipt]=await m.query(`SELECT g.id FROM purchase_goods_receipts g JOIN commitment_receipts c ON c.receipt_id=g.id
+      WHERE g.id=$1 AND g.organization_id=$2 AND g.item_id=$3 AND g.status='accepted' AND g.ledger_id=$4
+      AND g.quantity=$5::numeric AND g.unit=$6 AND g.location=$7 AND g.inspected_by=$8`,
+      [source.receipt,org,item.id,source.ledger_id,stockText(quantity),item.unit,location,actor]);
+    if(!receipt)throw new DraftKitError(409,"Accepted guarded receipt required for stock posting");
+  }
   const scope=await m.findOneBy(PhysicalStockScope,{organization_id:org,item_id:item.id});
   const b=await locationBalance(m,org,item.id,location);
   if(!scope?.locations.includes(location)||b.quantity===null||b.unit!==item.unit)throw new DraftKitError(409,"Count this declared stock location before posting supply movements");

@@ -1,6 +1,21 @@
 # ERP state — historical implementation notes
 
-## Milestone 13M-D2B1 — 2026-10-18 — current
+## Milestone 13M-D2B2-B — 2026-10-19 — current
+
+PASS for isolated synthetic receipt/QC acceptance; production remains gated.
+Legacy receipt paths fail closed. Trusted HTTP receipt/QC, exact stock posting,
+concurrency, rollback and live authority checks pass. Packing timeout root cause
+was serial QR PNG/PDF work; vector modules preserve QR content and reduce the
+unchanged integration test to about 0.5 seconds across three isolated passes.
+Focused 55/55, including 37 authoritative PG cases; full 582 passed, 1 opt-in
+recovery skip. Recovery separately passes before/after real PG restart and fresh
+nonempty restore: 21 matching table fingerprints and 28 replayed accounts.
+See docs/erp/ui-ux/MILESTONE_13M_D2B2_B_S_FALLBACK_AND_RECOVERY.md for final
+evidence and the coherent ERP roadmap. No D3, deployment or real stock changes.
+Next phase requires separate authorization for integrated production/packing,
+then delivery/installation/closure; independent review precedes activation.
+
+## Milestone 13M-D2B1 — 2026-10-18 — historical
 
 CONDITIONAL PASS for isolated single-line school/material PR adapter only.
 Checkpoint c44f01b5931d7fde7519b4f681440e1a03132756 pushed/remote verified.

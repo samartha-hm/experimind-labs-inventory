@@ -8,6 +8,7 @@ import { mutateReservation, type ReservationMutation, type ReservationResult } f
 import { mutatePurchaseRequest, type PurchaseRequestMutation, type PurchaseRequestResult } from "../services/PurchaseRequestCommitmentService";
 
 import { mutatePurchaseOrder, type PurchaseOrderMutation, type PurchaseOrderResult } from "../services/PurchaseOrderCommitmentService";
+import { mutateReceipt, type ReceiptMutation, type ReceiptResult } from "../services/ReceiptCommitmentService";
 
 export type LedgerRequest =
   | { action: "createAccount"; key: string; input: LedgerAccountInput }
@@ -15,7 +16,8 @@ export type LedgerRequest =
   | { action: "execute"; key: string; account: string; entitlement: string; reason: string; operation: LedgerOperation }
   | { action: "reservation"; key: string; input: ReservationMutation }
   | { action: "purchaseRequest"; key: string; input: PurchaseRequestMutation }
-  | { action: "purchaseOrder"; key: string; input: PurchaseOrderMutation };
+  | { action: "purchaseOrder"; key: string; input: PurchaseOrderMutation }
+  | { action: "receipt"; key: string; input: ReceiptMutation };
 const issuer = "experimind-ledger";
 const audience = "experimind-ledger-execution";
 const fingerprint = (request: LedgerRequest) => createHash("sha256").update(canonicalRequirementJSON(request)).digest("hex");
@@ -62,6 +64,13 @@ export class TrustedLedgerAuthority {
       throw new Error("Authorization expired");
   }
   /** Only authenticated server code can call the issuer; no SQL minting function exists. */
+  async performForSession(accessToken: string, capability: string, request: LedgerRequest) {
+    const session=this.claims(accessToken,false), grant=this.claims(capability,true);
+    if(session.sub!==grant.sub || session.orgId!==grant.orgId || session.sid!==grant.sid)
+      throw new Error("Capability belongs to another session");
+    return this.perform(capability,request);
+  }
+
   async issue(accessToken: string, request: LedgerRequest): Promise<string> {
     // Snapshot input before any asynchronous work; bind the exact JSON accepted by execution.
     const normalized = JSON.parse(JSON.stringify(request)) as LedgerRequest;
@@ -75,7 +84,7 @@ export class TrustedLedgerAuthority {
         jwtid: randomUUID(), expiresIn: Math.min(60, p.exp! - Math.floor(Date.now()/1000)) });
     });
   }
-  async perform(token: string, request: LedgerRequest): Promise<string | LedgerEvent | ReservationResult | PurchaseRequestResult | PurchaseOrderResult> {
+  async perform(token: string, request: LedgerRequest): Promise<string | LedgerEvent | ReservationResult | PurchaseRequestResult | PurchaseOrderResult | ReceiptResult> {
     const normalized = JSON.parse(JSON.stringify(request)) as LedgerRequest;
     const p = this.claims(token, true), digest = fingerprint(normalized);
     if (p.action !== normalized.action || p.operationKey !== normalized.key || p.fingerprint !== digest)
@@ -92,14 +101,14 @@ export class TrustedLedgerAuthority {
           receipt.actor_id !== p.sub || receipt.operation_key !== normalized.key)
           throw new Error("Authorization replay conflict");
         await this.current(m, p);
-        if (normalized.action === "reservation" || normalized.action === "purchaseRequest" || normalized.action === "purchaseOrder") {
+        if (normalized.action === "reservation" || normalized.action === "purchaseRequest" || normalized.action === "purchaseOrder" || normalized.action === "receipt") {
           const i=normalized.input;
           await m.query("SELECT requirement_assert($1,$2,$3,$4,$5)",[p.orgId,i.project,i.site,i.demandRevision,i.approval]);
         }
         return receipt.result;
       }
       const service = new CommitmentLedgerService(m), context = { actor: p.sub!, organization: p.orgId as string };
-      let result: string | LedgerEvent | ReservationResult | PurchaseRequestResult | PurchaseOrderResult;
+      let result: string | LedgerEvent | ReservationResult | PurchaseRequestResult | PurchaseOrderResult | ReceiptResult;
       switch (normalized.action) {
         case "createAccount": result = await service.createAccount(context, normalized.input); break;
         case "entitlement": result = await service.entitlement(context, normalized.account, normalized.approval,
@@ -109,12 +118,13 @@ export class TrustedLedgerAuthority {
         case "reservation": result = await mutateReservation(m,context,normalized.input,normalized.key); break;
         case "purchaseRequest": result = await mutatePurchaseRequest(m,context,normalized.input,normalized.key); break;
         case "purchaseOrder": result = await mutatePurchaseOrder(m,context,normalized.input,normalized.key); break;
+        case "receipt": result = await mutateReceipt(m,context,normalized.input,normalized.key); break;
         default: throw new Error("Unknown ledger action");
       }
       await m.query(`INSERT INTO commitment_authorizations(id,organization_id,actor_id,operation_key,fingerprint,result)
         VALUES($1,$2,$3,$4,$5,$6::jsonb)`, [p.jti,p.orgId,p.sub,normalized.key,digest,JSON.stringify(result)]);
       await this.current(m, p);
-      return JSON.parse(JSON.stringify(result)) as string | LedgerEvent | ReservationResult | PurchaseRequestResult | PurchaseOrderResult;
+      return JSON.parse(JSON.stringify(result)) as string | LedgerEvent | ReservationResult | PurchaseRequestResult | PurchaseOrderResult | ReceiptResult;
     });
   }
   createAccount(token: string, input: LedgerAccountInput, key: string) {

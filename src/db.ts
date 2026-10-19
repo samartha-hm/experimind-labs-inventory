@@ -218,3 +218,12 @@ export const IdentityDataSource = new DataSource({
     ? false : { rejectUnauthorized: true },
   extra: { max: 5, connectionTimeoutMillis: 5000, options: `-c search_path=pg_catalog,${databaseSchema},pg_temp` },
 });
+
+// Opt-in private writer for synthetic recovery only; never reuse runtime/identity credentials.
+export const ReceiptLedgerDataSource = process.env.RECEIPT_LEDGER_DATABASE_URL ? new DataSource({
+  ...AppDataSource.options as Extract<import("typeorm").DataSourceOptions, { type: "postgres" }>,
+  url: process.env.RECEIPT_LEDGER_DATABASE_URL,
+  logging: false,
+  ssl: false,
+  extra: { max: 5, connectionTimeoutMillis: 5000, options: `-c search_path=pg_catalog,${databaseSchema},pg_temp` },
+}) : undefined;

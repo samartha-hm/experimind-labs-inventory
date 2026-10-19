@@ -31,6 +31,9 @@ export class StockLedgerService {
    * using PostgreSQL strict database ACID transactions with pessimistic row locking (SELECT FOR UPDATE).
    */
   public static async postEntry(params: PostLedgerEntryParams): Promise<StockLedger> {
+    if (params.transactionType === "PO_RECEIPT") {
+      throw new Error("Supplier receipts require guarded receipt authority and accepted QC");
+    }
     const orgId = params.organizationId || "00000000-0000-0000-0000-000000000000";
 
     return await AppDataSource.transaction("READ COMMITTED", async (transactionalEntityManager) => {

@@ -6,6 +6,10 @@ export const identityTables = ["users", "roles", "refresh_tokens", "sessions"];
 export const sqlIdentifier = (name: string): string => `"${name.replaceAll('"', '""')}"`;
 type Sql = Pick<EntityManager, "query">;
 const reservationWrites = ["project_stock_reservations", "supply_events", "requirement_execution_bindings"];
+const receiptWrites = ["commitment_receipts", "commitment_receipt_decisions", "purchase_goods_receipts", "stock_ledger"];
+async function receiptInstalled(db: Sql, schema: string): Promise<boolean> {
+  return (await db.query("SELECT to_regclass($1) IS NOT NULL installed",[`${sqlIdentifier(schema)}.commitment_receipts`]))[0].installed;
+}
 async function reservationInstalled(db: Sql, schema: string): Promise<boolean> {
   return (await db.query("SELECT to_regclass($1) IS NOT NULL installed",[`${sqlIdentifier(schema)}.commitment_reservations`]))[0].installed;
 }
@@ -26,7 +30,8 @@ export async function configureDatabaseBoundary(db: Sql, schema: string,
   const d2 = await reservationInstalled(db,schema);
   const pr=await purchaseRequestInstalled(db,schema);
   const po=await purchaseOrderInstalled(db,schema);
-  const poWrites=po?["commitment_po_lines","commitment_po_coverage","purchase_orders"]:[];
+  const receipt=await receiptInstalled(db,schema);
+  const poWrites=[...(po?["commitment_po_lines","commitment_po_coverage","purchase_orders"]:[]),...(receipt?receiptWrites:[])];
   const prWrites=[...(pr?["commitment_pr_lines","purchase_requests"]:[]),...poWrites];
   const protectedTables = [...ledgerTables,...(d2 ? ["commitment_reservations",...reservationWrites] : []),...prWrites];
   await db.query(`REVOKE ALL ON SCHEMA ${s} FROM PUBLIC;
@@ -72,6 +77,8 @@ export async function configureDatabaseBoundary(db: Sql, schema: string,
   }
   if (pr) await db.query(`GRANT SELECT,INSERT,UPDATE ON ${prWrites.map(t=>`${s}.${sqlIdentifier(t)}`).join(",")} TO ${ledger}`);
   if (po) await db.query(`GRANT SELECT ON ${s}.vendors,${s}.purchase_goods_receipts,${s}.purchase_order_lines TO ${ledger}`);
+  // Stock is append-only. Other protected receipt tables also have immutable/final-state guards.
+  if (receipt) await db.query(`REVOKE UPDATE ON ${s}.stock_ledger FROM ${ledger}`);
   const functions: { signature: string; proname: string; prosecdef: boolean }[] = await db.query(`
     SELECT p.oid::regprocedure::text signature,p.proname,p.prosecdef FROM pg_proc p
     JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname=$1`, [schema]);
@@ -101,7 +108,8 @@ export async function assertDatabaseBoundary(db: DataSource, kind: "runtime" | "
   const d2=await reservationInstalled(db,schema);
   const pr=await purchaseRequestInstalled(db,schema);
   const po=await purchaseOrderInstalled(db,schema);
-  const d2Tables=[...(d2 ? ["commitment_reservations",...reservationWrites] : []),...(pr?["commitment_pr_lines","purchase_requests"]:[]),...(po?["commitment_po_lines","commitment_po_coverage","purchase_orders"]:[])];
+  const receipt=await receiptInstalled(db,schema);
+  const d2Tables=[...(d2 ? ["commitment_reservations",...reservationWrites] : []),...(pr?["commitment_pr_lines","purchase_requests"]:[]),...(po?["commitment_po_lines","commitment_po_coverage","purchase_orders"]:[]),...(receipt?receiptWrites:[])];
   const [{ path }] = await db.query("SELECT current_setting('search_path') path");
   if (path.replace(/\s/g, "") !== `pg_catalog,${schema},pg_temp`) fail();
   const [role] = await db.query(`SELECT r.rolsuper,r.rolcreaterole,r.rolcreatedb,r.rolreplication,r.rolbypassrls,
@@ -144,7 +152,7 @@ export async function assertDatabaseBoundary(db: DataSource, kind: "runtime" | "
     const operational = ![...ledgerTables,...d2Tables,...identityTables,"migrations","typeorm_metadata"].includes(relname);
     const writable = kind === "runtime" ? operational : kind === "identity" ? identityTables.includes(relname) : [...ledgerTables,...d2Tables].includes(relname);
     for (const privilege of ["INSERT","UPDATE","DELETE","TRUNCATE","REFERENCES","TRIGGER"]) {
-      const allowed = writable && ["INSERT","UPDATE",...(kind === "ledger" ? [] : ["DELETE"])].includes(privilege) ||
+      const allowed = writable && ["INSERT",...(kind === "ledger" && receipt && relname === "stock_ledger" ? [] : ["UPDATE"]),...(kind === "ledger" ? [] : ["DELETE"])].includes(privilege) ||
         kind === "identity" && relname === "audit_logs" && privilege === "INSERT";
       if (!allowed && (await db.query("SELECT has_table_privilege($1,$2) allowed",[t,privilege]))[0].allowed) fail();
     }
@@ -160,6 +168,7 @@ export async function assertDatabaseBoundary(db: DataSource, kind: "runtime" | "
       [`${sqlIdentifier(schema)}.${sqlIdentifier(table)}`]))[0].allowed) fail();
   for (const table of kind === "identity" ? identityTables : kind === "ledger" ? [...ledgerTables,...d2Tables] : [...ledgerTables,...d2Tables,...identityTables]) {
     for (const privilege of kind === "runtime" ? ["SELECT"] : ["SELECT","INSERT","UPDATE"]) {
+      if (kind === "ledger" && receipt && table === "stock_ledger" && privilege === "UPDATE") continue;
       if (!(await db.query("SELECT has_table_privilege($1,$2) allowed",[`${sqlIdentifier(schema)}.${sqlIdentifier(table)}`,privilege]))[0].allowed) fail();
     }
   }

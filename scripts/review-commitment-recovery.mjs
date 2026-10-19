@@ -5,7 +5,7 @@ import { resolve, join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { replayCommitments, planningUnits } from '../src/services/CommitmentLedgerService.ts';
 const milestone = process.env.COMMITMENT_RECOVERY_MILESTONE ?? '13md1r';
-if (!['13md1r','13md1t','13md1u','13md1v','13md1w','13md2a','13md2b1','13md2b2a'].includes(milestone)) throw Error('Unsupported recovery milestone');
+if (!['13md1r','13md1t','13md1u','13md1v','13md1w','13md2a','13md2b1','13md2b2a','13md2b2br'].includes(milestone)) throw Error('Unsupported recovery milestone');
 const evidence = JSON.parse(await readFile(`.local-dev/${milestone}-evidence.json`, 'utf8'));
 const schema = evidence.schema;
 const url = new URL(process.env.KIT_BUILDER_TEST_DATABASE_URL);
@@ -22,9 +22,9 @@ await writeFile(path,dump.replaceAll(schema,target));
 run('psql',['-X','--single-transaction','--set','ON_ERROR_STOP=1','--quiet','--file',path],{PGOPTIONS:`-c search_path=${target},public`});
 const client = new pg.Client({connectionString:url.toString()}); await client.connect();
 try {
- const po=milestone==='13md2b2a',pr=po||milestone==='13md2b1',d2=pr||milestone==='13md2a';
- const tables=['accounts','entitlements','balances','claims','sources','events','reconciliation_cases',...(['13md1v','13md1w','13md2a','13md2b1','13md2b2a'].includes(milestone)?['authorizations']:[]),...(d2?['reservations']:[]),...(pr?['pr_lines']:[]),...(po?['po_lines','po_coverage']:[])];
- const operational=d2?['project_stock_reservations','supply_events','requirement_execution_bindings',...(pr?['purchase_requests']:[]),...(po?['purchase_orders']:[])]:[];
+ const receipt=milestone==='13md2b2br',po=receipt||milestone==='13md2b2a',pr=po||milestone==='13md2b1',d2=pr||milestone==='13md2a';
+ const tables=['accounts','entitlements','balances','claims','sources','events','reconciliation_cases',...(['13md1v','13md1w','13md2a','13md2b1','13md2b2a','13md2b2br'].includes(milestone)?['authorizations']:[]),...(d2?['reservations']:[]),...(pr?['pr_lines']:[]),...(po?['po_lines','po_coverage']:[]),...(receipt?['receipts','receipt_decisions']:[])];
+ const operational=d2?['project_stock_reservations','supply_events','requirement_execution_bindings',...(pr?['purchase_requests']:[]),...(po?['purchase_orders']:[]),...(receipt?['purchase_goods_receipts','stock_ledger','physical_stock_scopes']:[])]:[];
  const fingerprints=async namespace=>{
   const result={};
   for(const t of [...tables.map(t=>`commitment_${t}`),...operational]) {
@@ -37,7 +37,7 @@ try {
  if(!before.events.count || JSON.stringify(before)!==JSON.stringify(after)) throw Error('Nonempty ledger restore fingerprint mismatch');
  const {rows:functions}=await client.query(`SELECT p.proname,p.proconfig FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
   WHERE n.nspname=$1 AND p.proname LIKE 'commitment_%'`,[target]);
- if(functions.length!==(po?15:pr?13:d2?11:8) || functions.some(f=>!f.proconfig?.includes(`search_path=pg_catalog, ${target}, pg_temp`))) throw Error('Restored ledger function path mismatch');
+ if(functions.length!==(receipt?17:po?15:pr?13:d2?11:8) || functions.some(f=>!f.proconfig?.includes(`search_path=pg_catalog, ${target}, pg_temp`))) throw Error('Restored ledger function path mismatch');
  const {rows:witness}=await client.query(`SELECT t.tgenabled,t.tgdeferrable,t.tginitdeferred FROM pg_trigger t
   JOIN pg_class c ON c.oid=t.tgrelid JOIN pg_namespace n ON n.oid=c.relnamespace
   WHERE n.nspname=$1 AND c.relname='commitment_balances' AND t.tgname='commitment_event_witness'`,[target]);
@@ -82,7 +82,19 @@ try {
   if(rows[0].n!==3 || !before.po_coverage.count) throw Error('Restored nonempty PO witnesses mismatch');
   await client.query(`SELECT ${target}.commitment_po_check(order_id) FROM ${target}.commitment_po_lines`);
  }
- const output={source_schema:schema,target_schema:target,all_table_fingerprints_match:true,verified_table_count:tables.length+operational.length,pinned_functions:functions.length,deferred_witness_restored:true,replayed_accounts:balances.length,before,after,backup_restore:'PASS',migration_role:roles[0],shadow:grouped,shadow_records:shadowRecords};
+ if(receipt) {
+  if(!before.receipts.count || !before.receipt_decisions.count || !before.stock_ledger.count)throw Error('Nonempty receipt/QC/stock evidence required');
+  await client.query(`SELECT ${target}.commitment_receipt_check(receipt_id) FROM ${target}.commitment_receipts`);
+  const {rows}=await client.query(`SELECT count(*)::int n FROM pg_trigger t JOIN pg_class c ON c.oid=t.tgrelid
+   JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname=$1 AND t.tgname='commitment_receipt_witness'
+   AND t.tgenabled='O' AND t.tgdeferrable AND t.tginitdeferred`,[target]);
+  if(rows[0].n!==4)throw Error('Restored receipt witnesses mismatch');
+  // Reconnect verifies durable restored state across a fresh database session, not a cluster restart.
+  const restarted=new pg.Client({connectionString:url.toString()});await restarted.connect();
+  try {await restarted.query(`SELECT ${target}.commitment_receipt_check(receipt_id) FROM ${target}.commitment_receipts`);}
+  finally {await restarted.end();}
+ }
+ const output={source_schema:schema,target_schema:target,all_table_fingerprints_match:true,verified_table_count:tables.length+operational.length,pinned_functions:functions.length,deferred_witness_restored:true,replayed_accounts:balances.length,before,after,backup_restore:'PASS',receipt_replay:receipt?'PASS':undefined,fresh_connection:receipt?'PASS':undefined,cluster_restart:'NOT RUN',migration_role:roles[0],shadow:grouped,shadow_records:shadowRecords};
  await writeFile(`.local-dev/${milestone}-recovery-evidence.json`,JSON.stringify(output,null,2));
  console.log(JSON.stringify({backup_restore:output.backup_restore,replayed_accounts:output.replayed_accounts,events:before.events.count,pinned_functions:output.pinned_functions}));
 } finally {await client.end();}

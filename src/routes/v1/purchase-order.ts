@@ -173,19 +173,7 @@ router.delete("/:id", requireTenant, requireRole("admin"), async (req, res) => {
 });
 
 // POST /api/v1/purchase-order/:id/receive
-router.post("/:id/receive", requireTenant, requireCapability("receive_stock"), async (req, res) => {
-  try {
-    const orgId = (req as any).orgId;
-    const { receptions } = req.body;
-    if (!Array.isArray(receptions)) {
-      return res.status(400).json({ error: "receptions must be an array" });
-    }
-
-    const updatedPo = await service.receiveItems(req.params.id, receptions, orgId);
-    res.json(updatedPo);
-  } catch (e: any) {
-    res.status(400).json({ error: e.message });
-  }
+router.post("/:id/receive", requireTenant, (_req,res) => {
+  res.status(503).json({error:"Legacy receipt posting disabled; use guarded supply-planning receipts"});
 });
-
 export default router;

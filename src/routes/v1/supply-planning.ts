@@ -6,6 +6,8 @@ import { User } from "../../entity/User";
 import { dto } from "./product-templates";
 import { SupplyPlanningService,type LineInput } from "../../services/SupplyPlanningService";
 import { DraftKitError } from "../../services/ProductTemplateService";
+import type { TrustedLedgerAuthority } from "../../security/TrustedLedgerAuthority";
+import type { ReceiptMutation } from "../../services/ReceiptCommitmentService";
 class RevisionDto { @IsInt() @Min(1) revision!:number; }
 class ReservationDto {
   @IsUUID() project_id!:string;
@@ -31,19 +33,32 @@ class ShortageDto extends RevisionDto {
   @IsBoolean() qc_required:boolean=true;
 }
 class OrderDto extends RevisionDto { @IsUUID() request_id!:string; @IsUUID() supplier_id!:string; }
-class ReceiptDto extends RevisionDto {
-  @IsUUID() line_id!:string;
-  @IsString() @MinLength(1) @MaxLength(20) quantity!:string;
+class GuardedReceiptDto {
+  @IsUUID() id!:string;
+  @IsUUID() order!:string;
+  @IsInt() @Min(1) orderRevision!:number;
+  @IsUUID() line!:string;
+  @IsUUID() project!:string;
+  @IsUUID() site!:string;
+  @IsString() @MinLength(1) @MaxLength(200) item!:string;
   @IsString() @MinLength(1) @MaxLength(30) unit!:string;
+  @IsUUID() approval!:string;
+  @IsInt() @Min(1) demandRevision!:number;
+  @IsString() @MinLength(1) @MaxLength(1000) reason!:string;
+  @IsString() transition!:string;
+}
+class GuardedReceiveDto extends GuardedReceiptDto {
+  @IsUUID() coverage!:string;
+  @IsString() @MinLength(1) @MaxLength(20) quantity!:string;
   @IsString() @MinLength(1) @MaxLength(100) location!:string;
 }
-class InspectionDto extends RevisionDto { @IsString() @MinLength(1) @MaxLength(2000) reason!:string; }
+class GuardedInspectionDto extends GuardedReceiptDto { @IsInt() @Min(1) revision!:number; }
 class SupplierDto { @IsString() @MinLength(1) @MaxLength(200) name!:string; }
 const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const writers=new Set(["admin","super_admin","manager","staff","inventory_staff","project_staff","editor"]);
 const reviewers=new Set(["admin","super_admin","manager","inventory_staff"]);
 const approvers=new Set(["admin","super_admin","manager"]);
-export function supplyPlanningRouter(db:DataSource) {
+export function supplyPlanningRouter(db:DataSource,authority?:TrustedLedgerAuthority) {
   const router=Router(),s=new SupplyPlanningService(db);
   const action=(run:RequestHandler):RequestHandler=>(req,res,next)=>{Promise.resolve(run(req,res,next)).catch((e:unknown)=>{
     if(e instanceof DraftKitError)res.status(e.status).json({error:e.message});
@@ -61,6 +76,17 @@ export function supplyPlanningRouter(db:DataSource) {
   }));
   router.param("id",(_req,_res,next,id:string)=>{next(uuid.test(id)?undefined:new DraftKitError(400,"Invalid identity"));});
   const key=(req:Parameters<RequestHandler>[0])=>req.header("Idempotency-Key")!;
+  const guardedReceipt=async(req:Parameters<RequestHandler>[0],transition:ReceiptMutation["transition"])=>{
+    if(!authority)throw new DraftKitError(503,"Guarded receipt authority unavailable");
+    const input=transition==="receive"?await dto(req.body,GuardedReceiveDto):await dto(req.body,GuardedInspectionDto);
+    if(input.transition!==transition || (transition==="receive"?input.order:input.id)!==req.params.id)
+      throw new DraftKitError(400,"Receipt route and operation must match");
+    const capability=req.header("X-Ledger-Capability");
+    if(!capability)throw new DraftKitError(403,"Receipt capability required");
+    try {return await authority.performForSession(req.headers.authorization!.slice(7),capability,
+      {action:"receipt",key:key(req),input:input as ReceiptMutation});}
+    catch {throw new DraftKitError(409,"Receipt authorization or state conflict");}
+  };
   router.get("/",action(async(req,res)=>{const project=req.query.project;if(project!==undefined&&(typeof project!=="string"||!uuid.test(project)))throw new DraftKitError(400,"Invalid project identity");res.json(await s.list(req.user!.orgId!,project as string|undefined));}));
   router.get("/:kind/:id/history",action(async(req,res)=>{if(!["reservation","request","order","receipt","supplier"].includes(req.params.kind))throw new DraftKitError(400,"Invalid history kind");res.json(await s.history(req.user!.orgId!,req.params.kind,req.params.id));}));
   router.post("/suppliers",action(async(req,res)=>{const d=await dto(req.body,SupplierDto);res.status(201).json(await s.supplier(req.user!.orgId!,req.user!.id,key(req),d.name.trim()));}));
@@ -74,8 +100,12 @@ export function supplyPlanningRouter(db:DataSource) {
     router.post(`/orders/:id/${verb}`,action(async(req,res)=>{const d=await dto(req.body,RevisionDto);res.json(await s.orderTransition(req.user!.orgId!,req.user!.id,key(req),req.params.id,d.revision,verb));}));
   }
   router.post("/orders",action(async(req,res)=>{const d=await dto(req.body,OrderDto);res.status(201).json(await s.order(req.user!.orgId!,req.user!.id,key(req),d.request_id,d.revision,d.supplier_id));}));
-  router.post("/orders/:id/receipts",action(async(req,res)=>{const d=await dto(req.body,ReceiptDto);res.status(201).json(await s.receive(req.user!.orgId!,req.user!.id,key(req),req.params.id,d.revision,d.line_id,d.quantity,d.unit,d.location));}));
-  for(const verb of ["accept","reject","quarantine"] as const)router.post(`/receipts/:id/${verb}`,action(async(req,res)=>{const d=await dto(req.body,InspectionDto);res.json(await s.inspect(req.user!.orgId!,req.user!.id,key(req),req.params.id,d.revision,verb,d.reason));}));
+  router.post("/orders/:id/receipts",action(async(req,res)=>{
+    res.status(201).json(await guardedReceipt(req,"receive"));
+  }));
+  for(const verb of ["accept","reject","quarantine"] as const)router.post(`/receipts/:id/${verb}`,action(async(req,res)=>{
+    res.json(await guardedReceipt(req,verb));
+  }));
   router.use(((e:unknown,_req,res,next)=>{if(e instanceof DraftKitError)res.status(e.status).json({error:e.message});else next(e);}) as import("express").ErrorRequestHandler);
   return router;
 }
