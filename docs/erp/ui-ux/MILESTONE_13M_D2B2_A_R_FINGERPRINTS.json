@@ -1,0 +1,827 @@
+{
+  "milestone": "13M-D2B2-A-R",
+  "starting_head": "d8aedecae39a4c1068c4d550d1c61650eec483d1",
+  "synthetic_only": true,
+  "independent": {
+    "concurrent_same_bearer_retry": "PASS",
+    "lineage_substitutions": 7,
+    "missing_and_duplicate_sources": "REJECTED",
+    "rollback_after_insert": [
+      "purchase_orders",
+      "commitment_po_lines",
+      "commitment_po_coverage",
+      "supply_events",
+      "commitment_authorizations"
+    ],
+    "pr_adjustment_po_creation": [
+      "rejected",
+      "fulfilled"
+    ],
+    "runtime_sql_denials": 5,
+    "boundary_roles": [
+      [
+        {
+          "current_user": "rt_eceeae7968e74338",
+          "session_user": "rt_eceeae7968e74338",
+          "rolsuper": false,
+          "rolcreaterole": false,
+          "rolcreatedb": false,
+          "rolreplication": false,
+          "rolbypassrls": false
+        }
+      ],
+      [
+        {
+          "current_user": "id_eceeae7968e74338",
+          "session_user": "id_eceeae7968e74338",
+          "rolsuper": false,
+          "rolcreaterole": false,
+          "rolcreatedb": false,
+          "rolreplication": false,
+          "rolbypassrls": false
+        }
+      ],
+      [
+        {
+          "current_user": "lg_eceeae7968e74338",
+          "session_user": "lg_eceeae7968e74338",
+          "rolsuper": false,
+          "rolcreaterole": false,
+          "rolcreatedb": false,
+          "rolreplication": false,
+          "rolbypassrls": false
+        }
+      ]
+    ],
+    "missing_empty_duplicate_planning_lines": "REJECTED"
+  },
+  "purchase_order": {
+    "schema": "requirement_test_7813310b321249478d3946ad879baf31",
+    "acceptance": "CONDITIONAL PASS",
+    "before": {
+      "inventory_items": [
+        {
+          "count": 3,
+          "hash": "ac2c30770e7d2dea7e9092a451e2250c"
+        }
+      ],
+      "stock_ledger": [
+        {
+          "count": 5,
+          "hash": "405cef33b23862969608f313e240c6fc"
+        }
+      ],
+      "physical_stocktakes": [
+        {
+          "count": 3,
+          "hash": "edf30258ecbcfebe9a1f9ff51206e7f2"
+        }
+      ],
+      "physical_stock_scopes": [
+        {
+          "count": 3,
+          "hash": "3a1e5dde6fdfdff3a0157f2cbad5299b"
+        }
+      ],
+      "physical_stocktake_events": [
+        {
+          "count": 15,
+          "hash": "50ed5c37df36e6b417559f0696280513"
+        }
+      ],
+      "project_stock_reservations": [
+        {
+          "count": 8,
+          "hash": "42e3521b15cf7a92d88088bc6b7a58e6"
+        }
+      ],
+      "purchase_requests": [
+        {
+          "count": 6,
+          "hash": "7f1e6281c8e1a6a3cd3e700c5542a6c7"
+        }
+      ],
+      "purchase_orders": [
+        {
+          "count": 0,
+          "hash": "d41d8cd98f00b204e9800998ecf8427e"
+        }
+      ],
+      "purchase_goods_receipts": [
+        {
+          "count": 0,
+          "hash": "d41d8cd98f00b204e9800998ecf8427e"
+        }
+      ],
+      "supply_events": [
+        {
+          "count": 50,
+          "hash": "29053575dc50b3e0ae1b3ef0763b2cc0"
+        }
+      ],
+      "production_work_orders": [
+        {
+          "count": 1,
+          "hash": "15b21c7d3c926e05ffc4888aa5c4a64a"
+        }
+      ],
+      "production_input_reservations": [
+        {
+          "count": 1,
+          "hash": "df88cf24bb47eb85012dbaaad067aba6"
+        }
+      ],
+      "production_input_issues": [
+        {
+          "count": 0,
+          "hash": "d41d8cd98f00b204e9800998ecf8427e"
+        }
+      ],
+      "production_batches": [
+        {
+          "count": 0,
+          "hash": "d41d8cd98f00b204e9800998ecf8427e"
+        }
+      ],
+      "production_qc_decisions": [
+        {
+          "count": 0,
+          "hash": "d41d8cd98f00b204e9800998ecf8427e"
+        }
+      ],
+      "packing_orders": [
+        {
+          "count": 6,
+          "hash": "8c9a5a14fc53674d9b169e699afe2e10"
+        }
+      ],
+      "packing_picks": [
+        {
+          "count": 1,
+          "hash": "e7563eea2364b4ec312534b604f5d9c4"
+        }
+      ],
+      "delivery_orders": [
+        {
+          "count": 1,
+          "hash": "cd246ba658f39126dc9d5b42ac366065"
+        }
+      ],
+      "delivery_package_claims": [
+        {
+          "count": 24,
+          "hash": "53880b054960a3888d07710cb1b2b0f1"
+        }
+      ],
+      "package_custody_events": [
+        {
+          "count": 72,
+          "hash": "6a9f3f90775e292c7f2101b2b17ddd9e"
+        }
+      ],
+      "site_installations": [
+        {
+          "count": 1,
+          "hash": "860a21b06843da94f0bef6379024cb90"
+        }
+      ],
+      "project_completions": [
+        {
+          "count": 1,
+          "hash": "332870304f066af8b1f6306735952d57"
+        }
+      ]
+    },
+    "after": {
+      "inventory_items": [
+        {
+          "count": 3,
+          "hash": "ac2c30770e7d2dea7e9092a451e2250c"
+        }
+      ],
+      "stock_ledger": [
+        {
+          "count": 5,
+          "hash": "405cef33b23862969608f313e240c6fc"
+        }
+      ],
+      "physical_stocktakes": [
+        {
+          "count": 3,
+          "hash": "edf30258ecbcfebe9a1f9ff51206e7f2"
+        }
+      ],
+      "physical_stock_scopes": [
+        {
+          "count": 3,
+          "hash": "3a1e5dde6fdfdff3a0157f2cbad5299b"
+        }
+      ],
+      "physical_stocktake_events": [
+        {
+          "count": 15,
+          "hash": "50ed5c37df36e6b417559f0696280513"
+        }
+      ],
+      "project_stock_reservations": [
+        {
+          "count": 8,
+          "hash": "42e3521b15cf7a92d88088bc6b7a58e6"
+        }
+      ],
+      "purchase_requests": [
+        {
+          "count": 6,
+          "hash": "7f1e6281c8e1a6a3cd3e700c5542a6c7"
+        }
+      ],
+      "purchase_orders": [
+        {
+          "count": 3,
+          "hash": "c40f80a8be01a0d643f7ec0a389520e8"
+        }
+      ],
+      "purchase_goods_receipts": [
+        {
+          "count": 0,
+          "hash": "d41d8cd98f00b204e9800998ecf8427e"
+        }
+      ],
+      "supply_events": [
+        {
+          "count": 57,
+          "hash": "4433283ebb312a638fedb31b2518ea4d"
+        }
+      ],
+      "production_work_orders": [
+        {
+          "count": 1,
+          "hash": "15b21c7d3c926e05ffc4888aa5c4a64a"
+        }
+      ],
+      "production_input_reservations": [
+        {
+          "count": 1,
+          "hash": "df88cf24bb47eb85012dbaaad067aba6"
+        }
+      ],
+      "production_input_issues": [
+        {
+          "count": 0,
+          "hash": "d41d8cd98f00b204e9800998ecf8427e"
+        }
+      ],
+      "production_batches": [
+        {
+          "count": 0,
+          "hash": "d41d8cd98f00b204e9800998ecf8427e"
+        }
+      ],
+      "production_qc_decisions": [
+        {
+          "count": 0,
+          "hash": "d41d8cd98f00b204e9800998ecf8427e"
+        }
+      ],
+      "packing_orders": [
+        {
+          "count": 6,
+          "hash": "8c9a5a14fc53674d9b169e699afe2e10"
+        }
+      ],
+      "packing_picks": [
+        {
+          "count": 1,
+          "hash": "e7563eea2364b4ec312534b604f5d9c4"
+        }
+      ],
+      "delivery_orders": [
+        {
+          "count": 1,
+          "hash": "cd246ba658f39126dc9d5b42ac366065"
+        }
+      ],
+      "delivery_package_claims": [
+        {
+          "count": 24,
+          "hash": "53880b054960a3888d07710cb1b2b0f1"
+        }
+      ],
+      "package_custody_events": [
+        {
+          "count": 72,
+          "hash": "6a9f3f90775e292c7f2101b2b17ddd9e"
+        }
+      ],
+      "site_installations": [
+        {
+          "count": 1,
+          "hash": "860a21b06843da94f0bef6379024cb90"
+        }
+      ],
+      "project_completions": [
+        {
+          "count": 1,
+          "hash": "332870304f066af8b1f6306735952d57"
+        }
+      ]
+    },
+    "ledger_unchanged": [
+      {
+        "object": "commitment_accounts",
+        "hash": "4531059e0bf7098d5453b2d949be1d27"
+      },
+      {
+        "object": "commitment_entitlements",
+        "hash": "f14027d01ce6d57abaed0a1fa0a2107d"
+      },
+      {
+        "object": "commitment_balances",
+        "hash": "1d01ad2c10fe952144c1f57c67e7e4c1"
+      },
+      {
+        "object": "commitment_claims",
+        "hash": "81700444596a67c2e63e314656981c80"
+      },
+      {
+        "object": "commitment_sources",
+        "hash": "754cefb02090e054dafd2f1a7bd60c90"
+      },
+      {
+        "object": "commitment_events",
+        "hash": "cf0bbabd92bd58bd1b5bdee71ed8021c"
+      }
+    ],
+    "shared_balance": {
+      "approved": "2.4",
+      "fulfilled": "0",
+      "held": "0.2100",
+      "uncommitted": "2.1900"
+    },
+    "capacity_race": [
+      "fulfilled",
+      "rejected"
+    ],
+    "amend_review_race": [
+      "rejected",
+      "fulfilled"
+    ],
+    "amend_cancel_race": [
+      "fulfilled",
+      "rejected"
+    ],
+    "approval_revision_race": [
+      "rejected",
+      "fulfilled"
+    ],
+    "reconciliation": [
+      {
+        "id": "dec692a4-35f1-4482-8d63-66cc46d13770",
+        "held": "0.2000",
+        "ordered": "0.177000",
+        "unordered": "0.023000"
+      }
+    ],
+    "coverage": [
+      {
+        "id": "62c7d567-5225-40f0-9be8-11dfb859cc81",
+        "order_id": "45a99da8-e277-4129-b658-e64e47592af0",
+        "claim_id": "dec692a4-35f1-4482-8d63-66cc46d13770",
+        "source_slice": "1",
+        "start_quantity": "0.000000",
+        "end_quantity": "0.050000",
+        "operation_key": "66f7c257-a5b8-4622-81f9-fe2abca0447d",
+        "created_at": "2026-10-19T08:36:50.930Z"
+      },
+      {
+        "id": "76b22082-e973-45ef-bddd-fc38f86f749a",
+        "order_id": "d1481f95-bd20-4a6d-93c8-d09906ba50e5",
+        "claim_id": "dec692a4-35f1-4482-8d63-66cc46d13770",
+        "source_slice": "1",
+        "start_quantity": "0.050000",
+        "end_quantity": "0.051000",
+        "operation_key": "bdabca53-a4bc-4ed2-a73a-918c9abe5dfd",
+        "created_at": "2026-10-19T08:36:51.420Z"
+      },
+      {
+        "id": "f59cebdb-a3cc-4db7-8395-ecc2dddc0b34",
+        "order_id": "77b0e6dd-3068-467a-abc1-cb6c1afd5f39",
+        "claim_id": "dec692a4-35f1-4482-8d63-66cc46d13770",
+        "source_slice": "1",
+        "start_quantity": "0.051000",
+        "end_quantity": "0.151000",
+        "operation_key": "e980e2d0-efa7-4da8-bc9a-e61c20fb5f57",
+        "created_at": "2026-10-19T08:36:51.874Z"
+      },
+      {
+        "id": "9b7b90a9-3b60-431d-89a4-4329ed1bba87",
+        "order_id": "77b0e6dd-3068-467a-abc1-cb6c1afd5f39",
+        "claim_id": "dec692a4-35f1-4482-8d63-66cc46d13770",
+        "source_slice": "1",
+        "start_quantity": "0.151000",
+        "end_quantity": "0.152000",
+        "operation_key": "4472b0df-85e4-41ad-9e65-887fe1f6d2c9",
+        "created_at": "2026-10-19T08:36:51.894Z"
+      },
+      {
+        "id": "24ebdcb6-b8d8-4794-814e-1d429b715d06",
+        "order_id": "45a99da8-e277-4129-b658-e64e47592af0",
+        "claim_id": "dec692a4-35f1-4482-8d63-66cc46d13770",
+        "source_slice": "1",
+        "start_quantity": "0.152000",
+        "end_quantity": "0.177000",
+        "operation_key": "72e22b71-b538-4db1-86a4-a840f75f2ed0",
+        "created_at": "2026-10-19T08:36:51.908Z"
+      }
+    ],
+    "snapshot": [
+      {
+        "object": "purchase_orders",
+        "n": 3,
+        "hash": "86b9548742cf94ef32d05f730ffb1348"
+      },
+      {
+        "object": "commitment_po_lines",
+        "n": 3,
+        "hash": "4e2d28917e673f1986afdc08d45a05f7"
+      },
+      {
+        "object": "commitment_po_coverage",
+        "n": 5,
+        "hash": "d0655af55014d900bbedbde104056b39"
+      },
+      {
+        "object": "purchase_requests",
+        "n": 6,
+        "hash": "3a6ab69f6498dc6879cfa3c2816e9796"
+      },
+      {
+        "object": "commitment_pr_lines",
+        "n": 5,
+        "hash": "8bffae54d4a35c7b69b366724e4ea4bb"
+      },
+      {
+        "object": "project_stock_reservations",
+        "n": 8,
+        "hash": "496af4df34ea311121d5f668cbf56acb"
+      },
+      {
+        "object": "commitment_balances",
+        "n": 28,
+        "hash": "1d01ad2c10fe952144c1f57c67e7e4c1"
+      },
+      {
+        "object": "commitment_claims",
+        "n": 39,
+        "hash": "81700444596a67c2e63e314656981c80"
+      },
+      {
+        "object": "commitment_sources",
+        "n": 40,
+        "hash": "754cefb02090e054dafd2f1a7bd60c90"
+      },
+      {
+        "object": "commitment_events",
+        "n": 84,
+        "hash": "cf0bbabd92bd58bd1b5bdee71ed8021c"
+      },
+      {
+        "object": "commitment_authorizations",
+        "n": 41,
+        "hash": "a889f42b67cc049abea094c3bb6eed13"
+      },
+      {
+        "object": "supply_events",
+        "n": 57,
+        "hash": "2ec3aa8e89f4c6f9cd486f1a683cb323"
+      },
+      {
+        "object": "requirement_execution_bindings",
+        "n": 23,
+        "hash": "1a371bc2910b6e90120ab9bd70bcb8f3"
+      }
+    ],
+    "blocked": [
+      "decrease",
+      "cancel",
+      "return-to-PR",
+      "receipt",
+      "QC",
+      "stock",
+      "production",
+      "packing",
+      "delivery"
+    ]
+  },
+  "trusted_boundary": {
+    "actual_login": true,
+    "denied": [
+      "known administrator UUID",
+      "cross-tenant administrator UUID",
+      "commitment_accounts INSERT",
+      "commitment_accounts UPDATE",
+      "commitment_accounts DELETE",
+      "commitment_accounts TRUNCATE",
+      "commitment_entitlements INSERT",
+      "commitment_entitlements UPDATE",
+      "commitment_entitlements DELETE",
+      "commitment_entitlements TRUNCATE",
+      "commitment_balances INSERT",
+      "commitment_balances UPDATE",
+      "commitment_balances DELETE",
+      "commitment_balances TRUNCATE",
+      "commitment_claims INSERT",
+      "commitment_claims UPDATE",
+      "commitment_claims DELETE",
+      "commitment_claims TRUNCATE",
+      "commitment_sources INSERT",
+      "commitment_sources UPDATE",
+      "commitment_sources DELETE",
+      "commitment_sources TRUNCATE",
+      "commitment_events INSERT",
+      "commitment_events UPDATE",
+      "commitment_events DELETE",
+      "commitment_events TRUNCATE",
+      "commitment_reconciliation_cases INSERT",
+      "commitment_reconciliation_cases UPDATE",
+      "commitment_reconciliation_cases DELETE",
+      "commitment_reconciliation_cases TRUNCATE",
+      "commitment_authorizations INSERT",
+      "commitment_authorizations UPDATE",
+      "commitment_authorizations DELETE",
+      "commitment_authorizations TRUNCATE",
+      "identity escalation",
+      "identity escalation",
+      "identity escalation",
+      "direct privileged function invocation",
+      "forged session variables",
+      "temporary table and search path",
+      "schema creation",
+      "role escalation",
+      "unauthorized grant",
+      "grant option escalation (no privilege conveyed)",
+      "trigger removal"
+    ],
+    "functions_denied": 8,
+    "authenticated_http": "PASS",
+    "retry": "same immutable event",
+    "actor": "ef52ac76-2628-426b-aa28-2b175b4494ed",
+    "pool_identity_isolated": true,
+    "operational_tables_unchanged": true,
+    "role_cleanup": "DROP OWNED / DROP ROLE"
+  },
+  "transient_failure_recovery": {
+    "serialization": "40001 rollback + caller same-key retry PASS",
+    "deadlock": "40P01 victim rollback + caller same-key retry PASS",
+    "automatic_retry": false
+  },
+  "recovery": {
+    "source_schema": "requirement_test_7813310b321249478d3946ad879baf31",
+    "target_schema": "commitment_restore_6c59a0ca24aa41cfb65c8681a554fb29",
+    "all_table_fingerprints_match": true,
+    "verified_table_count": 17,
+    "pinned_functions": 15,
+    "deferred_witness_restored": true,
+    "replayed_accounts": 28,
+    "before": {
+      "accounts": {
+        "count": 28,
+        "hash": "4531059e0bf7098d5453b2d949be1d27"
+      },
+      "entitlements": {
+        "count": 30,
+        "hash": "f14027d01ce6d57abaed0a1fa0a2107d"
+      },
+      "balances": {
+        "count": 28,
+        "hash": "1d01ad2c10fe952144c1f57c67e7e4c1"
+      },
+      "claims": {
+        "count": 39,
+        "hash": "81700444596a67c2e63e314656981c80"
+      },
+      "sources": {
+        "count": 40,
+        "hash": "754cefb02090e054dafd2f1a7bd60c90"
+      },
+      "events": {
+        "count": 84,
+        "hash": "cf0bbabd92bd58bd1b5bdee71ed8021c"
+      },
+      "reconciliation_cases": {
+        "count": 0,
+        "hash": "d41d8cd98f00b204e9800998ecf8427e"
+      },
+      "authorizations": {
+        "count": 41,
+        "hash": "a889f42b67cc049abea094c3bb6eed13"
+      },
+      "reservations": {
+        "count": 6,
+        "hash": "6488674559c729f14b1a4047e40a015f"
+      },
+      "pr_lines": {
+        "count": 5,
+        "hash": "8bffae54d4a35c7b69b366724e4ea4bb"
+      },
+      "po_lines": {
+        "count": 3,
+        "hash": "4e2d28917e673f1986afdc08d45a05f7"
+      },
+      "po_coverage": {
+        "count": 5,
+        "hash": "d0655af55014d900bbedbde104056b39"
+      },
+      "project_stock_reservations": {
+        "count": 8,
+        "hash": "496af4df34ea311121d5f668cbf56acb"
+      },
+      "supply_events": {
+        "count": 57,
+        "hash": "2ec3aa8e89f4c6f9cd486f1a683cb323"
+      },
+      "requirement_execution_bindings": {
+        "count": 23,
+        "hash": "1a371bc2910b6e90120ab9bd70bcb8f3"
+      },
+      "purchase_requests": {
+        "count": 6,
+        "hash": "3a6ab69f6498dc6879cfa3c2816e9796"
+      },
+      "purchase_orders": {
+        "count": 3,
+        "hash": "86b9548742cf94ef32d05f730ffb1348"
+      }
+    },
+    "after": {
+      "accounts": {
+        "count": 28,
+        "hash": "4531059e0bf7098d5453b2d949be1d27"
+      },
+      "entitlements": {
+        "count": 30,
+        "hash": "f14027d01ce6d57abaed0a1fa0a2107d"
+      },
+      "balances": {
+        "count": 28,
+        "hash": "1d01ad2c10fe952144c1f57c67e7e4c1"
+      },
+      "claims": {
+        "count": 39,
+        "hash": "81700444596a67c2e63e314656981c80"
+      },
+      "sources": {
+        "count": 40,
+        "hash": "754cefb02090e054dafd2f1a7bd60c90"
+      },
+      "events": {
+        "count": 84,
+        "hash": "cf0bbabd92bd58bd1b5bdee71ed8021c"
+      },
+      "reconciliation_cases": {
+        "count": 0,
+        "hash": "d41d8cd98f00b204e9800998ecf8427e"
+      },
+      "authorizations": {
+        "count": 41,
+        "hash": "a889f42b67cc049abea094c3bb6eed13"
+      },
+      "reservations": {
+        "count": 6,
+        "hash": "6488674559c729f14b1a4047e40a015f"
+      },
+      "pr_lines": {
+        "count": 5,
+        "hash": "8bffae54d4a35c7b69b366724e4ea4bb"
+      },
+      "po_lines": {
+        "count": 3,
+        "hash": "4e2d28917e673f1986afdc08d45a05f7"
+      },
+      "po_coverage": {
+        "count": 5,
+        "hash": "d0655af55014d900bbedbde104056b39"
+      },
+      "project_stock_reservations": {
+        "count": 8,
+        "hash": "496af4df34ea311121d5f668cbf56acb"
+      },
+      "supply_events": {
+        "count": 57,
+        "hash": "2ec3aa8e89f4c6f9cd486f1a683cb323"
+      },
+      "requirement_execution_bindings": {
+        "count": 23,
+        "hash": "1a371bc2910b6e90120ab9bd70bcb8f3"
+      },
+      "purchase_requests": {
+        "count": 6,
+        "hash": "3a6ab69f6498dc6879cfa3c2816e9796"
+      },
+      "purchase_orders": {
+        "count": 3,
+        "hash": "86b9548742cf94ef32d05f730ffb1348"
+      }
+    },
+    "backup_restore": "PASS",
+    "migration_role": {
+      "current_user": "kitbuilder_dev",
+      "rolsuper": true,
+      "rolcreaterole": true
+    },
+    "shadow": {
+      "project_stock_reservations:missing_source_lineage": 1,
+      "project_stock_reservations:historical_reconciliation_required": 1,
+      "purchase_requests:missing_source_lineage": 1,
+      "purchase_requests:historical_reconciliation_required": 1,
+      "production_work_orders:missing_source_lineage": 1,
+      "production_work_orders:historical_reconciliation_required": 1,
+      "packing_orders:missing_source_lineage": 6,
+      "packing_orders:historical_reconciliation_required": 6,
+      "delivery_orders:missing_source_lineage": 1,
+      "delivery_orders:historical_reconciliation_required": 1
+    },
+    "shadow_records": [
+      {
+        "kind": "project_stock_reservations",
+        "id": "c8e24b87-6b9a-4ea0-83d2-5632943ff0fb",
+        "status": "active",
+        "state": null,
+        "project_id": "c9184b8f-5c53-4a42-ad75-3e5ae7d984bd",
+        "site_id": "4968dfb2-9dd0-4b50-bf85-b8d0e4c29da4"
+      },
+      {
+        "kind": "purchase_requests",
+        "id": "59e2a827-8d18-4109-b661-0949f9e1145a",
+        "status": "reviewed",
+        "state": null,
+        "project_id": null,
+        "site_id": null
+      },
+      {
+        "kind": "production_work_orders",
+        "id": "8b90ff77-fdae-4f6c-9b7a-91c6359553de",
+        "status": "released",
+        "state": null,
+        "project_id": "c9184b8f-5c53-4a42-ad75-3e5ae7d984bd",
+        "site_id": "4968dfb2-9dd0-4b50-bf85-b8d0e4c29da4"
+      },
+      {
+        "kind": "packing_orders",
+        "id": "105a945d-bf16-44a9-9319-2581ce42d6c3",
+        "status": "draft",
+        "state": null,
+        "project_id": "c327087d-9eb3-4aac-a6e0-e4f6d3f2445d",
+        "site_id": "afb7f84a-c2bf-4778-8143-8f96e86e4ab1"
+      },
+      {
+        "kind": "packing_orders",
+        "id": "367753b8-eda4-4f59-8b94-5f890f968c66",
+        "status": "draft",
+        "state": null,
+        "project_id": "c9184b8f-5c53-4a42-ad75-3e5ae7d984bd",
+        "site_id": "4968dfb2-9dd0-4b50-bf85-b8d0e4c29da4"
+      },
+      {
+        "kind": "packing_orders",
+        "id": "b6767247-8d68-43ab-861e-d098831a2c2e",
+        "status": "packing",
+        "state": null,
+        "project_id": "2a04fe2a-f21b-41cf-9d00-be7d5b01d558",
+        "site_id": "8cdf07be-6d13-45c6-8657-7b81001b6d36"
+      },
+      {
+        "kind": "packing_orders",
+        "id": "bdd8d45e-56ca-49ba-8791-d7f3f2d28525",
+        "status": "draft",
+        "state": null,
+        "project_id": "c9184b8f-5c53-4a42-ad75-3e5ae7d984bd",
+        "site_id": "714799a2-33b3-4172-b5ec-a58603a08da2"
+      },
+      {
+        "kind": "packing_orders",
+        "id": "db4e9729-dabd-44e8-bc7e-aee911fc12f7",
+        "status": "ready",
+        "state": null,
+        "project_id": "53dc2552-6c67-473c-ae17-888bb578a66e",
+        "site_id": "3081cba7-dbe8-4cb3-8f79-bcbd38e02d78"
+      },
+      {
+        "kind": "packing_orders",
+        "id": "eb5e25ea-c3de-47cf-a155-7bc9449a57da",
+        "status": "draft",
+        "state": null,
+        "project_id": "74304bbf-019a-4864-a707-b011ea3d2ed5",
+        "site_id": "066d594a-de41-41f2-91fa-4ba04ebb88a7"
+      },
+      {
+        "kind": "delivery_orders",
+        "id": "4773b221-733c-4d29-8462-d70fa6d141c9",
+        "status": "delivered",
+        "state": null,
+        "project_id": "53dc2552-6c67-473c-ae17-888bb578a66e",
+        "site_id": "3081cba7-dbe8-4cb3-8f79-bcbd38e02d78"
+      }
+    ]
+  }
+}

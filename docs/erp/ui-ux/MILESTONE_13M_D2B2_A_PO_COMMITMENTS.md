@@ -77,8 +77,10 @@ PO revisions prevent stale review or amendment. A changed requirement approval
 invalidates new operations and retries, including a previously issued capability.
 
 The existing trusted transaction runner binds key and full payload fingerprint,
-checks live role/tenant/revocation and retries its supported transient transaction
-failures. Lost-response replay returns the same result without duplicate coverage
+checks live role/tenant/revocation and rolls back transient transaction
+failures. The caller must retry with the original capability, key and payload;
+the runner does not automatically retry (independent D2B2-A-R correction).
+Lost-response replay returns the same result without duplicate coverage
 or audit rows. Changed payload/key and another capability for an existing key fail.
 Audit failure rolls back PO, mapping, coverage and authorization state together.
 

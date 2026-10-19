@@ -20,6 +20,8 @@ export async function verifyPurchaseOrderCommitments(h:Parameters<typeof verifyR
   await h.db.transaction(m=>configureDatabaseBoundary(m,h.schema,h.roles));
   for(const [pool,kind] of [[h.runtime,"runtime"],[h.identity,"identity"],[h.writer,"ledger"]] as const)
     await assertDatabaseBoundary(pool,kind,h.schema);
+  const boundaryRoles=await Promise.all([h.runtime,h.identity,h.writer].map(pool=>pool.query(
+    "SELECT current_user,session_user,rolsuper,rolcreaterole,rolcreatedb,rolreplication,rolbypassrls FROM pg_roles WHERE rolname=current_user")));
   const authority=await TrustedLedgerAuthority.create(h.writer,env.jwtSecret,h.schema);
   const login=await h.auth.login(h.admin.email,h.password),access=login.token!;
   const perform=async(r:LedgerRequest)=>authority.perform(await authority.issue(access,r),r);
@@ -49,6 +51,39 @@ export async function verifyPurchaseOrderCommitments(h:Parameters<typeof verifyR
   const before=await h.fingerprint(),heldBefore=await ledger();
   const initial=create(),capability=await authority.issue(access,initial);
   let po=await authority.perform(capability,initial) as PurchaseOrderResult;
+  // Independent D2B2-A-R: retries must preserve the complete committed snapshot.
+  const retryBefore=await snapshot();
+  const retries=await Promise.all([authority.perform(capability,initial),authority.perform(capability,initial)]);
+  expect(retries).toEqual([po,po]);
+  expect(await snapshot()).toEqual(retryBefore);
+  await reject(()=>perform(initial));
+  for (const substitution of [{project:randomUUID()},{item:randomUUID()},{unit:"forged"},
+    {approval:randomUUID()},{demandRevision:2},{line:randomUUID()},{request:randomUUID()}])
+    await reject(()=>perform(request({...base,...substitution,id:randomUUID(),transition:"create",vendor,sources:source("0.001")})));
+  await reject(()=>perform(request({...base,id:randomUUID(),transition:"create",vendor,sources:[]})));
+  await reject(()=>perform(request({...base,id:randomUUID(),transition:"create",vendor,sources:[...source("0.001"),...source("0.001")]})));
+  // Inject at progressively later writes, including AFTER the immutable retry receipt.
+  const faultStages=["purchase_orders","commitment_po_lines","commitment_po_coverage","supply_events","commitment_authorizations"];
+  for (const table of faultStages) {
+    await h.db.query(`CREATE FUNCTION review_po_fault() RETURNS trigger LANGUAGE plpgsql AS $$
+      BEGIN RAISE EXCEPTION 'Independent synthetic PO write failure'; END $$;
+      CREATE TRIGGER review_po_fault AFTER INSERT ON ${table} FOR EACH ROW EXECUTE FUNCTION review_po_fault()`);
+    const operation=create("0.001"),bearer=await authority.issue(access,operation);
+    try { await reject(()=>authority.perform(bearer,operation)); }
+    finally { await h.db.query(`DROP TRIGGER review_po_fault ON ${table}; DROP FUNCTION review_po_fault()`); }
+  }
+  const adjustmentRace=await Promise.allSettled([
+    perform(prRequest({...demand,id:pr.id,revision:pr.revision,transition:"adjust",quantity:"0.19",reason:"Independent encumbered PR race"})),
+    perform(create("0.001"))]);
+  expect(adjustmentRace.map(r=>r.status)).toEqual(["rejected","fulfilled"]);
+  for (const sql of ["DELETE FROM commitment_po_coverage","DELETE FROM commitment_po_lines",
+    "UPDATE commitment_claims SET held=held+1","DELETE FROM commitment_events",
+    `SELECT commitment_po_check('${po.id}'::uuid)`])
+    await reject(()=>h.runtime.query(sql));
+  h.evidence.purchase_order_independent_review={concurrent_same_bearer_retry:"PASS",lineage_substitutions:7,
+    missing_and_duplicate_sources:"REJECTED",rollback_after_insert:faultStages,
+    pr_adjustment_po_creation:adjustmentRace.map(r=>r.status),runtime_sql_denials:5,boundary_roles:boundaryRoles,
+    missing_empty_duplicate_planning_lines:"REJECTED"};
   await reservationHttpChecks(authority,access,capability,initial,po,snapshot);
   await reject(()=>authority.perform(capability,{...initial,input:{...initial.input,reason:"Forged"}}));
   await reject(()=>authority.perform(capability,{...initial,key:randomUUID()}));
@@ -90,6 +125,8 @@ export async function verifyPurchaseOrderCommitments(h:Parameters<typeof verifyR
   await reject(()=>h.runtime.query("UPDATE purchase_orders SET status='cancelled' WHERE id=$1",[po.id]));
   await reject(()=>h.writer.query("UPDATE purchase_orders SET status='cancelled' WHERE id=$1",[po.id]));
   await reject(()=>h.writer.query("UPDATE purchase_orders SET planning_lines=jsonb_set(planning_lines,'{0,unit}','\"forged\"') WHERE id=$1",[po.id]));
+  for (const expression of ["NULL","'[]'::jsonb","planning_lines || planning_lines"])
+    await reject(()=>h.writer.query(`UPDATE purchase_orders SET planning_lines=${expression} WHERE id=$1`,[po.id]));
   await reject(()=>h.writer.query("UPDATE commitment_po_coverage SET end_quantity=end_quantity+1 WHERE order_id=$1",[po.id]));
   await reject(()=>h.db.query(`INSERT INTO commitment_po_coverage(id,order_id,claim_id,source_slice,start_quantity,end_quantity,operation_key)
     SELECT $1,order_id,claim_id,source_slice,start_quantity,end_quantity,'Overlap probe' FROM commitment_po_coverage WHERE order_id=$2 LIMIT 1`,[randomUUID(),po.id]));
