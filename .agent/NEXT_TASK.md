@@ -1,9 +1,10 @@
 # Next task
 
-Stop after D2B1-R. Await separate authorization for D2B2; first define exact partial
-PR-to-PO coverage transfer, source lineage and cancellation contracts using the
-prerequisites in `docs/erp/ui-ux/MILESTONE_13M_D2B1_R_INDEPENDENT_REVIEW.md`.
+Stop after D2B2-A. Await separate authorization for independent review of exact
+partial PO coverage, authority and settlement blocks using
+`docs/erp/ui-ux/MILESTONE_13M_D2B2_A_PO_COMMITMENTS.md` and its fingerprints.
 
-Preserve unrelated AGENTS.md. No receipt/QC implementation, operational cutover,
-historical activation, real inventory changes, deployment or main merge.
-Use /new or /compact before another milestone.
+Do not begin D2B2-B supplier receipts automatically. Its prerequisites are recorded
+in the acceptance report. Preserve unrelated AGENTS.md; no operational activation,
+historical matching, real stock changes, deployment or main merge.
+Use /new or /compact before the next milestone.
