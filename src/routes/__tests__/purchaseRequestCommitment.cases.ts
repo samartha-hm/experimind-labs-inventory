@@ -1,3 +1,4 @@
+import { verifyPurchaseOrderCommitments } from "./purchaseOrderCommitment.cases";
 import { randomUUID } from "node:crypto";
 import jwt from "jsonwebtoken";
 import { expect } from "vitest";
@@ -139,4 +140,5 @@ export async function verifyPurchaseRequestCommitments(h:Parameters<typeof verif
   expect(protectedEffects(after)).toEqual(protectedEffects(before));
   h.evidence.purchase_request_commitments={schema:h.schema,acceptance:"CONDITIONAL PASS",scope:"single canonical school/material line",
     before,after,projection:await snapshot(),capacity_race:"one winner",replay:"PASS",stock_and_reservations_unchanged:true};
+  await verifyPurchaseOrderCommitments(h);
 }

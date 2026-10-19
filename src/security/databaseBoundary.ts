@@ -13,6 +13,10 @@ async function purchaseRequestInstalled(db: Sql, schema: string): Promise<boolea
   return (await db.query("SELECT to_regclass($1) IS NOT NULL installed",[`${sqlIdentifier(schema)}.commitment_pr_lines`]))[0].installed;
 }
 
+async function purchaseOrderInstalled(db: Sql, schema: string): Promise<boolean> {
+  return (await db.query("SELECT to_regclass($1) IS NOT NULL installed",[`${sqlIdentifier(schema)}.commitment_po_lines`]))[0].installed;
+}
+
 /** Explicit operator action, under the schema owner. Never called by server startup. */
 export async function configureDatabaseBoundary(db: Sql, schema: string,
   roles: { runtime: string; identity: string; ledger: string }): Promise<void> {
@@ -21,7 +25,9 @@ export async function configureDatabaseBoundary(db: Sql, schema: string,
   const identity = sqlIdentifier(roles.identity), ledger = sqlIdentifier(roles.ledger);
   const d2 = await reservationInstalled(db,schema);
   const pr=await purchaseRequestInstalled(db,schema);
-  const prWrites=pr?["commitment_pr_lines","purchase_requests"]:[];
+  const po=await purchaseOrderInstalled(db,schema);
+  const poWrites=po?["commitment_po_lines","commitment_po_coverage","purchase_orders"]:[];
+  const prWrites=[...(pr?["commitment_pr_lines","purchase_requests"]:[]),...poWrites];
   const protectedTables = [...ledgerTables,...(d2 ? ["commitment_reservations",...reservationWrites] : []),...prWrites];
   await db.query(`REVOKE ALL ON SCHEMA ${s} FROM PUBLIC;
     REVOKE ALL ON ALL TABLES IN SCHEMA ${s} FROM PUBLIC;
@@ -65,6 +71,7 @@ export async function configureDatabaseBoundary(db: Sql, schema: string,
       await db.query(`GRANT SELECT ON ${s}.${sqlIdentifier(table)} TO ${ledger}`);
   }
   if (pr) await db.query(`GRANT SELECT,INSERT,UPDATE ON ${prWrites.map(t=>`${s}.${sqlIdentifier(t)}`).join(",")} TO ${ledger}`);
+  if (po) await db.query(`GRANT SELECT ON ${s}.vendors,${s}.purchase_goods_receipts,${s}.purchase_order_lines TO ${ledger}`);
   const functions: { signature: string; proname: string; prosecdef: boolean }[] = await db.query(`
     SELECT p.oid::regprocedure::text signature,p.proname,p.prosecdef FROM pg_proc p
     JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname=$1`, [schema]);
@@ -93,7 +100,8 @@ export async function assertDatabaseBoundary(db: DataSource, kind: "runtime" | "
   const fail = () => { throw new Error(`Unsafe ${kind} database authority; operator provisioning required`); };
   const d2=await reservationInstalled(db,schema);
   const pr=await purchaseRequestInstalled(db,schema);
-  const d2Tables=[...(d2 ? ["commitment_reservations",...reservationWrites] : []),...(pr?["commitment_pr_lines","purchase_requests"]:[])];
+  const po=await purchaseOrderInstalled(db,schema);
+  const d2Tables=[...(d2 ? ["commitment_reservations",...reservationWrites] : []),...(pr?["commitment_pr_lines","purchase_requests"]:[]),...(po?["commitment_po_lines","commitment_po_coverage","purchase_orders"]:[])];
   const [{ path }] = await db.query("SELECT current_setting('search_path') path");
   if (path.replace(/\s/g, "") !== `pg_catalog,${schema},pg_temp`) fail();
   const [role] = await db.query(`SELECT r.rolsuper,r.rolcreaterole,r.rolcreatedb,r.rolreplication,r.rolbypassrls,

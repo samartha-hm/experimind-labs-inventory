@@ -112,3 +112,30 @@ export class CommitmentPurchaseRequestLine {
   @Column("text") operation_key!: string;
   @Column("timestamptz") created_at!: Date;
 }
+
+/** Isolated D2B2-A only; neither entity is registered for startup synchronization. */
+@Entity("commitment_po_lines")
+export class CommitmentPurchaseOrderLine {
+  @PrimaryColumn("uuid") order_id!: string;
+  @Column("uuid") request_id!: string;
+  @Column("uuid") line_id!: string;
+  @Column("uuid") organization_id!: string;
+  @Column("uuid") account_id!: string;
+  @Column("uuid") entitlement_id!: string;
+  @Column("integer") request_revision!: number;
+  @Column("jsonb") frozen_request!: unknown;
+  @Column("jsonb") frozen_order!: unknown;
+  @Column("text") operation_key!: string;
+  @Column("timestamptz") created_at!: Date;
+}
+@Entity("commitment_po_coverage")
+export class CommitmentPurchaseOrderCoverage {
+  @PrimaryColumn("uuid") id!: string;
+  @Column("uuid") order_id!: string;
+  @Column("uuid") claim_id!: string;
+  @Column("text") source_slice!: string;
+  @Column({type:"numeric",precision:20,scale:6}) start_quantity!: string;
+  @Column({type:"numeric",precision:20,scale:6}) end_quantity!: string;
+  @Column("text") operation_key!: string;
+  @Column("timestamptz") created_at!: Date;
+}
