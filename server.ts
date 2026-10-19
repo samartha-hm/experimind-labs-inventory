@@ -244,7 +244,7 @@ async function startServer() {
   app.use("/api/v1/planning-projects", planningProjectRouter(AppDataSource));
   app.use("/api/v1/stocktakes", stocktakeRouter(AppDataSource));
   app.use("/api/v1/supply-planning", supplyPlanningRouter(AppDataSource,receiptAuthority));
-  app.use("/api/v1/production-planning", productionPlanningRouter(AppDataSource));
+  app.use("/api/v1/production-planning", productionPlanningRouter(AppDataSource,receiptAuthority));
   app.use("/api/v1/packing", packingRouter(AppDataSource));
   app.use("/api/v1/delivery", deliveryRouter(AppDataSource));
   app.use("/api/v1/attachments", attachmentRouter(AppDataSource));

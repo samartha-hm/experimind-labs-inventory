@@ -157,6 +157,7 @@ export function trustedLedgerBoundaryTests(get: () => Harness, fixture: () => Pr
         actor:event.actor_id,pool_identity_isolated:true,operational_tables_unchanged:true,role_cleanup:"DROP OWNED / DROP ROLE"};
       await verifyReservationCommitments({...h,runtime,writer,identity,schema,roles,auth,password,fixture});
       await verifyExecutionBoundary({...h,runtime,writer,identity,schema,roles});
+      await verifyRecipePublication({...h,runtime,writer,identity,schema,roles,password});
     } finally {
       if(close) await close();
       for(const pool of pools) if(pool.isInitialized) await pool.destroy();
@@ -164,6 +165,7 @@ export function trustedLedgerBoundaryTests(get: () => Harness, fixture: () => Pr
         await h.db.query(`DROP OWNED BY ${sqlIdentifier(role)}; DROP ROLE IF EXISTS ${sqlIdentifier(role)}`);
       }
     }
-  },30000);
+  },120000);
 }
 import { verifyExecutionBoundary } from "./executionBoundary.cases";
+import { verifyRecipePublication } from "./recipePublication.cases";

@@ -6,6 +6,9 @@ export const ledgerTables = ["commitment_accounts", "commitment_entitlements", "
 export const identityTables = ["users", "roles", "refresh_tokens", "sessions"];
 export const sqlIdentifier = (name: string): string => `"${name.replaceAll('"', '""')}"`;
 type Sql = Pick<EntityManager, "query">;
+async function recipePublicationInstalled(db: Sql): Promise<boolean> {
+  return (await db.query("SELECT to_regprocedure('commitment_recipe_insert()') IS NOT NULL installed"))[0].installed;
+}
 async function executionBlockedTables(db: Sql): Promise<string[]> {
   return (await db.query("SELECT to_regprocedure('guard_d3_execution()') IS NOT NULL installed"))[0].installed ? blockedExecutionTables : [];
 }
@@ -35,6 +38,7 @@ export async function configureDatabaseBoundary(db: Sql, schema: string,
   const pr=await purchaseRequestInstalled(db,schema);
   const po=await purchaseOrderInstalled(db,schema);
   const receipt=await receiptInstalled(db,schema);
+  const recipes=await recipePublicationInstalled(db);
   const poWrites=[...(po?["commitment_po_lines","commitment_po_coverage","purchase_orders"]:[]),...(receipt?receiptWrites:[])];
   const prWrites=[...(pr?["commitment_pr_lines","purchase_requests"]:[]),...poWrites];
   const executionTables = await executionBlockedTables(db);
@@ -90,6 +94,7 @@ export async function configureDatabaseBoundary(db: Sql, schema: string,
     const columns: {attname:string}[] = await db.query("SELECT attname FROM pg_attribute WHERE attrelid=$1::regclass AND attnum>0 AND NOT attisdropped", [t]);
     for (const {attname} of columns) await db.query(`REVOKE ALL (${sqlIdentifier(attname)}) ON ${t} FROM ${role}`);
   }
+  if (recipes) await db.query(`GRANT INSERT ON ${s}.production_recipes TO ${ledger}`);
   const functions: { signature: string; proname: string; prosecdef: boolean }[] = await db.query(`
     SELECT p.oid::regprocedure::text signature,p.proname,p.prosecdef FROM pg_proc p
     JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname=$1`, [schema]);
@@ -121,6 +126,7 @@ export async function assertDatabaseBoundary(db: DataSource, kind: "runtime" | "
   const pr=await purchaseRequestInstalled(db,schema);
   const po=await purchaseOrderInstalled(db,schema);
   const receipt=await receiptInstalled(db,schema);
+  const recipes=await recipePublicationInstalled(db);
   const d2Tables=[...(d2 ? ["commitment_reservations",...reservationWrites] : []),...(pr?["commitment_pr_lines","purchase_requests"]:[]),...(po?["commitment_po_lines","commitment_po_coverage","purchase_orders"]:[]),...(receipt?receiptWrites:[])];
   const [{ path }] = await db.query("SELECT current_setting('search_path') path");
   if (path.replace(/\s/g, "") !== `pg_catalog,${schema},pg_temp`) fail();
@@ -164,20 +170,24 @@ export async function assertDatabaseBoundary(db: DataSource, kind: "runtime" | "
     const operational = ![...ledgerTables,...d2Tables,...identityTables,...executionTables,"migrations","typeorm_metadata"].includes(relname);
     const writable = kind === "runtime" ? operational : kind === "identity" ? identityTables.includes(relname) : [...ledgerTables,...d2Tables].includes(relname);
     for (const privilege of ["INSERT","UPDATE","DELETE","TRUNCATE","REFERENCES","TRIGGER"]) {
-      const allowed = writable && ["INSERT",...(kind === "ledger" && receipt && relname === "stock_ledger" ? [] : ["UPDATE"]),...(kind === "ledger" ? [] : ["DELETE"])].includes(privilege) ||
+      const allowed = kind === "ledger" && recipes && relname === "production_recipes" && privilege === "INSERT" || writable && ["INSERT",...(kind === "ledger" && receipt && relname === "stock_ledger" ? [] : ["UPDATE"]),...(kind === "ledger" ? [] : ["DELETE"])].includes(privilege) ||
         kind === "identity" && relname === "audit_logs" && privilege === "INSERT";
       if (!allowed && (await db.query("SELECT has_table_privilege($1,$2) allowed",[t,privilege]))[0].allowed) fail();
     }
     const columns: {attname:string; writable:boolean}[] = await db.query(`SELECT attname,
       (has_column_privilege($1,attname,'INSERT') OR has_column_privilege($1,attname,'UPDATE')) writable
       FROM pg_attribute WHERE attrelid=$1::regclass AND attnum>0 AND NOT attisdropped`,[t]);
-    if (!writable && !(kind === "identity" && relname === "audit_logs") && columns.some(c=>c.writable &&
+    if (kind === "ledger" && recipes && relname === "production_recipes" &&
+      (await db.query(`SELECT 1 FROM pg_attribute WHERE attrelid=$1::regclass AND attnum>0 AND NOT attisdropped
+        AND has_column_privilege($1,attname,'UPDATE') LIMIT 1`,[t])).length) fail();
+    if (!writable && !(kind === "identity" && relname === "audit_logs") && !(kind === "ledger" && recipes && relname === "production_recipes") && columns.some(c=>c.writable &&
       !(c.attname === "updated_at" && (relname === "users" && kind === "runtime" || kind === "ledger" && ["users","planning_projects",...(d2?["inventory_items"]:[])].includes(relname))))) fail();
   }
   // Missing authority is also unsafe: never silently substitute runtime credentials for identity/writer credentials.
   if (kind === "ledger") for (const table of ["refresh_tokens", "sessions"])
     if (!(await db.query("SELECT has_table_privilege($1,'SELECT') allowed",
       [`${sqlIdentifier(schema)}.${sqlIdentifier(table)}`]))[0].allowed) fail();
+  if (kind === "ledger" && recipes && !(await db.query("SELECT has_table_privilege('production_recipes','INSERT') allowed"))[0].allowed) fail();
   for (const table of kind === "identity" ? identityTables : kind === "ledger" ? [...ledgerTables,...d2Tables] : [...ledgerTables,...d2Tables,...identityTables]) {
     for (const privilege of kind === "runtime" ? ["SELECT"] : ["SELECT","INSERT","UPDATE"]) {
       if (kind === "ledger" && receipt && table === "stock_ledger" && privilege === "UPDATE") continue;

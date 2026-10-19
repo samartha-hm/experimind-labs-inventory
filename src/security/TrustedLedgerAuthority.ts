@@ -9,6 +9,7 @@ import { mutatePurchaseRequest, type PurchaseRequestMutation, type PurchaseReque
 
 import { mutatePurchaseOrder, type PurchaseOrderMutation, type PurchaseOrderResult } from "../services/PurchaseOrderCommitmentService";
 import { mutateReceipt, type ReceiptMutation, type ReceiptResult } from "../services/ReceiptCommitmentService";
+import { publishRecipe, type RecipePublication, type PublishedRecipe } from "../services/RecipePublicationService";
 
 export type LedgerRequest =
   | { action: "createAccount"; key: string; input: LedgerAccountInput }
@@ -17,7 +18,8 @@ export type LedgerRequest =
   | { action: "reservation"; key: string; input: ReservationMutation }
   | { action: "purchaseRequest"; key: string; input: PurchaseRequestMutation }
   | { action: "purchaseOrder"; key: string; input: PurchaseOrderMutation }
-  | { action: "receipt"; key: string; input: ReceiptMutation };
+  | { action: "receipt"; key: string; input: ReceiptMutation }
+  | { action: "publishRecipe"; key: string; input: RecipePublication };
 const issuer = "experimind-ledger";
 const audience = "experimind-ledger-execution";
 const fingerprint = (request: LedgerRequest) => createHash("sha256").update(canonicalRequirementJSON(request)).digest("hex");
@@ -84,7 +86,7 @@ export class TrustedLedgerAuthority {
         jwtid: randomUUID(), expiresIn: Math.min(60, p.exp! - Math.floor(Date.now()/1000)) });
     });
   }
-  async perform(token: string, request: LedgerRequest): Promise<string | LedgerEvent | ReservationResult | PurchaseRequestResult | PurchaseOrderResult | ReceiptResult> {
+  async perform(token: string, request: LedgerRequest): Promise<string | LedgerEvent | ReservationResult | PurchaseRequestResult | PurchaseOrderResult | ReceiptResult | PublishedRecipe> {
     const normalized = JSON.parse(JSON.stringify(request)) as LedgerRequest;
     const p = this.claims(token, true), digest = fingerprint(normalized);
     if (p.action !== normalized.action || p.operationKey !== normalized.key || p.fingerprint !== digest)
@@ -108,7 +110,7 @@ export class TrustedLedgerAuthority {
         return receipt.result;
       }
       const service = new CommitmentLedgerService(m), context = { actor: p.sub!, organization: p.orgId as string };
-      let result: string | LedgerEvent | ReservationResult | PurchaseRequestResult | PurchaseOrderResult | ReceiptResult;
+      let result: string | LedgerEvent | ReservationResult | PurchaseRequestResult | PurchaseOrderResult | ReceiptResult | PublishedRecipe;
       switch (normalized.action) {
         case "createAccount": result = await service.createAccount(context, normalized.input); break;
         case "entitlement": result = await service.entitlement(context, normalized.account, normalized.approval,
@@ -119,12 +121,13 @@ export class TrustedLedgerAuthority {
         case "purchaseRequest": result = await mutatePurchaseRequest(m,context,normalized.input,normalized.key); break;
         case "purchaseOrder": result = await mutatePurchaseOrder(m,context,normalized.input,normalized.key); break;
         case "receipt": result = await mutateReceipt(m,context,normalized.input,normalized.key); break;
+        case "publishRecipe": result = await publishRecipe(m,context,normalized.input,normalized.key); break;
         default: throw new Error("Unknown ledger action");
       }
       await m.query(`INSERT INTO commitment_authorizations(id,organization_id,actor_id,operation_key,fingerprint,result)
         VALUES($1,$2,$3,$4,$5,$6::jsonb)`, [p.jti,p.orgId,p.sub,normalized.key,digest,JSON.stringify(result)]);
       await this.current(m, p);
-      return JSON.parse(JSON.stringify(result)) as string | LedgerEvent | ReservationResult | PurchaseRequestResult | PurchaseOrderResult | ReceiptResult;
+      return JSON.parse(JSON.stringify(result)) as string | LedgerEvent | ReservationResult | PurchaseRequestResult | PurchaseOrderResult | ReceiptResult | PublishedRecipe;
     });
   }
   createAccount(token: string, input: LedgerAccountInput, key: string) {

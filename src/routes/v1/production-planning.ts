@@ -7,6 +7,8 @@ import {dto} from "./product-templates";
 import {DraftKitError} from "../../services/ProductTemplateService";
 import {ProductionPlanningService} from "../../services/ProductionPlanningService";
 import type {RecipeDefinition,ProductionWorkOrder,ProductionQcDecision} from "../../entity/ProductionPlanning";
+import type {TrustedLedgerAuthority} from "../../security/TrustedLedgerAuthority";
+import type {RecipePublication} from "../../services/RecipePublicationService";
 class Revision { @IsInt() @Min(1) revision!:number; }
 class RecipeDto {
   @IsString() @MinLength(1) @MaxLength(200) name!:string;
@@ -52,7 +54,7 @@ class QcDto extends Revision {
 }
 const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const writers=new Set(["admin","super_admin","manager","staff","inventory_staff","production_staff","project_staff","editor"]),approvers=new Set(["admin","super_admin","manager"]),inspectors=new Set(["admin","super_admin","manager","inventory_staff"]);
-export function productionPlanningRouter(db:DataSource){
+export function productionPlanningRouter(db:DataSource,authority?:TrustedLedgerAuthority){
   const r=Router(),s=new ProductionPlanningService(db);
   const action=(run:RequestHandler):RequestHandler=>(req,res,next)=>{Promise.resolve(run(req,res,next)).catch((e:unknown)=>{if(e instanceof DraftKitError)res.status(e.status).json({error:e.message});else if(e&&typeof e==="object"&&"code" in e&&["23505","23503","23514","P0001","40001","40P01","22007"].includes(String(e.code)))res.status(409).json({error:"Production conflict; refresh before retrying"});else{console.error("Production operation failed",e instanceof Error?e.name:"Error");res.status(500).json({error:"Unable to process production operation"});}});};
   r.use((req,res,next)=>{if(!req.headers.authorization?.startsWith("Bearer ")){res.status(401).json({error:"Sign in required"});return;}next();},authenticateJwt);
@@ -61,6 +63,15 @@ export function productionPlanningRouter(db:DataSource){
     if(read?!writers.has(current.role)&&current.role!=="viewer":!roles.has(current.role))throw new DraftKitError(403,"Production permission denied");if(!read&&!req.header("Idempotency-Key"))throw new DraftKitError(400,"Idempotency-Key required");next();}));
   r.param("id",(_req,_res,next,id:string)=>next(uuid.test(id)?undefined:new DraftKitError(400,"Invalid identity")));
   const key=(req:Parameters<RequestHandler>[0])=>req.header("Idempotency-Key")!;
+  r.post("/recipe-versions",action(async(req,res)=>{
+    if(!["admin","super_admin"].includes(req.user!.role))throw new DraftKitError(403,"Recipe administrator required");
+    if(!authority)throw new DraftKitError(503,"Trusted recipe publication unavailable");
+    const capability=req.header("X-Ledger-Capability");
+    if(!capability)throw new DraftKitError(403,"Recipe publication capability required");
+    try {res.status(201).json(await authority.performForSession(req.headers.authorization!.slice(7),capability,
+      {action:"publishRecipe",key:key(req),input:req.body as RecipePublication}));}
+    catch {throw new DraftKitError(409,"Recipe publication authorization or state conflict");}
+  }));
   r.get("/execution-readiness",action(async(_req,res)=>{res.setHeader("Cache-Control","no-store");res.json(await executionReadiness(db));}));
   r.get("/",action(async(req,res)=>{res.json(await s.list(req.user!.orgId!));}));
   r.get("/orders/:id",action(async(req,res)=>{res.json(await s.detail(req.user!.orgId!,req.params.id));}));
