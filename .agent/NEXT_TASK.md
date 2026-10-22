@@ -1,26 +1,23 @@
-# Next task — D3 complete; stop pending new scope
+# Next task — D5 slice delivered; stop
 
-D3 implementation: `ab6be04e8b3333e29e27fae770ef494682308f59` on
-`feature/kit-builder-milestone-1`, pushed with full local/remote SHA verified.
-D3 is **PASS for the supported isolated synthetic workflow**. The user explicitly
-requested stopping after final acceptance; do not start D4 or activate production.
+Implementation: `1f341052dfbce5d8345b5e29aa19f0aa00b9c4c3` on
+`feature/kit-builder-milestone-1`. Read SESSION_HANDOFF.md and
+`docs/erp/D5_ERP_READINESS_AND_PILOT_GATE.md`.
 
-Read SESSION_HANDOFF.md and `docs/erp/ui-ux/D3_COMPLETION_ACCEPTANCE.md`.
-Completed: approved material issue, immutable finished-output custody, conserved
-partial/full allocation, six-check QC acceptance/rejection, authenticated operator
-HTTP/UI, immutable audit and durable retries, Science/Math crate rules, QR/PDF,
-concurrency/rollback/security tests, actual restart and fresh nonempty restore.
-Packing/QC neither consume raw stock again nor fulfill school delivery.
+D5 remains BLOCKED for complete software acceptance and pilot readiness.
+Read-only historical evidence review/export is implemented and verified.
+Final full suite: 608 passed, two opt-in recovery skips; focused 16 passed;
+typecheck and frontend/PWA/server build passed. Synthetic authenticated login,
+Inventory preview and phone/tablet panel reflow passed within the reported scope.
 
-Validation: 606 full-suite tests passed; 37 focused integration tests passed;
-typecheck, enabled frontend/PWA/server build, mobile/tablet operator component
-browser and QR/PDF checks passed. D3 opt-in recovery was run separately through
-all three phases. The dedicated D2 receipt recovery remains an explained opt-in
-skip, with ordinary receipt regressions included in the full suite.
+Stop after D5 as requested. A separately authorized continuation should address
+append-only attributed decisions and lineage analysis, consolidated lifecycle
+reconciliation, full authenticated role/UI acceptance, and fresh nonempty recovery
+on a dedicated workspace/staging cluster. Physical/staff/device validation,
+credential provisioning and pilot approval require named responsible people.
 
-For any separately authorized follow-up, retain default-off flags, synthetic-only
-migration guards and blocked ambiguous provenance. Dispatch/delivery, rework,
-reversals, compensation and historical reconciliation require new scope. Queue
-pagination and comprehensive whole-app accessibility are not claimed here.
-Preserve unrelated AGENTS.md and .test-tmp/. No deployment, real inventory changes,
-main merge or force push. Start `/new` or use `/compact` before a new milestone.
+Preserve default-off controls, ambiguous-history restrictions and separate stock,
+demand/custody correction authority. No automatic historical activation,
+production deployment, real inventory changes, main merge, force push or reopening
+legacy QMS/RMA/signature paths. Preserve AGENTS.md and .test-tmp/.
+Use /new or /compact before beginning a new authorized scope.
