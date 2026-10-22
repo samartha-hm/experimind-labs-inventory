@@ -45,8 +45,8 @@ export class TrustedPackingCustody1793059200026 implements MigrationInterface {
         PERFORM pg_advisory_xact_lock(hashtextextended('packing:'||p.id::text,0));
         SELECT v INTO STRICT pack FROM jsonb_array_elements(p.snapshot->'packages') v WHERE v->>'id'=NEW.package_id::text;
         WITH RECURSIVE parents AS (
-          SELECT pack v UNION ALL SELECT v FROM jsonb_array_elements(p.snapshot->'packages') v
-          JOIN parents x ON v->>'id'=x.v->>'parent_id')
+          SELECT pack v UNION ALL SELECT child.value FROM jsonb_array_elements(p.snapshot->'packages') child(value)
+          JOIN parents x ON child.value->>'id'=x.v->>'parent_id')
           SELECT array_agg((v->>'id')::uuid) INTO ancestors FROM parents;
         IF EXISTS(SELECT 1 FROM trusted_packing_qc WHERE plan_id=p.id AND package_id=ANY(ancestors)) THEN
           RAISE EXCEPTION 'Final custody cannot be changed or inspected twice' USING ERRCODE='23514'; END IF;
@@ -70,8 +70,8 @@ export class TrustedPackingCustody1793059200026 implements MigrationInterface {
           IF total>(material->>'quantity')::numeric THEN RAISE EXCEPTION 'Package assignment exhausted' USING ERRCODE='23514'; END IF;
         ELSE
           WITH RECURSIVE children AS (
-            SELECT pack v UNION ALL SELECT v FROM jsonb_array_elements(p.snapshot->'packages') v
-            JOIN children x ON v->>'parent_id'=x.v->>'id')
+            SELECT pack v UNION ALL SELECT child.value FROM jsonb_array_elements(p.snapshot->'packages') child(value)
+            JOIN children x ON child.value->>'parent_id'=x.v->>'id')
             SELECT array_agg((v->>'id')::uuid) INTO tree FROM children;
           IF NEW.allocation_revision<>(SELECT count(*) FROM trusted_packing_allocations WHERE plan_id=p.id)
             OR EXISTS(SELECT 1 FROM trusted_packing_qc WHERE plan_id=p.id AND package_id=ANY(tree) AND decision='reject') THEN

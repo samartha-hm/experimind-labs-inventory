@@ -13,7 +13,7 @@ export async function verifyPackingBrowser(app:Express,base:string,access:string
       b.onLoad({filter:/.*/,namespace:'test'},()=>({contents:"export const useAuth=()=>({currentUser:JSON.parse(localStorage.getItem('test_profile'))});"}));}}]});
   app.get('/packing-test',(_req,res)=>res.type('html').send('<meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="/packing-test.css"><div id="root"></div><script src="/packing-test.js"></script>'));
   for(const extension of ['js','css'])app.get(`/packing-test.${extension}`,(_req,res)=>res.type(extension).send(compiled.outputFiles.find(f=>f.path.endsWith('.'+extension))!.text));
-  const plan=view.plans.find(p=>p.inspections.some(q=>q.decision==='accept'))!,qc=plan.inspections.find(q=>q.decision==='accept')!;
+  const plan=view.plans.find(p=>p.inspections.some(q=>q.decision==='accept')&&p.inspections.some(q=>q.decision==='reject'))!,qc=plan.inspections.find(q=>q.decision==='accept')!;
   const browser=await chromium.launch({channel:'msedge',headless:true,ignoreDefaultArgs:['--no-sandbox']});
   try {
     const page=await browser.newPage({viewport:{width:390,height:844}}),errors:string[]=[];

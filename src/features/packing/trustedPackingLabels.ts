@@ -10,7 +10,7 @@ export async function trustedPackingPDF(plan:TrustedPlan,id:string,origin:string
   const p=plan.snapshot.packages.find(p=>p.id===id);if(!p)throw Error('Select a frozen package');
   const doc=new jsPDF({orientation:'landscape',unit:'mm',format:[110,85]});
   const qc=inspectionFor(plan,id);doc.setFontSize(9);
-  const lines=[`${p.name} #${p.pack_number}`,`${plan.snapshot.project_name} / ${plan.snapshot.site_name}`,`${p.subject} ${p.grade} · v${p.version_number} · demand r${plan.demand_revision}`,`QC: ${qc?.decision??'pending'} · dispatch blocked`,p.code,`Parent: ${p.parent_id??'root'}`,`Inspector: ${qc?.actor_id??'pending'}`];
+  const lines=[`${p.name} #${p.pack_number}`,`${plan.snapshot.project_name} / ${plan.snapshot.site_name}`,`${p.subject} ${p.grade} · v${p.version_number} · demand r${plan.demand_revision}`,`QC: ${qc?.decision??'pending'} · verify dispatch custody`,p.code,`Parent: ${p.parent_id??'root'}`,`Inspector: ${qc?.actor_id??'pending'}`];
   lines.forEach((line,i)=>doc.text(String(doc.splitTextToSize(line,100)[0]),5,7+i*6));
   const {modules}=QRCode.create(trustedPackageDestination(origin,id),{errorCorrectionLevel:'M'}),size=30/(modules.size+8);
   doc.setFillColor('#000000');for(let y=0;y<modules.size;y++)for(let x=0;x<modules.size;x++)if(modules.get(y,x))doc.rect(75+(x+4)*size,50+(y+4)*size,size,size,'F');

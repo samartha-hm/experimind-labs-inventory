@@ -1,6 +1,6 @@
 import express from "express";
 import type { Server } from "node:http";
-import { randomBytes } from "node:crypto";
+import { randomBytes, randomUUID } from "node:crypto";
 import { readFile, writeFile } from "node:fs/promises";
 import { DataSource, type DataSourceOptions } from "typeorm";
 import { expect, it } from "vitest";
@@ -14,13 +14,14 @@ import { assertDatabaseBoundary, configureDatabaseBoundary, sqlIdentifier } from
 import { productionPlanningRouter } from "../v1/production-planning";
 import { verifyProductionBrowser } from "./productionBrowser.cases";
 import { verifyPackingBrowser } from "./packingBrowser.cases";
+import { verifyDeliveryBrowser } from "./deliveryBrowser.cases";
 
 const phase=process.env.PRODUCTION_RECOVERY_PHASE;
 it.skipIf(!phase)("preserves production custody and authenticated exact retries after restart and restore",async()=>{
-  const {schema}=JSON.parse(await readFile(".test-tmp/d3-evidence.json","utf8"));
+  const evidence=JSON.parse(await readFile(".test-tmp/d3-evidence.json","utf8")),{schema}=evidence;
   const url=new URL(process.env.KIT_BUILDER_TEST_DATABASE_URL!);
   const database=process.env.PRODUCTION_RECOVERY_DATABASE??"experimind_kitbuilder_test";
-  if(url.hostname!=="127.0.0.1"||url.port!=="55432"||!/^requirement_test_[a-f0-9]{32}$/.test(schema)
+  if(url.hostname!=="127.0.0.1"||!["55432","55433"].includes(url.port)||!/^requirement_test_[a-f0-9]{32}$/.test(schema)
     || !/^(experimind_kitbuilder_test|experimind_production_restore_[a-f0-9]{16})$/.test(database))throw Error("Synthetic recovery target required");
   url.pathname=`/${database}`;
   const options={...AppDataSource.options as Extract<DataSourceOptions,{type:"postgres"}>,url:url.toString(),schema,
@@ -41,12 +42,13 @@ it.skipIf(!phase)("preserves production custody and authenticated exact retries 
     for(const [index,kind] of (["runtime","identity","ledger"] as const).entries())await assertDatabaseBoundary(pools[index],kind,schema);
     const tables=["stock_ledger","commitment_events","commitment_balances","commitment_claims","commitment_entitlements",
       "production_work_orders","production_input_issues","commitment_work_orders","commitment_work_order_materials",
-      "commitment_work_order_issues","production_output_custody","trusted_packing_plans","trusted_packing_allocations","trusted_packing_qc","audit_logs","commitment_authorizations"];
+      "commitment_work_order_issues","production_output_custody","trusted_packing_plans","trusted_packing_allocations","trusted_packing_qc",
+      "trusted_dispatches","trusted_dispatch_units","trusted_delivery_receipts","trusted_installation_sources","site_installations","project_completions","supply_events","audit_logs","commitment_authorizations"];
     const fingerprint=async()=>Object.fromEntries(await Promise.all(tables.map(async t=>[t,(await runtime.query(
       `SELECT count(*)::int count,md5(coalesce(string_agg(row_to_json(t)::text,'' ORDER BY row_to_json(t)::text),'')) hash FROM ${t} t`))[0]])));
     const before=await fingerprint();expect(before.production_output_custody.count).toBeGreaterThan(0);
     if(phase!=="before")expect(before).toEqual(JSON.parse(await readFile(`.local-dev/d3-recovery-${phase==="restart"?"before":"restart"}.json`,"utf8")).after);
-    const [output]=await runtime.query("SELECT * FROM production_output_custody ORDER BY id LIMIT 1");
+    const [output]=await runtime.query("SELECT * FROM production_output_custody WHERE location='Production shelf' ORDER BY id LIMIT 1");
     const [admin]=await identity.query("SELECT id,email FROM users WHERE id=$1",[output.actor_id]);
     const auth=new AuthService(identity),password=randomBytes(24).toString("hex")+"Aa1!";
     await identity.getRepository(User).update(admin.id,{password_hash:await auth.hashPassword(password)});
@@ -78,6 +80,10 @@ it.skipIf(!phase)("preserves production custody and authenticated exact retries 
       }
     }
     if(process.env.PRODUCTION_BROWSER==='true'&&phase==='before')await verifyPackingBrowser(app,`http://127.0.0.1:${address.port}`,access,admin,packing);
+    if(process.env.PRODUCTION_BROWSER==='true'&&phase==='before') {
+      const delivery=await fetch(base+'/trusted-delivery',{headers});expect(delivery.status).toBe(200);
+      await verifyDeliveryBrowser(app,`http://127.0.0.1:${address.port}`,access,admin,output.organization_id,await delivery.json(),evidence.delivery.requests.find((r:any)=>r.path==='dispatches'));
+    }
     if(process.env.PRODUCTION_BROWSER==="true"&&phase==="before")
       await verifyProductionBrowser(app,`http://127.0.0.1:${address.port}`,access,admin,output);
     await expect(runtime.query("UPDATE production_output_custody SET id=id")).rejects.toMatchObject({code:"42501"});
@@ -88,9 +94,19 @@ it.skipIf(!phase)("preserves production custody and authenticated exact retries 
         await runtime.query("SELECT * FROM commitment_entitlements WHERE account_id=$1",[b.account_id]));
       expect([replay.approved,replay.fulfilled,replay.held]).toEqual([planningUnits(b.approved),planningUnits(b.fulfilled),planningUnits(b.held)]);
     }
+    for(const request of evidence.delivery.requests) {
+      const retry=await fetch(`${base}/operator/delivery/${request.path}`,{method:'POST',headers:{...headers,'Idempotency-Key':request.key},body:JSON.stringify(request.input)});
+      expect(retry.status).toBe(201);expect(await retry.json()).toEqual(request.result);
+    }
     expect(await fingerprint()).toEqual(before);
+    const [job]=await runtime.query("SELECT * FROM site_installations WHERE id=$1",[evidence.delivery.recovery_installation]);
+    const fresh=await fetch(`${base}/operator/delivery/installation-actions`,{method:'POST',headers:{...headers,'Idempotency-Key':randomUUID()},
+      body:JSON.stringify({id:job.id,input:{revision:job.revision,action:'note',notes:`Authenticated ${phase} recovery evidence`}})});
+    expect(fresh.status).toBe(201);expect((await fresh.json()).revision).toBe(job.revision+1);
+    const after=await fingerprint();
+    for(const table of tables.filter(t=>!['site_installations','supply_events','audit_logs','commitment_authorizations'].includes(t)))expect(after[table]).toEqual(before[table]);
     await writeFile(`.local-dev/d3-recovery-${phase}.json`,JSON.stringify({phase,database,schema,before,after:await fingerprint(),
-      authenticated_http:true,exact_retry:true,duplicate_denied:true,replayed_accounts:balances.length,
+      authenticated_http:true,fresh_authenticated_mutation:true,delivery_exact_retry:true,exact_retry:true,duplicate_denied:true,replayed_accounts:balances.length,
       operator_browser:process.env.PRODUCTION_BROWSER==="true"&&phase==="before"?"PASS":"not run",
       server:await runtime.query("SELECT current_database(),pg_postmaster_start_time()")},null,2));
   } finally {
@@ -99,4 +115,4 @@ it.skipIf(!phase)("preserves production custody and authenticated exact retries 
     for(const role of Object.values(roles)){await owner.query(`DROP OWNED BY ${sqlIdentifier(role)}`);await owner.query(`DROP ROLE ${sqlIdentifier(role)}`);}
     await owner.destroy();
   }
-},60000);
+},180000);

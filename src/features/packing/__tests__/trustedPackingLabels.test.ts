@@ -14,7 +14,7 @@ it('prints the trusted package QR with exact modules and four-module quiet zone'
   const before=JSON.stringify(plan),doc=await trustedPackingPDF(plan,id,origin);
   expect(doc.getNumberOfPages()).toBe(1);
   expect(doc.output()).not.toContain('/Subtype /Image');
-  expect(doc.output()).toContain('dispatch blocked');
+  expect(doc.output()).toContain('verify dispatch custody');
   const matrix=QRCode.create(destination,{errorCorrectionLevel:'M'}).modules,size=30/(matrix.size+8);
   const pages=(doc.internal as typeof doc.internal&{pages:string[][]}).pages;
   const scale=doc.internal.scaleFactor,height=doc.internal.pageSize.getHeight();

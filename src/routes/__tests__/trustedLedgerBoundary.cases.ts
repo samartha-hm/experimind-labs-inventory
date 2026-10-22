@@ -20,7 +20,7 @@ interface Harness {
 export interface Fixture { account: string; entitlement: string; project: { id: string; sites: { id: string }[] }; site: string;
   approval: { id: string }; demand: { cap: string; proof: unknown } }
 
-export function trustedLedgerBoundaryTests(get: () => Harness, fixture: () => Promise<Fixture>, workOrderFixture: (full?:boolean) => Promise<Fixture>) {
+export function trustedLedgerBoundaryTests(get: () => Harness, fixture: () => Promise<Fixture>, workOrderFixture: (full?:boolean|"custody") => Promise<Fixture>) {
   it("13M-D1T denies actual runtime LOGIN impersonation and authenticates isolated ledger authority", async () => {
     const h = get(), f = await fixture();
     const before = await h.fingerprint();

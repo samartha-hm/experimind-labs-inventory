@@ -46,7 +46,7 @@ describe.skipIf(!databaseUrl)("PostgreSQL multi-school planning", () => {
   const close = () => new Promise<void>((resolve, reject) => server.close(error => error ? reject(error) : resolve()));
   beforeAll(async () => {
     const url = new URL(databaseUrl!);
-    if (url.hostname !== "127.0.0.1" || url.port !== "55432" || url.pathname !== "/experimind_kitbuilder_test") throw new Error("Refusing non-development test database");
+    if (url.hostname !== "127.0.0.1" || !["55432", "55433"].includes(url.port) || url.pathname !== "/experimind_kitbuilder_test") throw new Error("Refusing non-development test database");
     const admin = new DataSource({ type: "postgres", url: databaseUrl }); await admin.initialize();
     try { await admin.query(`CREATE SCHEMA "${schema}"`); } finally { await admin.destroy(); }
     const options = { type: "postgres" as const, url: databaseUrl, schema, ssl: false, uuidExtension: "pgcrypto" as const,

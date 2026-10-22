@@ -18,7 +18,7 @@ export class ProjectCompletionService extends DeliveryService {
     await this.project(m, org, project, true);
     if ((await m.query("SELECT 1 FROM project_completions WHERE organization_id=$1 AND project_id=$2 AND status='closed'", [org, project])).length) fail(409, "Reopen project before changes");
   }
-  private async progress(m: EntityManager, org: string, id: string): Promise<CompletionProgress> {
+  protected async progress(m: EntityManager, org: string, id: string): Promise<CompletionProgress> {
     const project = await this.project(m, org, id);
     const sites = await m.find(PlanningSchoolSite, { where: { organization_id: org, project_id: id }, order: { position: "ASC" } });
     const packing: PackingOrder[] = await m.query("SELECT * FROM packing_orders WHERE organization_id=$1 AND project_id=$2 AND status<>'cancelled'", [org, id]);
@@ -53,6 +53,9 @@ export class ProjectCompletionService extends DeliveryService {
     return { project_id: id, project_revision: project.revision, schools, blockers, completion: completion[0] ?? null, history };
   }
   async projectProgress(org: string, id: string) { return this.db.transaction("REPEATABLE READ", m => this.progress(m, org, id)); }
+  protected async hasSchoolDelivery(m: EntityManager, org: string, project: string, site: string) {
+    return (await m.query("SELECT 1 FROM delivery_orders WHERE organization_id=$1 AND project_id=$2 AND site_id=$3", [org, project, site])).length > 0;
+  }
   private async lifecycleAudit(m: EntityManager, org: string, actor: string, kind: string, row: InstallationJob | ProjectCompletion) {
     await m.insert(SupplyEvent, { organization_id: org, actor_id: actor, kind, record_id: row.id, revision: row.revision, snapshot: row });
   }
@@ -60,7 +63,7 @@ export class ProjectCompletionService extends DeliveryService {
     return this.operation(org, actor, key, ["installation.create", input], async m => {
       await this.approve(m, org, actor); await this.active(m, org, input.project_id); await this.employee(m, org, input.employee_id);
       if (!await m.findOneBy(PlanningSchoolSite, { id: input.site_id, project_id: input.project_id, organization_id: org })) fail(404, "School not found");
-      if (!(await m.query("SELECT 1 FROM delivery_orders WHERE organization_id=$1 AND project_id=$2 AND site_id=$3", [org, input.project_id, input.site_id])).length) fail(409, "School delivery required before installation planning");
+      if (!await this.hasSchoolDelivery(m, org, input.project_id, input.site_id)) fail(409, "School delivery required before installation planning");
       if (new Set(input.checklist.map(t => t.id)).size !== input.checklist.length || input.checklist.some(t => !t.label.trim())) fail(400, "Unique, named checklist tasks required");
       const jobs: InstallationJob[] = await m.query("INSERT INTO site_installations(organization_id,project_id,site_id,required,employee_id,checklist,survey,created_by,updated_by) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$8) RETURNING *", [org, input.project_id, input.site_id, input.required, input.employee_id ?? null, JSON.stringify(input.checklist.map(t => ({ ...t, checked: false }))), input.survey, actor]);
       await this.lifecycleAudit(m, org, actor, "installation", jobs[0]); return jobs[0];

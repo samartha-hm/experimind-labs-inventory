@@ -10,9 +10,11 @@ const baseWorkOrderTables = ["commitment_work_orders","commitment_work_order_mat
 async function installedWorkOrderTables(db: Sql): Promise<string[]> {
   const [{installed}] = await db.query("SELECT to_regclass('production_output_custody') IS NOT NULL installed");
   const [{packing}] = await db.query("SELECT to_regclass('trusted_packing_plans') IS NOT NULL packing");
-  return [...baseWorkOrderTables,...(installed ? ["production_output_custody"] : []),...(packing ? ["trusted_packing_plans","trusted_packing_allocations","trusted_packing_qc"] : [])];
+  const [{dispatch}] = await db.query("SELECT to_regclass('trusted_dispatches') IS NOT NULL dispatch");
+  const [{closure}] = await db.query("SELECT to_regclass('trusted_installation_sources') IS NOT NULL closure");
+  return [...(closure?["trusted_installation_sources","site_installations","project_completions"]:[]),...(dispatch ? ["trusted_dispatches","trusted_dispatch_units","trusted_delivery_receipts"] : []),...baseWorkOrderTables,...(installed ? ["production_output_custody"] : []),...(packing ? ["trusted_packing_plans","trusted_packing_allocations","trusted_packing_qc"] : [])];
 }
-const workOrderUpdates = ["production_work_orders","production_input_reservations"];
+const workOrderUpdates = ["production_work_orders","production_input_reservations","site_installations","project_completions"];
 async function workOrdersInstalled(db: Sql): Promise<boolean> {
   return (await db.query("SELECT to_regclass('commitment_work_orders') IS NOT NULL installed"))[0].installed;
 }
@@ -108,7 +110,7 @@ export async function configureDatabaseBoundary(db: Sql, schema: string,
   }
   if (workOrders) {
     for (const table of workOrderTables) {
-      await db.query(`REVOKE ALL ON ${s}.${sqlIdentifier(table)} FROM ${identity}; ${table.startsWith('trusted_packing_')?'':`GRANT SELECT ON ${s}.${sqlIdentifier(table)} TO ${identity};`}
+      await db.query(`REVOKE ALL ON ${s}.${sqlIdentifier(table)} FROM ${identity}; ${table.startsWith('trusted_')?'':`GRANT SELECT ON ${s}.${sqlIdentifier(table)} TO ${identity};`}
         GRANT SELECT,INSERT${workOrderUpdates.includes(table)?",UPDATE":""} ON ${s}.${sqlIdentifier(table)} TO ${ledger}`);
     }
     await db.query(`GRANT SELECT,INSERT ON ${s}.audit_logs TO ${ledger}`);
@@ -128,7 +130,7 @@ export async function configureDatabaseBoundary(db: Sql, schema: string,
       if (f.prosecdef) throw new Error("Operational functions must remain invoker functions");
       await db.query(`ALTER FUNCTION ${f.signature} SET search_path TO pg_catalog,${s},pg_temp;
         GRANT EXECUTE ON FUNCTION ${f.signature} TO ${runtime}`);
-      if (f.proname === "requirement_assert")
+      if (["requirement_assert","requirement_d4_project_blocked","requirement_lifecycle_sources"].includes(f.proname))
         await db.query(`GRANT EXECUTE ON FUNCTION ${f.signature} TO ${ledger}`);
       if (workOrders && f.proname === "requirement_check_binding")
         await db.query(`GRANT EXECUTE ON FUNCTION ${f.signature} TO ${ledger}`);

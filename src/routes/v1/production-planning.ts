@@ -1,3 +1,4 @@
+import { trustedDeliveryRoutes } from "./trusted-delivery";
 import { trustedPackingRoutes } from "./trusted-packing";
 import {Router,type RequestHandler} from "express";
 import {DataSource} from "typeorm";
@@ -65,6 +66,7 @@ export function productionPlanningRouter(db:DataSource,authority?:TrustedLedgerA
   r.param("id",(_req,_res,next,id:string)=>next(uuid.test(id)?undefined:new DraftKitError(400,"Invalid identity")));
   const key=(req:Parameters<RequestHandler>[0])=>req.header("Idempotency-Key")!;
   trustedPackingRoutes(r,db,authority,action);
+  trustedDeliveryRoutes(r,db,authority,action);
   r.get("/trusted-work-queue",action(async(req,res)=>{
     res.setHeader("Cache-Control","no-store");
     const [{installed}]=await db.query("SELECT to_regclass('production_output_custody') IS NOT NULL installed");

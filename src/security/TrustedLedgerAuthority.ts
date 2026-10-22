@@ -1,3 +1,5 @@
+import { dispatchPacking, acknowledgeDelivery, type DispatchInput, type DeliveryInput } from '../services/TrustedDeliveryService';
+import { mutateTrustedCompletion,type InstallationCreate,type InstallationAction,type ClosureInput } from '../services/TrustedCompletionService';
 import jwt, { type JwtPayload } from "jsonwebtoken";
 import { createHash, randomUUID } from "node:crypto";
 import type { DataSource, EntityManager } from "typeorm";
@@ -29,7 +31,12 @@ export type LedgerRequest =
   | { action: "recordFinishedOutput"; key: string; input: FinishedOutputInput }
   | { action: "createPackingPlan"; key: string; input: PackingPlanInput }
   | { action: "allocatePackingOutput"; key: string; input: PackingAllocationInput }
-  | { action: "inspectPacking"; key: string; input: PackingQCInput };
+  | { action: "inspectPacking"; key: string; input: PackingQCInput }
+  | { action: "dispatchPacking"; key: string; input: DispatchInput }
+  | { action: "acknowledgeDelivery"; key: string; input: DeliveryInput }
+  | { action: "createTrustedInstallation"; key:string; input:InstallationCreate }
+  | { action: "trustedInstallationAction"; key:string; input:InstallationAction }
+  | { action: "closeTrustedProject"; key:string; input:ClosureInput };
 const issuer = "experimind-ledger";
 const audience = "experimind-ledger-execution";
 const fingerprint = (request: LedgerRequest) => createHash("sha256").update(canonicalRequirementJSON(request)).digest("hex");
@@ -99,9 +106,9 @@ export class TrustedLedgerAuthority {
 
   /** Narrow operator entry point; retries read the exact durable receipt after live session validation. */
   async performProductionForSession(accessToken: string,
-    request: Extract<LedgerRequest,{action:"issueWorkOrder"|"recordFinishedOutput"|"createPackingPlan"|"allocatePackingOutput"|"inspectPacking"}>) {
+    request: Extract<LedgerRequest,{action:"issueWorkOrder"|"recordFinishedOutput"|"createPackingPlan"|"allocatePackingOutput"|"inspectPacking"|"dispatchPacking"|"acknowledgeDelivery"|"createTrustedInstallation"|"trustedInstallationAction"|"closeTrustedProject"}>) {
     const normalized = JSON.parse(JSON.stringify(request)) as typeof request;
-    if (!["issueWorkOrder","recordFinishedOutput","createPackingPlan","allocatePackingOutput","inspectPacking"].includes(normalized.action)) throw Error("Unsupported operator action");
+    if (!["issueWorkOrder","recordFinishedOutput","createPackingPlan","allocatePackingOutput","inspectPacking","dispatchPacking","acknowledgeDelivery","createTrustedInstallation","trustedInstallationAction","closeTrustedProject"].includes(normalized.action)) throw Error("Unsupported operator action");
     const p=this.claims(accessToken,false), digest=fingerprint(normalized);
     const receipt=await this.#db.transaction(async m=>{
       await this.current(m,p);
@@ -152,6 +159,11 @@ export class TrustedLedgerAuthority {
         case "issueWorkOrder": result = await issueWorkOrder(m,context,normalized.input,normalized.key); break;
         case "createPackingPlan": result = await createPackingPlan(m,context,normalized.input,normalized.key); break;
         case "allocatePackingOutput": result = await allocatePackingOutput(m,context,normalized.input,normalized.key); break;
+        case "dispatchPacking": result = await dispatchPacking(m,context,normalized.input,normalized.key); break;
+        case "acknowledgeDelivery": result = await acknowledgeDelivery(m,context,normalized.input,normalized.key); break;
+        case "createTrustedInstallation": result=await mutateTrustedCompletion(m,context,normalized.key,{kind:'create',input:normalized.input}); break;
+        case "trustedInstallationAction": result=await mutateTrustedCompletion(m,context,normalized.key,{kind:'installation',input:normalized.input}); break;
+        case "closeTrustedProject": result=await mutateTrustedCompletion(m,context,normalized.key,{kind:'closure',input:normalized.input}); break;
         case "inspectPacking": result = await inspectPacking(m,context,normalized.input,normalized.key); break;
         case "recordFinishedOutput": result = await recordFinishedOutput(m,context,normalized.input,normalized.key); break;
         case "publishRecipe": result = await publishRecipe(m,context,normalized.input,normalized.key); break;

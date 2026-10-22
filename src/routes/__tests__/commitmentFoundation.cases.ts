@@ -9,6 +9,7 @@ import type { LedgerContext, LedgerOperation, LedgerSource } from "../../service
 import { CommitmentShadowService } from "../../services/CommitmentShadowService";
 import { planningFixture } from "../../features/projects/__tests__/planningFixture";
 import { trustedLedgerBoundaryTests } from "./trustedLedgerBoundary.cases";
+import { InventoryItem } from "../../entity/InventoryItem";
 
 interface Harness {
   db: DataSource; admin: any; maker: any; other: any; wire: any;
@@ -340,8 +341,22 @@ export function commitmentFoundationTests(get: () => Harness) {
     try{await expect(new AddCommitmentLedger1792540800015().down(runner)).rejects.toThrow("Preserve commitment evidence");await runner.rollbackTransaction();}finally{await runner.release();}
     h.evidence.commitment_rollback={populated_ledger_downgrade:"REFUSED",events_preserved:true};
   });
-  trustedLedgerBoundaryTests(get, fixture, async(full=false)=>{
+  trustedLedgerBoundaryTests(get, fixture, async(full:boolean|"custody"=false)=>{
     const custom=planningFixture(get().wire.id);
+    if(full==="custody") {
+      let first=true;
+      for(const subject of custom.subjects) {
+        for(const grade of subject.grades)for(const activity of grade.activities)for(const material of activity.materials) {
+          if(first){first=false;continue;}
+          const item=await get().db.getRepository(InventoryItem).save({organization_id:get().admin.organization_id,name:`Synthetic ${subject.name} ${grade.name}`,unit:'m',sku:randomUUID(),base_price:0,quantity:0,threshold:0});
+          const old=material.inventory_item_id;material.inventory_item_id=item.id;
+          const replace=(nodes:typeof grade.packing)=>{for(const node of nodes??[]){node.inventory_item_ids=node.inventory_item_ids.map(id=>id===old?item.id:id);replace(node.children);}};replace(grade.packing);
+        }
+        for(const crate of subject.crates??[])for(const material of crate.materials) {
+          const item=await get().db.getRepository(InventoryItem).save({organization_id:get().admin.organization_id,name:`Synthetic ${crate.name}`,unit:'m',sku:randomUUID(),base_price:0,quantity:0,threshold:0});material.inventory_item_id=item.id;
+        }
+      }
+    }
     if(full){custom.content.sites[0].selections[0].context.grade_quantities[custom.mathGradeId]=5;return fixture(custom);}
     custom.subjects.splice(1);custom.subjects[0].grades.splice(1);custom.subjects[0].crates=custom.subjects[0].crates!.slice(0,1);
     custom.subjects[0].crates[0].materials=[];

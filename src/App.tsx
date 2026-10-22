@@ -36,6 +36,7 @@ import { UserDirectoryTab } from '@/src/features/compliance/components/UserDirec
 import ProductionPlanningPanel from "./features/production/ProductionPlanningPanel";
 import { PackingPackageLookup } from "./features/packing/PackingLabelsPanel";
 import TrustedPackingPanel from './features/packing/TrustedPackingPanel';
+import TrustedDeliveryPanel from './features/delivery/TrustedDeliveryPanel';
 import { PackingWorkspaceEntry } from './features/packing/PackingWorkspace';
 import ProjectPlanningTab from '@/src/features/projects/ProjectPlanningTab';
 import { ProjectsWorkspaceEntry } from './features/projects/ProjectsWorkspace';
@@ -316,6 +317,7 @@ function MainApp() {
             <main>
               <PackingPackageLookup />
               {import.meta.env.VITE_TRUSTED_PACKING_ENABLED==='true'&&new URLSearchParams(window.location.search).has('trusted_packing_package')&&<TrustedPackingPanel/>}
+              {import.meta.env.VITE_TRUSTED_DELIVERY_ENABLED==='true'&&new URLSearchParams(window.location.search).has('trusted_packing_package')&&<TrustedDeliveryPanel/>}
               {new URLSearchParams(window.location.search).get('packing_workspace') === '1' && <PackingWorkspaceEntry direct />}
               {new URLSearchParams(window.location.search).get('projects_workspace') === '1' && <ProjectsWorkspaceEntry direct />}
               {activeTab === 'product_library' && <ProductLibrary />}

@@ -9,7 +9,7 @@ import type { DeliveryOrder, DeliveryState, CustodyEvent } from "../features/del
 import { assertExecutionSupported } from "./ExecutionReadinessService";
 const fail = (status: number, message: string): never => { throw new DraftKitError(status, message); };
 export class DeliveryService {
-  constructor(protected readonly db: DataSource) {}
+  constructor(protected readonly db: DataSource | EntityManager) {}
   protected async operation<T>(org: string, actor: string, key: string, input: unknown, run: (m: EntityManager) => Promise<T>): Promise<T> {
     if (!key || key.length > 100) fail(400, "Idempotency key required");
     const fingerprint = createHash("sha256").update(JSON.stringify(input)).digest("hex");

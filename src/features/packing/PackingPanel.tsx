@@ -7,11 +7,12 @@ import { actualMaterials, qcChecks, type PackingDetail, type PackingOrderSummary
 import { PackingLabelsPanel } from "./PackingLabelsPanel";
 import { PackingWorkspaceEntry } from './PackingWorkspace';
 import TrustedPackingPanel from './TrustedPackingPanel';
+import TrustedDeliveryPanel from '../delivery/TrustedDeliveryPanel';
 
 const input = "min-h-11 rounded-xl border border-slate-300 bg-transparent p-3";
 const button = "min-h-11 rounded-xl border border-slate-300 px-4 py-3 disabled:opacity-40";
 export default function PackingPanel({ project }: { project?: PlanningView }) {
-  return <>{import.meta.env.VITE_TRUSTED_PACKING_ENABLED==='true'&&<TrustedPackingPanel projectId={project?.id}/>}<PackingWorkspaceEntry projectId={project?.id}><LegacyPackingPanel project={project} /></PackingWorkspaceEntry></>;
+  return <>{import.meta.env.VITE_TRUSTED_PACKING_ENABLED==='true'&&<TrustedPackingPanel projectId={project?.id}/>} {import.meta.env.VITE_TRUSTED_DELIVERY_ENABLED==='true'&&<TrustedDeliveryPanel projectId={project?.id}/>}<PackingWorkspaceEntry projectId={project?.id}><LegacyPackingPanel project={project} /></PackingWorkspaceEntry></>;
 }
 function LegacyPackingPanel({ project }: { project?: PlanningView }) {
   const { currentUser } = useAuth(), role = currentUser?.role ?? "";
