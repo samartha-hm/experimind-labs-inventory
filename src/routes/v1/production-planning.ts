@@ -1,3 +1,4 @@
+import { trustedPackingRoutes } from "./trusted-packing";
 import {Router,type RequestHandler} from "express";
 import {DataSource} from "typeorm";
 import {IsString,IsUUID,IsInt,Min,MinLength,MaxLength,IsOptional,IsIn,IsObject,Matches} from "class-validator";
@@ -63,6 +64,7 @@ export function productionPlanningRouter(db:DataSource,authority?:TrustedLedgerA
     if(read?!writers.has(current.role)&&current.role!=="viewer":!roles.has(current.role))throw new DraftKitError(403,"Production permission denied");if(!read&&!req.header("Idempotency-Key"))throw new DraftKitError(400,"Idempotency-Key required");next();}));
   r.param("id",(_req,_res,next,id:string)=>next(uuid.test(id)?undefined:new DraftKitError(400,"Invalid identity")));
   const key=(req:Parameters<RequestHandler>[0])=>req.header("Idempotency-Key")!;
+  trustedPackingRoutes(r,db,authority,action);
   r.get("/trusted-work-queue",action(async(req,res)=>{
     res.setHeader("Cache-Control","no-store");
     const [{installed}]=await db.query("SELECT to_regclass('production_output_custody') IS NOT NULL installed");

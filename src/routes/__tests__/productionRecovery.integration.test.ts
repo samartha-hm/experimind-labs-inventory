@@ -13,6 +13,7 @@ import { TrustedLedgerAuthority } from "../../security/TrustedLedgerAuthority";
 import { assertDatabaseBoundary, configureDatabaseBoundary, sqlIdentifier } from "../../security/databaseBoundary";
 import { productionPlanningRouter } from "../v1/production-planning";
 import { verifyProductionBrowser } from "./productionBrowser.cases";
+import { verifyPackingBrowser } from "./packingBrowser.cases";
 
 const phase=process.env.PRODUCTION_RECOVERY_PHASE;
 it.skipIf(!phase)("preserves production custody and authenticated exact retries after restart and restore",async()=>{
@@ -40,7 +41,7 @@ it.skipIf(!phase)("preserves production custody and authenticated exact retries 
     for(const [index,kind] of (["runtime","identity","ledger"] as const).entries())await assertDatabaseBoundary(pools[index],kind,schema);
     const tables=["stock_ledger","commitment_events","commitment_balances","commitment_claims","commitment_entitlements",
       "production_work_orders","production_input_issues","commitment_work_orders","commitment_work_order_materials",
-      "commitment_work_order_issues","production_output_custody","audit_logs","commitment_authorizations"];
+      "commitment_work_order_issues","production_output_custody","trusted_packing_plans","trusted_packing_allocations","trusted_packing_qc","audit_logs","commitment_authorizations"];
     const fingerprint=async()=>Object.fromEntries(await Promise.all(tables.map(async t=>[t,(await runtime.query(
       `SELECT count(*)::int count,md5(coalesce(string_agg(row_to_json(t)::text,'' ORDER BY row_to_json(t)::text),'')) hash FROM ${t} t`))[0]])));
     const before=await fingerprint();expect(before.production_output_custody.count).toBeGreaterThan(0);
@@ -63,6 +64,20 @@ it.skipIf(!phase)("preserves production custody and authenticated exact retries 
     expect(response.status).toBe(201);expect(await response.json()).toEqual({id:output.id,order:output.order_id,quantity:output.quantity,qr:output.qr});
     const duplicate=await fetch(`${base}/operator/orders/${output.order_id}/finished-outputs`,{method:"POST",headers:{...headers,"Idempotency-Key":suffix},body:JSON.stringify(input)});
     expect(duplicate.status).toBe(409);
+    const packingResponse=await fetch(base+'/trusted-packing',{headers});expect(packingResponse.status).toBe(200);
+    const packing=await packingResponse.json();
+    expect(packing.plans.flatMap((p:any)=>p.inspections).map((q:any)=>q.decision)).toEqual(expect.arrayContaining(['accept','reject']));
+    for(const [table,path] of [['trusted_packing_plans','plans'],['trusted_packing_allocations','allocations'],['trusted_packing_qc','inspections']]) {
+      const rows=await runtime.query(`SELECT * FROM ${table} WHERE actor_id=$1`,[admin.id]);expect(rows.length).toBeGreaterThan(0);
+      for(const row of rows) {
+        const request=path==='plans'?{project:row.project_id,site:row.site_id,approval:row.approval_id,demandRevision:row.demand_revision}:
+          path==='allocations'?{plan:row.plan_id,package:row.package_id,output:row.output_id,line:row.line_id,quantity:row.quantity}:
+          {plan:row.plan_id,package:row.package_id,allocationRevision:row.allocation_revision,decision:row.decision,checks:row.checks,notes:row.notes};
+        const retry=await fetch(`${base}/operator/packing/${path}`,{method:'POST',headers:{...headers,'Idempotency-Key':row.operation_key},body:JSON.stringify(request)});
+        expect(retry.status).toBe(201);delete row.created_at;expect(await retry.json()).toEqual(row);
+      }
+    }
+    if(process.env.PRODUCTION_BROWSER==='true'&&phase==='before')await verifyPackingBrowser(app,`http://127.0.0.1:${address.port}`,access,admin,packing);
     if(process.env.PRODUCTION_BROWSER==="true"&&phase==="before")
       await verifyProductionBrowser(app,`http://127.0.0.1:${address.port}`,access,admin,output);
     await expect(runtime.query("UPDATE production_output_custody SET id=id")).rejects.toMatchObject({code:"42501"});
@@ -84,4 +99,4 @@ it.skipIf(!phase)("preserves production custody and authenticated exact retries 
     for(const role of Object.values(roles)){await owner.query(`DROP OWNED BY ${sqlIdentifier(role)}`);await owner.query(`DROP ROLE ${sqlIdentifier(role)}`);}
     await owner.destroy();
   }
-},30000);
+},60000);

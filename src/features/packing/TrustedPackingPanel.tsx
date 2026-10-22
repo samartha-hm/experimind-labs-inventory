@@ -1,0 +1,58 @@
+import { useEffect, useState } from 'react';
+import { useAuth } from '../../AuthContext';
+import { apiFetch } from '../../utils/api';
+import { qcChecks } from './packingTypes';
+import { stockText, stockUnits } from '../inventory/physicalQuantity';
+import { inspectionFor, type TrustedPackingView } from './trustedPackingTypes';
+import { trustedPackingPDF } from './trustedPackingLabels';
+import type { PackingQCInput } from '../../services/TrustedPackingService';
+import '../../design/precision/precision.css';
+import './packingWorkspace.css';
+const endpoint='/api/v1/production-planning',control='min-h-11 rounded-xl border border-slate-300 bg-transparent p-3',button=`${control} disabled:opacity-40`;
+interface Pending {path:string;key:string;input:unknown}
+const blankChecks=()=>Object.fromEntries(qcChecks.map(k=>[k,{pass:false,evidence:''}])) as PackingQCInput['checks'];
+export default function TrustedPackingPanel({projectId}:{projectId?:string}) {
+  const {currentUser}=useAuth(),storageKey=`packing.pending.${currentUser?.organization_id}.${currentUser?.id}`;
+  const [view,setView]=useState<TrustedPackingView>({enabled:false,plans:[],outputs:[]});
+  const [selected,setSelected]=useState(''),[packageId,setPackage]=useState(''),[output,setOutput]=useState(''),[line,setLine]=useState(''),[quantity,setQuantity]=useState('');
+  const [checks,setChecks]=useState(blankChecks),[notes,setNotes]=useState(''),[confirmed,setConfirmed]=useState(false);
+  const [pending,setPending]=useState<Pending|null>(null),[busy,setBusy]=useState(false),[error,setError]=useState(''),[message,setMessage]=useState(''),[preview,setPreview]=useState('');
+  const writer=['admin','super_admin'].includes(currentUser?.role??'');
+  const scannedPackage=new URLSearchParams(location.search).get('trusted_packing_package');
+  const readURL=`${endpoint}/trusted-packing${scannedPackage?`?package=${encodeURIComponent(scannedPackage)}`:''}`;
+  async function refresh() {setView(await apiFetch(readURL));}
+  useEffect(()=>{let live=true;setView({enabled:false,plans:[],outputs:[]});setSelected('');setPackage('');setPending(null);
+    try{const saved=sessionStorage.getItem(storageKey);if(saved)setPending(JSON.parse(saved));}catch{setError('Reconcile saved custody request before continuing.');}
+    void apiFetch(readURL).then((data:TrustedPackingView)=>{if(!live)return;setView(data);const id=new URLSearchParams(location.search).get('trusted_packing_package');const plan=data.plans.find(p=>p.snapshot.packages.some(x=>x.id===id));if(plan){setSelected(plan.id);setPackage(id!);}else if(id)setError('Package is unavailable for this tenant. Refresh or verify the scanned label.');}).catch(e=>{if(live)setError(String(e));});return()=>{live=false;};
+  },[storageKey,projectId]);
+  useEffect(()=>()=>{if(preview)URL.revokeObjectURL(preview);},[preview]);
+  const plans=view.plans.filter(p=>!projectId||p.project_id===projectId),plan=plans.find(p=>p.id===selected),pack=plan?.snapshot.packages.find(p=>p.id===packageId),qc=plan&&pack?inspectionFor(plan,pack.id):undefined;
+  const available=view.outputs.filter(o=>(!projectId||o.project_id===projectId)&&stockUnits(o.available)>0n);
+  const eligible=available.filter(o=>plan&&pack&&o.project_id===plan.project_id&&o.site_id===plan.site_id&&o.approval_id===plan.approval_id&&o.demand_revision===plan.demand_revision&&o.demand_line.selection_id===pack.selection_id&&o.demand_line.version_id===pack.version_id&&o.demand_line.material_id===line);
+  async function submit(operation:Pending){setBusy(true);setError('');try{sessionStorage.setItem(storageKey,JSON.stringify(operation));setPending(operation);const receipt=await apiFetch(endpoint+operation.path,{method:'POST',headers:{'Idempotency-Key':operation.key},body:JSON.stringify(operation.input)});sessionStorage.removeItem(storageKey);setPending(null);setConfirmed(false);setMessage(`Recorded evidence ${receipt.id}`);await refresh();}catch(e){setError(`${String(e)}. Retry the saved request unchanged or reconcile before clearing it.`);}finally{setBusy(false);}}
+  const write=(path:string,input:unknown)=>void submit({path:`/operator/packing/${path}`,key:crypto.randomUUID(),input});
+  function choosePackage(id:string){setPackage(id);setLine('');setOutput('');setChecks(blankChecks());setNotes('');setConfirmed(false);setPreview('');}
+  async function label(download:boolean){if(!plan||!pack)return;try{const pdf=await trustedPackingPDF(plan,pack.id,location.origin);if(download)pdf.save(`${pack.code}.pdf`);else setPreview(URL.createObjectURL(pdf.output('blob')));}catch(e){setError(String(e));}}
+  const locked=busy||!!pending||!writer||!view.enabled;
+  const completeChecks=qcChecks.every(k=>checks[k].evidence.trim()&&checks[k].evidence.length<=2000),passed=qcChecks.every(k=>checks[k].pass);
+  const subtree=plan&&pack?plan.snapshot.packages.filter(p=>{let current:typeof p|undefined=p;while(current){if(current.id===pack.id)return true;current=plan.snapshot.packages.find(x=>x.id===current!.parent_id);}return false;}):[];
+  const covered=subtree.filter(p=>p.materials.length&&p.materials.every(m=>plan!.allocations.filter(a=>a.package_id===p.id&&a.line_id===m.line_id).reduce((n,a)=>n+stockUnits(a.quantity),0n)===stockUnits(m.quantity))).length;
+  return <section aria-label="Trusted packing and QC" className="precision packing-workspace trusted-packing space-y-4 rounded-2xl border border-slate-300 p-4">
+    <h3 className="text-lg font-semibold">Trusted packing and QC</h3><p>Allocate recorded output to its approved school package, then record six inspection checks. Dispatch, rework and reversals remain blocked.</p>
+    <button className={button} disabled={busy} onClick={()=>void refresh().catch(e=>setError(String(e)))}>Refresh packing evidence</button>
+    {!view.enabled&&<p role="status">Trusted packing is unavailable in this environment.</p>}{error&&<p role="alert">{error}</p>}{message&&<p role="status">{message}</p>}
+    {pending&&<div><p>Saved request: {pending.key}</p><button className={button} disabled={busy||!writer} onClick={()=>void submit(pending)}>Retry saved packing request</button><label className="block"><input type="checkbox" checked={confirmed} onChange={e=>setConfirmed(e.target.checked)}/> I refreshed and reconciled the saved request.</label><button className={button} disabled={busy||!confirmed} onClick={()=>{sessionStorage.removeItem(storageKey);setPending(null);setConfirmed(false);}}>Clear reconciled request</button></div>}
+    <label className="block">Available output<select aria-label="Available output" className={`${control} w-full`} value={output} onChange={e=>setOutput(e.target.value)}><option value="">Select output</option>{available.map(o=><option key={o.id} value={o.id}>{o.qr} · {o.available} {o.unit} · school {o.site_id}</option>)}</select></label>
+    <button className={button} disabled={locked||!output} onClick={()=>{const o=available.find(x=>x.id===output)!;write('plans',{project:o.project_id,site:o.site_id,approval:o.approval_id,demandRevision:o.demand_revision});}}>Create frozen school plan</button>
+    <label className="block">School plan<select aria-label="School plan" className={`${control} w-full`} value={selected} onChange={e=>{setSelected(e.target.value);choosePackage('');}}><option value="">Select school</option>{plans.map(p=><option key={p.id} value={p.id}>{p.snapshot.project_name} / {p.snapshot.site_name} · r{p.demand_revision}</option>)}</select></label>
+    {plan&&<><p>{plan.allocations.length} custody receipts · {plan.inspections.filter(q=>q.decision==='accept').length} accepted · {plan.inspections.filter(q=>q.decision==='reject').length} rejected</p><label className="block">Physical package<select aria-label="Physical package" className={`${control} w-full`} value={packageId} onChange={e=>choosePackage(e.target.value)}><option value="">Select package</option>{plan.snapshot.packages.map(p=><option key={p.id} value={p.id}>{p.kind} · {p.name} #{p.pack_number} · {inspectionFor(plan,p.id)?.decision??'pending'}</option>)}</select></label></>}
+    {plan&&pack&&<><p className="break-all">{pack.code} · QC: {qc?.decision??'pending'} · allocation revision {plan.allocations.length}</p>
+      <p>{covered} / {subtree.filter(p=>p.materials.length).length} material-bearing packages fully allocated in this pouch, kit or crate subtree.</p>
+      <ul>{pack.materials.map(m=>{const held=plan.allocations.filter(a=>a.package_id===pack.id&&a.line_id===m.line_id).reduce((n,a)=>n+stockUnits(a.quantity),0n);return <li key={m.line_id}>{m.name}: {stockText(held)} / {m.quantity} {m.unit}</li>;})}</ul>
+      <fieldset disabled={locked||!!qc} className="space-y-3"><legend>Allocate output</legend><label className="block">Frozen material<select aria-label="Frozen material" className={`${control} w-full`} value={line} onChange={e=>{setLine(e.target.value);setOutput('');}}><option value="">Select material</option>{pack.materials.map(m=><option key={m.line_id} value={m.line_id}>{m.name} · {m.quantity} {m.unit}</option>)}</select></label>
+      <label className="block">Matching output<select aria-label="Matching output" className={`${control} w-full`} value={output} onChange={e=>setOutput(e.target.value)}><option value="">Select output</option>{eligible.map(o=><option key={o.id} value={o.id}>{o.qr} · {o.available} {o.unit}</option>)}</select></label><label className="block">Allocation quantity<input aria-label="Allocation quantity" className={`${control} w-full`} value={quantity} inputMode="decimal" onChange={e=>setQuantity(e.target.value)}/></label>
+      <button className={button} disabled={!line||!eligible.some(o=>o.id===output)||!/^\d+(\.\d{1,4})?$/.test(quantity)||Number(quantity)<=0} onClick={()=>write('allocations',{plan:plan.id,package:pack.id,output,line,quantity})}>Allocate physical output</button></fieldset>
+      {qc?<div><p>Inspector: {qc.actor_id}</p><p>{qc.notes}</p><ul>{qcChecks.map(k=><li key={k}>{k}: {qc.checks[k].pass?'pass':'fail'} — {qc.checks[k].evidence}</li>)}</ul></div>:<fieldset disabled={locked} className="space-y-3"><legend>Six-check inspection</legend>{qcChecks.map(k=><div key={k}><label><input type="checkbox" checked={checks[k].pass} onChange={e=>setChecks({...checks,[k]:{...checks[k],pass:e.target.checked}})}/> {k} passed</label><label className="block">{k} evidence<input aria-label={`${k} evidence`} className={`${control} w-full`} maxLength={2000} value={checks[k].evidence} onChange={e=>setChecks({...checks,[k]:{...checks[k],evidence:e.target.value}})}/></label></div>)}<label className="block">Inspection notes<textarea aria-label="Inspection notes" className={`${control} w-full`} maxLength={2000} value={notes} onChange={e=>setNotes(e.target.value)}/></label><label className="block"><input type="checkbox" checked={confirmed} onChange={e=>setConfirmed(e.target.checked)}/> I physically inspected this package and confirm the recorded evidence.</label>{(['accept','reject'] as const).map(decision=><button key={decision} className={button} disabled={!confirmed||!completeChecks||!notes.trim()||(decision==='accept'&&!passed)} onClick={()=>write('inspections',{plan:plan.id,package:pack.id,allocationRevision:plan.allocations.length,decision,checks,notes})}>{decision==='accept'?'Accept six-check QC':'Reject package'}</button>)}</fieldset>}
+      <button className={button} onClick={()=>void label(false)}>Preview package label</button><button className={button} onClick={()=>void label(true)}>Download package label</button>{preview&&<iframe title="Trusted package label preview" src={preview} className="h-80 w-full"/>}</>}
+  </section>;
+}

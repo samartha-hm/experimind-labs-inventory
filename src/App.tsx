@@ -35,6 +35,7 @@ import { ApprovalProvider } from '@/src/contexts/ApprovalContext';
 import { UserDirectoryTab } from '@/src/features/compliance/components/UserDirectoryTab';
 import ProductionPlanningPanel from "./features/production/ProductionPlanningPanel";
 import { PackingPackageLookup } from "./features/packing/PackingLabelsPanel";
+import TrustedPackingPanel from './features/packing/TrustedPackingPanel';
 import { PackingWorkspaceEntry } from './features/packing/PackingWorkspace';
 import ProjectPlanningTab from '@/src/features/projects/ProjectPlanningTab';
 import { ProjectsWorkspaceEntry } from './features/projects/ProjectsWorkspace';
@@ -314,6 +315,7 @@ function MainApp() {
           <div className="p-3 sm:p-6 md:p-8 max-w-7xl mx-auto pb-24 md:pb-8">
             <main>
               <PackingPackageLookup />
+              {import.meta.env.VITE_TRUSTED_PACKING_ENABLED==='true'&&new URLSearchParams(window.location.search).has('trusted_packing_package')&&<TrustedPackingPanel/>}
               {new URLSearchParams(window.location.search).get('packing_workspace') === '1' && <PackingWorkspaceEntry direct />}
               {new URLSearchParams(window.location.search).get('projects_workspace') === '1' && <ProjectsWorkspaceEntry direct />}
               {activeTab === 'product_library' && <ProductLibrary />}

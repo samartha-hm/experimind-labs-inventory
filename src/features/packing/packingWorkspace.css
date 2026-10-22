@@ -30,3 +30,6 @@
 
 .precision.packing-workspace textarea { width: 100%; min-height: 96px; padding: 12px; border: 1px solid var(--p-line); border-radius: 10px; background: var(--p-surface); color: var(--p-text); }
 .precision.packing-workspace input[type="checkbox"] { width: 48px; vertical-align: middle; }
+.precision.trusted-packing input[type="checkbox"] { width: 24px; min-height: 24px; vertical-align: middle; }
+.precision.trusted-packing { overflow-wrap: anywhere; }
+.precision.trusted-packing select { max-width: 100%; }

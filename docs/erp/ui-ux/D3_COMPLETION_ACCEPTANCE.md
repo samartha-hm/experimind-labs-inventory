@@ -1,124 +1,129 @@
 # D3 completion acceptance — 2026-10-22
 
-Verdict: **BLOCKED — integrated D3 packing/QC execution remains incomplete.**
-This checkpoint implements trusted material issue and pending-QC recipe-output
-custody, not full D3 acceptance. No remaining material-approval decision is needed.
-Branch: `feature/kit-builder-milestone-1`; starting code: `e3aae31a9eccafc820a185848cce0292e534439b`.
+## Verdict
 
-## Implemented authority and accounting
+**PASS for the supported, isolated synthetic D3 workflow.** An authenticated
+administrator can issue approved material, record consumption-funded output,
+allocate that output exclusively to exact school packages, and record six-check
+QC acceptance or rejection. No additional raw-stock debit or school delivery
+fulfillment occurs at packing or QC. This is not production activation.
 
-Approved, frozen recipe inputs and exclusive approved school-output claims confer
-separate capped recipe-material entitlements. Raw inputs need not be present in
-the school snapshot. Migration 24 already implements that resolved decision.
-Migration 25 adds immutable output custody without modifying historical migrations.
-Both use explicit isolated synthetic activation; no real-data activation occurred.
+## Authoritative contracts
 
-Every material account retains A = F + H + U. Trusted issue atomically debits
-verified physical stock and converts the same material claim H to F, with immutable
-issue, audit and signed receipt evidence. School delivery F is unchanged.
+Migration 26 adds immutable packing plans, allocations and QC receipts. Plans
+freeze approved demand, published kit versions and school/package identities.
+Allocations link exact output, work order, recipe, approval and demand line to a
+package material line. Quantities use numeric(12,4); positive partial allocations
+are supported. Remaining output equals produced quantity minus all allocations.
+Project/plan/order locking serializes competing claims. Both output availability
+and package-line capacity are enforced transactionally, including direct SQL.
+Historical or ambiguous provenance cannot establish eligible output.
 
-New output records retain tenant, work order, immutable recipe and approved school
-lineage through the work-order witness, exact quantity/unit, location, actor,
-source identity, supporting material issues and stable ERP:OUTPUT:<uuid> identity.
-A work-order lock serializes cumulative output. Output cannot exceed the exclusive
-planned quantity or the fraction supported by every consumed recipe input.
-Inexact four-place allocations fail; output creation never debits stock again.
-Output is always `recipe_output` / `pending_qc`. It is not accepted packing stock.
+Original production-output receipts remain immutable pending-QC facts. Subsequent
+allocation and QC receipts derive current custody without rewriting history.
+Rejected quantities remain allocated; they do not create replacement inventory,
+restore commitment capacity or become dispatchable. Packing/QC never advance H/F
+or delivery entitlement and never repeat the original material debit.
 
-## Execution and mutation matrix
+QC records actor, package, allocation revision, decision, notes, and all six
+boolean checks with nonempty evidence. Acceptance requires all checks passing
+and complete physical material coverage throughout the package subtree. Rejection
+retains evidence. Final ancestor QC locks descendants; rejected descendants block
+ancestor acceptance. Stale revisions, duplicate final decisions and changed-key
+replays fail. Exact retries return the same immutable identity only after current
+session authorization. Deferred signed authorization and matching audit witnesses,
+restricted roles and immutable-table triggers guard service/SQL bypasses.
 
-All routes below are under `/api/v1/production-planning`.
+## HTTP and operator workflow
 
-| Operation | Authority and result | Status |
-| --- | --- | --- |
-| POST recipe-versions | Current admin session, scoped capability, immutable recipe | Existing migration 23 |
-| POST work-order-claims | Approved school line, exclusive output claim, frozen recipe/material caps | Existing migration 24 |
-| POST orders/:id/material-issues | Scoped capability, physical debit and material H→F | Verified |
-| POST orders/:id/finished-outputs | Scoped capability, consumption-funded immutable custody | Implemented |
-| POST operator/orders/:id/material-issues | Current admin session; server restricts capability issuance to this action | Implemented |
-| POST operator/orders/:id/finished-outputs | Current admin session; exact durable retry result | Implemented |
-| GET trusted-work-queue | Tenant-filtered read; latest 100 work orders and provenance | Implemented |
-| Pouch, kit, common/universal crate allocation | Exclusive custody ownership and child allocation | Missing; guarded |
-| Six-check QC, rejection/rework, packing acceptance | Conserved transitions and trusted receipts | Missing; guarded |
-| Dispatch, installation, closure | D4 | Out of scope; guarded |
+All routes are under `/api/v1/production-planning`, after authenticated tenant
+middleware. Operator mutations require an active tenant administrator:
 
-Writes require exact request identities and Idempotency-Key. Operator retries
-validate a live session before returning an existing result; changed input under
-the same key fails. A concurrent first retry may receive a conflict and then retry
-the same request. The browser persists the exact pending request before sending,
-retains it after an uncertain response, and requires explicit reconciliation to
-clear it. No public general-purpose capability issuer was added.
+| Method and suffix | Supported operation |
+| --- | --- |
+| GET `/trusted-packing` | Tenant-scoped plans, allocations, QC and available outputs |
+| POST `/operator/packing/plans` | Freeze an approved school's packing plan |
+| POST `/operator/packing/allocations` | Allocate eligible produced quantity to an exact package line |
+| POST `/operator/packing/inspections` | Record authoritative six-check acceptance or rejection |
 
-The optional panel uses `VITE_TRUSTED_PRODUCTION_ENABLED=true` at build time and
-requires the trusted server writer plus synthetic migrations. It is off by default.
-It exposes material issue and output recording, confirmation, queue refresh,
-material balances, pending custody and text QR identity. Recipe publication and
-work-order claiming still require the existing capability workflow. The queue has
-no pagination beyond its 100-order limit. This is not full operator acceptance.
+Mutation requests carry `Idempotency-Key`. Missing authority denies mutations;
+validation/conflicts return a visible 409 with reconciliation instructions. The
+queue uses a repeatable snapshot, returns at most 100 plans and 500 outputs, and
+prioritizes a scanned package's plan using `?package=<uuid>`.
 
-## Verification evidence
+With explicit synthetic activation and `VITE_TRUSTED_PRODUCTION_ENABLED=true` /
+`VITE_TRUSTED_PACKING_ENABLED=true`, use the existing Precision Operations screens:
+issue material and record output; freeze the approved school plan; select its
+package/material and eligible output; allocate an exact quantity; review own-line
+and subtree pouch/kit/crate progress; enter six checks, evidence and notes; confirm
+physical inspection and accept/reject. Saved requests support exact retry after
+session renewal, or explicit reconciliation before changing a request. Final
+receipts show actor and evidence. Rejected/final packages cannot allocate again.
 
-- Database-enabled full suite: **605 passed, 2 opt-in recovery tests skipped**.
-- Scoped synthetic requirement integration: **37 passed**, including output races,
-  duplicate source/key handling, exact retry, input funding, excessive/invalid output,
-  wrong order/unit/precision, revoked-session mutation/retry denial and no-authority
-  guards. Physical stock and school-delivery fingerprints stay unchanged on output.
-- Failure injection: four material-issue stages and three output stages roll back
-  all stock, event, custody, audit and authorization changes.
-- Restricted roles: runtime INSERT/UPDATE denied; unsigned ledger-writer output
-  rejected by deferred witness; owner DELETE rejected by immutability trigger.
-- Typecheck and frontend/PWA/server build pass, including the enabled panel build.
-  Existing bundle-size warnings remain.
-- Existing QR/PDF regression tests pass in the full suite. New custody identity is
-  text only; custody QR graphics/PDF performance have not been accepted.
-- Playwright Edge at 390×844: actual panel against authenticated restricted HTTP,
-  persisted retry activated by keyboard, same immutable output returned, pending
-  request cleared, queue/provenance refreshed, confirmation disabled until valid
-  input, no page errors. Test-only auth bootstrap and component bundle were used;
-  whole-app login, styled layout and full accessibility acceptance remain open.
+QR links identify a stable package at `/?trusted_packing_package=<uuid>`. Labels
+include school/project/subject/grade/version/revision/package/parent and QC actor
+information. PDF preview/download uses a vector QR with a four-module quiet zone;
+labels explicitly state dispatch is blocked. UI flags remain off by default.
 
-Nonempty recovery was executed against synthetic schema
-`requirement_test_a4b796011c9d4d70b1430673381407e8`. A real PostgreSQL restart changed
-the postmaster start time. Schema dump restored into fresh database
-`experimind_production_restore_4909d1d0ec0da8a1`. Fresh restricted-role HTTP servers
-before/restart/restore returned the exact persisted output result; duplicate source
-was denied. Stock, events, balances, claims, entitlements, work orders, issues,
-custody, audits and authorization fingerprints matched. Commitment replay and
-work-order evidence checks passed. Production recovery and browser tests ran
-separately from the full suite; their opt-in skip is not a recovery failure.
-Local evidence lives in ignored `.local-dev/d3-recovery-*.json` and test logs;
-no database dumps, credentials or synthetic data are committed.
+## Business and adversarial evidence
 
-Earlier runs failed on Windows sandbox TEMP rename permissions; putting TEMP
-inside the repository then violated attachment-root security guards. The successful
-full suite used normal TEMP with approved execution permissions. Recovery initially
-refused a mismatched default cluster directory; the actual isolated directory was
-verified and supplied explicitly. The browser's first exact label locator timed
-out; a role/name locator and bounded actions fixed it without increasing timeouts.
+Authenticated integration verifies School A's two complete Science Grades 8–10
+sets produce six common and two universal crates; School B's three Grade 8-only
+sets produce three common and zero universal crates. Five Math kits remain
+independent with no Science crates. Each selected Science grade requires exactly
+one common-crate definition; universal crates require explicit complete sets.
+Shared pouch/activity references do not create duplicate physical material demand.
+These larger scenarios verify frozen plan quantities; the smaller Science fixture
+exercises physical output allocation through accepted and rejected QC.
 
-Reproduction: scoped `requirementApproval.integration.test.ts`; full Vitest
-with two workers and the guarded synthetic KIT_BUILDER_TEST_DATABASE_URL;
-`scripts/verify-production-recovery.mjs` consumes `.test-tmp/d3-evidence.json`
-produced by setting REQUIREMENT_REVIEW_EVIDENCE_PATH on that scoped test.
-The script verifies database/schema/cluster directory
-before restart, accepts explicit PRODUCTION_RECOVERY_DATA_DIRECTORY, and restores
-only into a fresh synthetic database. PRODUCTION_BROWSER=true on the before phase
-runs the component browser check. Never point these tests at operational data.
+Restricted-role authenticated tests cover partial allocation, concurrent packers
+(one winner), output/package caps, wrong school/tenant, missing/revoked sessions,
+wrong scope, durable replay, changed requests, stale demand/custody, incomplete QC,
+concurrent acceptance, rejection, ancestor conflicts, and three rollback points.
+Runtime writes, identity reads, unsigned writer transactions, immutable-row edits,
+and audit tampering are denied. Stock, commitments and fulfillment are unchanged
+by packing/QC; failed transactions leave no allocation/audit/authority fragments.
 
-## Remaining D3 gates and next implementation
+## Final verification
 
-1. Define exact conserved allocation from recipe output to school/grade/activity/
-   pouch/kit/common-crate/universal-crate children, including partial quantities
-   and remainders. Add append-only allocation witnesses and exclusive claims.
-2. Implement trusted packing and six-check QC, acceptance/rejection/rework without
-   decreasing consumed F, recreating capacity or double-debiting raw material.
-3. Add supported operator flows for allocation/QC and recipe/claim prerequisites;
-   verify full-app mobile/tablet/keyboard accessibility and QR/PDF rendering.
-4. Execute two-school stock competition and integrated Science/Math packing,
-   concurrent allocation/QC, rollback, replay and nonempty recovery acceptance.
+- Focused requirement integration: 37 passed.
+- Full automated suite: 606 passed; 78 files passed, two opt-in recovery files
+  skipped. D3 production recovery was then explicitly run below. The other skip
+  is the existing dedicated D2 receipt-recovery harness, outside this D3 change;
+  ordinary receipt regressions remain in the full suite.
+- Typecheck: passed.
+- Enabled frontend/PWA/server builds: passed; existing large frontend chunk
+  warning remains, with no build failure.
+- Edge operator component browser: passed at 390×844 and 1024×768 against actual
+  authenticated HTTP. Covered scanned package selection, keyboard QC/exact retry,
+  immutable evidence, final/rejected allocation denial, server ancestor conflict,
+  retained retry request, PDF preview/download and no horizontal overflow.
+  This is not a whole-app login/navigation or comprehensive accessibility audit.
+- QR/PDF regression: passed, including exact QR matrix/quiet zone, invalid identity
+  and origin denial, dispatch-blocked label content, and no snapshot mutation.
+- Actual PostgreSQL stop/start: passed with changed postmaster. Fresh nonempty
+  database restore: passed. Before/restart/restore authenticated HTTP exact retries,
+  duplicate denial, commitment replay and all custody/stock/audit hashes matched.
 
-Planning tests retain Science common crates per grade, universal crates only for
-explicit complete Grades 8–10 sets, and independent Math kits without crates.
-Those passing calculations do not establish missing physical packing execution.
-Preserve legacy write guards until these replacement paths are verified. D3 stays
-BLOCKED; do not start D4, deploy, activate real data or merge main.
+Recovery source: `experimind_kitbuilder_test`, schema
+`requirement_test_914dcabdf0294314977a34590d066db2`; fresh restored database
+`experimind_production_restore_e4b7969e11d1c463`. Evidence covers 12 stock rows,
+101 commitment events, 34 replayed accounts, two output receipts, four packing
+plans, three allocations, two QC receipts, 17 audit rows and 71 authorizations.
+Local evidence is `.local-dev/d3-recovery-summary.json`; dumps, credentials and
+synthetic data are not committed.
+
+Reproduce with the guarded synthetic test URL: run Vitest with two workers and
+`REQUIREMENT_REVIEW_EVIDENCE_PATH=.test-tmp/d3-evidence.json`, then typecheck and
+build. Run `scripts/verify-production-recovery.mjs` with `PRODUCTION_BROWSER=true`
+and the verified isolated `PRODUCTION_RECOVERY_DATA_DIRECTORY`. It verifies its
+database/schema/cluster before restart and restores to a fresh synthetic database.
+Use normal Windows TEMP; repository-local TEMP violates attachment-root guards.
+
+## Explicit boundaries
+
+No dispatch, delivery fulfillment, rework, reversal, compensation, historical
+reconciliation activation, real inventory activation or D4 is enabled. Existing
+recipe publication/output claims retain their authorized prerequisite workflow;
+ambiguous multi-line/historical claims remain blocked. No deployment or main merge
+was performed. Migration activation is explicit and restricted to synthetic data.

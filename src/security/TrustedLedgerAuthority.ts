@@ -14,6 +14,7 @@ import { publishRecipe, type RecipePublication, type PublishedRecipe } from "../
 import { claimWorkOrder, issueWorkOrder, type WorkOrderClaim, type WorkOrderIssue, type WorkOrderResult, type WorkOrderIssueResult } from "../services/WorkOrderAuthorityService";
 import { recordFinishedOutput, type FinishedOutputInput, type FinishedOutputResult } from "../services/FinishedOutputService";
 
+import { createPackingPlan, allocatePackingOutput, inspectPacking, type PackingPlanInput, type PackingAllocationInput, type PackingQCInput, type PackingReceipt } from "../services/TrustedPackingService";
 export type LedgerRequest =
   | { action: "createAccount"; key: string; input: LedgerAccountInput }
   | { action: "entitlement"; key: string; account: string; approval: string; revision: number; cap: string; provenance: unknown }
@@ -25,7 +26,10 @@ export type LedgerRequest =
   | { action: "publishRecipe"; key: string; input: RecipePublication }
   | { action: "claimWorkOrder"; key: string; input: WorkOrderClaim }
   | { action: "issueWorkOrder"; key: string; input: WorkOrderIssue }
-  | { action: "recordFinishedOutput"; key: string; input: FinishedOutputInput };
+  | { action: "recordFinishedOutput"; key: string; input: FinishedOutputInput }
+  | { action: "createPackingPlan"; key: string; input: PackingPlanInput }
+  | { action: "allocatePackingOutput"; key: string; input: PackingAllocationInput }
+  | { action: "inspectPacking"; key: string; input: PackingQCInput };
 const issuer = "experimind-ledger";
 const audience = "experimind-ledger-execution";
 const fingerprint = (request: LedgerRequest) => createHash("sha256").update(canonicalRequirementJSON(request)).digest("hex");
@@ -95,9 +99,9 @@ export class TrustedLedgerAuthority {
 
   /** Narrow operator entry point; retries read the exact durable receipt after live session validation. */
   async performProductionForSession(accessToken: string,
-    request: Extract<LedgerRequest,{action:"issueWorkOrder"|"recordFinishedOutput"}>) {
+    request: Extract<LedgerRequest,{action:"issueWorkOrder"|"recordFinishedOutput"|"createPackingPlan"|"allocatePackingOutput"|"inspectPacking"}>) {
     const normalized = JSON.parse(JSON.stringify(request)) as typeof request;
-    if (!["issueWorkOrder","recordFinishedOutput"].includes(normalized.action)) throw Error("Unsupported operator action");
+    if (!["issueWorkOrder","recordFinishedOutput","createPackingPlan","allocatePackingOutput","inspectPacking"].includes(normalized.action)) throw Error("Unsupported operator action");
     const p=this.claims(accessToken,false), digest=fingerprint(normalized);
     const receipt=await this.#db.transaction(async m=>{
       await this.current(m,p);
@@ -109,7 +113,7 @@ export class TrustedLedgerAuthority {
     if(receipt)return receipt.result;
     return this.performForSession(accessToken,await this.issue(accessToken,normalized),normalized);
   }
-  async perform(token: string, request: LedgerRequest): Promise<string | LedgerEvent | ReservationResult | PurchaseRequestResult | PurchaseOrderResult | ReceiptResult | PublishedRecipe | WorkOrderResult | WorkOrderIssueResult | FinishedOutputResult> {
+  async perform(token: string, request: LedgerRequest): Promise<string | LedgerEvent | ReservationResult | PurchaseRequestResult | PurchaseOrderResult | ReceiptResult | PublishedRecipe | WorkOrderResult | WorkOrderIssueResult | FinishedOutputResult | PackingReceipt> {
     const normalized = JSON.parse(JSON.stringify(request)) as LedgerRequest;
     const p = this.claims(token, true), digest = fingerprint(normalized);
     if (p.action !== normalized.action || p.operationKey !== normalized.key || p.fingerprint !== digest)
@@ -133,7 +137,7 @@ export class TrustedLedgerAuthority {
         return receipt.result;
       }
       const service = new CommitmentLedgerService(m), context = { actor: p.sub!, organization: p.orgId as string };
-      let result: string | LedgerEvent | ReservationResult | PurchaseRequestResult | PurchaseOrderResult | ReceiptResult | PublishedRecipe | WorkOrderResult | WorkOrderIssueResult | FinishedOutputResult;
+      let result: string | LedgerEvent | ReservationResult | PurchaseRequestResult | PurchaseOrderResult | ReceiptResult | PublishedRecipe | WorkOrderResult | WorkOrderIssueResult | FinishedOutputResult | PackingReceipt;
       switch (normalized.action) {
         case "createAccount": result = await service.createAccount(context, normalized.input); break;
         case "entitlement": result = await service.entitlement(context, normalized.account, normalized.approval,
@@ -146,6 +150,9 @@ export class TrustedLedgerAuthority {
         case "receipt": result = await mutateReceipt(m,context,normalized.input,normalized.key); break;
         case "claimWorkOrder": result = await claimWorkOrder(m,context,normalized.input,normalized.key); break;
         case "issueWorkOrder": result = await issueWorkOrder(m,context,normalized.input,normalized.key); break;
+        case "createPackingPlan": result = await createPackingPlan(m,context,normalized.input,normalized.key); break;
+        case "allocatePackingOutput": result = await allocatePackingOutput(m,context,normalized.input,normalized.key); break;
+        case "inspectPacking": result = await inspectPacking(m,context,normalized.input,normalized.key); break;
         case "recordFinishedOutput": result = await recordFinishedOutput(m,context,normalized.input,normalized.key); break;
         case "publishRecipe": result = await publishRecipe(m,context,normalized.input,normalized.key); break;
         default: throw new Error("Unknown ledger action");
@@ -153,7 +160,7 @@ export class TrustedLedgerAuthority {
       await m.query(`INSERT INTO commitment_authorizations(id,organization_id,actor_id,operation_key,fingerprint,result)
         VALUES($1,$2,$3,$4,$5,$6::jsonb)`, [p.jti,p.orgId,p.sub,normalized.key,digest,JSON.stringify(result)]);
       await this.current(m, p);
-      return JSON.parse(JSON.stringify(result)) as string | LedgerEvent | ReservationResult | PurchaseRequestResult | PurchaseOrderResult | ReceiptResult | PublishedRecipe | WorkOrderResult | WorkOrderIssueResult | FinishedOutputResult;
+      return JSON.parse(JSON.stringify(result)) as string | LedgerEvent | ReservationResult | PurchaseRequestResult | PurchaseOrderResult | ReceiptResult | PublishedRecipe | WorkOrderResult | WorkOrderIssueResult | FinishedOutputResult | PackingReceipt;
     });
   }
   createAccount(token: string, input: LedgerAccountInput, key: string) {

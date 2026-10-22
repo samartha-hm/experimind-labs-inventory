@@ -5,6 +5,8 @@ import { expect } from "vitest";
 import { InventoryItem } from "../../entity/InventoryItem";
 import { TrustedWorkOrderAuthority1793059200024 } from "../../migration/1793059200024-TrustedWorkOrderAuthority";
 import { AddFinishedOutputCustody1793059200025 } from "../../migration/1793059200025-AddFinishedOutputCustody";
+import { TrustedPackingCustody1793059200026 } from "../../migration/1793059200026-TrustedPackingCustody";
+import { verifyPackingAuthority } from "./packingAuthority.cases";
 import { configureDatabaseBoundary, assertDatabaseBoundary } from "../../security/databaseBoundary";
 import { TrustedLedgerAuthority, type LedgerRequest } from "../../security/TrustedLedgerAuthority";
 import { AuthService } from "../../services/AuthService";
@@ -18,10 +20,11 @@ import type { WorkOrderResult, WorkOrderIssueResult } from "../../services/WorkO
 type Claim=Extract<LedgerRequest,{action:"claimWorkOrder"}>;
 type Issue=Extract<LedgerRequest,{action:"issueWorkOrder"}>;
 type Output=Extract<LedgerRequest,{action:"recordFinishedOutput"}>;
-export async function verifyWorkOrderAuthority(h:Parameters<typeof verifyExecutionBoundary>[0]&{password:string;fixture:()=>Promise<Fixture>}) {
+export async function verifyWorkOrderAuthority(h:Parameters<typeof verifyExecutionBoundary>[0]&{password:string;fixture:(full?:boolean)=>Promise<Fixture>}) {
   await h.db.transaction(async m=>{
     await new TrustedWorkOrderAuthority1793059200024().up(m.queryRunner!);
     await new AddFinishedOutputCustody1793059200025().up(m.queryRunner!);
+    await new TrustedPackingCustody1793059200026().up(m.queryRunner!);
     await configureDatabaseBoundary(m,h.schema,h.roles);
   });
   for(const [pool,kind] of [[h.runtime,"runtime"],[h.identity,"identity"],[h.writer,"ledger"]] as const)
@@ -159,6 +162,7 @@ export async function verifyWorkOrderAuthority(h:Parameters<typeof verifyExecuti
     await expect(h.db.query("DELETE FROM production_output_custody")).rejects.toMatchObject({code:"23514"});
     await expect(h.db.query("UPDATE audit_logs SET action=action WHERE entity_type='trusted_production'")).rejects.toMatchObject({code:"23514"});
     h.evidence.work_order_authority={http:"PASS",exclusive_output_claims:2,material_budget:"2 g held initially, 1 g fulfilled, 1 g held",stock:"1.5 g verified, 1 g issued, 0.5 g remaining",concurrent_claims:"one winner",concurrent_issues:"one winner",rollback_stages:4,retry:"same immutable issue",recovery:"PostgreSQL restart/restore remains acceptance gate"};
-    h.evidence.output_custody={http:"PASS",quantity:"0.0200 m",input_basis:"0.2000 g issued",concurrency:"one winner",retry:"same immutable identity",status:"pending_qc",stock_and_delivery:"unchanged",packing:"blocked",rollback_stages:3,operator_http:"PASS",queue:"PASS",unsigned_writer:"denied"};
+    h.evidence.output_custody={http:"PASS",quantity:"0.0200 m",input_basis:"0.2000 g issued",concurrency:"one winner",retry:"same immutable identity",status:"pending_qc",stock_and_delivery:"unchanged",packing:"see packing_custody",rollback_stages:3,operator_http:"PASS",queue:"PASS",unsigned_writer:"denied"};
+    await verifyPackingAuthority(h,authority,token,`http://127.0.0.1:${address.port}/production`);
   } finally{server.closeAllConnections();await new Promise<void>((resolve,reject)=>server.close(e=>e?reject(e):resolve()));}
 }

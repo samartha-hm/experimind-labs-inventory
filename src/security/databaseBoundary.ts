@@ -9,7 +9,8 @@ type Sql = Pick<EntityManager, "query">;
 const baseWorkOrderTables = ["commitment_work_orders","commitment_work_order_materials","commitment_work_order_issues","production_work_orders","production_input_reservations","production_input_issues"];
 async function installedWorkOrderTables(db: Sql): Promise<string[]> {
   const [{installed}] = await db.query("SELECT to_regclass('production_output_custody') IS NOT NULL installed");
-  return [...baseWorkOrderTables,...(installed ? ["production_output_custody"] : [])];
+  const [{packing}] = await db.query("SELECT to_regclass('trusted_packing_plans') IS NOT NULL packing");
+  return [...baseWorkOrderTables,...(installed ? ["production_output_custody"] : []),...(packing ? ["trusted_packing_plans","trusted_packing_allocations","trusted_packing_qc"] : [])];
 }
 const workOrderUpdates = ["production_work_orders","production_input_reservations"];
 async function workOrdersInstalled(db: Sql): Promise<boolean> {
@@ -107,11 +108,11 @@ export async function configureDatabaseBoundary(db: Sql, schema: string,
   }
   if (workOrders) {
     for (const table of workOrderTables) {
-      await db.query(`REVOKE ALL ON ${s}.${sqlIdentifier(table)} FROM ${identity}; GRANT SELECT ON ${s}.${sqlIdentifier(table)} TO ${identity};
+      await db.query(`REVOKE ALL ON ${s}.${sqlIdentifier(table)} FROM ${identity}; ${table.startsWith('trusted_packing_')?'':`GRANT SELECT ON ${s}.${sqlIdentifier(table)} TO ${identity};`}
         GRANT SELECT,INSERT${workOrderUpdates.includes(table)?",UPDATE":""} ON ${s}.${sqlIdentifier(table)} TO ${ledger}`);
     }
     await db.query(`GRANT SELECT,INSERT ON ${s}.audit_logs TO ${ledger}`);
-    await db.query(`GRANT SELECT ON ${s}.requirement_execution_bindings TO ${ledger}`);
+    await db.query(`GRANT SELECT ON ${s}.requirement_execution_bindings,${s}.product_template_versions TO ${ledger}`);
   }
   if (recipes) await db.query(`GRANT INSERT ON ${s}.production_recipes TO ${ledger}`);
   const functions: { signature: string; proname: string; prosecdef: boolean }[] = await db.query(`

@@ -1,3 +1,4 @@
+import { trustedPackingEntities } from "./TrustedPacking";
 import {Entity,PrimaryGeneratedColumn,Column,CreateDateColumn,UpdateDateColumn} from "typeorm";
 import { FinishedOutput } from "./FinishedOutput";
 export interface RecipeInput {item_id:string;quantity:string;unit:string;scrap_percent:string;canonical_quantity:string;conversion_id?:string;conversion_factor?:string}
@@ -102,4 +103,4 @@ export class ProductionQcDecision {
   @Column("uuid",{nullable:true}) ledger_id!:string|null;
   @CreateDateColumn({type:"timestamptz"}) created_at!:Date;
 }
-export const productionEntities=[ProductionRecipe,ProductionWorkOrder,ProductionInputReservation,ProductionInputIssue,ProductionBatch,ProductionQcDecision,FinishedOutput];
+export const productionEntities=[ProductionRecipe,ProductionWorkOrder,ProductionInputReservation,ProductionInputIssue,ProductionBatch,ProductionQcDecision,FinishedOutput,...trustedPackingEntities];
