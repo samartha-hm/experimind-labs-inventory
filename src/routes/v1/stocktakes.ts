@@ -5,6 +5,7 @@ import { User } from "../../entity/User";
 import { authenticateJwt } from "../../middleware/auth";
 import { dto } from "./product-templates";
 import { StocktakeService } from "../../services/StocktakeService";
+import { HistoricalReconciliationService } from "../../services/HistoricalReconciliationService";
 import { DraftKitError } from "../../services/ProductTemplateService";
 class SessionDto {
   @IsString() @MinLength(1) @MaxLength(200) name!: string;
@@ -47,6 +48,11 @@ export function stocktakeRouter(db: DataSource) {
     }next();
   }));
   router.param("id",(_req,res,next,id:string)=>{if(!uuid.test(id)){res.status(400).json({error:"Invalid stocktake identity"});return;}next();});
+  router.get("/reconciliation",action(async(req,res)=>{
+    res.setHeader("Cache-Control", "no-store");
+    res.json(await new HistoricalReconciliationService(db).preview(req.user!.orgId!,req.user!.id,
+      req.query.source ?? "inventory_items", req.query.offset ?? "0"));
+  }));
   router.get("/inventory",action(async(req,res)=>{res.json(await service.inventory(req.user!.orgId!));}));
   router.get("/ledger",action(async(req,res)=>{
     const item=req.query.item;if(item!==undefined&&(typeof item!=="string"||!uuid.test(item)))throw new DraftKitError(400,"Invalid inventory identity");

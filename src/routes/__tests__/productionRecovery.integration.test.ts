@@ -17,8 +17,10 @@ import { verifyPackingBrowser } from "./packingBrowser.cases";
 import { verifyDeliveryBrowser } from "./deliveryBrowser.cases";
 
 const phase=process.env.PRODUCTION_RECOVERY_PHASE;
+const prefix=process.env.PRODUCTION_RECOVERY_ARTIFACT_PREFIX??'d3';
+if(!/^d[0-9]+$/.test(prefix))throw Error('Invalid recovery artifact prefix');
 it.skipIf(!phase)("preserves production custody and authenticated exact retries after restart and restore",async()=>{
-  const evidence=JSON.parse(await readFile(".test-tmp/d3-evidence.json","utf8")),{schema}=evidence;
+  const evidence=JSON.parse(await readFile(`.test-tmp/${prefix}-evidence.json`,"utf8")),{schema}=evidence;
   const url=new URL(process.env.KIT_BUILDER_TEST_DATABASE_URL!);
   const database=process.env.PRODUCTION_RECOVERY_DATABASE??"experimind_kitbuilder_test";
   if(url.hostname!=="127.0.0.1"||!["55432","55433"].includes(url.port)||!/^requirement_test_[a-f0-9]{32}$/.test(schema)
@@ -47,7 +49,7 @@ it.skipIf(!phase)("preserves production custody and authenticated exact retries 
     const fingerprint=async()=>Object.fromEntries(await Promise.all(tables.map(async t=>[t,(await runtime.query(
       `SELECT count(*)::int count,md5(coalesce(string_agg(row_to_json(t)::text,'' ORDER BY row_to_json(t)::text),'')) hash FROM ${t} t`))[0]])));
     const before=await fingerprint();expect(before.production_output_custody.count).toBeGreaterThan(0);
-    if(phase!=="before")expect(before).toEqual(JSON.parse(await readFile(`.local-dev/d3-recovery-${phase==="restart"?"before":"restart"}.json`,"utf8")).after);
+    if(phase!=="before")expect(before).toEqual(JSON.parse(await readFile(`.local-dev/${prefix}-recovery-${phase==="restart"?"before":"restart"}.json`,"utf8")).after);
     const [output]=await runtime.query("SELECT * FROM production_output_custody WHERE location='Production shelf' ORDER BY id LIMIT 1");
     const [admin]=await identity.query("SELECT id,email FROM users WHERE id=$1",[output.actor_id]);
     const auth=new AuthService(identity),password=randomBytes(24).toString("hex")+"Aa1!";
@@ -105,7 +107,7 @@ it.skipIf(!phase)("preserves production custody and authenticated exact retries 
     expect(fresh.status).toBe(201);expect((await fresh.json()).revision).toBe(job.revision+1);
     const after=await fingerprint();
     for(const table of tables.filter(t=>!['site_installations','supply_events','audit_logs','commitment_authorizations'].includes(t)))expect(after[table]).toEqual(before[table]);
-    await writeFile(`.local-dev/d3-recovery-${phase}.json`,JSON.stringify({phase,database,schema,before,after:await fingerprint(),
+    await writeFile(`.local-dev/${prefix}-recovery-${phase}.json`,JSON.stringify({phase,database,schema,before,after:await fingerprint(),
       authenticated_http:true,fresh_authenticated_mutation:true,delivery_exact_retry:true,exact_retry:true,duplicate_denied:true,replayed_accounts:balances.length,
       operator_browser:process.env.PRODUCTION_BROWSER==="true"&&phase==="before"?"PASS":"not run",
       server:await runtime.query("SELECT current_database(),pg_postmaster_start_time()")},null,2));

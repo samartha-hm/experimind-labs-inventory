@@ -4,6 +4,7 @@ Open only the authority relevant to the task. Current user instructions and conf
 
 | Topic | Authoritative specification |
 | --- | --- |
+| D5 consolidated readiness and pilot gate | [Readiness, reconciliation and remaining acceptance gates](D5_ERP_READINESS_AND_PILOT_GATE.md) |
 | V5 dynamic Kit Builder | [Dynamic product and Prastuti builder](26_DYNAMIC_PRODUCT_AND_PRASTUTI_BUILDER.md), [implementation](27_DYNAMIC_BUILDER_IMPLEMENTATION.md) |
 | Draft Kit CRUD and review checks | [Runbook](28_DRAFT_KIT_BUILDER_RUNBOOK.md) |
 | Confirmed Prastuti sets and crates | [Confirmed rules](25_PRASTUTI_SET_AND_CRATE_RULES_CONFIRMED.md) |

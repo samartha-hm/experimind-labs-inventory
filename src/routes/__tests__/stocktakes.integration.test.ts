@@ -52,7 +52,7 @@ describe.skipIf(!url)("PostgreSQL physical stocktake acceptance",()=>{
     const bootstrap=new DataSource({...options,entities:(options.entities as Function[]).filter(e=>![ProductTemplate,ProductTemplateVersion,ProductTemplateRevision,...planningEntities,...stocktakeEntities,...supplyEntities,...productionEntities].includes(e as typeof ProductTemplate))});
     await bootstrap.initialize();await bootstrap.synchronize();const runner=bootstrap.createQueryRunner();await runner.connect();await runner.startTransaction();
     try{await new AddProductTemplates1791417600000().up(runner);await new AddKitSubjectsAndGrades1791417600001().up(runner);await new AddProjectPlanning1791417600002().up(runner);const migration=new AddPhysicalStocktake1791504000003();await migration.up(runner);await migration.down(runner);await migration.up(runner);await new AddReservationsAndProcurement1791676800004().up(runner);await runner.commitTransaction();}catch(e){await runner.rollbackTransaction();throw e;}finally{await runner.release();await bootstrap.destroy();}
-    db=new DataSource(options);await db.initialize();const a=await db.getRepository(Organization).save({name:schema});const b=await db.getRepository(Organization).save({name:schema+"other"});
+    db=new DataSource({...options,extra:{options:`-c search_path=pg_catalog,${schema},pg_temp`}});await db.initialize();const a=await db.getRepository(Organization).save({name:schema});const b=await db.getRepository(Organization).save({name:schema+"other"});
     const user=(name:string,role:string,org=a.id)=>db.getRepository(User).save({name,email:name+"@test.invalid",role,organization_id:org,firebase_uid:null});
     maker=await user("Counter","staff");admin=await user("Approver","admin");viewer=await user("Reader","viewer");other=await user("Other","admin",b.id);
     wire=await db.getRepository(InventoryItem).save({organization_id:a.id,name:"Preserved wire",description:"Preserved description",sku:"WIRE",unit:"m",quantity:987,base_price:123,threshold:0});
@@ -62,6 +62,28 @@ describe.skipIf(!url)("PostgreSQL physical stocktake acceptance",()=>{
     baseline=JSON.stringify(await db.query("SELECT * FROM inventory_items ORDER BY id"));await start();
   },30000);
   afterAll(async()=>{if(server)await close();if(db?.isInitialized)await db.destroy();});
+  it("exports repeatable tenant-only historical evidence without approving or changing stock",async()=>{
+    const before=JSON.stringify(await db.query("SELECT * FROM inventory_items ORDER BY id"));
+    const path="/stocktakes/reconciliation?source=inventory_items&offset=0";
+    const preview=await request("GET",path,admin);
+    expect(preview.mode).toBe("read_only");
+    expect(preview.records).toHaveLength(2);
+    expect(preview.records.find((r:{id:string})=>r.id===unknown.id)).toMatchObject({stock:"unknown",recordedQuantity:"456",verifiedQuantity:null});
+    expect(preview.effects).toEqual({stock:"unchanged",commitments:"unchanged",custody:"unchanged",fulfillment:"unchanged"});
+    expect((await request("GET",path,admin)).evidenceHash).toBe(preview.evidenceHash);
+    expect((await request("GET",path,other)).records).toEqual([]);
+    await request("GET",path,viewer,undefined,403,{role:"admin"});
+    await request("GET",path,maker,undefined,403);
+    await request("GET",path,undefined,undefined,401);
+    await request("GET","/stocktakes/reconciliation?source=users",admin,undefined,400);
+    await request("GET","/stocktakes/reconciliation?offset=-1",admin,undefined,400);
+    await request("GET","/stocktakes/reconciliation?source=inventory_items&source=users",admin,undefined,400);
+    await request("GET","/stocktakes/reconciliation?source=delivery_orders",admin,undefined,409);
+    await db.getRepository(User).update(admin.id,{is_active:false});
+    await request("GET",path,admin,undefined,403);
+    await db.getRepository(User).update(admin.id,{is_active:true});
+    expect(JSON.stringify(await db.query("SELECT * FROM inventory_items ORDER BY id"))).toBe(before);
+  });
   it("requires explicit tenancy and current database permissions",async()=>{
     await request("GET","/stocktakes",undefined,undefined,401);
     await request("GET","/stocktakes",admin,undefined,403,{orgId:other.organization_id});

@@ -13,6 +13,7 @@ import Header from '@/src/shared/components/Header';
 import OperationsWorkspace from '@/src/features/core/OperationsWorkspace';
 import InventoryTab from '@/src/features/inventory/components/InventoryTab';
 import StocktakePanel from '@/src/features/inventory/StocktakePanel';
+import HistoricalReconciliationPanel from '@/src/features/inventory/HistoricalReconciliationPanel';
 import KittingTab from '@/src/features/kitting/components/KittingTab';
 import ProductLibrary from '@/src/features/kit-builder/LiveKitStudio';
 import SupplyPlanningPanel from '@/src/features/procurement/components/SupplyPlanningPanel';
@@ -337,6 +338,7 @@ function MainApp() {
               {activeTab === 'inventory' && (
                 <div className="space-y-6">
                 <StocktakePanel />
+                <HistoricalReconciliationPanel />
                 <p className="text-sm text-amber-700">Item master below retains historical quantities, prices and locations. Use verified stocktake balances above for planning.</p>
                 <InventoryTab
                   inventory={inventory}
