@@ -89,6 +89,13 @@ separately from the full suite; their opt-in skip is not a recovery failure.
 Local evidence lives in ignored `.local-dev/d3-recovery-*.json` and test logs;
 no database dumps, credentials or synthetic data are committed.
 
+Earlier runs failed on Windows sandbox TEMP rename permissions; putting TEMP
+inside the repository then violated attachment-root security guards. The successful
+full suite used normal TEMP with approved execution permissions. Recovery initially
+refused a mismatched default cluster directory; the actual isolated directory was
+verified and supplied explicitly. The browser's first exact label locator timed
+out; a role/name locator and bounded actions fixed it without increasing timeouts.
+
 Reproduction: scoped `requirementApproval.integration.test.ts`; full Vitest
 with two workers and the guarded synthetic KIT_BUILDER_TEST_DATABASE_URL;
 `scripts/verify-production-recovery.mjs` consumes `.test-tmp/d3-evidence.json`
