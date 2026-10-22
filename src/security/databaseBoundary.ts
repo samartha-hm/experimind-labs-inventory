@@ -6,7 +6,11 @@ export const ledgerTables = ["commitment_accounts", "commitment_entitlements", "
 export const identityTables = ["users", "roles", "refresh_tokens", "sessions"];
 export const sqlIdentifier = (name: string): string => `"${name.replaceAll('"', '""')}"`;
 type Sql = Pick<EntityManager, "query">;
-const workOrderTables = ["commitment_work_orders","commitment_work_order_materials","commitment_work_order_issues","production_work_orders","production_input_reservations","production_input_issues"];
+const baseWorkOrderTables = ["commitment_work_orders","commitment_work_order_materials","commitment_work_order_issues","production_work_orders","production_input_reservations","production_input_issues"];
+async function installedWorkOrderTables(db: Sql): Promise<string[]> {
+  const [{installed}] = await db.query("SELECT to_regclass('production_output_custody') IS NOT NULL installed");
+  return [...baseWorkOrderTables,...(installed ? ["production_output_custody"] : [])];
+}
 const workOrderUpdates = ["production_work_orders","production_input_reservations"];
 async function workOrdersInstalled(db: Sql): Promise<boolean> {
   return (await db.query("SELECT to_regclass('commitment_work_orders') IS NOT NULL installed"))[0].installed;
@@ -45,6 +49,7 @@ export async function configureDatabaseBoundary(db: Sql, schema: string,
   const receipt=await receiptInstalled(db,schema);
   const recipes=await recipePublicationInstalled(db);
   const workOrders=await workOrdersInstalled(db);
+  const workOrderTables=await installedWorkOrderTables(db);
   const poWrites=[...(po?["commitment_po_lines","commitment_po_coverage","purchase_orders"]:[]),...(receipt?receiptWrites:[])];
   const prWrites=[...(pr?["commitment_pr_lines","purchase_requests"]:[]),...poWrites];
   const executionTables = await executionBlockedTables(db);
@@ -144,6 +149,7 @@ export async function assertDatabaseBoundary(db: DataSource, kind: "runtime" | "
   const receipt=await receiptInstalled(db,schema);
   const recipes=await recipePublicationInstalled(db);
   const workOrders=await workOrdersInstalled(db);
+  const workOrderTables=await installedWorkOrderTables(db);
   const d2Tables=[...(d2 ? ["commitment_reservations",...reservationWrites] : []),...(pr?["commitment_pr_lines","purchase_requests"]:[]),...(po?["commitment_po_lines","commitment_po_coverage","purchase_orders"]:[]),...(receipt?receiptWrites:[]),...(workOrders?workOrderTables:[])];
   const [{ path }] = await db.query("SELECT current_setting('search_path') path");
   if (path.replace(/\s/g, "") !== `pg_catalog,${schema},pg_temp`) fail();

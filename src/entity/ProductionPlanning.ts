@@ -1,4 +1,5 @@
 import {Entity,PrimaryGeneratedColumn,Column,CreateDateColumn,UpdateDateColumn} from "typeorm";
+import { FinishedOutput } from "./FinishedOutput";
 export interface RecipeInput {item_id:string;quantity:string;unit:string;scrap_percent:string;canonical_quantity:string;conversion_id?:string;conversion_factor?:string}
 export interface RecipeDefinition {output_item_id:string;yield_quantity:string;unit:string;inputs:RecipeInput[];instructions:string;specification:string;concentration:string}
 @Entity("production_recipes")
@@ -101,4 +102,4 @@ export class ProductionQcDecision {
   @Column("uuid",{nullable:true}) ledger_id!:string|null;
   @CreateDateColumn({type:"timestamptz"}) created_at!:Date;
 }
-export const productionEntities=[ProductionRecipe,ProductionWorkOrder,ProductionInputReservation,ProductionInputIssue,ProductionBatch,ProductionQcDecision];
+export const productionEntities=[ProductionRecipe,ProductionWorkOrder,ProductionInputReservation,ProductionInputIssue,ProductionBatch,ProductionQcDecision,FinishedOutput];

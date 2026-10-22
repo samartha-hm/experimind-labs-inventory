@@ -1,4 +1,5 @@
 import {useEffect,useState} from "react";
+import TrustedProductionPanel from "./TrustedProductionPanel";
 import {useExecutionReadiness} from "./useExecutionReadiness";
 import {useAuth} from "../../AuthContext";
 import {apiFetch} from "../../utils/api";
@@ -31,8 +32,9 @@ export default function ProductionPlanningPanel({project,onChange}:{project?:Pla
   const selectItem=(value:string,set:(s:string)=>void,setU:(s:string)=>void)=>{set(value);setU(items.find(i=>i.id===value)?.unit??"");};
   return <section className="space-y-4 rounded-2xl border border-slate-300 p-4">
     <h2 className="text-xl font-semibold">Production and in-house preparation</h2>
+    {import.meta.env.VITE_TRUSTED_PRODUCTION_ENABLED==="true"&&<TrustedProductionPanel projectId={project?.id}/>}
     {readiness.notice}
-    <p className="text-sm text-slate-500">Input allocations share verified stock with project reservations. Only issued inputs and QC-accepted output move physical stock. Count every declared output location, including an explicit zero opening count, before release. Production recipes are separate from educational kit templates.</p>
+    <p className="text-sm text-slate-500">Input allocations share verified stock with project reservations. Authorized material issues reduce physical stock. Recorded output stays in separate pending-QC custody. Production recipes are separate from educational kit templates.</p>
     {error&&<p role="alert" className="text-red-600">{error}</p>}
     <fieldset disabled={busy} className="space-y-4"><button className={button} onClick={()=>void run(async()=>{await load();if(w)await open(w.id);})}>Refresh production</button>
       <details><summary className="font-semibold">Manufacturing recipes</summary>

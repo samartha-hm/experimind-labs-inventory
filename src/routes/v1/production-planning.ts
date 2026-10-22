@@ -63,6 +63,30 @@ export function productionPlanningRouter(db:DataSource,authority?:TrustedLedgerA
     if(read?!writers.has(current.role)&&current.role!=="viewer":!roles.has(current.role))throw new DraftKitError(403,"Production permission denied");if(!read&&!req.header("Idempotency-Key"))throw new DraftKitError(400,"Idempotency-Key required");next();}));
   r.param("id",(_req,_res,next,id:string)=>next(uuid.test(id)?undefined:new DraftKitError(400,"Invalid identity")));
   const key=(req:Parameters<RequestHandler>[0])=>req.header("Idempotency-Key")!;
+  r.get("/trusted-work-queue",action(async(req,res)=>{
+    res.setHeader("Cache-Control","no-store");
+    const [{installed}]=await db.query("SELECT to_regclass('production_output_custody') IS NOT NULL installed");
+    if(!authority||!installed){res.json({enabled:false,orders:[]});return;}
+    const orders=await db.query(`SELECT w.id,w.number,w.project_id,w.site_id,w.planned_quantity,w.unit,w.recipe_id,
+      w.recipe_snapshot,w.demand_revision,c.approval_id,c.demand_line,
+      (SELECT coalesce(jsonb_agg(jsonb_build_object('id',m.id,'item',m.item_id,'name',i.name,
+        'unit',a.unit,'held',cl.held::text,'fulfilled',cl.fulfilled::text) ORDER BY m.id),'[]')
+       FROM commitment_work_order_materials m JOIN commitment_accounts a ON a.id=m.account_id
+       JOIN commitment_claims cl ON cl.id=m.claim_id JOIN inventory_items i ON i.id=m.item_id WHERE m.order_id=w.id) materials,
+      (SELECT coalesce(jsonb_agg(to_jsonb(o) ORDER BY o.created_at),'[]') FROM production_output_custody o WHERE o.order_id=w.id) outputs
+      FROM production_work_orders w JOIN commitment_work_orders c ON c.order_id=w.id
+      WHERE w.organization_id=$1 ORDER BY w.created_at DESC LIMIT 100`,[req.user!.orgId]);
+    res.json({enabled:true,orders});
+  }));
+  for(const [path,actionName] of [["material-issues","issueWorkOrder"],["finished-outputs","recordFinishedOutput"]] as const)
+    r.post(`/operator/orders/:id/${path}`,action(async(req,res)=>{
+      if(!["admin","super_admin"].includes(req.user!.role))throw new DraftKitError(403,"Production administrator required");
+      if(!authority)throw new DraftKitError(503,"Trusted production unavailable");
+      if(req.body?.order!==req.params.id)throw new DraftKitError(409,"Work-order identity mismatch");
+      try {res.status(201).json(await authority.performProductionForSession(req.headers.authorization!.slice(7),
+        {action:actionName,key:key(req),input:req.body}));}
+      catch {throw new DraftKitError(409,"Production authorization or state conflict; refresh and reconcile before changing the request");}
+    }));
   r.post("/recipe-versions",action(async(req,res)=>{
     if(!["admin","super_admin"].includes(req.user!.role))throw new DraftKitError(403,"Recipe administrator required");
     if(!authority)throw new DraftKitError(503,"Trusted recipe publication unavailable");
@@ -72,13 +96,13 @@ export function productionPlanningRouter(db:DataSource,authority?:TrustedLedgerA
       {action:"publishRecipe",key:key(req),input:req.body as RecipePublication}));}
     catch {throw new DraftKitError(409,"Recipe publication authorization or state conflict");}
   }));
-  for (const [path, actionName] of [["/work-order-claims","claimWorkOrder"],["/orders/:id/material-issues","issueWorkOrder"]] as const)
+  for (const [path, actionName] of [["/work-order-claims","claimWorkOrder"],["/orders/:id/material-issues","issueWorkOrder"],["/orders/:id/finished-outputs","recordFinishedOutput"]] as const)
     r.post(path,action(async(req,res)=>{
       if(!["admin","super_admin"].includes(req.user!.role))throw new DraftKitError(403,"Production administrator required");
       if(!authority)throw new DraftKitError(503,"Trusted production unavailable");
       const capability=req.header("X-Ledger-Capability");
       if(!capability)throw new DraftKitError(403,"Production capability required");
-      if(actionName==="issueWorkOrder" && req.body?.order!==req.params.id)throw new DraftKitError(409,"Work-order identity mismatch");
+      if(actionName!=="claimWorkOrder" && req.body?.order!==req.params.id)throw new DraftKitError(409,"Work-order identity mismatch");
       try {res.status(201).json(await authority.performForSession(req.headers.authorization!.slice(7),capability,
         {action:actionName,key:key(req),input:req.body}));}
         catch {throw new DraftKitError(409,"Production authorization or state conflict");}

@@ -1,132 +1,117 @@
-# D3 completion acceptance — incomplete
+# D3 completion acceptance — 2026-10-22
 
-Verdict: **BLOCKED — D3 execution is not implemented or accepted.**
+Verdict: **BLOCKED — integrated D3 packing/QC execution remains incomplete.**
+This checkpoint implements trusted material issue and pending-QC recipe-output
+custody, not full D3 acceptance. No remaining material-approval decision is needed.
+Branch: `feature/kit-builder-milestone-1`; starting code: `e3aae31a9eccafc820a185848cce0292e534439b`.
 
-Starting branch: `feature/kit-builder-milestone-1`.
-Starting commit: `ed1d9c06b0dc260a4a40042e875c0f6f2297064d`.
-This document records the resolved approval decision and the limited verified
-calculation slice. It does not replace missing HTTP, database or browser evidence.
+## Implemented authority and accounting
 
-## Resolved material authority
+Approved, frozen recipe inputs and exclusive approved school-output claims confer
+separate capped recipe-material entitlements. Raw inputs need not be present in
+the school snapshot. Migration 24 already implements that resolved decision.
+Migration 25 adds immutable output custody without modifying historical migrations.
+Both use explicit isolated synthetic activation; no real-data activation occurred.
 
-The user explicitly selected:
+Every material account retains A = F + H + U. Trusted issue atomically debits
+verified physical stock and converts the same material claim H to F, with immutable
+issue, audit and signed receipt evidence. School delivery F is unchanged.
 
-> Treat the approved recipe and claimed output quantity as authority for a separate, capped material entitlement.
+New output records retain tenant, work order, immutable recipe and approved school
+lineage through the work-order witness, exact quantity/unit, location, actor,
+source identity, supporting material issues and stable ERP:OUTPUT:<uuid> identity.
+A work-order lock serializes cumulative output. Output cannot exceed the exclusive
+planned quantity or the fraction supported by every consumed recipe input.
+Inexact four-place allocations fail; output creation never debits stock again.
+Output is always `recipe_output` / `pending_qc`. It is not accepted packing stock.
 
-Raw inputs need not appear in the school's approved material snapshot. Their
-authority must instead retain the approved recipe identity/version, its frozen
-canonical input quantities and scrap allowance, and the exclusively claimed
-output quantity and its exact approved school/demand lineage.
+## Execution and mutation matrix
 
-The existing material entitlement trigger only authorizes material lines in the
-school snapshot. A forward migration must represent recipe-derived entitlements
-explicitly; relabelling them as snapshot material entitlements is invalid.
-The decision is resolved. Its database implementation remains outstanding.
+All routes below are under `/api/v1/production-planning`.
 
-## Accounting and consumption contract
-
-For every entitlement, `A = F + H + U`. Transfers change ownership of existing H;
-they do not release it and open replacement capacity. Consumed F never decreases.
-Material accounts and finished-deliverable accounts remain distinct.
-
-For an exclusively claimed output quantity Q, derive each raw input allowance
-once from the approved recipe: `input × Q / recipe yield × (1 + scrap% / 100)`.
-Use exact canonical quantities, not floating point. A parent split partitions
-that existing allowance, including its explicit remainder. It cannot independently
-round each child's budget upward or reuse the parent after splitting.
-
-The calculation module `src/features/production/recipeMaterialBudget.ts` implements
-this arithmetic and exact partition validation. It confers **no authorization**,
-performs no database writes and is not wired to an execution endpoint.
-An inexact four-place material allowance or partial partition is rejected;
-no stock quantum is silently invented. Other exact allocations remain representable.
-
-Example: an approved 10-bottle output claim and a recipe using 2 L per bottle
-derive A=20 L of raw material. A 6/4 bottle split partitions it into 12/8 L.
-After an authorized 5 L issue, raw A=20, F=5, H=15, U=0. The finished-school
-delivery obligation has not been fulfilled. A frozen 5% scrap allowance would
-instead derive a total 21 L cap; extra loss cannot increase it automatically.
-
-Issue must atomically debit verified physical stock and convert the same material
-claim H to F, recording work order, recipe, source claim, location, actor, stock
-entry and immutable retry/audit evidence. Failure rolls all of those back.
-Returns, rejection, scrap and rework cannot restore F or create replacement capacity.
-
-## Contract-to-implementation matrix
-
-| Contract / workflow | Existing verified foundation | Missing execution integration |
+| Operation | Authority and result | Status |
 | --- | --- | --- |
-| Approved school demand | Frozen approvals, tenant/school identity, current revision checks | Bind work order and each output to exact frozen demand/kit/grade lineage |
-| Reservation → production | Exclusive ledger claims and immutable source history | Atomic transfer and reservation SQL witness accepting the transferred owner; no release/reopen shortcut |
-| Procurement coverage | Trusted PR/PO intervals and accepted receipt provenance | Carry that lineage into production without reopening demand |
-| Recipe → raw material | Approved recipe model; new exact budget/partition calculator | Recipe-derived entitlement schema, immutable provenance, cumulative output funding and SQL enforcement |
-| Material issue | Verified physical stock ledger and item/location locking | Trusted issue capability, material H→F, stock debit and deferred cross-table witness in one transaction |
-| Produced assembly | Legacy work-order/batch entities | Conserved physical output custody linked to consumed inputs; duplicate output prevention |
-| Pouch / kit / common / universal crate | Frozen packing assignments and explicit crate planning | Exclusive custody allocation of inputs/children to output; no second stock debit of already consumed material |
-| Packing / six-check QC | Existing UI, legacy QC structures and labels | Trusted packing/QC writes, accepted/rejected custody and concurrency/retry witnesses |
-| Operator actions | Authenticated read-only readiness with fail-closed guards | Supported authenticated mutations and mobile/tablet/keyboard browser acceptance |
-| Dispatch / installation / closure | Explicitly blocked legacy transitions | D4; outside this request, never enabled as a D3 shortcut |
+| POST recipe-versions | Current admin session, scoped capability, immutable recipe | Existing migration 23 |
+| POST work-order-claims | Approved school line, exclusive output claim, frozen recipe/material caps | Existing migration 24 |
+| POST orders/:id/material-issues | Scoped capability, physical debit and material H→F | Verified |
+| POST orders/:id/finished-outputs | Scoped capability, consumption-funded immutable custody | Implemented |
+| POST operator/orders/:id/material-issues | Current admin session; server restricts capability issuance to this action | Implemented |
+| POST operator/orders/:id/finished-outputs | Current admin session; exact durable retry result | Implemented |
+| GET trusted-work-queue | Tenant-filtered read; latest 100 work orders and provenance | Implemented |
+| Pouch, kit, common/universal crate allocation | Exclusive custody ownership and child allocation | Missing; guarded |
+| Six-check QC, rejection/rework, packing acceptance | Conserved transitions and trusted receipts | Missing; guarded |
+| Dispatch, installation, closure | D4 | Out of scope; guarded |
 
-The legacy isolated production/packing tests do not establish the missing
-integrated contracts. Existing D3 guards remain necessary and remain installed.
+Writes require exact request identities and Idempotency-Key. Operator retries
+validate a live session before returning an existing result; changed input under
+the same key fails. A concurrent first retry may receive a conflict and then retry
+the same request. The browser persists the exact pending request before sending,
+retains it after an uncertain response, and requires explicit reconciliation to
+clear it. No public general-purpose capability issuer was added.
 
-## Finished-output custody requirements
+The optional panel uses `VITE_TRUSTED_PRODUCTION_ENABLED=true` at build time and
+requires the trusted server writer plus synthetic migrations. It is off by default.
+It exposes material issue and output recording, confirmation, queue refresh,
+material balances, pending custody and text QR identity. Recipe publication and
+work-order claiming still require the existing capability workflow. The queue has
+no pagination beyond its 100-order limit. This is not full operator acceptance.
 
-Assemblies, completed pouches, packed kit units, grade-specific common crates,
-complete-set universal crates and QC-accepted packed outputs require conserved
-identities. Each must retain tenant, school, approval revision, kit selection,
-demand line, work order and authoritative input lineage where applicable.
+## Verification evidence
 
-Created/pending-QC/rejected/accepted/packed transitions must not allocate the same
-physical output twice. Rejected or incomplete outputs cannot be dispatched.
-Custody creation must not invent finished inventory or mark school delivery F.
-These are required contracts, not implemented functionality in this slice.
+- Database-enabled full suite: **605 passed, 2 opt-in recovery tests skipped**.
+- Scoped synthetic requirement integration: **37 passed**, including output races,
+  duplicate source/key handling, exact retry, input funding, excessive/invalid output,
+  wrong order/unit/precision, revoked-session mutation/retry denial and no-authority
+  guards. Physical stock and school-delivery fingerprints stay unchanged on output.
+- Failure injection: four material-issue stages and three output stages roll back
+  all stock, event, custody, audit and authorization changes.
+- Restricted roles: runtime INSERT/UPDATE denied; unsigned ledger-writer output
+  rejected by deferred witness; owner DELETE rejected by immutability trigger.
+- Typecheck and frontend/PWA/server build pass, including the enabled panel build.
+  Existing bundle-size warnings remain.
+- Existing QR/PDF regression tests pass in the full suite. New custody identity is
+  text only; custody QR graphics/PDF performance have not been accepted.
+- Playwright Edge at 390×844: actual panel against authenticated restricted HTTP,
+  persisted retry activated by keyboard, same immutable output returned, pending
+  request cleared, queue/provenance refreshed, confirmation disabled until valid
+  input, no page errors. Test-only auth bootstrap and component bundle were used;
+  whole-app login, styled layout and full accessibility acceptance remain open.
 
-## Kit rules and synthetic scenarios
+Nonempty recovery was executed against synthetic schema
+`requirement_test_a4b796011c9d4d70b1430673381407e8`. A real PostgreSQL restart changed
+the postmaster start time. Schema dump restored into fresh database
+`experimind_production_restore_4909d1d0ec0da8a1`. Fresh restricted-role HTTP servers
+before/restart/restore returned the exact persisted output result; duplicate source
+was denied. Stock, events, balances, claims, entitlements, work orders, issues,
+custody, audits and authorization fingerprints matched. Commitment replay and
+work-order evidence checks passed. Production recovery and browser tests ran
+separately from the full suite; their opt-in skip is not a recovery failure.
+Local evidence lives in ignored `.local-dev/d3-recovery-*.json` and test logs;
+no database dumps, credentials or synthetic data are committed.
 
-Existing `requirementPlanning.test.ts` covers explicit Science common/universal
-allocation, independent Math selection and shared activity/pouch demand:
+Reproduction: scoped `requirementApproval.integration.test.ts`; full Vitest
+with two workers and the guarded synthetic KIT_BUILDER_TEST_DATABASE_URL;
+`scripts/verify-production-recovery.mjs` consumes `.test-tmp/d3-evidence.json`
+produced by setting REQUIREMENT_REVIEW_EVIDENCE_PATH on that scoped test.
+The script verifies database/schema/cluster directory
+before restart, accepts explicit PRODUCTION_RECOVERY_DATA_DIRECTORY, and restores
+only into a fresh synthetic database. PRODUCTION_BROWSER=true on the before phase
+runs the component browser check. Never point these tests at operational data.
 
-- Two complete Science Grades 8–10 sets: six common crates, two universal crates.
-- Three extra Grade 8 Science sets: three common crates, zero universal crates.
-- Matching partial grade quantities do not infer complete-set allocation.
-- Packing assignments do not duplicate shared physical material requirements.
+## Remaining D3 gates and next implementation
 
-Those planning assertions passed again alongside the new calculation tests.
-Production-to-packing consumption and custody assertions for these scenarios
-are still required; planning results alone do not establish execution acceptance.
+1. Define exact conserved allocation from recipe output to school/grade/activity/
+   pouch/kit/common-crate/universal-crate children, including partial quantities
+   and remainders. Add append-only allocation witnesses and exclusive claims.
+2. Implement trusted packing and six-check QC, acceptance/rejection/rework without
+   decreasing consumed F, recreating capacity or double-debiting raw material.
+3. Add supported operator flows for allocation/QC and recipe/claim prerequisites;
+   verify full-app mobile/tablet/keyboard accessibility and QR/PDF rendering.
+4. Execute two-school stock competition and integrated Science/Math packing,
+   concurrent allocation/QC, rollback, replay and nonempty recovery acceptance.
 
-## Verification for this slice
-
-Command (repository-local TEMP/TMP used for Vitest's sandboxed transform cache):
-
-```powershell
-node node_modules/vitest/vitest.mjs run src/features/production/__tests__/recipeMaterialBudget.test.ts src/features/inventory/__tests__/physicalQuantity.test.ts src/features/projects/__tests__/requirementPlanning.test.ts --reporter=dot
-npm run typecheck --silent
-```
-
-Focused tests: **57 passed, three files**. This includes 23 new calculation tests
-covering authority arithmetic, scrap, canonical quantities, exact partial output,
-stock range/precision, duplicate inputs, whole-parent conservation, duplicate
-children and rejection of inexact partial allocations. Final typecheck: **PASS**.
-
-The first Vitest attempt failed before collecting tests because the sandbox TEMP
-cache rename returned EPERM. Re-running with repository-local TEMP/TMP passed.
-No test assertion was weakened and no database or operational action was enabled.
-
-## Outstanding acceptance gates
-
-Not run as D3 completion evidence: integrated authenticated HTTP execution,
-two-school stock competition, concurrent issues/packing, excessive output claims,
-wrong-school/cross-tenant attacks, revoked authorization, token replay, failure
-after stock/event mutation, unknown-response retry, SQL bypass attempts, full
-suite, frontend/PWA/server builds, QR/PDF performance, browser accessibility,
-nonempty restart, fresh restore, stock/event replay and output custody reconciliation.
-
-Historical checkpoint evidence remains in `D3_PRODUCTION_PACKING_EXECUTION_REPORT.md`;
-it must not be presented as evidence for the unimplemented execution path.
-
-There is no remaining material-approval business question. D3 remains incomplete
-because the database, trusted execution adapters, custody and operator actions
-have not been implemented. Continue that authorized work without asking for a
-new milestone authorization. Do not claim PASS from this calculation slice.
+Planning tests retain Science common crates per grade, universal crates only for
+explicit complete Grades 8–10 sets, and independent Math kits without crates.
+Those passing calculations do not establish missing physical packing execution.
+Preserve legacy write guards until these replacement paths are verified. D3 stays
+BLOCKED; do not start D4, deploy, activate real data or merge main.
