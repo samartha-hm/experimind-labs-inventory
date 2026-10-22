@@ -1,26 +1,26 @@
-# D3 next task — custody allocation and packing/QC
+# Next task — D3 complete; stop pending new scope
 
-Continue from `2c61d44364541a9ffa1aef3ff6baf2efa3f9944c` on
-`feature/kit-builder-milestone-1`. D3 remains BLOCKED; no new authorization needed.
-Read `docs/erp/ui-ux/D3_COMPLETION_ACCEPTANCE.md` and SESSION_HANDOFF.md.
+D3 implementation: `ab6be04e8b3333e29e27fae770ef494682308f59` on
+`feature/kit-builder-milestone-1`, pushed with full local/remote SHA verified.
+D3 is **PASS for the supported isolated synthetic workflow**. The user explicitly
+requested stopping after final acceptance; do not start D4 or activate production.
 
-Implemented: immutable approved recipe, exclusive school-output claim, capped
-recipe-material entitlement, trusted stock debit/material H→F, consumption-funded
-pending-QC recipe-output custody, administrator issue/output HTTP and optional UI,
-exact durable retries, restricted-role witnesses, nonempty restart/fresh restore.
+Read SESSION_HANDOFF.md and `docs/erp/ui-ux/D3_COMPLETION_ACCEPTANCE.md`.
+Completed: approved material issue, immutable finished-output custody, conserved
+partial/full allocation, six-check QC acceptance/rejection, authenticated operator
+HTTP/UI, immutable audit and durable retries, Science/Math crate rules, QR/PDF,
+concurrency/rollback/security tests, actual restart and fresh nonempty restore.
+Packing/QC neither consume raw stock again nor fulfill school delivery.
 
-1. Add conserved allocation from recipe output to exact school/grade/activity/
-   pouch/kit/common/universal crate children, with explicit partial remainders,
-   immutable lineage and exclusive ownership. Never consume the raw stock twice.
-2. Implement authenticated packing and six-check QC acceptance/rejection/rework
-   using that custody. Do not restore consumed F or reopen approved capacity.
-3. Complete operator prerequisites and allocation/QC UI; verify whole-app
-   mobile/tablet/keyboard accessibility and QR/PDF output.
-4. Prove two-school stock competition, Science grade-specific common crates,
-   universal crates only for explicit complete Grades 8–10 sets, and independent
-   Math kits without crates, plus races, rollback, replay and nonempty recovery.
+Validation: 606 full-suite tests passed; 37 focused integration tests passed;
+typecheck, enabled frontend/PWA/server build, mobile/tablet operator component
+browser and QR/PDF checks passed. D3 opt-in recovery was run separately through
+all three phases. The dedicated D2 receipt recovery remains an explained opt-in
+skip, with ordinary receipt regressions included in the full suite.
 
-Keep unsupported legacy transitions guarded. Use additive migrations and isolated
-synthetic databases only. Preserve unrelated AGENTS.md and .test-tmp/. No D4,
-deployment, real inventory activation, main merge or force push. Use `/new` or
-`/compact` with this handoff to continue without reopening the settled authority.
+For any separately authorized follow-up, retain default-off flags, synthetic-only
+migration guards and blocked ambiguous provenance. Dispatch/delivery, rework,
+reversals, compensation and historical reconciliation require new scope. Queue
+pagination and comprehensive whole-app accessibility are not claimed here.
+Preserve unrelated AGENTS.md and .test-tmp/. No deployment, real inventory changes,
+main merge or force push. Start `/new` or use `/compact` before a new milestone.

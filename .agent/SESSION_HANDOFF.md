@@ -1,35 +1,52 @@
 # Session handoff — 2026-10-22
 
 Branch: `feature/kit-builder-milestone-1`.
-Implementation: `2c61d44364541a9ffa1aef3ff6baf2efa3f9944c`, pushed;
-full local/remote SHA matched before this handoff commit.
+Implementation: `ab6be04e8b3333e29e27fae770ef494682308f59`, pushed;
+full local/remote SHA matched before this separate handoff commit.
 
-D3 verdict: **BLOCKED**, with a verified integrated production slice.
-Migration 25 adds immutable, consumption-funded pending-QC recipe-output custody
-on migration 24's exclusive school-output claims and recipe-material authority.
-Output preserves work-order/approval/recipe/input lineage and stable QR identity;
-it neither debits stock again nor fulfills school delivery. Restricted database
-roles and deferred audit/authorization witnesses enforce the boundary.
+D3 verdict: **PASS for the supported isolated synthetic workflow.** The two
+remaining contracts are implemented: exclusive conserved output allocation and
+trusted packing/six-check QC acceptance or rejection. Stop after D3 as requested.
 
-Authenticated administrator operator routes now issue material and record output.
-Exact saved-request retries survive session renewal and server/database recovery;
-revoked sessions cannot mutate or retrieve saved results through that path.
-The optional panel is enabled by VITE_TRUSTED_PRODUCTION_ENABLED=true and persists
-pending requests for explicit retry/reconciliation. Default remains off; migrations
-remain explicit synthetic-only activation. Legacy packing/QC writes stay guarded.
+Migration 26 adds immutable school packing plans, quantity-conserving output
+allocations and QC receipts, with exact approved demand/output/work-order/recipe
+lineage. Partial allocation is capped at both output and package material line.
+Signed authority, matching audit witnesses, live session checks, restricted roles,
+locks and durable idempotency protect HTTP/service/SQL boundaries. Packing and QC
+never repeat raw-stock consumption, advance H/F, or count as delivery fulfillment.
+Rejected custody stays allocated; there is no replacement stock or restored capacity.
 
-Checks: full database suite 605 passed / 2 opt-in recovery tests skipped; final
-focused integration 37 passed; typecheck and enabled frontend/PWA/server build
-passed. Separate nonempty PostgreSQL restart, fresh restore, restricted HTTP retry,
-commitment replay and stock/custody fingerprints passed. Edge component browser
-check at 390×844 passed keyboard retry/reconciliation; whole-app styled accessibility
-and new custody QR/PDF acceptance remain outstanding.
+Authenticated administrator routes under `/api/v1/production-planning`:
+POST `/operator/packing/plans`, `/operator/packing/allocations`,
+`/operator/packing/inspections`; GET `/trusted-packing` is tenant-scoped.
+Precision Operations includes allocation/progress, six evidence fields, immutable
+QC, saved exact retry/reconciliation, scanned-package selection and QR/PDF labels.
+Flags VITE_TRUSTED_PRODUCTION_ENABLED and VITE_TRUSTED_PACKING_ENABLED remain off
+by default; migrations require explicit isolated synthetic activation.
 
-Read `docs/erp/ui-ux/D3_COMPLETION_ACCEPTANCE.md` for routes, exact evidence and gaps.
-Next: conserved custody allocation to exact school/grade/pouch/kit/crate children,
-then trusted packing and six-check QC with acceptance/rejection/rework. Prove
-exclusive use, no double raw debit, no restoration of consumed F, and concurrency,
-rollback, operator and nonempty recovery scenarios. No approval decision remains.
+Checks: full suite 606 passed (78 files); two opt-in recovery files skipped.
+D3 recovery was explicitly executed separately and passed before/restart/restore;
+the other skip is the dedicated older D2 receipt-recovery harness. Focused
+integration 37 passed; final typecheck and enabled frontend/PWA/server build passed.
+Edge component browser passed mobile/tablet, keyboard retry, QC/conflicts and
+PDF flows against authenticated HTTP. QR matrix/quiet-zone/PDF regression passed.
+Whole-app login/navigation and comprehensive accessibility were not audited.
 
-Preserve unrelated AGENTS.md and untracked .test-tmp/. No real-data activation,
-deployment, main merge, force push or D4. Continue in `/new` or use `/compact`.
+Real PostgreSQL restart changed the postmaster; fresh nonempty restore and
+restricted authenticated exact replay passed. Stock, commitments, custody, audit
+and authorization fingerprints matched. Final schema:
+`requirement_test_914dcabdf0294314977a34590d066db2`; restored database:
+`experimind_production_restore_e4b7969e11d1c463`. Evidence stays local in
+`.local-dev/d3-recovery-summary.json`; no dumps or credentials were committed.
+
+Read `docs/erp/ui-ux/D3_COMPLETION_ACCEPTANCE.md` for complete acceptance and limits.
+Science HTTP plan scenarios verified 6 common/2 universal and 3 common/0 universal;
+Math remains independent. A smaller physical fixture proves output through QC.
+Queue limits are 100 plans/500 outputs, with scanned-plan priority. Existing recipe
+publication/claim prerequisites remain; ambiguous/historical output stays blocked.
+
+No D4, dispatch, delivery, rework, reversal, compensation, real-data activation,
+historical reconciliation activation, deployment, main merge or force push.
+Preserve unrelated AGENTS.md and untracked .test-tmp/. No further D3 work or
+unresolved domain decision is required within the supported scope. Use `/new` or
+`/compact` before a separately authorized next milestone.
