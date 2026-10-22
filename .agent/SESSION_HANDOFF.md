@@ -31,3 +31,19 @@ Priority 1 material issue itself, finished-output custody, packing/QC integratio
 and operator mutations remain unimplemented. Read D3_COMPLETION_ACCEPTANCE.md.
 No further milestone authorization is needed. Preserve unrelated AGENTS.md.
 No deployment, real stock activation, dispatch or D4. Use `/compact` or `/new`.
+
+## 2026-10-22 D3 trusted work-order authority update
+
+Added exclusive approved-output claim binding to an immutable trusted recipe,
+recipe-derived capped material entitlements, and trusted material issue. Issue
+atomically updates the production reservation and writes the physical stock
+ledger, commitment consume event, immutable authorization result, audit record,
+and issue witness. A deferred PostgreSQL constraint validates the full evidence
+chain; verified unreserved stock and current physical coverage are required.
+The actual authenticated HTTP integration suite passed 37/37 against the isolated
+synthetic PostgreSQL database. Typecheck and production build passed.
+
+D3 remains incomplete: finished-output custody, packing/QC integration, operator
+mutations and recovery acceptance are still outstanding. Report:
+`docs/erp/ui-ux/D3_PRODUCTION_PACKING_EXECUTION_REPORT.md`. No real-data activation,
+deployment, dispatch or D4. Preserve unrelated root `AGENTS.md` edits.

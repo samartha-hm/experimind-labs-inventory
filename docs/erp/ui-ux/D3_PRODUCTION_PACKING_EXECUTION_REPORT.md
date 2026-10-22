@@ -5,6 +5,21 @@ slice provides authenticated read-only readiness, preserves historical visibilit
 and prevents unsupported production, packing and downstream writes. It does not
 claim approved demand can now run end to end through production and packing.
 
+## Trusted work-order authority update — 2026-10-22
+
+The isolated D3 authority slice now supports immutable recipe publication,
+exclusive approved-output claim binding, recipe-derived capped material budgets,
+and authenticated, idempotent material issue with linked stock, commitment,
+authorization and audit evidence. A deferred PostgreSQL witness enforces the
+atomic evidence at commit; stock issue also requires verified, unreserved stock
+and current physical coverage. Historical recipes remain untrusted. These
+capabilities do not complete D3: finished-output custody, packing/QC execution,
+operator mutations, and recovery acceptance remain prerequisites.
+
+Verification for this slice: PostgreSQL integration **37/37 passed**;
+`npm run typecheck` and `npm run build` passed. Tests used only the isolated
+synthetic database on localhost:55432. No deployment or real-data activation.
+
 ## Implemented boundary and operator experience
 
 - Authenticated `GET /api/v1/production-planning/execution-readiness` and

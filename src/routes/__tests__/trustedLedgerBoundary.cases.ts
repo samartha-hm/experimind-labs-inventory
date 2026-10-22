@@ -17,10 +17,10 @@ interface Harness {
   db: DataSource; admin: User; maker: User; other: User;
   fingerprint: () => Promise<unknown>; evidence: Record<string, unknown>;
 }
-interface Fixture { account: string; entitlement: string; project: { id: string; sites: { id: string }[] }; site: string;
+export interface Fixture { account: string; entitlement: string; project: { id: string; sites: { id: string }[] }; site: string;
   approval: { id: string }; demand: { cap: string; proof: unknown } }
 
-export function trustedLedgerBoundaryTests(get: () => Harness, fixture: () => Promise<Fixture>) {
+export function trustedLedgerBoundaryTests(get: () => Harness, fixture: () => Promise<Fixture>, workOrderFixture: () => Promise<Fixture>) {
   it("13M-D1T denies actual runtime LOGIN impersonation and authenticates isolated ledger authority", async () => {
     const h = get(), f = await fixture();
     const before = await h.fingerprint();
@@ -158,6 +158,7 @@ export function trustedLedgerBoundaryTests(get: () => Harness, fixture: () => Pr
       await verifyReservationCommitments({...h,runtime,writer,identity,schema,roles,auth,password,fixture});
       await verifyExecutionBoundary({...h,runtime,writer,identity,schema,roles});
       await verifyRecipePublication({...h,runtime,writer,identity,schema,roles,password});
+      await verifyWorkOrderAuthority({...h,runtime,writer,identity,schema,roles,password,fixture:workOrderFixture});
     } finally {
       if(close) await close();
       for(const pool of pools) if(pool.isInitialized) await pool.destroy();
@@ -169,3 +170,4 @@ export function trustedLedgerBoundaryTests(get: () => Harness, fixture: () => Pr
 }
 import { verifyExecutionBoundary } from "./executionBoundary.cases";
 import { verifyRecipePublication } from "./recipePublication.cases";
+import { verifyWorkOrderAuthority } from "./workOrderAuthority.cases";

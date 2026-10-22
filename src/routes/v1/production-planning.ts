@@ -72,6 +72,17 @@ export function productionPlanningRouter(db:DataSource,authority?:TrustedLedgerA
       {action:"publishRecipe",key:key(req),input:req.body as RecipePublication}));}
     catch {throw new DraftKitError(409,"Recipe publication authorization or state conflict");}
   }));
+  for (const [path, actionName] of [["/work-order-claims","claimWorkOrder"],["/orders/:id/material-issues","issueWorkOrder"]] as const)
+    r.post(path,action(async(req,res)=>{
+      if(!["admin","super_admin"].includes(req.user!.role))throw new DraftKitError(403,"Production administrator required");
+      if(!authority)throw new DraftKitError(503,"Trusted production unavailable");
+      const capability=req.header("X-Ledger-Capability");
+      if(!capability)throw new DraftKitError(403,"Production capability required");
+      if(actionName==="issueWorkOrder" && req.body?.order!==req.params.id)throw new DraftKitError(409,"Work-order identity mismatch");
+      try {res.status(201).json(await authority.performForSession(req.headers.authorization!.slice(7),capability,
+        {action:actionName,key:key(req),input:req.body}));}
+        catch {throw new DraftKitError(409,"Production authorization or state conflict");}
+    }));
   r.get("/execution-readiness",action(async(_req,res)=>{res.setHeader("Cache-Control","no-store");res.json(await executionReadiness(db));}));
   r.get("/",action(async(req,res)=>{res.json(await s.list(req.user!.orgId!));}));
   r.get("/orders/:id",action(async(req,res)=>{res.json(await s.detail(req.user!.orgId!,req.params.id));}));

@@ -6,6 +6,11 @@ export const ledgerTables = ["commitment_accounts", "commitment_entitlements", "
 export const identityTables = ["users", "roles", "refresh_tokens", "sessions"];
 export const sqlIdentifier = (name: string): string => `"${name.replaceAll('"', '""')}"`;
 type Sql = Pick<EntityManager, "query">;
+const workOrderTables = ["commitment_work_orders","commitment_work_order_materials","commitment_work_order_issues","production_work_orders","production_input_reservations","production_input_issues"];
+const workOrderUpdates = ["production_work_orders","production_input_reservations"];
+async function workOrdersInstalled(db: Sql): Promise<boolean> {
+  return (await db.query("SELECT to_regclass('commitment_work_orders') IS NOT NULL installed"))[0].installed;
+}
 async function recipePublicationInstalled(db: Sql): Promise<boolean> {
   return (await db.query("SELECT to_regprocedure('commitment_recipe_insert()') IS NOT NULL installed"))[0].installed;
 }
@@ -39,10 +44,11 @@ export async function configureDatabaseBoundary(db: Sql, schema: string,
   const po=await purchaseOrderInstalled(db,schema);
   const receipt=await receiptInstalled(db,schema);
   const recipes=await recipePublicationInstalled(db);
+  const workOrders=await workOrdersInstalled(db);
   const poWrites=[...(po?["commitment_po_lines","commitment_po_coverage","purchase_orders"]:[]),...(receipt?receiptWrites:[])];
   const prWrites=[...(pr?["commitment_pr_lines","purchase_requests"]:[]),...poWrites];
   const executionTables = await executionBlockedTables(db);
-  const protectedTables = [...ledgerTables,...(d2 ? ["commitment_reservations",...reservationWrites] : []),...prWrites,...executionTables];
+  const protectedTables = [...ledgerTables,...(d2 ? ["commitment_reservations",...reservationWrites] : []),...prWrites,...executionTables,...(workOrders?workOrderTables:[])];
   await db.query(`REVOKE ALL ON SCHEMA ${s} FROM PUBLIC;
     REVOKE ALL ON ALL TABLES IN SCHEMA ${s} FROM PUBLIC;
     REVOKE ALL ON ALL SEQUENCES IN SCHEMA ${s} FROM PUBLIC;
@@ -94,6 +100,14 @@ export async function configureDatabaseBoundary(db: Sql, schema: string,
     const columns: {attname:string}[] = await db.query("SELECT attname FROM pg_attribute WHERE attrelid=$1::regclass AND attnum>0 AND NOT attisdropped", [t]);
     for (const {attname} of columns) await db.query(`REVOKE ALL (${sqlIdentifier(attname)}) ON ${t} FROM ${role}`);
   }
+  if (workOrders) {
+    for (const table of workOrderTables) {
+      await db.query(`REVOKE ALL ON ${s}.${sqlIdentifier(table)} FROM ${identity}; GRANT SELECT ON ${s}.${sqlIdentifier(table)} TO ${identity};
+        GRANT SELECT,INSERT${workOrderUpdates.includes(table)?",UPDATE":""} ON ${s}.${sqlIdentifier(table)} TO ${ledger}`);
+    }
+    await db.query(`GRANT SELECT,INSERT ON ${s}.audit_logs TO ${ledger}`);
+    await db.query(`GRANT SELECT ON ${s}.requirement_execution_bindings TO ${ledger}`);
+  }
   if (recipes) await db.query(`GRANT INSERT ON ${s}.production_recipes TO ${ledger}`);
   const functions: { signature: string; proname: string; prosecdef: boolean }[] = await db.query(`
     SELECT p.oid::regprocedure::text signature,p.proname,p.prosecdef FROM pg_proc p
@@ -109,6 +123,8 @@ export async function configureDatabaseBoundary(db: Sql, schema: string,
       await db.query(`ALTER FUNCTION ${f.signature} SET search_path TO pg_catalog,${s},pg_temp;
         GRANT EXECUTE ON FUNCTION ${f.signature} TO ${runtime}`);
       if (f.proname === "requirement_assert")
+        await db.query(`GRANT EXECUTE ON FUNCTION ${f.signature} TO ${ledger}`);
+      if (workOrders && f.proname === "requirement_check_binding")
         await db.query(`GRANT EXECUTE ON FUNCTION ${f.signature} TO ${ledger}`);
     } else if (f.proname === "uuid_generate_v4" && !f.prosecdef) {
       // Legacy entity defaults use uuid-ossp; this pure UUID generator conveys no authority.
@@ -127,7 +143,8 @@ export async function assertDatabaseBoundary(db: DataSource, kind: "runtime" | "
   const po=await purchaseOrderInstalled(db,schema);
   const receipt=await receiptInstalled(db,schema);
   const recipes=await recipePublicationInstalled(db);
-  const d2Tables=[...(d2 ? ["commitment_reservations",...reservationWrites] : []),...(pr?["commitment_pr_lines","purchase_requests"]:[]),...(po?["commitment_po_lines","commitment_po_coverage","purchase_orders"]:[]),...(receipt?receiptWrites:[])];
+  const workOrders=await workOrdersInstalled(db);
+  const d2Tables=[...(d2 ? ["commitment_reservations",...reservationWrites] : []),...(pr?["commitment_pr_lines","purchase_requests"]:[]),...(po?["commitment_po_lines","commitment_po_coverage","purchase_orders"]:[]),...(receipt?receiptWrites:[]),...(workOrders?workOrderTables:[])];
   const [{ path }] = await db.query("SELECT current_setting('search_path') path");
   if (path.replace(/\s/g, "") !== `pg_catalog,${schema},pg_temp`) fail();
   const [role] = await db.query(`SELECT r.rolsuper,r.rolcreaterole,r.rolcreatedb,r.rolreplication,r.rolbypassrls,
@@ -170,7 +187,7 @@ export async function assertDatabaseBoundary(db: DataSource, kind: "runtime" | "
     const operational = ![...ledgerTables,...d2Tables,...identityTables,...executionTables,"migrations","typeorm_metadata"].includes(relname);
     const writable = kind === "runtime" ? operational : kind === "identity" ? identityTables.includes(relname) : [...ledgerTables,...d2Tables].includes(relname);
     for (const privilege of ["INSERT","UPDATE","DELETE","TRUNCATE","REFERENCES","TRIGGER"]) {
-      const allowed = kind === "ledger" && recipes && relname === "production_recipes" && privilege === "INSERT" || writable && ["INSERT",...(kind === "ledger" && receipt && relname === "stock_ledger" ? [] : ["UPDATE"]),...(kind === "ledger" ? [] : ["DELETE"])].includes(privilege) ||
+      const allowed = kind === "ledger" && workOrders && relname === "audit_logs" && privilege === "INSERT" || kind === "ledger" && recipes && relname === "production_recipes" && privilege === "INSERT" || writable && ["INSERT",...(kind === "ledger" && (receipt && relname === "stock_ledger" || workOrders && workOrderTables.includes(relname) && !workOrderUpdates.includes(relname)) ? [] : ["UPDATE"]),...(kind === "ledger" ? [] : ["DELETE"])].includes(privilege) ||
         kind === "identity" && relname === "audit_logs" && privilege === "INSERT";
       if (!allowed && (await db.query("SELECT has_table_privilege($1,$2) allowed",[t,privilege]))[0].allowed) fail();
     }
@@ -180,7 +197,7 @@ export async function assertDatabaseBoundary(db: DataSource, kind: "runtime" | "
     if (kind === "ledger" && recipes && relname === "production_recipes" &&
       (await db.query(`SELECT 1 FROM pg_attribute WHERE attrelid=$1::regclass AND attnum>0 AND NOT attisdropped
         AND has_column_privilege($1,attname,'UPDATE') LIMIT 1`,[t])).length) fail();
-    if (!writable && !(kind === "identity" && relname === "audit_logs") && !(kind === "ledger" && recipes && relname === "production_recipes") && columns.some(c=>c.writable &&
+    if (!writable && !(kind === "ledger" && workOrders && relname === "audit_logs") && !(kind === "identity" && relname === "audit_logs") && !(kind === "ledger" && recipes && relname === "production_recipes") && columns.some(c=>c.writable &&
       !(c.attname === "updated_at" && (relname === "users" && kind === "runtime" || kind === "ledger" && ["users","planning_projects",...(d2?["inventory_items"]:[])].includes(relname))))) fail();
   }
   // Missing authority is also unsafe: never silently substitute runtime credentials for identity/writer credentials.
@@ -190,7 +207,7 @@ export async function assertDatabaseBoundary(db: DataSource, kind: "runtime" | "
   if (kind === "ledger" && recipes && !(await db.query("SELECT has_table_privilege('production_recipes','INSERT') allowed"))[0].allowed) fail();
   for (const table of kind === "identity" ? identityTables : kind === "ledger" ? [...ledgerTables,...d2Tables] : [...ledgerTables,...d2Tables,...identityTables]) {
     for (const privilege of kind === "runtime" ? ["SELECT"] : ["SELECT","INSERT","UPDATE"]) {
-      if (kind === "ledger" && receipt && table === "stock_ledger" && privilege === "UPDATE") continue;
+      if (kind === "ledger" && privilege === "UPDATE" && (receipt && table === "stock_ledger" || workOrders && workOrderTables.includes(table) && !workOrderUpdates.includes(table))) continue;
       if (!(await db.query("SELECT has_table_privilege($1,$2) allowed",[`${sqlIdentifier(schema)}.${sqlIdentifier(table)}`,privilege]))[0].allowed) fail();
     }
   }

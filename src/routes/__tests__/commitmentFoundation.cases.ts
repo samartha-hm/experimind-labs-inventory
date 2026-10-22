@@ -340,5 +340,13 @@ export function commitmentFoundationTests(get: () => Harness) {
     try{await expect(new AddCommitmentLedger1792540800015().down(runner)).rejects.toThrow("Preserve commitment evidence");await runner.rollbackTransaction();}finally{await runner.release();}
     h.evidence.commitment_rollback={populated_ledger_downgrade:"REFUSED",events_preserved:true};
   });
-  trustedLedgerBoundaryTests(get, fixture);
+  trustedLedgerBoundaryTests(get, fixture, async()=>{
+    const custom=planningFixture(get().wire.id);
+    custom.subjects.splice(1);custom.subjects[0].grades.splice(1);custom.subjects[0].crates=[];
+    for(const site of custom.content.sites) {
+      site.selections[0].context.grade_quantities={[custom.gradeIds[0]]:2};
+      site.selections[0].context.complete_sets={};
+    }
+    return fixture(custom);
+  });
 }

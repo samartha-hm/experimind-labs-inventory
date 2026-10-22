@@ -18,7 +18,7 @@ export interface LedgerEvent {
   sequence: string; approved_after: string; fulfilled_after: string; held_after: string;
 }
 export interface LedgerAccountInput {
-  project: string; site: string; obligation: string; dimension: "material" | "slot";
+  project: string; site: string; obligation: string; dimension: "material" | "slot" | "recipe_material";
   item: string; unit: string; selector: Record<string, string>;
 }
 /** Six-place planning to four-place stock, without floating point or rounding. */

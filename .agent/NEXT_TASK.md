@@ -1,14 +1,13 @@
-# D3 next task — exclusive material authority
+# D3 next task — finished-output custody and packing/QC
 
-Implement a trusted transaction that binds an approved school-output claim to
-one immutable trusted recipe version and one work order, and derives the capped
-material entitlements using the existing exact recipe budget helper. Prevent
-cross-school allocation and reuse of the output claim. No stock mutation until
-this exclusive authority is established.
-
-Then implement Priority 1 physical material issue and exactly-once H-to-F through
-the immutable stock/commitment ledgers, with authenticated HTTP success/denial,
-concurrency, rollback, independent availability and accounting reconciliation.
+Exclusive school-output claim binding, recipe-derived capped material
+entitlements, and trusted atomic physical material issue/H-to-F are implemented
+with authenticated HTTP proof and PostgreSQL commit-time evidence validation.
+Continue D3 by creating conserved finished-output custody for partial production
+and QC acceptance/rejection/rework, then transfer eligible output to packing
+exactly once with authenticated mutations and durable retry identity. Preserve
+all current production/downstream write guards and all historical untrusted
+recipes; do not add dispatch, deployment, real-data activation or D4.
 
 Recipe publication prerequisite is implemented in code checkpoint
 `d53a87ff8fb50d7ce509baced4ba9b2a9aa7540d`:
