@@ -6,6 +6,10 @@ import { authenticateJwt } from "../../middleware/auth";
 import { dto } from "./product-templates";
 import { StocktakeService } from "../../services/StocktakeService";
 import { HistoricalReconciliationService } from "../../services/HistoricalReconciliationService";
+import type { TrustedLedgerAuthority } from "../../security/TrustedLedgerAuthority";
+import { historicalDecisionStates, reconciliationSources, type HistoricalDecisionInput } from "../../features/inventory/reconciliationTypes";
+import { IsIn, Matches, ArrayMinSize, ArrayMaxSize, ValidateNested } from "class-validator";
+import { Type } from "class-transformer";
 import { DraftKitError } from "../../services/ProductTemplateService";
 class SessionDto {
   @IsString() @MinLength(1) @MaxLength(200) name!: string;
@@ -29,7 +33,22 @@ export const stocktakeCounters = new Set(["admin","super_admin","manager","inven
 export const stocktakeReviewers = new Set(["admin","super_admin","manager","inventory_staff"]);
 export const stocktakeApprovers = new Set(["admin","super_admin","manager"]);
 const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-export function stocktakeRouter(db: DataSource) {
+class EvidenceReferenceDto {
+  @IsString() @MinLength(1) @MaxLength(300) identifier!: string;
+  @IsString() @MinLength(1) @MaxLength(1000) provenance!: string;
+  @IsString() @Matches(/^[a-f0-9]{64}$/) sha256!: string;
+}
+class HistoricalDecisionDto implements HistoricalDecisionInput {
+  @IsIn(reconciliationSources) source!: HistoricalDecisionInput["source"];
+  @IsUUID() record_id!: string;
+  @IsInt() @Min(0) revision!: number;
+  @IsString() @Matches(/^[a-f0-9]{64}$/) evidence_hash!: string;
+  @IsIn(historicalDecisionStates) decision!: HistoricalDecisionInput["decision"];
+  @IsString() @MinLength(1) @MaxLength(2000) reason!: string;
+  @IsArray() @ArrayMinSize(1) @ArrayMaxSize(20) @ValidateNested({ each: true }) @Type(() => EvidenceReferenceDto)
+  evidence_refs!: EvidenceReferenceDto[];
+}
+export function stocktakeRouter(db: DataSource, authority?: TrustedLedgerAuthority) {
   const router=Router();const service=new StocktakeService(db);
   const action=(run:RequestHandler):RequestHandler=>(req,res,next)=>{Promise.resolve(run(req,res,next)).catch((e:unknown)=>{
     if(e instanceof DraftKitError)res.status(e.status).json({error:e.message});
@@ -51,7 +70,21 @@ export function stocktakeRouter(db: DataSource) {
   router.get("/reconciliation",action(async(req,res)=>{
     res.setHeader("Cache-Control", "no-store");
     res.json(await new HistoricalReconciliationService(db).preview(req.user!.orgId!,req.user!.id,
-      req.query.source ?? "inventory_items", req.query.offset ?? "0"));
+      req.query.source ?? "inventory_items", req.query.offset ?? "0", Boolean(authority)));
+  }));
+  router.post("/reconciliation/decisions", action(async(req,res)=>{
+    if (!["admin","super_admin"].includes(req.user!.role)) throw new DraftKitError(403,"Tenant administrator required");
+    if (!authority) throw new DraftKitError(503,"Trusted historical review authority unavailable");
+    const input=await dto(req.body,HistoricalDecisionDto), key=req.header("Idempotency-Key");
+    if (!key?.trim() || key.length>100) throw new DraftKitError(400,"Idempotency-Key required");
+    try {
+      res.status(201).json(await authority.performProductionForSession(req.headers.authorization!.slice(7),{action:"historicalDecision",key,input}));
+    } catch (error) {
+      if (error instanceof DraftKitError) throw error;
+      if (error instanceof Error && /session|expired|administrator|capability|jwt|signature/i.test(error.message))
+        throw new DraftKitError(403,"Current authorized administrator session required");
+      throw new DraftKitError(409,"Review conflict or uncertain response; retry the exact request or refresh evidence");
+    }
   }));
   router.get("/inventory",action(async(req,res)=>{res.json(await service.inventory(req.user!.orgId!));}));
   router.get("/ledger",action(async(req,res)=>{

@@ -1,4 +1,6 @@
 import { verifyDeliveryAuthority } from './deliveryAuthority.cases';
+import { verifyHistoricalDecisions } from './historicalDecisions.cases';
+import { HistoricalEvidenceDecisions1793232000029 } from '../../migration/1793232000029-HistoricalEvidenceDecisions';
 import { TrustedDispatchCustody1793145600027 } from '../../migration/1793145600027-TrustedDispatchCustody';
 import { TrustedProjectClosure1793145600028 } from '../../migration/1793145600028-TrustedProjectClosure';
 import express from "express";
@@ -30,6 +32,7 @@ export async function verifyWorkOrderAuthority(h:Parameters<typeof verifyExecuti
     await new TrustedPackingCustody1793059200026().up(m.queryRunner!);
     await new TrustedDispatchCustody1793145600027().up(m.queryRunner!);
     await new TrustedProjectClosure1793145600028().up(m.queryRunner!);
+    await new HistoricalEvidenceDecisions1793232000029().up(m.queryRunner!);
     await configureDatabaseBoundary(m,h.schema,h.roles);
   });
   for(const [pool,kind] of [[h.runtime,"runtime"],[h.identity,"identity"],[h.writer,"ledger"]] as const)
@@ -170,5 +173,6 @@ export async function verifyWorkOrderAuthority(h:Parameters<typeof verifyExecuti
     h.evidence.output_custody={http:"PASS",quantity:"0.0200 m",input_basis:"0.2000 g issued",concurrency:"one winner",retry:"same immutable identity",status:"pending_qc",stock_and_delivery:"unchanged",packing:"see packing_custody",rollback_stages:3,operator_http:"PASS",queue:"PASS",unsigned_writer:"denied"};
     await verifyPackingAuthority(h,authority,token,`http://127.0.0.1:${address.port}/production`);
     await verifyDeliveryAuthority(h,authority,token,`http://127.0.0.1:${address.port}/production`);
+    await verifyHistoricalDecisions(h,authority,token);
   } finally{server.closeAllConnections();await new Promise<void>((resolve,reject)=>server.close(e=>e?reject(e):resolve()));}
 }

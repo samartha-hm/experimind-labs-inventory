@@ -11,7 +11,7 @@ const hash = (value: unknown) => createHash("sha256").update(canonicalRequiremen
 export class HistoricalReconciliationService {
   constructor(private readonly db: DataSource) {}
 
-  async preview(organization: string, actor: string, source: unknown, offset: unknown): Promise<ReconciliationPreview> {
+  async preview(organization: string, actor: string, source: unknown, offset: unknown, authorityAvailable = false): Promise<ReconciliationPreview> {
     if (typeof source !== "string" || !reconciliationSources.includes(source as ReconciliationSource)
       || typeof offset !== "string" || !/^(0|[1-9]\d{0,6})$/.test(offset))
       throw new DraftKitError(400, "Select a supported source and a nonnegative page offset");
@@ -25,6 +25,7 @@ export class HistoricalReconciliationService {
       const tables: { name: string }[] = await manager.query(
         "SELECT tablename name FROM pg_tables WHERE schemaname=$2 AND tablename=$1", [kind, schema]);
       if (!tables.length) throw new DraftKitError(409, "Source schema unavailable; reconciliation is incomplete");
+      const [{installed}] = await manager.query("SELECT to_regclass($1) IS NOT NULL installed", [`${sqlIdentifier(schema)}.trusted_historical_decisions`]);
       // Table identifiers come exclusively from the fixed allowlist above. Quantities stay decimal strings.
       const rows: { evidence: Record<string, unknown> }[] = await manager.query(
         `SELECT to_jsonb(t) || jsonb_build_object('quantity',to_jsonb(t)->>'quantity') evidence
@@ -40,13 +41,17 @@ export class HistoricalReconciliationService {
           ...(kind === "inventory_items" ? ["Historical quantity is not verified physical availability; consult posted stocktakes"]
             : ["Source status does not establish approved school demand, consumption or delivery"]),
           "Evidence references and an attributed administrator decision are required",
-          "Historical decision recording and activation are disabled"],
+          "Review judgments do not authorize historical activation"],
         evidenceHash: hash(evidence), evidence,
       }));
+      const decisions = installed && records.length ? await manager.query(`SELECT * FROM trusted_historical_decisions
+        WHERE organization_id=$1 AND source=$2 AND record_id=ANY($3::uuid[]) ORDER BY revision DESC`, [organization,kind,records.map(r=>r.id)]) : [];
       const preview = {
-        mode: "read_only" as const, source: kind, offset: Number(offset), hasMore: rows.length > 50, records,
+        mode: "read_only" as const, source: kind, offset: Number(offset), hasMore: rows.length > 50,
+        records: records.map(record=>({...record, decisions: decisions.filter((decision: {record_id:string})=>decision.record_id===record.id)})),
+        decisionsEnabled: authorityAvailable && installed,
         effects: { stock: "unchanged" as const, commitments: "unchanged" as const, custody: "unchanged" as const, fulfillment: "unchanged" as const },
-        authorizationRequired: ["Administrator evidence review and append-only decision contract",
+        authorizationRequired: ["Evidence decisions grant no operational execution rights",
           "Separate business authorization for historical mapping or demand approval",
           "Separate stock/custody correction authority and activation approval"],
       };

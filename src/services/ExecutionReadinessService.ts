@@ -1,7 +1,7 @@
 import type { EntityManager } from "typeorm";
 import { DraftKitError } from "./ProductTemplateService";
 
-export const executionBlocker = "Production and packing are read-only: approved kit/grade source transfer, consumption and output custody are not integrated with trusted commitment authorization. Preserve existing claims; do not release or recreate them to bypass this block.";
+export const executionBlocker = "Legacy production and packing controls are read-only. Use the separately authorized trusted workflow panels when available. Preserve existing claims; do not release or recreate them to bypass this block.";
 
 /** Schema capability, never a client flag or a per-project absence-of-claims fallback. */
 export async function executionReadiness(db: Pick<EntityManager, "query">) {

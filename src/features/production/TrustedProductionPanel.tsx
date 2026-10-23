@@ -60,7 +60,7 @@ export default function TrustedProductionPanel({projectId}:{projectId?:string}) 
   return <section aria-label="Authorized production" className="space-y-4 rounded-2xl border border-slate-300 p-4">
     <div className="flex flex-wrap items-center justify-between gap-3"><h3 className="text-lg font-semibold">Authorized production</h3>
       <button className={button} disabled={busy} onClick={()=>{setError("");void refresh().catch(e=>setError(e instanceof Error?e.message:"Refresh failed"));}}>Refresh evidence</button></div>
-    <p className="text-sm text-slate-500">Issue verified material or record output against an existing approved work order. Output stays pending QC; packing and dispatch are blocked.</p>
+    <p className="text-sm text-slate-500">Issue verified material or record output against an existing approved work order. Output stays in pending-QC custody until allocated and inspected through the trusted packing workflow. Dispatch requires accepted assemblies.</p>
     {!enabled&&<p role="status">Trusted production is unavailable in this environment.</p>}
     {error&&<p role="alert" className="text-red-600">{error}</p>}{message&&<p role="status">{message}</p>}
     {pending&&<div className="space-y-2 rounded-xl border border-amber-400 p-3"><p>Saved request source: <code>{pending.input.source}</code>. Keep this identity until reconciled.</p>

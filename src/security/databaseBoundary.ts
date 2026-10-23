@@ -1,3 +1,4 @@
+import { reconciliationSources } from "../features/inventory/reconciliationTypes";
 import type { DataSource, EntityManager } from "typeorm";
 import { blockedExecutionTables } from "../migration/1792886400022-BlockUnintegratedExecution";
 
@@ -12,7 +13,8 @@ async function installedWorkOrderTables(db: Sql): Promise<string[]> {
   const [{packing}] = await db.query("SELECT to_regclass('trusted_packing_plans') IS NOT NULL packing");
   const [{dispatch}] = await db.query("SELECT to_regclass('trusted_dispatches') IS NOT NULL dispatch");
   const [{closure}] = await db.query("SELECT to_regclass('trusted_installation_sources') IS NOT NULL closure");
-  return [...(closure?["trusted_installation_sources","site_installations","project_completions"]:[]),...(dispatch ? ["trusted_dispatches","trusted_dispatch_units","trusted_delivery_receipts"] : []),...baseWorkOrderTables,...(installed ? ["production_output_custody"] : []),...(packing ? ["trusted_packing_plans","trusted_packing_allocations","trusted_packing_qc"] : [])];
+  const [{history}] = await db.query("SELECT to_regclass('trusted_historical_decisions') IS NOT NULL history");
+  return [...(history?["trusted_historical_decisions"]:[]),...(closure?["trusted_installation_sources","site_installations","project_completions"]:[]),...(dispatch ? ["trusted_dispatches","trusted_dispatch_units","trusted_delivery_receipts"] : []),...baseWorkOrderTables,...(installed ? ["production_output_custody"] : []),...(packing ? ["trusted_packing_plans","trusted_packing_allocations","trusted_packing_qc"] : [])];
 }
 const workOrderUpdates = ["production_work_orders","production_input_reservations","site_installations","project_completions"];
 async function workOrdersInstalled(db: Sql): Promise<boolean> {
@@ -116,6 +118,8 @@ export async function configureDatabaseBoundary(db: Sql, schema: string,
     await db.query(`GRANT SELECT,INSERT ON ${s}.audit_logs TO ${ledger}`);
     await db.query(`GRANT SELECT ON ${s}.requirement_execution_bindings,${s}.product_template_versions TO ${ledger}`);
   }
+  if (workOrderTables.includes("trusted_historical_decisions")) for (const table of reconciliationSources)
+    await db.query(`GRANT SELECT,UPDATE(updated_at) ON ${s}.${sqlIdentifier(table)} TO ${ledger}`);
   if (recipes) await db.query(`GRANT INSERT ON ${s}.production_recipes TO ${ledger}`);
   const functions: { signature: string; proname: string; prosecdef: boolean }[] = await db.query(`
     SELECT p.oid::regprocedure::text signature,p.proname,p.prosecdef FROM pg_proc p
@@ -207,7 +211,7 @@ export async function assertDatabaseBoundary(db: DataSource, kind: "runtime" | "
       (await db.query(`SELECT 1 FROM pg_attribute WHERE attrelid=$1::regclass AND attnum>0 AND NOT attisdropped
         AND has_column_privilege($1,attname,'UPDATE') LIMIT 1`,[t])).length) fail();
     if (!writable && !(kind === "ledger" && workOrders && relname === "audit_logs") && !(kind === "identity" && relname === "audit_logs") && !(kind === "ledger" && recipes && relname === "production_recipes") && columns.some(c=>c.writable &&
-      !(c.attname === "updated_at" && (relname === "users" && kind === "runtime" || kind === "ledger" && ["users","planning_projects",...(d2?["inventory_items"]:[])].includes(relname))))) fail();
+      !(c.attname === "updated_at" && (relname === "users" && kind === "runtime" || kind === "ledger" && ["users","planning_projects",...(d2?["inventory_items"]:[]),...(workOrderTables.includes("trusted_historical_decisions")?reconciliationSources:[])].includes(relname))))) fail();
   }
   // Missing authority is also unsafe: never silently substitute runtime credentials for identity/writer credentials.
   if (kind === "ledger") for (const table of ["refresh_tokens", "sessions"])

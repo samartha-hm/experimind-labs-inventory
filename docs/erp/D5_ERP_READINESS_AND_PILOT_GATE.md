@@ -1,164 +1,161 @@
 # D5 consolidated ERP readiness and pilot gate
 
-Date: 2026-10-22. Branch: `feature/kit-builder-milestone-1`.
-Baseline: `525dc81dad7709ec4abb09817d2c152dd20abd15` (D4).
+Date: 2026-10-23. Branch: `feature/kit-builder-milestone-1`.
+Starting revision: `370e28921bfb784a065bac576473fb63b2d983a4`.
 
-**Verdict: BLOCKED for complete D5 software acceptance and operational pilot.**
-The implemented read-only historical discovery slice passes its automated checks.
-This is not acceptance of historical reconciliation decisions, a whole-application
-authenticated workflow, or operational cutover. D1–D4 services remain the baseline.
+**D5 software acceptance: BLOCKED. Operational pilot: NO-GO.**
+Append-only historical review, automated regression and fresh nonempty recovery
+pass within the scope below. Complete authenticated operator acceptance does not.
+This document supersedes the earlier read-only D5 slice report.
 
-## Workflow coverage and evidence limits
+## Implemented historical reconciliation
 
-| Module/workflow | Current supported evidence | D5 gap/gate |
+Administrator-only review covers seven fixed sources: inventory items, project
+stock reservations, purchase requests/orders, production work orders, packing
+orders and delivery orders. Tenant-scoped preview/export retains source lifecycle,
+raw provenance, decimal quantity strings, row/page hashes and explicit blockers.
+Source quantities remain unknown/unreconciled; verified historical quantity stays
+null. Review decisions never create stock, commitments, custody or fulfillment.
+
+Five append-only decisions are supported: accepted_for_review, disputed,
+insufficient_evidence, excluded and requires_documentation. Each records reason,
+evidence references with hashes/provenance, authenticated actor, server time,
+source snapshot/hash, revision and previous decision. Acceptance for review is
+not operational approval or historical activation. The UI presents attributed
+history and changed-source warnings, preserves filters after saving, supports
+50-row pagination/export, and freezes the attempted payload/key for exact retry.
+
+The write transaction locks the source and decision sequence, enforces current
+revision/source hash, and appends authority receipt and audit evidence. Database
+triggers enforce live tenant administrator membership, immutable history and
+matching deferred authorization/audit witnesses. Runtime is read-only for history;
+identity receives no history permission; writer access remains narrowly scoped.
+Source column update grants support row locks, not application mutation authority.
+Historical audit updates/deletes and audit truncation are denied. The migration
+refuses production databases and non-test schemas; production migration approval,
+role provisioning and deployment are outstanding, not silently bypassed.
+
+Tests cover parallel exact retry (same result), conflicting revision race,
+idempotency payload conflict, stale hash/revision, forged actor, malformed refs,
+missing/foreign source, expired/missing token, viewer denial, all five decisions,
+immutable history, restricted-role denials and unchanged operational fingerprints.
+Limit: write-path fixtures do not exercise all seven source types individually;
+a standalone direct-writer missing-witness case is not separately asserted.
+The existing conservative preview is not a complete authoritative lineage graph
+or automated conflict-resolution engine. Offset pages are separate snapshots.
+
+## UI defects corrected
+
+| Finding | Change | Verification |
 | --- | --- | --- |
-| Dashboard, navigation, project management | Existing integrated application; automated regressions | Whole-app authenticated navigation and accessibility acceptance outstanding |
-| Catalog, kit builder, recipes, Science/Math | Existing independent selections and recipe/quantity regressions pass | Staff review of published recipes and actual approved school selections |
-| Multi-school demand and approval | Existing cumulative approval, entitlement and tenant/security regressions pass | No new single consolidated multi-school browser scenario or full-lifecycle reconciliation report |
-| Inventory and stocktake | Stocktake regressions pass; historical master quantity remains distinct from verified counts | Physical complete-location counts, unit validation and signed opening balances NOT PERFORMED |
-| Reservations, shortages, PR/PO, receiving QC | Existing commitment, exclusive coverage, receipt/QC and retry suites pass | Real supplier/receiving workflows and deployment-role configuration outstanding |
-| Production and material issue | Existing recipe entitlement, physical issue and output custody suites pass | Staff/device trial and real material mapping NOT PERFORMED |
-| Packing and six-check QC | Existing conserved allocations, QC, concurrency and QR/PDF suites pass | Actual label printer, scanner and packing staff acceptance NOT PERFORMED |
-| Dispatch and partial delivery | Existing D4 exclusive custody, partial fulfillment and exact-retry suites pass | Physical multi-school dispatch and acknowledgments NOT PERFORMED |
-| Installation and school closure | Existing D4 installation/closure and immutable evidence suites pass | Actual site evidence, staff signoff and business closure review NOT PERFORMED |
-| Historical reconciliation | New admin-only, tenant-scoped read-only preview/export in Inventory | Append-only decisions, disputes, authoritative lineage graph, CAS/idempotent decision writes and activation remain unimplemented/disabled |
-| Legacy QMS/RMA/e-signature | Existing restrictions retained | Blocked; no reopening authorized |
+| Login inputs lacked explicit labels | Email/password labels and autocomplete | Authenticated synthetic login |
+| Global search lacked a named modal and keyboard result controls | Native modal dialog, named input/close, result buttons, focus restoration and corrected kit navigation | Browser named dialog/input/close/results; Escape restores global-search focus |
+| Search fields lacked names | Global and inventory search accessible labels | Browser global search; source/typecheck |
+| Production output wording implied finished acceptance | Explicit pending-QC status | Browser output receipt |
+| Dispatch selection retained another school's plan | Synchronize plan and clear receipt/confirmation fields | School B to School A switch updates closure totals |
+| Packing retry could clear without a fresh reconciliation | Require explicit refresh and renewed confirmation | Automated regression; final corrected retry sequence not fully repeated in browser |
+| PDF preview appeared blank | Accessible HTML label/manifest with SVG QR and lookup links; PDF download retained | Browser label/manifest at phone/tablet widths; PDF/QR automated regressions |
+| Receipt/QC UI sent obsolete unauthorized contracts | Disable incompatible receive/QC controls with explanation | Original attempt returned 400 without mutation; rebuilt browser shows authority explanation; no legacy authority reopened |
 
-Prior milestone evidence: [D3 acceptance](ui-ux/D3_COMPLETION_ACCEPTANCE.md),
-[D4 acceptance](ui-ux/D4_DISPATCH_DELIVERY_CLOSURE_ACCEPTANCE.md).
-These explain supported contracts; they do not count as newly performed D5
-browser, physical or recovery checks.
+The last item is a safe restriction, not completion of receiving. The trusted
+receipt endpoint requires approved demand coverage, bound input and trusted
+capability; the current operator UI cannot obtain that authorization. Existing
+legacy receive/inspect routes remain fail-closed. **P1: implement and verify the
+trusted receipt/QC operator workflow before claiming software PASS.**
 
-## Implemented reconciliation and UI controls
+## Actual authenticated browser acceptance
 
-Inventory now includes **Historical reconciliation review** for active tenant
-administrators. `GET /api/v1/stocktakes/reconciliation` supports seven fixed
-sources: inventory items, project stock reservations, purchase requests/orders,
-production work orders, packing orders and delivery orders. Responses contain
-50 records, next-page indication, preserved lifecycle status, raw source
-provenance, decimal quantity strings, explicit blockers, row/page SHA-256 hashes,
-and unchanged stock/commitment/custody/fulfillment effects. Exports cover one page.
+All actions used a synthetic administrator in a fresh local test database, with
+explicit user authorization for assignment to the retained synthetic tenant.
+No real stock, supplier documents or business approvals were used.
 
-The endpoint performs a repeatable-read, read-only transaction, checks the
-current active administrator in the database, filters organization, validates
-source/offset and disables caching. Missing source tables return an explicit
-incomplete-schema error. Authentication, forged role claims, inactive users,
-cross-tenant visibility, unsupported source/query shapes and unchanged inventory
-are covered by the new integration test.
+| Workflow | Observed result | Remaining acceptance |
+| --- | --- | --- |
+| Login/session/dashboard/navigation | Login/logout and expired-session reauthentication; dashboard shows 23 shortages and 3 replenishments | Complete role-by-role browser coverage |
+| Multi-school Science/Math | Two-school D5 Browser Acceptance project; independent Science/Math selections, explicit Universal zero; template v2/revision 2; decimal calculation and dirty-state guard | Full approved project lifecycle in one browser scenario |
+| Inventory/stocktake | Posted synthetic 1 g stocktake, actor/approver and immutable history; verified ledger separate | New count/post browser journey and physical counts |
+| Historical decisions | Required explanation focus; wire filter and empty result; saved requires_documentation with attribution; filter/focus retained; original 987 m remains unknown | Full seven-source operator walkthrough and lineage/conflict resolution |
+| PR/PO/receiving/QC | Approved PR and authorized PO reviewed; PO .075 m ordered, .004 delivered, .071 remaining; pending/accepted/rejected receipts visible | Positive new PR/PO, receipt and QC browser writes; trusted receipt UI blocker above |
+| Production | Recorded .01 m output, pending QC; remaining issue entitlement zero | Positive fresh material issue browser action |
+| Packing/six-check QC | School B allocation and package with 2/2 materials and six checks passed; empty package denied; denial exact retry retained | Full successful new allocation/QC browser sequence |
+| Labels/QR/manifest | Accessible content preview, code, project/school, materials, inspector, QR lookup links; manifest three School B roots | Actual printer, physical scan and downloaded print acceptance |
+| Dispatch/partial delivery | School B 3/3; School A 2/2 through two one-unit receipts; correct plan selection and receipt chronology | New authorized dispatch and partial delivery browser writes |
+| Installation/closure | School A 7/7 checklist completed, revision 4 installed, recipient accepted, project closed; School B not required | Real site evidence and staff acceptance |
+| Phone/tablet | 390px page and 350px panels; 1024px page and 687px panels; label/manifest previews fit; history reflow checked | All routes, physical devices, assistive technology and offline/reconnect |
 
-The integrated panel provides loading, error, empty and offline explanations,
-explicit refresh, disabled controls during requests, previous/next pages,
-keyboard focus styling, 44px controls, live status and expandable provenance.
-Source changes discard the old preview. It follows the existing operational
-panel styling; this is a targeted improvement, not a completed design-system audit.
+Concrete synthetic browser evidence:
+- Review decision `2a0e7ed4-01d7-4fb8-903e-a928faa97aba`; reference
+  `D5-UI-SYNTHETIC-WIRE-001`; documentary lineage still required.
+- Production output `94ed93ed-1725-4345-af3d-fe36c585f14c`.
+- Package `PK-814dbd73-7592-41c1-9daa-46841c25905e`.
+- Installation `81599143-db79-4ae0-9276-61564d048977`.
+- Closed synthetic project `d5d83dcd-68d9-455c-aaa1-2b64ff05c40e`.
 
-**Classification is intentionally conservative:** inventory is unknown; execution
-rows are unreconciled. Verified/disputed classifications are not inferred.
-Verified historical quantity is null, never zero. Posted stocktake availability
-remains a separate authority. The preview includes all tenant rows from the
-selected source; it does not yet identify only historical/unlinked rows or join
-the complete authoritative lineage graph. Hashes identify exported evidence,
-not approval, signatures, durable audit decisions or a concurrency contract.
-No reconciliation POST/activation path, schema change, stock correction or
-historical school-demand approval was introduced.
+Browser evidence is scoped observation, not whole-app accessibility certification.
+No physical scanner/printer, screen-reader, real-device or offline acceptance is
+claimed. Automated denials do not substitute for browser role acceptance.
 
-Required next implementation: lineage/conflict analysis against authoritative
-accounts and source links, explicit evidence references, verified/unknown/disputed
-states, append-only attributed decisions with immutable audit, locked revisions,
-idempotency and race tests. Any consequential stock, demand or custody effect
-must require separate business authority. Read-only repeated GETs are safe;
-offset pages are independent snapshots and can shift if source data changes.
+## Final automated verification and fresh recovery
 
-## D5 verification
-
-| Check | Result and limits |
+| Check | Result |
 | --- | --- |
-| Focused stocktake/reconciliation integration | PASS: 16 tests |
-| Full automated regression | PASS: 79 files, 608 tests; 2 opt-in recovery tests skipped (81 files / 610 tests discovered) |
-| First full run | 605 passed, 3 failed, 2 skipped because setup credential lacked role/trigger authority; superseded by the successful isolated fixture-owner run |
-| Final sandbox attempt | Local HTTP/PostgreSQL connections denied (`EACCES`); rerun with local test access enabled, separate from product failures |
-| Restricted security/concurrency/QR/PDF | Included in successful full run; setup owner provisions fixtures, tests retain restricted runtime/identity/ledger roles |
-| Typecheck | PASS, including configured-schema fix and recovery-harness prefix change |
-| Frontend/PWA/server build | PASS; 15 PWA precache entries; Vite large-bundle advisory remains |
-| Authenticated browser slice | PASS: synthetic administrator login, Inventory navigation and 26-row evidence preview; panel fits 390px phone and 1024px tablet viewports. Whole-app acceptance remains outstanding |
-| Fresh nonempty restart/restore and authenticated post-restore operations | NOT PERFORMED in D5; previous milestone evidence is historical |
-| Full lifecycle stock/commitment/custody/fulfillment reconciliation | Existing targeted invariants pass; new consolidated acceptance artifact remains outstanding |
+| Full suite on final code | PASS: 79 files / 608 tests; two opt-in recovery files/tests skipped; 45.28 seconds |
+| Typecheck | PASS |
+| Frontend/PWA/server build | PASS; existing large-bundle advisory remains |
+| Separate fresh nonempty recovery | PASS: clean restart, changed postmaster, restore into a new database |
+| Authenticated recovery operations | PASS before restart, after restart and after restore: fresh authorized mutation, exact retries, duplicate denial, restricted-role checks and historical decision persistence |
 
-Local logs: `.test-tmp/d5-final-stocktake.log`, `d5-final-full-elevated.log`,
-`d5-final-build-elevated.log`, `d5-final-types.log`; synthetic browser evidence:
-`.test-tmp/d5-evidence.json`, schema
-`requirement_test_902be857fe194a538a78a98e5289d093`.
-Logs, database dumps and credentials are deliberately uncommitted.
+The recovery baseline contained 36 stocktakes, 241 stock events, 72 balances,
+103 claims, 74 entitlements, 16 work orders, 15 issues, 14 outputs, 8 packing
+packages, 32 allocations, 16 QC records, 4 dispatches, 5 delivery receipts,
+4 installations, 2 closures, 124 audit records, 188 authorization receipts and
+6 historical decisions. Each phase added one historical decision and two
+corresponding audit/authorization records (including another authorized operation).
+Seventy-two accounts replayed consistently. Recovery used restricted runtime,
+identity and ledger connections after owner-only fixture provisioning. Recovery
+operator-browser checks were not run; the separate UI work above used the source
+synthetic database and does not imply browser verification of the restored DB.
 
-The authenticated browser exposed an incorrect `current_schema()` availability
-check under the restricted `pg_catalog`-first search path. D5 now qualifies the
-allowlisted source with the configured application schema; the focused test uses
-that runtime search path. The browser then displayed the evidence successfully.
-Phone/tablet panel scroll width stayed within its visible width (350/351px and
-687/688px). This checks panel reflow, not the entire page or physical devices.
-The local built app used freshly provisioned restricted synthetic roles and a
-synthetic administrator in the isolated test schema; no real account was changed.
+Local evidence (uncommitted; credentials and database dumps excluded):
+- `.local-dev/d5-full-final.log`, `.local-dev/d5-build-verified.log`.
+- `.local-dev/d5-recovery-summary.json`, `.local-dev/d5-nonempty-receipts.sql`.
+- Schema `requirement_test_d6abcbbb191c45a9bb62d1992e154772`.
+- Source database `experimind_kitbuilder_test`, isolated port 55432.
+- Restored database `experimind_production_restore_aaad918d47876641`.
 
-The normal development server fails its restricted database-authority startup
-validation. No safeguards or existing credentials were changed to bypass it.
-The connected PostgreSQL cluster reports a data directory outside repository
-`.local-dev`; restarting it fails the recovery harness's workspace-only safety
-contract. A dedicated workspace-owned cluster is required for the new drill.
-The harness now accepts `PRODUCTION_RECOVERY_ARTIFACT_PREFIX=d5` to preserve prior
-D3 evidence, with the existing default retained. Prefix syntax is validated;
-the restart/restore branches of that change await a real isolated drill.
+Reproduction, from repository root with the already provisioned synthetic env:
+```powershell
+$env:TEMP=(Resolve-Path '.local-dev/d5-temp').Path
+$env:TMP=$env:TEMP
+node --env-file=.env.kit-builder-development --env-file=.local-dev/d5-database.env node_modules/vitest/vitest.mjs run --reporter=dot
+npm run typecheck --silent
+$env:VITE_TRUSTED_PRODUCTION='true'
+$env:VITE_TRUSTED_PACKING='true'
+$env:VITE_TRUSTED_DELIVERY='true'
+npm run build --silent
+$env:PRODUCTION_RECOVERY_ARTIFACT_PREFIX='d5'
+$env:PRODUCTION_RECOVERY_DATA_DIRECTORY=(Resolve-Path '.local-dev/d5-pg').Path
+node --env-file=.env.kit-builder-development --env-file=.local-dev/d5-database.env scripts/verify-production-recovery.mjs
+```
+Recovery requires the retained nonempty fixture and local PostgreSQL tools; it
+must not be pointed at a production cluster. The Windows recovery logfile now
+lives outside the data directory to avoid an open-file rename failure.
+Sandbox loopback EACCES failures were superseded by the authorized successful
+suite. The inaccessible older port-55433 cluster was not modified or bypassed.
 
-## Security, upgrade and staging prerequisites
+## Remaining gates and stop condition
 
-- Provision distinct restricted runtime, identity and ledger LOGIN roles using
-  the reviewed boundary grants; keep the migration/owner role outside server
-  configuration. Verify startup fails closed for owner, missing grants and
-  wrong authority. No real secret provisioning/rotation occurred in D5.
-- Configure a strong stable JWT secret, allowed origins, TLS, session/refresh
-  controls, revocation handling and operation-bound scopes in approved staging.
-  Re-run forged/revoked/cross-tenant and immutable-audit checks there.
-- Inventory schema versions and default-off feature flags before upgrade. Back
-  up nonempty evidence; migrate under the owner in maintenance; verify restricted
-  startup and replay before reopening. D5 introduces no migration. Do not assume
-  destructive down-migrations reverse immutable events; use reviewed forward
-  repair or restore/replay under an approved maintenance plan.
-- Restrict backup/dump access, encrypt off-host copies, assign custody/retention,
-  and test a fresh-database restore, restart, exact retries and a fresh authorized
-  post-restore operation. Compare stock, commitments, custody, delivery and audit
-  fingerprints and record RPO/RTO. Do not publish dumps or credentials.
-- Assign monitoring for readiness, failed startup/auth, DB availability, rejected
-  operations and backup failures. Confirm logs redact secrets and an operator
-  can distinguish offline, pending and committed actions without blind retries.
+1. Engineering: implement trusted receipt/QC authorization and UI; complete fresh
+   positive PR/PO, issue, allocation/QC, dispatch/partial-delivery browser paths.
+2. Engineering/QA: complete authoritative lineage/conflict reconciliation and
+   consolidated lifecycle acceptance; role matrix, offline/retry and full route
+   keyboard/accessibility checks. Preserve unknown historical quantities.
+3. Deployment owner: separately authorize production migration/role provisioning,
+   backup/restore procedure and configuration. Test-only migration is intentional.
+4. Operations: verified complete-location physical counts, unit/material mapping,
+   recipes, approved school selections, supplier/site evidence and staff training.
+5. Pilot owner: printer/scanner/real-device/offline trial and named GO signoff.
 
-## Severity, approval and pilot checklist
-
-| Severity | Open condition | Required owner/action |
-| --- | --- | --- |
-| Critical gate | No operational cutover authorization or physical opening balances | Business/warehouse approvers approve counted scope and signed units/locations; keep live writes disabled |
-| High | Reconciliation decisions and lineage analysis incomplete | Implement synthetic decision/audit/concurrency contract; administrator reviews evidence; business separately authorizes mappings, demand and any correction |
-| High | Full authenticated integrated UI acceptance outstanding | QA runs every supported screen and role at desktop/tablet/phone widths, including denied, conflict, offline and retry states |
-| High | Fresh D5 recovery unproven | Operations supplies dedicated workspace/staging cluster and completes nonempty restart/restore with authenticated reconciliation |
-| High | Normal development/staging role configuration incomplete | Security/DB administrator provisions reviewed restricted grants and deployment secrets under separate approval |
-| Medium | Cross-source consolidated reconciliation and pagination incomplete | Add full-lifecycle report and stable snapshot pagination before treating exports as complete inventories |
-| Medium | Bundle size and comprehensive accessibility unmeasured | Measure load on target network/device; audit keyboard/focus/screen-reader and dense data reflow |
-
-All following human/device checks are **NOT PERFORMED**:
-
-1. Warehouse lead counts each authorized item/location, records units and
-   exceptions, obtains independent review and posts only approved opening counts.
-2. Packing staff print actual QR/PDF labels, scan each unit on target hardware,
-   test damaged/duplicate codes, and verify six QC checks and rejected-state recovery.
-3. Operators complete production through partial packing/dispatch on actual
-   tablet/phone; check touch targets, keyboard, screen reader, camera permissions,
-   network loss/reconnect and uncertain retry without duplicate consumption.
-4. Dispatch lead and school recipients verify multi-school quantities, partial
-   acknowledgments, installation photos/attachments and closure authorization.
-5. Operations/backup custodian performs the fresh restore drill, measures RPO/RTO,
-   verifies off-host access, records incident ownership and obtains signoff.
-6. Named business, warehouse, procurement, QC, dispatch, school and security
-   approvers sign the evidence matrix and separately authorize pilot scope,
-   staging deployment, credential provisioning and eventual cutover.
-
-Go only when all high/critical gates have evidence and named signoff. Historical
-activation, stock corrections, inferred demand, real inventory changes, deployment,
-main merge and blocked legacy paths remain outside this delivery. Stop after D5.
+No production deployment, real inventory mutation, historical activation, main
+merge, force push or legacy QMS/RMA/signature reopening occurred. D5 stops with
+these explicit blockers; no full software PASS or pilot GO is asserted.

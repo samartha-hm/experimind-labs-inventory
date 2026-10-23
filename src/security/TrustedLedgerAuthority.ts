@@ -1,3 +1,5 @@
+import { recordHistoricalDecision } from "../services/HistoricalDecisionService";
+import type { HistoricalDecisionInput } from "../features/inventory/reconciliationTypes";
 import { dispatchPacking, acknowledgeDelivery, type DispatchInput, type DeliveryInput } from '../services/TrustedDeliveryService';
 import { mutateTrustedCompletion,type InstallationCreate,type InstallationAction,type ClosureInput } from '../services/TrustedCompletionService';
 import jwt, { type JwtPayload } from "jsonwebtoken";
@@ -18,6 +20,7 @@ import { recordFinishedOutput, type FinishedOutputInput, type FinishedOutputResu
 
 import { createPackingPlan, allocatePackingOutput, inspectPacking, type PackingPlanInput, type PackingAllocationInput, type PackingQCInput, type PackingReceipt } from "../services/TrustedPackingService";
 export type LedgerRequest =
+  | { action: "historicalDecision"; key: string; input: HistoricalDecisionInput }
   | { action: "createAccount"; key: string; input: LedgerAccountInput }
   | { action: "entitlement"; key: string; account: string; approval: string; revision: number; cap: string; provenance: unknown }
   | { action: "execute"; key: string; account: string; entitlement: string; reason: string; operation: LedgerOperation }
@@ -106,9 +109,9 @@ export class TrustedLedgerAuthority {
 
   /** Narrow operator entry point; retries read the exact durable receipt after live session validation. */
   async performProductionForSession(accessToken: string,
-    request: Extract<LedgerRequest,{action:"issueWorkOrder"|"recordFinishedOutput"|"createPackingPlan"|"allocatePackingOutput"|"inspectPacking"|"dispatchPacking"|"acknowledgeDelivery"|"createTrustedInstallation"|"trustedInstallationAction"|"closeTrustedProject"}>) {
+    request: Extract<LedgerRequest,{action:"historicalDecision"|"issueWorkOrder"|"recordFinishedOutput"|"createPackingPlan"|"allocatePackingOutput"|"inspectPacking"|"dispatchPacking"|"acknowledgeDelivery"|"createTrustedInstallation"|"trustedInstallationAction"|"closeTrustedProject"}>) {
     const normalized = JSON.parse(JSON.stringify(request)) as typeof request;
-    if (!["issueWorkOrder","recordFinishedOutput","createPackingPlan","allocatePackingOutput","inspectPacking","dispatchPacking","acknowledgeDelivery","createTrustedInstallation","trustedInstallationAction","closeTrustedProject"].includes(normalized.action)) throw Error("Unsupported operator action");
+    if (!["historicalDecision","issueWorkOrder","recordFinishedOutput","createPackingPlan","allocatePackingOutput","inspectPacking","dispatchPacking","acknowledgeDelivery","createTrustedInstallation","trustedInstallationAction","closeTrustedProject"].includes(normalized.action)) throw Error("Unsupported operator action");
     const p=this.claims(accessToken,false), digest=fingerprint(normalized);
     const receipt=await this.#db.transaction(async m=>{
       await this.current(m,p);
@@ -133,7 +136,7 @@ export class TrustedLedgerAuthority {
         WHERE id=$1 OR (organization_id=$2 AND actor_id=$3 AND operation_key=$4)`,
         [p.jti, p.orgId, p.sub, normalized.key]);
       if (receipt) {
-        if (receipt.id !== p.jti || receipt.fingerprint !== digest || receipt.organization_id !== p.orgId ||
+        if ((receipt.id !== p.jti && normalized.action !== "historicalDecision") || receipt.fingerprint !== digest || receipt.organization_id !== p.orgId ||
           receipt.actor_id !== p.sub || receipt.operation_key !== normalized.key)
           throw new Error("Authorization replay conflict");
         await this.current(m, p);
@@ -146,6 +149,7 @@ export class TrustedLedgerAuthority {
       const service = new CommitmentLedgerService(m), context = { actor: p.sub!, organization: p.orgId as string };
       let result: string | LedgerEvent | ReservationResult | PurchaseRequestResult | PurchaseOrderResult | ReceiptResult | PublishedRecipe | WorkOrderResult | WorkOrderIssueResult | FinishedOutputResult | PackingReceipt;
       switch (normalized.action) {
+        case "historicalDecision": result = await recordHistoricalDecision(m,context,normalized.input,normalized.key); break;
         case "createAccount": result = await service.createAccount(context, normalized.input); break;
         case "entitlement": result = await service.entitlement(context, normalized.account, normalized.approval,
           normalized.revision, normalized.cap, normalized.provenance); break;

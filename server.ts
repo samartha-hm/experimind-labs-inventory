@@ -242,7 +242,7 @@ async function startServer() {
   app.use("/api/v1/auth", authLimiter, authRoutes);
   app.use("/api/v1/product-templates", productTemplateRouter(AppDataSource));
   app.use("/api/v1/planning-projects", planningProjectRouter(AppDataSource));
-  app.use("/api/v1/stocktakes", stocktakeRouter(AppDataSource));
+  app.use("/api/v1/stocktakes", stocktakeRouter(AppDataSource, receiptAuthority));
   app.use("/api/v1/supply-planning", supplyPlanningRouter(AppDataSource,receiptAuthority));
   app.use("/api/v1/production-planning", productionPlanningRouter(AppDataSource,receiptAuthority));
   app.use("/api/v1/packing", packingRouter(AppDataSource));

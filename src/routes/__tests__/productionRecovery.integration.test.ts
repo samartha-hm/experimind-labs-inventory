@@ -12,6 +12,7 @@ import { replayCommitments, planningUnits } from "../../services/CommitmentLedge
 import { TrustedLedgerAuthority } from "../../security/TrustedLedgerAuthority";
 import { assertDatabaseBoundary, configureDatabaseBoundary, sqlIdentifier } from "../../security/databaseBoundary";
 import { productionPlanningRouter } from "../v1/production-planning";
+import { stocktakeRouter } from "../v1/stocktakes";
 import { verifyProductionBrowser } from "./productionBrowser.cases";
 import { verifyPackingBrowser } from "./packingBrowser.cases";
 import { verifyDeliveryBrowser } from "./deliveryBrowser.cases";
@@ -46,6 +47,7 @@ it.skipIf(!phase)("preserves production custody and authenticated exact retries 
       "production_work_orders","production_input_issues","commitment_work_orders","commitment_work_order_materials",
       "commitment_work_order_issues","production_output_custody","trusted_packing_plans","trusted_packing_allocations","trusted_packing_qc",
       "trusted_dispatches","trusted_dispatch_units","trusted_delivery_receipts","trusted_installation_sources","site_installations","project_completions","supply_events","audit_logs","commitment_authorizations"];
+    if(evidence.historical_decisions)tables.push("trusted_historical_decisions");
     const fingerprint=async()=>Object.fromEntries(await Promise.all(tables.map(async t=>[t,(await runtime.query(
       `SELECT count(*)::int count,md5(coalesce(string_agg(row_to_json(t)::text,'' ORDER BY row_to_json(t)::text),'')) hash FROM ${t} t`))[0]])));
     const before=await fingerprint();expect(before.production_output_custody.count).toBeGreaterThan(0);
@@ -58,6 +60,7 @@ it.skipIf(!phase)("preserves production custody and authenticated exact retries 
     const authority=await TrustedLedgerAuthority.create(writer,env.jwtSecret,schema);
     const app=express();app.use(express.json());app.use("/production",productionPlanningRouter(runtime,authority));
     app.use("/api/v1/production-planning",productionPlanningRouter(runtime,authority));
+    app.use("/review",stocktakeRouter(runtime,authority));
     server=await new Promise<Server>(resolve=>{const s=app.listen(0,"127.0.0.1",()=>resolve(s));});
     const address=server.address();if(!address||typeof address==="string")throw Error("Missing port");
     const base=`http://127.0.0.1:${address.port}/production`,headers={Authorization:`Bearer ${access}`,"Content-Type":"application/json","Idempotency-Key":output.operation_key};
@@ -101,14 +104,27 @@ it.skipIf(!phase)("preserves production custody and authenticated exact retries 
       expect(retry.status).toBe(201);expect(await retry.json()).toEqual(request.result);
     }
     expect(await fingerprint()).toEqual(before);
+    if(evidence.historical_decisions) {
+      for(const request of evidence.historical_decisions.requests) {
+        const retry=await fetch(`http://127.0.0.1:${address.port}/review/reconciliation/decisions`,{method:"POST",headers:{...headers,"Idempotency-Key":request.key},body:JSON.stringify(request.input)});
+        expect(retry.status).toBe(201); expect(await retry.json()).toEqual(request.result);
+      }
+      expect(await fingerprint()).toEqual(before);
+      const request=evidence.historical_decisions.requests[0];
+      const [latest]=await runtime.query("SELECT revision FROM trusted_historical_decisions WHERE organization_id=$1 AND record_id=$2 ORDER BY revision DESC LIMIT 1",[output.organization_id,request.input.record_id]);
+      const freshReview=await fetch(`http://127.0.0.1:${address.port}/review/reconciliation/decisions`,{method:"POST",headers:{...headers,"Idempotency-Key":randomUUID()},body:JSON.stringify({...request.input,revision:latest.revision,decision:"requires_documentation",reason:`Authenticated ${phase} recovery review`})});
+      expect(freshReview.status).toBe(201); expect((await freshReview.json()).revision).toBe(latest.revision+1);
+      await expect(runtime.query("UPDATE trusted_historical_decisions SET reason='rewrite'")).rejects.toMatchObject({code:"42501"});
+    }
     const [job]=await runtime.query("SELECT * FROM site_installations WHERE id=$1",[evidence.delivery.recovery_installation]);
     const fresh=await fetch(`${base}/operator/delivery/installation-actions`,{method:'POST',headers:{...headers,'Idempotency-Key':randomUUID()},
       body:JSON.stringify({id:job.id,input:{revision:job.revision,action:'note',notes:`Authenticated ${phase} recovery evidence`}})});
     expect(fresh.status).toBe(201);expect((await fresh.json()).revision).toBe(job.revision+1);
     const after=await fingerprint();
-    for(const table of tables.filter(t=>!['site_installations','supply_events','audit_logs','commitment_authorizations'].includes(t)))expect(after[table]).toEqual(before[table]);
+    for(const table of tables.filter(t=>!['site_installations','supply_events','audit_logs','commitment_authorizations','trusted_historical_decisions'].includes(t)))expect(after[table]).toEqual(before[table]);
     await writeFile(`.local-dev/${prefix}-recovery-${phase}.json`,JSON.stringify({phase,database,schema,before,after:await fingerprint(),
       authenticated_http:true,fresh_authenticated_mutation:true,delivery_exact_retry:true,exact_retry:true,duplicate_denied:true,replayed_accounts:balances.length,
+      historical_review_exact_retry:Boolean(evidence.historical_decisions),historical_review_fresh_mutation:Boolean(evidence.historical_decisions),
       operator_browser:process.env.PRODUCTION_BROWSER==="true"&&phase==="before"?"PASS":"not run",
       server:await runtime.query("SELECT current_database(),pg_postmaster_start_time()")},null,2));
   } finally {

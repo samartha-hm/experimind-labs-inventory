@@ -32,7 +32,7 @@ if(!expected.toLowerCase().startsWith(workspace.toLowerCase()+'\\'))throw Error(
 if(realpathSync(cluster.directory).toLowerCase()!==expected.toLowerCase())throw Error('Unexpected cluster directory; restart refused');
 const restartLog=openSync(`.local-dev/${prefix}-pg-restart.log`,'w');
 try{execFileSync(resolve('.local-dev/tools/node_modules/@embedded-postgres/windows-x64/native/bin/pg_ctl.exe'),
- ['restart','-D',expected,'-l',join(expected,'recovery-postgres.log'),'-m','fast','-w','-t','45'],
+ ['restart','-D',expected,'-l',resolve(`.local-dev/${prefix}-postgres.log`),'-m','fast','-w','-t','45'],
  {env:environment,windowsHide:true,stdio:['ignore',restartLog,restartLog],timeout:60000});}
 finally{closeSync(restartLog);}
 phase('restart');

@@ -18,7 +18,6 @@ export default function SupplyPlanningPanel({project,onChange}:{project?:Plannin
   const [quantity,setQuantity]=useState(""),[unit,setUnit]=useState(""),[notes,setNotes]=useState(""),[qc,setQc]=useState(true);
   const [supplier,setSupplier]=useState(""),[supplierName,setSupplierName]=useState("");
   const [draft,setDraft]=useState<PurchaseRequest>(),[lines,setLines]=useState<Omit<SupplyLine,"id"|"canonical_quantity"|"canonical_unit">[]>([]);
-  const [orderId,setOrderId]=useState(""),[lineId,setLineId]=useState(""),[location,setLocation]=useState("");
   const [reason,setReason]=useState(""),[busy,setBusy]=useState(false),[error,setError]=useState(""),[message,setMessage]=useState("");
   const [history,setHistory]=useState<unknown[]>([]);
   async function load(){const [d,i]=await Promise.all([apiFetch(`/api/v1/supply-planning${project?`?project=${project.id}`:""}`),apiFetch("/api/v1/stocktakes/inventory")]);setData(d);setItems(i);}
@@ -27,7 +26,7 @@ export default function SupplyPlanningPanel({project,onChange}:{project?:Plannin
   // Retrying a failed transport with identical input reuses the key; changed inputs receive a new key.
   const [retryKeys]=useState(()=>new Map<string,string>());
   async function write(path:string,body:unknown,method="POST") {const fingerprint=JSON.stringify([path,method,body]);const key=retryKeys.get(fingerprint)??crypto.randomUUID();retryKeys.set(fingerprint,key);const result=await apiFetch("/api/v1/supply-planning"+path,{method,headers:{"Idempotency-Key":key},body:JSON.stringify(body)});retryKeys.delete(fingerprint);return result;}
-  const selected=items.find(i=>i.id===item),order=data.orders.find(o=>o.id===orderId),receiptLine=order?.planning_lines?.find(l=>l.id===lineId);
+  const selected=items.find(i=>i.id===item);
   function rawLine(){return {item_id:item,quantity,unit,qc_required:qc,notes,...(project?{project_id:project.id,site_id:site}:{})};}
   const action=(kind:string,id:string,revision:number,verb:string)=>void run(async()=>{await write(`/${kind}/${id}/${verb}`,{revision,...(kind==="receipts"?{reason}:{})});});
   return <section className="space-y-4 rounded-2xl border border-slate-300 p-4">
@@ -66,20 +65,18 @@ export default function SupplyPlanningPanel({project,onChange}:{project?:Plannin
         {writer&&["draft","reviewed","approved"].includes(r.status)&&<button className={button} onClick={()=>action("requests",r.id,r.revision,"cancel")}>Cancel</button>}
         <button className={button} onClick={()=>void run(async()=>{setHistory(await apiFetch(`/api/v1/supply-planning/request/${r.id}/history`));},false)}>History</button></details>)}
       <h3 className="font-semibold">Purchase orders</h3>
+      <p id="receipt-authority-help" role="note" className="text-sm text-amber-800">Receipt entry and inspection are unavailable in this screen. They require approved demand coverage and trusted receipt authorization. Existing receipts and their audit history remain available for review.</p>
       {data.orders.map(o=><details className="rounded-xl border p-3" key={o.id}><summary>{o.po_number} · {data.suppliers.find(s=>s.id===o.vendor_id)?.name} · {o.status} · r{o.planning_revision}</summary>
         {o.planning_lines?.map(l=><p key={l.id}>{items.find(i=>i.id===l.item_id)?.name??l.item_id} · authorized {l.canonical_quantity} {l.canonical_unit} · delivered {stockText(data.receipts.filter(g=>g.po_id===o.id&&g.line_id===l.id).reduce((n,g)=>n+stockUnits(g.quantity),0n))} · remaining {stockText(stockUnits(l.canonical_quantity)-data.receipts.filter(g=>g.po_id===o.id&&g.line_id===l.id).reduce((n,g)=>n+stockUnits(g.quantity),0n))}</p>)}
         {reviewer&&o.status==="draft"&&!o.reviewed_by&&<button className={button} onClick={()=>action("orders",o.id,o.planning_revision!,"review")}>Review order</button>}
         {approver&&o.status==="draft"&&o.reviewed_by&&<button className={button} onClick={()=>action("orders",o.id,o.planning_revision!,"approve")}>Approve order</button>}
-        {writer&&o.status==="approved"&&<button className={button} onClick={()=>{setOrderId(o.id);setLineId(o.planning_lines?.[0]?.id??"");setLocation("");}}>Receive delivery</button>}
+        {writer&&o.status==="approved"&&<button className={button} disabled aria-describedby="receipt-authority-help">Receive delivery unavailable</button>}
         {writer&&["draft","approved"].includes(o.status)&&<button className={button} onClick={()=>action("orders",o.id,o.planning_revision!,"cancel")}>Cancel order</button>}
         <button className={button} onClick={()=>void run(async()=>{setHistory(await apiFetch(`/api/v1/supply-planning/order/${o.id}/history`));},false)}>History</button></details>)}
-      {writer&&order&&<div className="flex flex-wrap gap-3"><label>Receipt line <select className={input} value={lineId} onChange={e=>setLineId(e.target.value)}>{order.planning_lines?.map(l=><option key={l.id} value={l.id}>{items.find(i=>i.id===l.item_id)?.name} · {l.canonical_quantity} {l.canonical_unit}</option>)}</select></label>
-        <label>Physical location <select className={input} value={location} onChange={e=>setLocation(e.target.value)}><option value="">Select location</option>{items.find(i=>i.id===receiptLine?.item_id)?.scope?.locations.map(l=><option key={l}>{l}</option>)}</select></label>
-        <span>Use the quantity and unit entered above.</span><button className={button} disabled={!quantity||!unit||!location} onClick={()=>void run(async()=>{await write(`/orders/${order.id}/receipts`,{revision:order.planning_revision,line_id:lineId,quantity,unit,location});})}>Record partial/full receipt</button></div>}
       <label>Inspection / allocation reason <input className={input} value={reason} onChange={e=>setReason(e.target.value)}/></label>
       <h3 className="font-semibold">Goods receipts</h3>
       {data.receipts.map(g=><div key={g.id} className="flex flex-wrap items-center gap-3 rounded-xl border p-3"><span>{data.orders.find(o=>o.id===g.po_id)?.po_number} · {items.find(i=>i.id===g.item_id)?.name} · {g.quantity} {g.unit} · {g.location} · {g.status}</span>
-        {reviewer&&["pending","quarantined"].includes(g.status)&&["accept","reject",...(g.status==="pending"?["quarantine"]:[])].map(verb=><button key={verb} className={button} disabled={!reason.trim()} onClick={()=>action("receipts",g.id,g.revision,verb)}>{verb}</button>)}
+        {reviewer&&["pending","quarantined"].includes(g.status)&&["accept","reject",...(g.status==="pending"?["quarantine"]:[])].map(verb=><button key={verb} className={button} disabled aria-describedby="receipt-authority-help">{verb}</button>)}
         <button className={button} onClick={()=>void run(async()=>{setHistory(await apiFetch(`/api/v1/supply-planning/receipt/${g.id}/history`));},false)}>History</button></div>)}
       {!!history.length&&<details open><summary>Immutable audit snapshots</summary><pre className="overflow-auto text-xs">{JSON.stringify(history,null,2)}</pre></details>}
     </fieldset>

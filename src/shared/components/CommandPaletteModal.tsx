@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Search, Command, Box, Boxes, ShoppingBag, ShoppingCart, Building2, XCircle, ArrowRight } from 'lucide-react';
 import { InventoryItem, KitBOM } from '@/src/types';
@@ -13,6 +13,18 @@ interface CommandPaletteModalProps {
 
 export default function CommandPaletteModal({ isOpen, onClose, inventory, kits, onNavigateTab }: CommandPaletteModalProps) {
   const [query, setQuery] = useState('');
+  const dialogRef = useRef<HTMLDialogElement>(null);
+
+  useEffect(() => {
+    if (!isOpen || !dialogRef.current) return;
+    const dialog = dialogRef.current;
+    const previousFocus = document.activeElement;
+    dialog.showModal();
+    return () => {
+      dialog.close();
+      if (previousFocus instanceof HTMLElement) previousFocus.focus();
+    };
+  }, [isOpen]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -66,20 +78,20 @@ export default function CommandPaletteModal({ isOpen, onClose, inventory, kits, 
   };
 
   return createPortal(
-    <div className="fixed inset-0 w-screen h-screen z-[99999] bg-slate-950/70 backdrop-blur-md flex items-start justify-center pt-20 p-4 overflow-y-auto animate-fadeIn">
-      <div className="relative bg-white rounded-3xl shadow-2xl max-w-2xl w-full border border-slate-100 overflow-hidden space-y-0 animate-scaleUp">
+    <dialog ref={dialogRef} aria-label="Search inventory and navigate" onCancel={(event) => { event.preventDefault(); onClose(); }} className="fixed inset-0 m-0 max-w-none max-h-none w-screen h-screen border-0 z-[99999] bg-slate-950/70 backdrop-blur-md pt-20 p-4 overflow-y-auto animate-fadeIn">
+      <div className="relative mx-auto bg-white rounded-3xl shadow-2xl max-w-2xl w-full border border-slate-100 overflow-hidden space-y-0 animate-scaleUp">
         {/* Search Bar Input */}
         <div className="p-4 border-b border-slate-100 flex items-center gap-3 bg-slate-50/50">
           <Command className="w-5 h-5 text-indigo-600 shrink-0" />
           <input
             type="text"
-            autoFocus
+            aria-label="Search inventory and kits"
             placeholder="Search SKUs, Kits, Orders, Vendors, or Actions (Type Ctrl+K)..."
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             className="w-full bg-transparent text-slate-800 font-medium text-sm placeholder-slate-400 focus:outline-none"
           />
-          <button onClick={onClose} className="p-1 text-slate-400 hover:text-slate-600 rounded-lg cursor-pointer">
+          <button aria-label="Close search" onClick={onClose} className="min-h-11 min-w-11 p-1 text-slate-400 hover:text-slate-600 rounded-lg cursor-pointer">
             <XCircle className="w-5 h-5" />
           </button>
         </div>
@@ -112,10 +124,10 @@ export default function CommandPaletteModal({ isOpen, onClose, inventory, kits, 
               <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2">Inventory Components ({filteredInventory.length})</div>
               <div className="space-y-1.5">
                 {filteredInventory.map((item) => (
-                  <div
+                  <button type="button"
                     key={item.id}
                     onClick={() => handleAction('inventory')}
-                    className="p-2.5 bg-white hover:bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between transition-colors cursor-pointer"
+                    className="w-full min-h-11 text-left p-2.5 bg-white hover:bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between transition-colors cursor-pointer"
                   >
                     <div className="flex items-center gap-3">
                       <div className="p-1.5 bg-indigo-50 text-indigo-600 rounded-lg">
@@ -135,7 +147,7 @@ export default function CommandPaletteModal({ isOpen, onClose, inventory, kits, 
                     <span className="font-mono font-bold text-slate-700 bg-slate-100 px-2 py-1 rounded-lg text-[11px]">
                       {item.isCommon ? 'Unlimited' : `${item.stockQty} ${item.unit}`}
                     </span>
-                  </div>
+                  </button>
                 ))}
               </div>
             </div>
@@ -147,10 +159,10 @@ export default function CommandPaletteModal({ isOpen, onClose, inventory, kits, 
               <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2">Composite Kits ({filteredKits.length})</div>
               <div className="space-y-1.5">
                 {filteredKits.map((kit) => (
-                  <div
+                  <button type="button"
                     key={kit.id}
-                    onClick={() => handleAction('kits')}
-                    className="p-2.5 bg-white hover:bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between transition-colors cursor-pointer"
+                    onClick={() => handleAction('kitting')}
+                    className="w-full min-h-11 text-left p-2.5 bg-white hover:bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between transition-colors cursor-pointer"
                   >
                     <div className="flex items-center gap-3">
                       <div className="p-1.5 bg-purple-50 text-purple-600 rounded-lg">
@@ -165,14 +177,14 @@ export default function CommandPaletteModal({ isOpen, onClose, inventory, kits, 
                     <span className="font-mono font-bold text-purple-700 bg-purple-50 px-2 py-1 rounded-lg text-[11px]">
                       {kit.items.length} BOM Items
                     </span>
-                  </div>
+                  </button>
                 ))}
               </div>
             </div>
           )}
         </div>
       </div>
-    </div>,
+    </dialog>,
     document.body
   );
 }

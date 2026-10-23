@@ -520,8 +520,10 @@ export default function App() {
           >
             {isRegistering && (
               <div>
-                <label className="block text-slate-300 font-bold mb-1">Full Name</label>
+                <label htmlFor="auth-name" className="block text-slate-300 font-bold mb-1">Full Name</label>
                 <input
+                  id="auth-name"
+                  autoComplete="name"
                   type="text"
                   required
                   value={name}
@@ -532,8 +534,10 @@ export default function App() {
             )}
 
             <div>
-              <label className="block text-slate-300 font-bold mb-1">Email Address</label>
+              <label htmlFor="auth-email" className="block text-slate-300 font-bold mb-1">Email Address</label>
               <input
+                id="auth-email"
+                autoComplete="username"
                 type="email"
                 required
                 value={email}
@@ -543,8 +547,10 @@ export default function App() {
             </div>
 
             <div>
-              <label className="block text-slate-300 font-bold mb-1">Password</label>
+              <label htmlFor="auth-password" className="block text-slate-300 font-bold mb-1">Password</label>
               <input
+                id="auth-password"
+                autoComplete={isRegistering ? "new-password" : "current-password"}
                 type="password"
                 required
                 value={password}
