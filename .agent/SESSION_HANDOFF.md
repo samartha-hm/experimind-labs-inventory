@@ -1,35 +1,34 @@
-# Session handoff — 2026-10-22
+# Session handoff — 2026-10-23
 
 Branch: `feature/kit-builder-milestone-1`.
-D5 implementation: `1f341052dfbce5d8345b5e29aa19f0aa00b9c4c3`.
-Baseline D4: `525dc81dad7709ec4abb09817d2c152dd20abd15`.
+Implementation: `45c5a52508aa8847043f341514986c093f2c84b4`.
+Starting revision: `370e28921bfb784a065bac576473fb63b2d983a4`.
 
-D5 verdict: **BLOCKED** for complete software acceptance and operational pilot.
-Stop after D5. Read `docs/erp/D5_ERP_READINESS_AND_PILOT_GATE.md`.
+D5 software acceptance BLOCKED; pilot NO-GO. Stop after this delivery.
+Read docs/erp/D5_ERP_READINESS_AND_PILOT_GATE.md and NEXT_TASK.md.
 
-Implemented administrator-only, tenant-scoped, read-only historical evidence
-preview/export across seven allowlisted sources in Inventory. Decimal quantities,
-lifecycle, provenance, blockers and row/page hashes remain distinct from verified
-stock and approval. No decision recording, activation or operational effects.
-Configured-schema qualification fixes the pg_catalog-first runtime discovery bug.
-Recovery harness accepts a validated d5 artifact prefix without overwriting d3.
+Implemented attributed append-only historical decisions, source-hash/revision
+concurrency, exact retry, immutable audit/authority witnesses and restricted roles.
+No operational stock/demand/custody effects. Migration intentionally test-only.
+Fixed login/search accessibility, dispatch school selection, packing retry guard,
+pending-QC wording and label/manifest previews. Disabled incompatible receipt/QC
+controls: trusted operator authorization is still missing; legacy remains closed.
 
-Final checks: 608 tests passed, two opt-in recovery tests skipped; focused
-stocktake suite 16 passed; typecheck and frontend/PWA/server build passed.
-Authenticated synthetic administrator login/Inventory/26-row review passed;
-panel reflow checked at 390px and 1024px. This is not whole-app/device acceptance.
-Final logs: .test-tmp/d5-final-{full-elevated,build-elevated,types,stocktake}.log.
-Fixture-owner setup enabled role provisioning; restricted-role tests remain.
-Sandbox loopback failures were superseded by the successful authorized run.
+Final full suite: 608 passed, two opt-in skips; typecheck/build passed. Separate
+nonempty recovery passed restart (changed postmaster), fresh restore, authenticated
+mutations, retries and historical persistence across all three phases. Logs and
+summary are in .local-dev/d5-*. Synthetic cluster is workspace-owned on 55432;
+older 55433 cluster untouched. Never commit local credentials or database dumps.
 
-Open: attributed append-only decisions, lineage/conflict analysis, consolidated
-lifecycle reconciliation, full authenticated role/UI audit, new nonempty recovery.
-Connected PostgreSQL data directory is outside workspace; do not bypass restart
-guards. Normal development role configuration fails closed; synthetic browser
-used separate restricted roles. No real credentials were changed.
+Authenticated browser checked history save, multi-school selections, production
+output, packing review, labels/manifests, partial-delivery history, installation
+and closure. Search labels and Escape focus restoration verified on final build.
+Phone/tablet checks are scoped. Missing positive receipt/QC/issue/dispatch paths,
+lineage/conflict reconciliation, full role/offline/accessibility acceptance and
+production migration/provisioning remain software gates. Physical counts, staff,
+printer/scanner and real-device checks remain pilot gates.
 
-Physical counts, staff, printer/scanner and actual device checks NOT PERFORMED.
-No deployment, real-data activation, main merge, force push or legacy reopening.
-Preserve unrelated AGENTS.md and untracked .test-tmp/. Use /new or /compact
-before separately authorized continuation. Final push/HEAD verification follows
-this separate continuity commit.
+No deployment, real stock changes, main merge, force push or legacy reopening.
+Preserve unrelated AGENTS.md and untracked .test-tmp/. Use /new or /compact before
+separately authorized continuation. Final push/remote verification follows this
+separate continuity commit.
