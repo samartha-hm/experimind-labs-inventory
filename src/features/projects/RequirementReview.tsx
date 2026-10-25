@@ -36,7 +36,7 @@ export function RequirementReview({ detail, content, revision, school }: {
   const schoolChanges = previous ? requirementChanges(previous.content.sites, content.sites, 'Schools') : [];
   return <section className="pj-card" aria-label="Saved requirement review">
     <h3>Saved requirement review · r{revision}</h3>
-    <p className="pj-notice">Requirement approval unavailable: no project or school approval contract exists. Saving records allocations; it does not approve school requirements or authorize execution.</p>
+    <p className="pj-notice">Saving records allocations; it does not approve school requirements or authorize execution. Use the explicit school requirement approval action in Project requirement planning after reviewing the saved calculation.</p>
     <p>Project {detail.project.id} · saved revision {revision}. Unsaved editor changes are excluded from this review.</p>
     <p>{snapshot ? `Saved by ${snapshot.updated_by} at ${snapshot.created_at}.` : 'Revision actor evidence unavailable.'} Approved kit snapshots and their approval actors are listed in provenance above.</p>
     <p>Validation: this saved revision passed the planning service when saved. Current revision demand and stock warnings appear below; historical demand is unavailable. Stock, reservations, purchasing, production and packing need their own current validation.</p>

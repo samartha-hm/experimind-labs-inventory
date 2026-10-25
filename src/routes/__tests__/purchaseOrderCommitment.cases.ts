@@ -18,7 +18,7 @@ import { InventoryItem } from "../../entity/InventoryItem";
 import { PurchaseOrderService } from "../../services/PurchaseOrderService";
 import { StockLedgerService } from "../../services/StockLedgerService";
 import { postVerifiedSupplyMovement } from "../../services/SupplyStockService";
-import { withReceiptHttp } from "./receiptHttp.cases";
+import { withReceiptHttp,withPurchasingHttp } from "./receiptHttp.cases";
 
 export async function verifyPurchaseOrderCommitments(h:Parameters<typeof verifyReservationCommitments>[0]) {
   const f=await h.fixture(),runner=h.db.createQueryRunner();
@@ -156,7 +156,9 @@ export async function verifyPurchaseOrderCommitments(h:Parameters<typeof verifyR
   };
   const demandBefore=await h.writer.query("SELECT approved,fulfilled,held FROM commitment_balances WHERE account_id=$1",[f.account]);
   const receiveRequest=receiptInput("receive"),receiveToken=await authority.issue(access,receiveRequest);
-  await withReceiptHttp(h.runtime,authority,access,async send=>{
+  await withReceiptHttp(h.runtime,authority,access,async(send,readCoverage)=>{
+  const queue=await readCoverage();expect(queue.enabled).toBe(true);
+  expect(queue.coverage).toContainEqual(expect.objectContaining({order:po.id,line:po.planning_lines[0].id,coverage:coverageRows[0].id,orderRevision:po.planning_revision,locations:expect.arrayContaining(["Shelf A"])}));
   const before=await h.db.query("SELECT id FROM purchase_goods_receipts ORDER BY id");
   await send(receiveRequest,"",{status:403});
   await send(receiveRequest,access,{status:409});
@@ -242,6 +244,27 @@ export async function verifyPurchaseOrderCommitments(h:Parameters<typeof verifyR
     FROM stock_ledger s WHERE goods_receipt_id=$2`,[randomUUID(),receiptId]));
   expect(await h.writer.query("SELECT approved,fulfilled,held FROM commitment_balances WHERE account_id=$1",[f.account])).toEqual(demandBefore);
   expect(await h.writer.query("SELECT id FROM supply_events WHERE kind='receipt' AND record_id=$1",[receiptId])).toHaveLength(3);
+  const operatorReceive={...receiptInput("receive"),input:{...receiveRequest.input,id:randomUUID()}};
+  await deny(operatorReceive,"",{operator:true,closed:true,status:503});
+  await deny(operatorReceive,"",{operator:true,body:{...operatorReceive.input,actor_id:h.admin.id},status:400});
+  await deny(operatorReceive,"",{operator:true,access:foreignLogin.token!,status:409});
+  for(const role of ["viewer","manager","inventory_staff"]) {
+    await h.identity.query("UPDATE users SET role=$2 WHERE id=$1",[h.admin.id,role]);
+    try {await deny(operatorReceive,"",{operator:true,status:403});}
+    finally {await h.identity.query("UPDATE users SET role='admin' WHERE id=$1",[h.admin.id]);}
+  }
+  const [operatorReceived,operatorRetry]=await Promise.all([send(operatorReceive,"",{operator:true}),send(operatorReceive,"",{operator:true})]);
+  expect(operatorRetry).toEqual(operatorReceived);
+  const operatorAccept={...receiptInput("accept"),input:{...receiptInput("accept").input,id:operatorReceived.id}};
+  const [operatorAccepted,operatorAcceptedRetry]=await Promise.all([send(operatorAccept,"",{operator:true}),send(operatorAccept,"",{operator:true})]);
+  expect(operatorAcceptedRetry).toEqual(operatorAccepted);
+  await deny(operatorAccept,"",{operator:true,body:{...operatorAccept.input,reason:"Altered retry"},status:409});
+  await h.db.query("UPDATE refresh_tokens SET is_revoked=true WHERE user_id=$1 AND token_hash=$2",[h.admin.id,sid]);
+  try {await deny(operatorAccept,"",{operator:true,status:409});}
+  finally {await h.db.query("UPDATE refresh_tokens SET is_revoked=false WHERE user_id=$1 AND token_hash=$2",[h.admin.id,sid]);}
+  expect(await h.writer.query("SELECT id FROM stock_ledger WHERE goods_receipt_id=$1",[operatorReceived.id])).toHaveLength(1);
+  expect(await h.writer.query("SELECT approved,fulfilled,held FROM commitment_balances WHERE account_id=$1",[f.account])).toEqual(demandBefore);
+  h.evidence.receipt_operator={receipt_id:operatorReceived.id,concurrent_receive_and_accept_retry:"PASS",role_tenant_and_revocation_denials:"PASS",stock_movements:1,requests:[{request:operatorReceive,result:operatorReceived},{request:operatorAccept,result:operatorAccepted}]};
   h.evidence.receipt_qc={receipt_id:receiptId,source_coverage:receiptCoverage,statuses:["pending","quarantined","accepted"],
     production_router_http:true,legacy_router_denied:true,legacy_services_denied:true,stock_helpers_denied:true,
     privileged_unmapped_stock_denied:true,concurrent_partials:3,concurrent_accept_retry:"PASS",retry_same_capability:"PASS",audit_failure_atomic_rollback:"PASS",session_binding_and_revoked_retry:"PASS",stock_movements:1,demand_balances_unchanged:true};
@@ -284,4 +307,33 @@ export async function verifyPurchaseOrderCommitments(h:Parameters<typeof verifyR
     amend_cancel_race:amendCancel.map(r=>r.status),approval_revision_race:revisionRace.map(r=>r.status),
     reconciliation,coverage:await h.db.query("SELECT * FROM commitment_po_coverage ORDER BY claim_id,start_quantity"),
     snapshot:await snapshot(),blocked:["decrease","cancel","return-to-PR","receipt","QC","stock","production","packing","delivery"]};
+  const purchasingFixture=await h.fixture();
+  const [material]=await h.writer.query("SELECT item_key,unit FROM commitment_accounts WHERE id=$1",[purchasingFixture.account]);
+  const scope={project:purchasingFixture.project.id,site:purchasingFixture.site,item:material.item_key,unit:material.unit,approval:purchasingFixture.approval.id,demandRevision:1};
+  const live=(await h.auth.login(h.admin.email,h.password)).token!;
+  const operations:{request:Extract<LedgerRequest,{action:"purchaseRequest"|"purchaseOrder"}>;result:any}[]=[];
+  await withPurchasingHttp(h.runtime,authority,live,async(send,read)=>{
+    expect((await read()).demand).toEqual(expect.arrayContaining([expect.objectContaining(scope)]));
+    const execute=async(r:typeof operations[number]["request"])=>{
+      const before=await snapshot();
+      await send(r,400,{...r.input,actor_id:h.admin.id});expect(await snapshot()).toEqual(before);
+      const [result,retry]=await Promise.all([send(r),send(r)]);expect(retry).toEqual(result);
+      operations.push({request:r,result});
+      const saved=await snapshot();await send(r,409,{...r.input,reason:"Changed retry"});expect(await snapshot()).toEqual(saved);
+      return result;
+    };
+    const id=randomUUID(),line=randomUUID();
+    let r=await execute({action:"purchaseRequest",key:randomUUID(),input:{...scope,id,line,transition:"create",basis:"manual",quantity:"0.02",reason:"Synthetic HTTP purchasing"}});
+    for(const transition of ["review","approve"] as const)r=await execute({action:"purchaseRequest",key:randomUUID(),input:{...scope,id,revision:r.revision,transition,reason:"Synthetic purchasing decision"}});
+    const queue=await read(),source=queue.sources.find((s:any)=>s.line===line);
+    expect(source.remaining).toBe("0.02");
+    const poBase={...scope,id:randomUUID(),request:id,requestRevision:r.revision,line,reason:"Synthetic HTTP PO"};
+    let order=await execute({action:"purchaseOrder",key:randomUUID(),input:{...poBase,transition:"create",vendor,sources:[{claim:source.claim,slice:source.slice,quantity:"0.02"}]}});
+    for(const transition of ["review","approve"] as const)order=await execute({action:"purchaseOrder",key:randomUUID(),input:{...poBase,revision:order.planning_revision,transition}});
+    expect(order.status).toBe("approved");
+    expect((await read()).sources.find((s:any)=>s.claim===source.claim).remaining).toBe("0");
+    await h.identity.query("UPDATE users SET role='manager' WHERE id=$1",[h.admin.id]);
+    try {await send(operations[0].request,403);}finally{await h.identity.query("UPDATE users SET role='admin' WHERE id=$1",[h.admin.id]);}
+  });
+  h.evidence.purchasing_operator={requests:operations,concurrent_retries:"PASS",forged_actor_and_changed_retry:"PASS"};
 }

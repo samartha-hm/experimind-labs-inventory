@@ -69,6 +69,7 @@ export default function StickerMonitoringHubTab({
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedStickerIds, setSelectedStickerIds] = useState<Set<string>>(new Set());
   const [previewSticker, setPreviewSticker] = useState<StickerRecord | null>(null);
+  const [page, setPage] = useState(0);
   const [scanBarcodeQuery, setScanBarcodeQuery] = useState<string>('');
   const [boxMappings] = useState<ChapterBoxMapping[]>(() => StickerTrackingService.getChapterBoxMappings());
 
@@ -135,6 +136,11 @@ export default function StickerMonitoringHubTab({
       return true;
     });
   }, [stickers, selectedTier, selectedStatus, selectedBoxId, searchQuery]);
+
+  const pageCount = Math.max(1, Math.ceil(filteredStickers.length / 50));
+  const currentPage = Math.min(page, pageCount - 1);
+  const visibleStickers = filteredStickers.slice(currentPage * 50, (currentPage + 1) * 50);
+  useEffect(() => setPage(0), [selectedProjectId, selectedTier, selectedStatus, selectedBoxId, searchQuery]);
 
   // Toggle selection
   const handleToggleSelect = (id: string) => {
@@ -506,6 +512,11 @@ export default function StickerMonitoringHubTab({
         )}
 
         {/* Table of Stickers */}
+        <nav aria-label="Sticker pages" className="flex items-center gap-3 py-3">
+          <button disabled={currentPage === 0} onClick={() => setPage(currentPage - 1)}>Previous stickers</button>
+          <span aria-live="polite">Page {currentPage + 1} of {pageCount} · {filteredStickers.length} stickers</span>
+          <button disabled={currentPage + 1 >= pageCount} onClick={() => setPage(currentPage + 1)}>Next stickers</button>
+        </nav>
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
             <thead>
@@ -532,7 +543,7 @@ export default function StickerMonitoringHubTab({
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800/60 font-medium">
-              {filteredStickers.map((sticker) => {
+              {visibleStickers.map((sticker) => {
                 const isSelected = selectedStickerIds.has(sticker.id);
                 return (
                   <tr

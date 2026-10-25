@@ -13,6 +13,7 @@ import { TrustedLedgerAuthority } from "../../security/TrustedLedgerAuthority";
 import { assertDatabaseBoundary, configureDatabaseBoundary, sqlIdentifier } from "../../security/databaseBoundary";
 import { productionPlanningRouter } from "../v1/production-planning";
 import { stocktakeRouter } from "../v1/stocktakes";
+import { supplyPlanningRouter } from "../v1/supply-planning";
 import { verifyProductionBrowser } from "./productionBrowser.cases";
 import { verifyPackingBrowser } from "./packingBrowser.cases";
 import { verifyDeliveryBrowser } from "./deliveryBrowser.cases";
@@ -61,6 +62,7 @@ it.skipIf(!phase)("preserves production custody and authenticated exact retries 
     const app=express();app.use(express.json());app.use("/production",productionPlanningRouter(runtime,authority));
     app.use("/api/v1/production-planning",productionPlanningRouter(runtime,authority));
     app.use("/review",stocktakeRouter(runtime,authority));
+    app.use("/supply",supplyPlanningRouter(runtime,authority));
     server=await new Promise<Server>(resolve=>{const s=app.listen(0,"127.0.0.1",()=>resolve(s));});
     const address=server.address();if(!address||typeof address==="string")throw Error("Missing port");
     const base=`http://127.0.0.1:${address.port}/production`,headers={Authorization:`Bearer ${access}`,"Content-Type":"application/json","Idempotency-Key":output.operation_key};
@@ -103,7 +105,29 @@ it.skipIf(!phase)("preserves production custody and authenticated exact retries 
       const retry=await fetch(`${base}/operator/delivery/${request.path}`,{method:'POST',headers:{...headers,'Idempotency-Key':request.key},body:JSON.stringify(request.input)});
       expect(retry.status).toBe(201);expect(await retry.json()).toEqual(request.result);
     }
+    if(evidence.purchasing_operator) {
+      for(const {request,result} of evidence.purchasing_operator.requests) {
+        const i=request.input,kind=request.action==="purchaseRequest"?"requests":"orders";
+        const retry=await fetch(`http://127.0.0.1:${address.port}/supply/operator/${kind}/${i.id}/${i.transition}`,{
+          method:"POST",headers:{...headers,"Idempotency-Key":request.key},body:JSON.stringify(i)});
+        expect(retry.status).toBe(i.transition==="create"?201:200);expect(await retry.json()).toEqual(result);
+      }
+    }
+    if(evidence.receipt_operator) {
+      for(const {request,result} of evidence.receipt_operator.requests) {
+        const i=request.input,path=i.transition==='receive'?`orders/${i.order}/receipts`:`receipts/${i.id}/${i.transition}`;
+        const retry=await fetch(`http://127.0.0.1:${address.port}/supply/operator/${path}`,{method:'POST',headers:{...headers,'Idempotency-Key':request.key},body:JSON.stringify(i)});
+        expect(retry.status).toBe(i.transition==='receive'?201:200);expect(await retry.json()).toEqual(result);
+      }
+    }
     expect(await fingerprint()).toEqual(before);
+    if(evidence.historical_simulation) {
+      const simulation=await fetch(`http://127.0.0.1:${address.port}/review/reconciliation/simulate`,{method:'POST',headers,body:JSON.stringify({links:evidence.historical_simulation.proposed})});
+      expect(simulation.status).toBe(200);const result=await simulation.json();
+      expect(result.activationEnabled).toBe(false);expect(result.claimsReserved).toBe(false);
+      expect(result.structurallyValid).toBe(false);expect(result.before).toEqual(result.after);
+      expect(await fingerprint()).toEqual(before);
+    }
     if(evidence.historical_decisions) {
       for(const request of evidence.historical_decisions.requests) {
         const retry=await fetch(`http://127.0.0.1:${address.port}/review/reconciliation/decisions`,{method:"POST",headers:{...headers,"Idempotency-Key":request.key},body:JSON.stringify(request.input)});
@@ -125,6 +149,7 @@ it.skipIf(!phase)("preserves production custody and authenticated exact retries 
     await writeFile(`.local-dev/${prefix}-recovery-${phase}.json`,JSON.stringify({phase,database,schema,before,after:await fingerprint(),
       authenticated_http:true,fresh_authenticated_mutation:true,delivery_exact_retry:true,exact_retry:true,duplicate_denied:true,replayed_accounts:balances.length,
       historical_review_exact_retry:Boolean(evidence.historical_decisions),historical_review_fresh_mutation:Boolean(evidence.historical_decisions),
+      purchasing_operator_exact_retry:Boolean(evidence.purchasing_operator),receipt_operator_exact_retry:Boolean(evidence.receipt_operator),historical_simulation_read_only:Boolean(evidence.historical_simulation),
       operator_browser:process.env.PRODUCTION_BROWSER==="true"&&phase==="before"?"PASS":"not run",
       server:await runtime.query("SELECT current_database(),pg_postmaster_start_time()")},null,2));
   } finally {

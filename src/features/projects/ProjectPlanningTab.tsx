@@ -9,6 +9,7 @@ import ProductionPlanningPanel from "../production/ProductionPlanningPanel";
 import PackingPanel from "../packing/PackingPanel";
 import DeliveryPanel from "../delivery/DeliveryPanel";
 import ProjectAttachmentsPanel from "./ProjectAttachmentsPanel";
+import RequirementApprovalPanel from "./RequirementApprovalPanel";
 
 const input = "min-h-11 w-full rounded-xl border border-slate-300 bg-transparent p-3";
 const button = "min-h-11 rounded-xl border border-slate-300 px-4 py-3 disabled:opacity-40";
@@ -23,6 +24,7 @@ export default function ProjectPlanningTab() {
   const [content, setContent] = useState<PlanningContent>();
   const [result, setResult] = useState<PlanningPreview>();
   const [history, setHistory] = useState<{ revision: number; created_at: string; content: PlanningContent }[]>([]);
+  const [approvalGeneration, setApprovalGeneration] = useState(0);
   const [busy, setBusy] = useState(false); const [error, setError] = useState("");
   const generation = useRef(0);
   const dirty = !!content && (!saved || JSON.stringify(content) !== JSON.stringify(header(saved)));
@@ -55,7 +57,7 @@ export default function ProjectPlanningTab() {
   }
   const selectedVersions = versions.filter(v => content?.sites.some(s => s.selections.some(k => k.version_id === v.id)));
   return <section className="space-y-6">
-    <div className="flex flex-wrap items-center justify-between gap-3"><div><h1 className="text-2xl font-bold">Project requirement planning</h1><p className="text-sm text-slate-500">School allocations and read-only material demand. Stock NOT VERIFIED; operational release disabled.</p></div>
+    <div className="flex flex-wrap items-center justify-between gap-3"><div><h1 className="text-2xl font-bold">Project requirement planning</h1><p className="text-sm text-slate-500">Save school allocations, calculate demand and explicitly approve the saved revision. Inventory and execution require their own verified evidence.</p></div>
       {!content && canWrite && <button className={button} disabled={busy} onClick={() => { setSaved(undefined); setContent(empty()); }}>Create project</button>}
     </div>
     {error && <p role="alert" className="rounded-xl bg-red-50 p-4 text-red-700">{error}</p>}
@@ -88,7 +90,8 @@ export default function ProjectPlanningTab() {
         {canWrite && saved && <button className={button} disabled={busy || dirty} onClick={() => { if (window.confirm("Archive this project? Its revisions will be preserved.")) void run(async () => { await apiFetch(`/api/v1/planning-projects/${saved.id}/archive`, { method: "POST", body: JSON.stringify({ revision: saved.revision }) }); setContent(undefined); setSaved(undefined); await refresh(); }); }}>Archive project</button>}
       </div>
       {dirty && <p className="text-sm text-slate-500">Save changes before calculating the persisted allocation.</p>}
-      {saved&&!dirty&&<SupplyPlanningPanel project={saved} onChange={()=>setResult(undefined)}/>}
+      {saved&&!dirty&&<div key={`${saved.id}/${saved.revision}`}><RequirementApprovalPanel project={saved.id} revision={saved.revision} reviewed={result?.revision===saved.revision} onApproved={()=>setApprovalGeneration(n=>n+1)}/></div>}
+      {saved&&!dirty&&<div key={`${saved.id}/${approvalGeneration}`}><SupplyPlanningPanel project={saved} onChange={()=>setResult(undefined)}/></div>}
       {saved&&!dirty&&<ProductionPlanningPanel project={saved} onChange={()=>setResult(undefined)}/>}
       {saved&&!dirty&&<PackingPanel project={saved}/>}
       {saved&&!dirty&&<DeliveryPanel project={saved}/>}

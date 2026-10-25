@@ -28,6 +28,23 @@ export async function verifyHistoricalDecisions(h: Parameters<typeof verifyWorkO
     const input:HistoricalDecisionInput={source:"inventory_items",record_id:record.id,revision:0,evidence_hash:record.evidenceHash,decision:"accepted_for_review",reason:"Synthetic provenance reviewed; no operational authorization",evidence_refs:[{identifier:`synthetic:${record.id}`,provenance:"Isolated D5 fixture export; review only",sha256:record.evidenceHash}]};
     const key=randomUUID(); const pair=await Promise.all([submit(input,key),submit(input,key)]);
     expect(pair[0]).toEqual(pair[1]); expect(pair[0].actor_id).toBe(h.admin.id);
+    const simulate=async(links:unknown,status=200,credential=token)=>{
+      const response=await fetch(`${base}/simulate`,{method:"POST",headers:{Authorization:`Bearer ${credential}`,"Content-Type":"application/json"},body:JSON.stringify({links})});
+      const result=await response.json();expect(response.status,JSON.stringify(result)).toBe(status);return result;
+    };
+    const second=preview.records.find(r=>r.id!==record.id)!; expect(second).toBeDefined();
+    const secondInput={...input,record_id:second.id,evidence_hash:second.evidenceHash};
+    const secondKey=randomUUID(), secondDecision=await submit(secondInput,secondKey);
+    const proposed=[{from:pair[0].id,to:secondDecision.id}];
+    const simulation=await simulate(proposed);
+    expect(simulation.structurallyValid).toBe(true);expect(simulation.activationEnabled).toBe(false);
+    expect(simulation.claimsReserved).toBe(false);expect(simulation.verifiedHistoricalQuantity).toBeNull();
+    expect(simulation.before).toEqual(simulation.after);
+    expect((await simulate([...proposed,...proposed])).conflicts.join()).toContain("duplicate");
+    expect((await simulate([...proposed,{from:secondDecision.id,to:pair[0].id}])).conflicts.join()).toContain("cyclic");
+    await simulate([{from:pair[0].id,to:randomUUID()}],404);
+    await simulate([{from:pair[0].id,to:secondDecision.id,activate:true}],400);
+    await simulate([],400);
     await submit({...input,reason:"Altered replay"},key,409);
     await submit(input,randomUUID(),409);
     await submit({...input,revision:1,evidence_hash:"0".repeat(64)},randomUUID(),409);
@@ -41,7 +58,7 @@ export async function verifyHistoricalDecisions(h: Parameters<typeof verifyWorkO
     await submit(input,randomUUID(),403,viewer);
     const foreign=await h.db.getRepository(InventoryItem).findOneByOrFail({organization_id:h.other.organization_id});
     await submit({...input,record_id:foreign.id},randomUUID(),404);
-    let previous=pair[0]; const requests=[{key,input,result:previous}];
+    let previous=pair[0]; const requests=[{key,input,result:previous},{key:secondKey,input:secondInput,result:secondDecision}];
     for(const decision of historicalDecisionStates.slice(1)) {
       const next={...input,revision:previous.revision,decision}; const nextKey=randomUUID();
       const result=await submit(next,nextKey); expect(result.previous_id).toBe(previous.id); expect(result.revision).toBe(previous.revision+1);
@@ -50,6 +67,7 @@ export async function verifyHistoricalDecisions(h: Parameters<typeof verifyWorkO
     const competing={...input,revision:previous.revision,decision:"disputed" as const};
     const race=await Promise.all([randomUUID(),randomUUID()].map(async key=>fetch(`${base}/decisions`,{method:"POST",headers:{Authorization:`Bearer ${token}`,"Content-Type":"application/json","Idempotency-Key":key},body:JSON.stringify(competing)})));
     expect(race.map(r=>r.status).sort()).toEqual([201,409]);
+    expect((await simulate(proposed)).conflicts.join()).toContain("current accepted review required");
     for(const sql of ["UPDATE trusted_historical_decisions SET reason='rewrite'","DELETE FROM trusted_historical_decisions","TRUNCATE trusted_historical_decisions","UPDATE audit_logs SET action='rewrite' WHERE entity_type='historical_review'"])
       await expect(h.db.query(sql)).rejects.toMatchObject({code:"23514"});
     await expect(h.runtime.query("INSERT INTO trusted_historical_decisions DEFAULT VALUES")).rejects.toMatchObject({code:"42501"});
@@ -59,5 +77,6 @@ export async function verifyHistoricalDecisions(h: Parameters<typeof verifyWorkO
     expect(after.records.find(r=>r.id===record.id)?.decisions).toHaveLength(6);
     expect(after.records.find(r=>r.id===record.id)?.verifiedQuantity).toBeNull();
     h.evidence.historical_decisions={http:"PASS",states:historicalDecisionStates,concurrency:"one winner; exact duplicate returns same receipt",operational_before:before,operational_after:await fingerprint(),requests};
+    h.evidence.historical_simulation={proposed,simulation,activation:"disabled",claims:"none; proposal only"};
   } finally {server.closeAllConnections();await new Promise<void>((resolve,reject)=>server.close(e=>e?reject(e):resolve()));}
 }

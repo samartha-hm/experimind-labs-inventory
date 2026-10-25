@@ -8,6 +8,7 @@ import { SupplyPlanningService,type LineInput } from "../../services/SupplyPlann
 import { DraftKitError } from "../../services/ProductTemplateService";
 import type { TrustedLedgerAuthority } from "../../security/TrustedLedgerAuthority";
 import type { ReceiptMutation } from "../../services/ReceiptCommitmentService";
+import { trustedPurchasingRouter } from "./trusted-purchasing";
 class RevisionDto { @IsInt() @Min(1) revision!:number; }
 class ReservationDto {
   @IsUUID() project_id!:string;
@@ -76,18 +77,41 @@ export function supplyPlanningRouter(db:DataSource,authority?:TrustedLedgerAutho
   }));
   router.param("id",(_req,_res,next,id:string)=>{next(uuid.test(id)?undefined:new DraftKitError(400,"Invalid identity"));});
   const key=(req:Parameters<RequestHandler>[0])=>req.header("Idempotency-Key")!;
-  const guardedReceipt=async(req:Parameters<RequestHandler>[0],transition:ReceiptMutation["transition"])=>{
+  router.use(trustedPurchasingRouter(db,authority));
+  const guardedReceipt=async(req:Parameters<RequestHandler>[0],transition:ReceiptMutation["transition"],operator=false)=>{
+    if(operator && !["admin","super_admin"].includes(req.user!.role))throw new DraftKitError(403,"Receipt administrator required");
     if(!authority)throw new DraftKitError(503,"Guarded receipt authority unavailable");
     const input=transition==="receive"?await dto(req.body,GuardedReceiveDto):await dto(req.body,GuardedInspectionDto);
     if(input.transition!==transition || (transition==="receive"?input.order:input.id)!==req.params.id)
       throw new DraftKitError(400,"Receipt route and operation must match");
     const capability=req.header("X-Ledger-Capability");
+    if(operator){
+      try{return await authority.performReceiptForSession(req.headers.authorization!.slice(7),
+        {action:"receipt",key:key(req),input:input as ReceiptMutation});}
+      catch{throw new DraftKitError(409,"Receipt authorization or state conflict; refresh and reconcile before changing the request");}
+    }
     if(!capability)throw new DraftKitError(403,"Receipt capability required");
     try {return await authority.performForSession(req.headers.authorization!.slice(7),capability,
       {action:"receipt",key:key(req),input:input as ReceiptMutation});}
     catch {throw new DraftKitError(409,"Receipt authorization or state conflict");}
   };
   router.get("/",action(async(req,res)=>{const project=req.query.project;if(project!==undefined&&(typeof project!=="string"||!uuid.test(project)))throw new DraftKitError(400,"Invalid project identity");res.json(await s.list(req.user!.orgId!,project as string|undefined));}));
+  router.get("/trusted-receipts",action(async(req,res)=>{
+    res.setHeader("Cache-Control","no-store");
+    if(!authority){res.json({enabled:false,coverage:[]});return;}
+    const coverage=await db.query(`SELECT p.id AS "order",p.planning_revision AS "orderRevision",b.line_id AS line,
+      a.project_id AS project,a.site_id AS site,a.item_key AS item,a.unit,e.approval_id AS approval,
+      e.revision AS "demandRevision",c.id AS coverage,
+      coalesce((SELECT s.locations FROM physical_stock_scopes s WHERE s.organization_id=b.organization_id
+        AND s.item_id=a.item_key::uuid AND s.unit=a.unit),'[]'::jsonb) AS locations,
+      trim_scale(c.end_quantity-coalesce((SELECT max(r.end_quantity) FROM commitment_receipts r WHERE r.coverage_id=c.id),c.start_quantity))::text AS remaining
+      FROM commitment_po_lines b JOIN purchase_orders p ON p.id=b.order_id AND p.organization_id=b.organization_id
+      JOIN commitment_accounts a ON a.id=b.account_id AND a.organization_id=b.organization_id
+      JOIN commitment_entitlements e ON e.id=b.entitlement_id
+      JOIN commitment_po_coverage c ON c.order_id=p.id
+      WHERE b.organization_id=$1 AND p.status='approved' ORDER BY p.id,c.id`,[req.user!.orgId]);
+    res.json({enabled:true,coverage});
+  }));
   router.get("/:kind/:id/history",action(async(req,res)=>{if(!["reservation","request","order","receipt","supplier"].includes(req.params.kind))throw new DraftKitError(400,"Invalid history kind");res.json(await s.history(req.user!.orgId!,req.params.kind,req.params.id));}));
   router.post("/suppliers",action(async(req,res)=>{const d=await dto(req.body,SupplierDto);res.status(201).json(await s.supplier(req.user!.orgId!,req.user!.id,key(req),d.name.trim()));}));
   router.post("/reservations",action(async(req,res)=>{const d=await dto(req.body,ReservationDto);res.status(201).json(await s.reserve(req.user!.orgId!,req.user!.id,key(req),d));}));
@@ -102,6 +126,12 @@ export function supplyPlanningRouter(db:DataSource,authority?:TrustedLedgerAutho
   router.post("/orders",action(async(req,res)=>{const d=await dto(req.body,OrderDto);res.status(201).json(await s.order(req.user!.orgId!,req.user!.id,key(req),d.request_id,d.revision,d.supplier_id));}));
   router.post("/orders/:id/receipts",action(async(req,res)=>{
     res.status(201).json(await guardedReceipt(req,"receive"));
+  }));
+  router.post("/operator/orders/:id/receipts",action(async(req,res)=>{
+    res.status(201).json(await guardedReceipt(req,"receive",true));
+  }));
+  for(const verb of ["accept","reject","quarantine"] as const)router.post(`/operator/receipts/:id/${verb}`,action(async(req,res)=>{
+    res.json(await guardedReceipt(req,verb,true));
   }));
   for(const verb of ["accept","reject","quarantine"] as const)router.post(`/receipts/:id/${verb}`,action(async(req,res)=>{
     res.json(await guardedReceipt(req,verb));

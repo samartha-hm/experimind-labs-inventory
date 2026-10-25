@@ -23,6 +23,7 @@ export default function TrustedProductionPanel({projectId}:{projectId?:string}) 
   const [quantity,setQuantity]=useState(""),[location,setLocation]=useState(""),[reason,setReason]=useState("");
   const [confirmed,setConfirmed]=useState(false),[busy,setBusy]=useState(false),[error,setError]=useState(""),[message,setMessage]=useState("");
   const [pending,setPending]=useState<Pending|null>(null);
+  const [reconciled,setReconciled]=useState(false);
   const writer=["admin","super_admin"].includes(currentUser?.role??"");
   async function refresh() {
     const data: {enabled:boolean;orders:WorkOrder[]}=await apiFetch(`${endpoint}/trusted-work-queue`);
@@ -39,7 +40,7 @@ export default function TrustedProductionPanel({projectId}:{projectId?:string}) 
   },[projectId,storageKey]);
   const order=orders.find(o=>o.id===selected),input=order?.materials.find(m=>m.id===material);
   async function submit(operation:Pending) {
-    setBusy(true);setError("");setMessage("");
+    setBusy(true);setError("");setMessage("");setConfirmed(false);setReconciled(false);
     try {
       // Persist before sending. A lost response must reuse the exact source and key.
       sessionStorage.setItem(storageKey,JSON.stringify(operation));setPending(operation);
@@ -59,14 +60,14 @@ export default function TrustedProductionPanel({projectId}:{projectId?:string}) 
   }
   return <section aria-label="Authorized production" className="space-y-4 rounded-2xl border border-slate-300 p-4">
     <div className="flex flex-wrap items-center justify-between gap-3"><h3 className="text-lg font-semibold">Authorized production</h3>
-      <button className={button} disabled={busy} onClick={()=>{setError("");void refresh().catch(e=>setError(e instanceof Error?e.message:"Refresh failed"));}}>Refresh evidence</button></div>
+      <button className={button} disabled={busy} onClick={()=>{setError("");setBusy(true);void refresh().then(()=>setReconciled(true)).catch(e=>setError(e instanceof Error?e.message:"Refresh failed")).finally(()=>setBusy(false));}}>Refresh evidence</button></div>
     <p className="text-sm text-slate-500">Issue verified material or record output against an existing approved work order. Output stays in pending-QC custody until allocated and inspected through the trusted packing workflow. Dispatch requires accepted assemblies.</p>
     {!enabled&&<p role="status">Trusted production is unavailable in this environment.</p>}
     {error&&<p role="alert" className="text-red-600">{error}</p>}{message&&<p role="status">{message}</p>}
     {pending&&<div className="space-y-2 rounded-xl border border-amber-400 p-3"><p>Saved request source: <code>{pending.input.source}</code>. Keep this identity until reconciled.</p>
       <button className={button} disabled={busy||!writer||!enabled} onClick={()=>void submit(pending)}>Retry saved request</button>
       <label className="block"><input type="checkbox" checked={confirmed} onChange={e=>setConfirmed(e.target.checked)}/> I checked the work-order evidence and reconciled this request.</label>
-      <button className={button} disabled={busy||!confirmed} onClick={()=>{sessionStorage.removeItem(storageKey);setPending(null);setConfirmed(false);}}>Clear reconciled request</button></div>}
+      <button className={button} disabled={busy||!confirmed||!reconciled} onClick={()=>{try{sessionStorage.removeItem(storageKey);setPending(null);setConfirmed(false);setReconciled(false);}catch{setError("Saved request cannot be cleared. Reconcile browser storage before continuing.");}}}>Clear reconciled request</button></div>}
     <label className="block">Work order <select className={`${control} w-full`} value={selected} onChange={e=>{setSelected(e.target.value);setMaterial("");setConfirmed(false);}} disabled={busy||!!pending}>
       <option value="">Select an approved work order</option>{orders.map(o=><option key={o.id} value={o.id}>{o.number} · {o.planned_quantity} {o.unit}</option>)}</select></label>
     {enabled&&orders.length===0&&<p>No trusted work orders are available. Approved recipe publication and exclusive work-order claims must exist first.</p>}

@@ -5,6 +5,8 @@ import { apiFetch } from "../../../utils/api";
 import type { ProjectStockReservation,PurchaseRequest,PurchaseGoodsReceipt,SupplyLine } from "../../../entity/SupplyPlanning";
 import type { PurchaseOrder } from "../../../entity/PurchaseOrder";
 import type { PlanningView } from "../../projects/planningTypes";
+import TrustedReceiptPanel from "./TrustedReceiptPanel";
+import TrustedPurchasingPanel from "./TrustedPurchasingPanel";
 interface Item {id:string;name:string;unit:string;verified_on_hand:number|null;scope:{locations:string[]}|null}
 interface Data {reservations:ProjectStockReservation[];requests:PurchaseRequest[];orders:PurchaseOrder[];receipts:PurchaseGoodsReceipt[];suppliers:{id:string;name:string}[]}
 const input="min-h-11 rounded-xl border border-slate-300 bg-transparent p-3";
@@ -65,7 +67,7 @@ export default function SupplyPlanningPanel({project,onChange}:{project?:Plannin
         {writer&&["draft","reviewed","approved"].includes(r.status)&&<button className={button} onClick={()=>action("requests",r.id,r.revision,"cancel")}>Cancel</button>}
         <button className={button} onClick={()=>void run(async()=>{setHistory(await apiFetch(`/api/v1/supply-planning/request/${r.id}/history`));},false)}>History</button></details>)}
       <h3 className="font-semibold">Purchase orders</h3>
-      <p id="receipt-authority-help" role="note" className="text-sm text-amber-800">Receipt entry and inspection are unavailable in this screen. They require approved demand coverage and trusted receipt authorization. Existing receipts and their audit history remain available for review.</p>
+      <p id="receipt-authority-help" role="note" className="text-sm text-amber-800">Use trusted supplier receiving below for approved demand coverage. Legacy receipts remain available for audit review.</p>
       {data.orders.map(o=><details className="rounded-xl border p-3" key={o.id}><summary>{o.po_number} · {data.suppliers.find(s=>s.id===o.vendor_id)?.name} · {o.status} · r{o.planning_revision}</summary>
         {o.planning_lines?.map(l=><p key={l.id}>{items.find(i=>i.id===l.item_id)?.name??l.item_id} · authorized {l.canonical_quantity} {l.canonical_unit} · delivered {stockText(data.receipts.filter(g=>g.po_id===o.id&&g.line_id===l.id).reduce((n,g)=>n+stockUnits(g.quantity),0n))} · remaining {stockText(stockUnits(l.canonical_quantity)-data.receipts.filter(g=>g.po_id===o.id&&g.line_id===l.id).reduce((n,g)=>n+stockUnits(g.quantity),0n))}</p>)}
         {reviewer&&o.status==="draft"&&!o.reviewed_by&&<button className={button} onClick={()=>action("orders",o.id,o.planning_revision!,"review")}>Review order</button>}
@@ -80,5 +82,7 @@ export default function SupplyPlanningPanel({project,onChange}:{project?:Plannin
         <button className={button} onClick={()=>void run(async()=>{setHistory(await apiFetch(`/api/v1/supply-planning/receipt/${g.id}/history`));},false)}>History</button></div>)}
       {!!history.length&&<details open><summary>Immutable audit snapshots</summary><pre className="overflow-auto text-xs">{JSON.stringify(history,null,2)}</pre></details>}
     </fieldset>
+    <TrustedPurchasingPanel projectId={project?.id} suppliers={data.suppliers} onChange={async()=>{await load();onChange?.();}}/>
+    <TrustedReceiptPanel projectId={project?.id} onChange={async()=>{await load();onChange?.();}}/>
   </section>;
 }

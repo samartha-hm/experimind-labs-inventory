@@ -40,7 +40,7 @@ describe('Saved requirement review', () => {
       { revision: 1, updated_by: 'actor-one', created_at: 'yesterday', content: previous },
     ] } as ProjectsWorkspaceDetail;
     const html = renderToStaticMarkup(React.createElement(RequirementReview, { detail, content, revision: 2, school: content.sites[0].id }));
-    expect(html).toContain('Requirement approval unavailable');
+    expect(html).toContain('Use the explicit school requirement approval action');
     expect(html).toContain('actor-two'); expect(html).toContain('actor-one');
     expect(html).toContain('&lt;script&gt;School&lt;/script&gt;');
     expect(html).not.toMatch(/<script>|<form|<button[^>]*>Approve/);

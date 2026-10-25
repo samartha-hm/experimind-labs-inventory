@@ -108,6 +108,33 @@ export class TrustedLedgerAuthority {
   }
 
   /** Narrow operator entry point; retries read the exact durable receipt after live session validation. */
+  async performReceiptForSession(accessToken: string, request: Extract<LedgerRequest,{action:"receipt"}>) {
+    return this.performPurchasingForSession(accessToken, request);
+  }
+
+  async performPurchasingForSession(accessToken: string, request: Extract<LedgerRequest,{action:"receipt"|"purchaseRequest"|"purchaseOrder"}>) {
+    const normalized = JSON.parse(JSON.stringify(request)) as typeof request;
+    if (!["receipt","purchaseRequest","purchaseOrder"].includes(normalized.action)) throw Error("Unsupported purchasing operator action");
+    const p = this.claims(accessToken, false), digest = fingerprint(normalized);
+    const saved = () => this.#db.transaction(async m => {
+      await this.current(m, p);
+      const [row] = await m.query(`SELECT fingerprint,result FROM commitment_authorizations
+        WHERE organization_id=$1 AND actor_id=$2 AND operation_key=$3`, [p.orgId,p.sub,normalized.key]);
+      if (row && row.fingerprint !== digest) throw Error("Operation key belongs to another request");
+      return row;
+    });
+    const previous = await saved();
+    if (previous) return previous.result;
+    try {
+      return await this.performForSession(accessToken, await this.issue(accessToken, normalized), normalized);
+    } catch (error) {
+      // A simultaneous exact retry may have committed under another private capability.
+      const committed = await saved();
+      if (committed) return committed.result;
+      throw error;
+    }
+  }
+
   async performProductionForSession(accessToken: string,
     request: Extract<LedgerRequest,{action:"historicalDecision"|"issueWorkOrder"|"recordFinishedOutput"|"createPackingPlan"|"allocatePackingOutput"|"inspectPacking"|"dispatchPacking"|"acknowledgeDelivery"|"createTrustedInstallation"|"trustedInstallationAction"|"closeTrustedProject"}>) {
     const normalized = JSON.parse(JSON.stringify(request)) as typeof request;

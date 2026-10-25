@@ -6,6 +6,7 @@ import { authenticateJwt } from "../../middleware/auth";
 import { dto } from "./product-templates";
 import { StocktakeService } from "../../services/StocktakeService";
 import { HistoricalReconciliationService } from "../../services/HistoricalReconciliationService";
+import { HistoricalLineageSimulationService } from "../../services/HistoricalLineageSimulationService";
 import type { TrustedLedgerAuthority } from "../../security/TrustedLedgerAuthority";
 import { historicalDecisionStates, reconciliationSources, type HistoricalDecisionInput } from "../../features/inventory/reconciliationTypes";
 import { IsIn, Matches, ArrayMinSize, ArrayMaxSize, ValidateNested } from "class-validator";
@@ -71,6 +72,11 @@ export function stocktakeRouter(db: DataSource, authority?: TrustedLedgerAuthori
     res.setHeader("Cache-Control", "no-store");
     res.json(await new HistoricalReconciliationService(db).preview(req.user!.orgId!,req.user!.id,
       req.query.source ?? "inventory_items", req.query.offset ?? "0", Boolean(authority)));
+  }));
+  router.post("/reconciliation/simulate", action(async(req,res)=>{
+    if (!authority) throw new DraftKitError(503,"Trusted historical review authority unavailable");
+    res.setHeader("Cache-Control", "no-store");
+    res.json(await new HistoricalLineageSimulationService(db).simulate(req.user!.orgId!,req.user!.id,req.body));
   }));
   router.post("/reconciliation/decisions", action(async(req,res)=>{
     if (!["admin","super_admin"].includes(req.user!.role)) throw new DraftKitError(403,"Tenant administrator required");
