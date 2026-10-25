@@ -1,18 +1,30 @@
-# Next task — D5 consolidated evidence delivered; stop
+# Next task — Finish remaining D5 browser gates
 
 Read SESSION_HANDOFF.md and docs/erp/D5_ERP_READINESS_AND_PILOT_GATE.md.
-D5 software acceptance remains BLOCKED; operational pilot remains NO-GO.
-Append-only attributed historical decisions and fresh nonempty restart/restore
-are implemented and verified. Final full suite: 608 passed, two opt-in skips.
+Implementation: `c480da097c12eb75415b8d8ec68771b7421b013f`.
+D5 software readiness remains BLOCKED; pilot remains NO-GO.
 
-A separately authorized continuation must implement trusted receipt/QC operator
-authorization and UI, complete positive authenticated lifecycle/role/offline
-acceptance, and finish authoritative lineage/conflict reconciliation. Current
-receive/QC controls intentionally fail closed; do not reopen legacy routes.
-Production migration/provisioning and physical/staff/device pilot validation
-remain separate gates. See consolidated report for exact evidence and limits.
+Restore reliable integrated-browser interaction; the prior browser kernel reset
+after stocktake posting confirmation timed out. Do not assume the count posted.
+Use a fresh tab and inspect dialogs before confirmation-triggering interactions.
+Complete a fresh authenticated production → packing/six-check QC → dispatch →
+partial delivery → installation/closure chain. Existing fixture history is not
+positive browser mutation evidence. Complete supported-role, controlled flag,
+offline/durable retry and route-level keyboard/accessibility coverage. Fix defects
+and refresh verification/report evidence without repeating unrelated baseline audits.
 
-Preserve unrelated AGENTS.md and untracked .test-tmp/. Local .local-dev contains
-synthetic credentials and recovery evidence: never commit these or database dumps.
-No deployment, real stock changes, main merge, force push or legacy reopening.
-Use /new or /compact before a new authorized scope.
+User authorization persists for isolated synthetic common-crate physical-attestation
+testing only, including crate #1. Label evidence SIMULATED / SYNTHETIC TEST EVIDENCE.
+No actual inspection, staff approval, operational QC acceptance or pilot activation
+is authorized. Preserve production attestation/auth/audit/custody requirements.
+
+Historical review/structural simulation is implemented; irreversible activation
+requires verified documents, approved quantity/unit/cardinality/conflict mapping,
+explicit business authority and reviewed atomic global source-claim enforcement.
+Do not infer activation authority from review decisions.
+
+608 tests passed, two opt-in skips; separate actual recovery passed. Local evidence
+is in .local-dev/d52-* and d50-recovery-*. Never commit credentials or SQL dumps.
+Keep operational flags default-off and unrelated AGENTS.md/.test-tmp/ intact.
+No deployment, real stock changes, main merge, force-push or legacy reopening.
+Use /new or /compact before continuation.
