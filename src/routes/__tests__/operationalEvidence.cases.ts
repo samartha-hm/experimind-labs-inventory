@@ -12,6 +12,7 @@ import { AuthService } from '../../services/AuthService';
 import type { TrustedLedgerAuthority } from '../../security/TrustedLedgerAuthority';
 import type { OperationalCommand } from '../../features/inventory/operationalEvidenceTypes';
 import { stocktakeRouter } from '../v1/stocktakes';
+import { verifyMaterialReconciliation } from './materialReconciliation.cases';
 
 export async function verifyOperationalEvidence(h: {db: DataSource; runtime: DataSource; writer: DataSource; identity: DataSource; admin: User; other: User; password: string; evidence: Record<string,unknown>}, authority: TrustedLedgerAuthority, token: string) {
   const org = h.admin.organization_id, service = new OperationalEvidenceService(h.runtime);
@@ -74,5 +75,6 @@ export async function verifyOperationalEvidence(h: {db: DataSource; runtime: Dat
     await post(reviewCount(6,'recount'),token,randomUUID(),409);
     expect(await h.db.query('SELECT count(*)::int n FROM stock_ledger')).toEqual(physicalBefore);
     h.evidence.operational_evidence={classification:'SYNTHETIC TEST EVIDENCE',http:'PASS',retry:'exact immutable result',review_concurrency:'one winner',blind_passes:3,physical_posting:'none',pilot:'NO-GO',retry_command:evidence,retry_key:key,retry_result:a,actor:h.admin.id};
+    await verifyMaterialReconciliation(h,token);
   } finally {server.closeAllConnections(); await new Promise<void>((resolve,reject)=>server.close(e=>e?reject(e):resolve()));}
 }

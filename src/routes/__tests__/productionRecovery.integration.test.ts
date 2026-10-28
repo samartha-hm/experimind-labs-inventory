@@ -18,6 +18,9 @@ import { verifyProductionBrowser } from "./productionBrowser.cases";
 import { verifyPackingBrowser } from "./packingBrowser.cases";
 import { verifyDeliveryBrowser } from "./deliveryBrowser.cases";
 import { trustedProjectProgress } from "../../services/TrustedCompletionService";
+import { MaterialReconciliationService } from "../../services/MaterialReconciliationService";
+import { ProjectPlanningService } from "../../services/ProjectPlanningService";
+import { verifyMaterialReconciliationBrowser } from "./materialReconciliationBrowser.cases";
 
 const phase=process.env.PRODUCTION_RECOVERY_PHASE;
 const prefix=process.env.PRODUCTION_RECOVERY_ARTIFACT_PREFIX??'d3';
@@ -84,10 +87,30 @@ it.skipIf(!phase)("preserves production custody and authenticated exact retries 
     const app=express();app.use(express.json());app.use("/production",productionPlanningRouter(runtime,authority));
     app.use("/api/v1/production-planning",productionPlanningRouter(runtime,authority));
     app.use("/review",stocktakeRouter(runtime,authority));
+    app.use("/api/v1/stocktakes",stocktakeRouter(runtime,authority));
     app.use("/supply",supplyPlanningRouter(runtime,authority));
     server=await new Promise<Server>(resolve=>{const s=app.listen(0,"127.0.0.1",()=>resolve(s));});
     const address=server.address();if(!address||typeof address==="string")throw Error("Missing port");
     const base=`http://127.0.0.1:${address.port}/production`,headers={Authorization:`Bearer ${access}`,"Content-Type":"application/json","Idempotency-Key":output.operation_key};
+    let reconciliationHash:string|undefined;
+    if(evidence.material_reconciliation) {
+      const project=evidence.material_reconciliation.project;
+      const snapshot=await new MaterialReconciliationService(runtime).preview(access,project);
+      reconciliationHash=snapshot.witnessHash;
+      expect(reconciliationHash).toBe(evidence.material_reconciliation.witnessHash);
+      if(phase!=='before')expect(reconciliationHash).toBe(JSON.parse(await readFile(`.local-dev/${prefix}-recovery-${phase==='restart'?'before':'restart'}.json`,'utf8')).reconciliationHash);
+      expect(await fingerprint()).toEqual(before);
+      if(process.env.D6P_BROWSER==='true'&&phase==='before') {
+        const [foreignActor]=await owner.query('SELECT id,organization_id FROM users WHERE organization_id<>$1 ORDER BY id LIMIT 1',[output.organization_id]);
+        expect(foreignActor).toBeDefined();
+        const foreign=await new ProjectPlanningService(owner).save(foreignActor.organization_id,foreignActor.id,
+          {name:'Synthetic reconciliation tenant boundary',client:'Synthetic',notes:'Unapproved empty draft',commercial_links:[],overrides:{},sites:[]});
+        const [actor]=await owner.query('SELECT role FROM users WHERE id=$1',[admin.id]);
+        await verifyMaterialReconciliationBrowser(app,`http://127.0.0.1:${address.port}`,access,admin,evidence.d6_exact_journey?.project??project,{
+          foreignProject:foreign.id,setDeniedRole:async denied=>{await owner.query('UPDATE users SET role=$2 WHERE id=$1',[admin.id,denied?'customer':actor.role]);}
+        });
+      }
+    }
     const readinessResponse=await fetch(`http://127.0.0.1:${address.port}/review/operational-readiness`,{headers});
     expect(readinessResponse.status).toBe(200);
     const readiness=await readinessResponse.json();
@@ -213,7 +236,7 @@ it.skipIf(!phase)("preserves production custody and authenticated exact retries 
     const after=await fingerprint();
     for(const table of tables.filter(t=>!['site_installations','supply_events','audit_logs','commitment_authorizations','trusted_historical_decisions'].includes(t)))expect(after[table]).toEqual(before[table]);
     await writeFile(`.local-dev/${prefix}-recovery-${phase}.json`,JSON.stringify({phase,database,schema,before,after:await fingerprint(),
-      preparation,authenticated_http:true,fresh_authenticated_mutation:Boolean(evidence.delivery.recovery_installation),delivery_exact_retry:evidence.delivery.requests.length>0,exact_retry:true,duplicate_denied:true,replayed_accounts:balances.length,
+      preparation,reconciliationHash,reconciliation_browser:process.env.D6P_BROWSER==='true'&&phase==='before'?'PASS':'not run',authenticated_http:true,fresh_authenticated_mutation:Boolean(evidence.delivery.recovery_installation),delivery_exact_retry:evidence.delivery.requests.length>0,exact_retry:true,duplicate_denied:true,replayed_accounts:balances.length,
       historical_review_exact_retry:Boolean(evidence.historical_decisions),historical_review_fresh_mutation:Boolean(evidence.historical_decisions),
       purchasing_operator_exact_retry:Boolean(evidence.purchasing_operator),receipt_operator_exact_retry:Boolean(evidence.receipt_operator),historical_simulation_read_only:Boolean(evidence.historical_simulation),
       residual_ownership_blocks_closure:Boolean(evidence.d6_exact_journey),

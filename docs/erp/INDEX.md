@@ -4,6 +4,7 @@ Open only the authority relevant to the task. Current user instructions and conf
 
 | Topic | Authoritative specification |
 | --- | --- |
+| D6-P read-only ownership reconciliation | [Diagnostics, fixtures, conservation and future implementation preview](D6P_OWNERSHIP_RECONCILIATION_PREPARATION.md); execution remains BLOCKED |
 | D6-C ownership decisions — DRAFT / NOT AUTHORIZED | [Decision package and approval requirements](D6C_OWNERSHIP_DECISION_CONTRACT_DRAFT.md); [D6 evidence and separate verdicts](D6_OPERATIONAL_PILOT_PREPARATION.md) |
 | D5 consolidated readiness and pilot gate | [Readiness, reconciliation and remaining acceptance gates](D5_ERP_READINESS_AND_PILOT_GATE.md) |
 | V5 dynamic Kit Builder | [Dynamic product and Prastuti builder](26_DYNAMIC_PRODUCT_AND_PRASTUTI_BUILDER.md), [implementation](27_DYNAMIC_BUILDER_IMPLEMENTATION.md) |

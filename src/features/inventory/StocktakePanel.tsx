@@ -3,6 +3,7 @@ import * as Dialog from "@radix-ui/react-dialog";
 import { useAuth } from "../../AuthContext";
 import { apiFetch } from "../../utils/api";
 import OperationalReadinessPanel from "./OperationalReadinessPanel";
+import MaterialReconciliationPanel from "./MaterialReconciliationPanel";
 import BlindCountSheet from "./BlindCountSheet";
 import OperationalEvidencePanel from "./OperationalEvidencePanel";
 import type { Stocktake, StocktakeTarget, CountEntry, PhysicalStockScope } from "../../entity/Stocktake";
@@ -48,7 +49,7 @@ export default function StocktakePanel() {
       await load(approved.id);
     });} finally {posting.current=false;setConfirmation(undefined);}
   }
-  return <><OperationalReadinessPanel/><section ref={panel} tabIndex={-1} className="space-y-4 rounded-2xl border border-slate-300 p-4">
+  return <><OperationalReadinessPanel/><MaterialReconciliationPanel/><section ref={panel} tabIndex={-1} className="space-y-4 rounded-2xl border border-slate-300 p-4">
     <h2 className="text-xl font-semibold">Physical stocktake and verified balances</h2>
     <p className="text-sm text-slate-500">Legacy quantities, prices and locations are unverified. Verified stock comes from approved counts and accepted receipts in the ledger. Active reservations reduce available stock; pending inspection is unavailable.</p>
     {error&&<p role="alert" className="text-red-600">{error}</p>}

@@ -1,4 +1,5 @@
 import { Router, type RequestHandler } from "express";
+import { MaterialReconciliationService } from "../../services/MaterialReconciliationService";
 import { DataSource } from "typeorm";
 import { IsString, MinLength, MaxLength, IsArray, IsInt, Min, IsUUID, IsBoolean } from "class-validator";
 import { User } from "../../entity/User";
@@ -70,6 +71,10 @@ export function stocktakeRouter(db: DataSource, authority?: TrustedLedgerAuthori
     }next();
   }));
   router.param("id",(_req,res,next,id:string)=>{if(!uuid.test(id)){res.status(400).json({error:"Invalid stocktake identity"});return;}next();});
+  router.get("/material-reconciliation/:project", action(async(req,res)=>{
+    res.setHeader("Cache-Control", "no-store");
+    res.json(await new MaterialReconciliationService(db).preview(req.headers.authorization!.slice(7),String(req.params.project)));
+  }));
   router.get("/operational-readiness", action(async(req,res)=>{
     res.setHeader("Cache-Control", "no-store");
     res.json(await new OperationalPreparationService(db).readiness(req.user!.orgId!, req.user!.id));

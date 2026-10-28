@@ -1,9 +1,21 @@
 # D6 operational pilot preparation
 
-Software verdict: BLOCKED (D6-C). Operational pilot: NO-GO.
+Software verdict: BLOCKED (ownership execution). Operational pilot: NO-GO.
 All rehearsal records are SYNTHETIC TEST EVIDENCE. No real stock or deployment is authorized.
 
-## Current D6-C decision and acceptance verdicts
+## D6-P read-only reconciliation preparation — 2026-10-29
+
+The [D6-P implementation and impact preview](D6P_OWNERSHIP_RECONCILIATION_PREPARATION.md) adds an authenticated GET-only project/material diagnostic panel with 34 separate source lanes, exact account balances and units, source/approval/witness identities, six issue classes and residual-hold closure blockers. Live session, current role and tenant authorization are checked; a fresh authorization read follows the repeatable-read, read-only evidence snapshot. The reader has no authority writer or execution controls. Missing caches and incomplete sources cannot imply zero holds. Financial obligations remain separate and unassessed.
+
+Nine detached synthetic diagnostic scenarios cover unused receipts, partial/QC decisions, unsupported ownership links, shared-SKU school lineage, partial delivery, cancellation, duplicate coverage, missing caches and unsupported history. Conservation assertions check exact A/F/H and claim sums, disjoint source intervals, approval lineage and closure denial for all fixture projects with residual account/claim holds. Existing physical debit, reservation exclusivity and receipt/QC retry tests remain applicable. Proposed O1–O10 discharge is never asserted as current behavior.
+
+Current regression: **82 files passed, two skipped; 628 tests passed, two skipped**. The skipped recovery tests require their dedicated harness. Typecheck and PWA/server build passed. Dedicated D6-P browser/recovery results and artifact references are recorded in the linked preparation report. Unrelated `AGENTS.md` and `.test-tmp/` are preserved.
+
+Dedicated D6-P acceptance: desktop/tablet/phone reconciliation, keyboard navigation, invalid input and real tenant/role HTTP denials **PASS**, with no browser mutation requests. Before/restart/nonempty fresh-restore restricted-role checks **PASS** with identical diagnostic hash, replay and residual-hold closure denial. This is authenticated component acceptance, not a full-application or intended-host verdict.
+
+This milestone develops diagnostics only. The ownership contract remains **DRAFT / NOT AUTHORIZED**; D6 ownership execution remains **BLOCKED** and the pilot **NO-GO**. No ownership migration, transfer, hold release, settlement, real stock posting, deployment or historical activation is included. Full-application and intended-host acceptance below retain their prior limitations; component acceptance does not replace them.
+
+## Retained D6-C decision and acceptance verdicts
 
 The [ownership decision contract](D6C_OWNERSHIP_DECISION_CONTRACT_DRAFT.md) is **DRAFT / NOT AUTHORIZED**. O1–O10 give recommendations, alternatives, conserved accounting examples, risks and exact accountable approvals. The proposal is ready for business review; no named approver has approved it. The refined package separates source coverage, exclusive material responsibility, physical S/R, school entitlement and payables; adds exact accounting, disposition/transition matrices and an unsigned O1–O10 approval register. Financial-tail controls require separate approval and never bypass residual material holds. Its future adversarial matrix is a specification, not executed acceptance evidence. This refinement is documentation only; no new runtime acceptance was performed.
 
