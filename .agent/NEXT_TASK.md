@@ -1,30 +1,28 @@
-# Next task — Finish remaining D5 browser gates
+# Next task — Recover browser control for D5
 
-Read SESSION_HANDOFF.md and docs/erp/D5_ERP_READINESS_AND_PILOT_GATE.md.
-Implementation: `c480da097c12eb75415b8d8ec68771b7421b013f`.
-D5 software readiness remains BLOCKED; pilot remains NO-GO.
+Read SESSION_HANDOFF.md and the 2026-10-28 evidence matrix in
+`docs/erp/D5_ERP_READINESS_AND_PILOT_GATE.md`.
+Checkpoint: `4a6af9b1920359eb22316f9e7bedc8c79b6496b1`.
+D5 software acceptance remains BLOCKED; pilot remains NO-GO.
 
-Restore reliable integrated-browser interaction; the prior browser kernel reset
-after stocktake posting confirmation timed out. Do not assume the count posted.
-Use a fresh tab and inspect dialogs before confirmation-triggering interactions.
-Complete a fresh authenticated production → packing/six-check QC → dispatch →
-partial delivery → installation/closure chain. Existing fixture history is not
-positive browser mutation evidence. Complete supported-role, controlled flag,
-offline/durable retry and route-level keyboard/accessibility coverage. Fix defects
-and refresh verification/report evidence without repeating unrelated baseline audits.
+Recover reliable browser input/native-confirm handling first. Fresh tabs rendered
+authenticated dashboards but input returned without navigation after a native
+stocktake confirmation interrupted the runtime. Use fresh targets; do not loop
+on stalled tabs. Catch click interruptions before querying a dialog. Never bypass
+required confirmation or substitute direct database mutations for browser proof.
 
-User authorization persists for isolated synthetic common-crate physical-attestation
-testing only, including crate #1. Label evidence SIMULATED / SYNTHETIC TEST EVIDENCE.
-No actual inspection, staff approval, operational QC acceptance or pilot activation
-is authorized. Preserve production attestation/auth/audit/custody requirements.
+Stocktake `4c6e3a5f-db11-4c79-9fd2-a892f640997e` is authoritatively NOT POSTED:
+approved r4, four audit revisions, zero ledger entries. Re-read supported APIs
+before any new posting attempt. `.local-dev/d55-stocktake-read.json` records it.
+Static local serving restored prompt APIs; development slowdown is unresolved.
 
-Historical review/structural simulation is implemented; irreversible activation
-requires verified documents, approved quantity/unit/cardinality/conflict mapping,
-explicit business authority and reviewed atomic global source-claim enforcement.
-Do not infer activation authority from review decisions.
+After input recovery, complete the fresh authenticated school/project → production
+→ packing/six-check QC → dispatch/partial delivery → installation/closure chain and
+browser denial/retry/accessibility matrix. Existing fixtures are not browser proof.
 
-608 tests passed, two opt-in skips; separate actual recovery passed. Local evidence
-is in .local-dev/d52-* and d50-recovery-*. Never commit credentials or SQL dumps.
-Keep operational flags default-off and unrelated AGENTS.md/.test-tmp/ intact.
-No deployment, real stock changes, main merge, force-push or legacy reopening.
+Fresh 608 tests passed, two opt-in skips; typecheck and frontend/PWA/server build
+passed. Reuse prior actual recovery unless assumptions change. Synthetic-only
+attestation authorization persists; label evidence SIMULATED / SYNTHETIC TEST
+EVIDENCE. Keep historical activation and operational flags disabled by default.
+Preserve AGENTS.md and `.test-tmp/`; no deployment, real stock or main merge.
 Use /new or /compact before continuation.
