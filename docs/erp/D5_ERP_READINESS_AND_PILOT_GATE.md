@@ -1,4 +1,4 @@
-# D5 ERP readiness and pilot gate — 2026-10-25
+# D5 ERP readiness and pilot gate — 2026-10-28
 
 All evidence below is **SIMULATED / SYNTHETIC TEST EVIDENCE**. This is a
 software acceptance record, not physical inspection, staff sign-off or pilot approval.
@@ -98,7 +98,7 @@ synthetic schema `requirement_test_41aba90049184ca4aced784f280d4c6b` in the loca
 | Packing | New plan `ddbb146c-3a1e-4d7d-8583-16e37d8f0f08`, allocated 0.01 m output; incomplete/empty crate QC denied | Positive six-check crate used pre-existing synthetic child allocations |
 | Six-check QC | Receipt `4732ce5c-d96c-44dd-b2a7-75d1f64ecca8`, plan `77d9cb57-4576-4125-b32b-f03072b5c3fe`, all six checks passed, 6/6 material-bearing packages allocated | Synthetic attestation only; no physical inspection/staff approval |
 | Labels | Actual SVG QR and package-lookup link, package resolved; 50-row pagination | No physical scanner/printer acceptance |
-| Stocktake | Created, counted, reviewed and approved revision 4: `SIMULATED D5 browser input count`, 2 g Synthetic D3 input, Shelf A | Post-confirmation interaction timed out; posting NOT VERIFIED |
+| Stocktake | Created, counted, reviewed and approved revision 4: `SIMULATED D5 browser input count`, 2 g Synthetic D3 input, Shelf A | Authenticated read APIs on 2026-10-28 confirm approved r4, four audit revisions and zero posting-ledger entries; NOT POSTED |
 | Delivery/install/closure | Existing partial-delivery and closed-installation fixture histories reviewed | No fresh positive browser dispatch, partial acknowledgment or installation/closure mutation |
 | Layout/keyboard | Scoped 390×844 phone and 1024×768 tablet width checks; desktop; search Escape/focus | Not all routes, dialogs or accessibility semantics; no real screen-reader/device acceptance |
 | Errors/retries | Validation, insufficient custody, durable request/reconcile and renewed session checked | Complete offline/error/permission matrix missing |
@@ -119,26 +119,54 @@ The accepted six-check request reused saved key
 409 was consistent with a stale/revoked live session; no production bypass was used.
 The QC record persisted all six checks and the synthetic-only evidence notes.
 
-During the later stocktake post-confirmation, browser input timed out. The dialog
+During the earlier stocktake post-confirmation, browser input timed out. The dialog
 API exposed no dialog; replacing the tab did not restore interaction, and closing
-the affected tab timed out and reset the browser tool kernel. Posting is unverified.
+the affected tab timed out and reset the browser tool kernel. The authoritative
+read reconciliation below now establishes that the count did not post.
 No direct database write was used to substitute for the missing browser workflows.
 Existing tested packing plans had no dispatch-eligible assemblies; their fixture
 history is not evidence of a fresh browser custody chain. Full-app acceptance is
 therefore BLOCKED even though positive synthetic six-check QC succeeded.
 
+### 2026-10-28 reconciliation and browser infrastructure blocker
+
+Started at `3ecdb7c3ee111cdeeb15efcfce45c6457117964e`; local and remote
+feature-branch revisions matched. Unrelated `AGENTS.md` and `.test-tmp/` were
+preserved. No application implementation or authorization rules were changed.
+
+| Evidence class | Fresh result | Exact boundary |
+| --- | --- | --- |
+| Supported authenticated API reads | Stocktake `4c6e3a5f-db11-4c79-9fd2-a892f640997e` is approved, revision 4; history is r4 approved, r3 reviewed, r2/r1 draft; zero ledger entries for this stocktake | Read before retry and again after interrupted confirmation; local `.local-dev/d55-stocktake-read.json`; establishes no posting, not browser mutation acceptance |
+| Actual authenticated browser | Fresh login and stocktake selection reached approved r4 in the full application | No new physical-stock or custody mutation verified |
+| Native confirmation | One post-button click raised `Browser action "click" interrupted by JavaScript confirm` with the expected posting question | The click promise was not caught before runtime reset; after reinitialization the dialog API returned no dialog. No confirmation or second posting was submitted |
+| Fresh-tab recovery | Fresh tabs loaded the authenticated dashboard; AX and role-locator Inventory clicks returned without a changed accessibility tree or navigation | Input recovery remains unreliable; screenshot `.local-dev/d55-browser-blocker.png` is only a dashboard capture, not workflow acceptance |
+| Server isolation | Vite development mode exhibited login timeouts; the same local synthetic app in static production mode returned healthy status, authenticated login and stocktake reads promptly | Local serving mode only, no deployment. PostgreSQL connections through all three configured roles succeeded with no observed blocking sessions. Vite slowdown root cause remains unproven |
+| Fresh integrated chain | NOT EXERCISED: fresh project/school → published source → issue/output → packing/six-check QC → dispatch/manifest → partial acknowledgment → fulfillment → installation/closure | Earlier scoped mutations and fixture histories above remain separate; no new chain identities exist |
+| Browser denials/retries | No fresh complete wrong-role/tenant/revoked/flag/historical/pending-rejected QC/concurrent/offline/durable-retry matrix | Passing automated coverage does not supply missing browser evidence |
+| Accessibility | No fresh route-level keyboard, dialog focus, accessible-name or overflow acceptance | Earlier scoped phone/tablet/desktop checks only; no real-device or screen-reader acceptance |
+| Historical activation | BLOCKED, unchanged | Operational authorization gate; no activation attempted |
+
+The reproduced failure boundary is browser control around a native confirmation,
+with a separate development-server latency issue. This does not establish a defect
+in stocktake accounting or justify removing its confirmation. No direct database
+writes, fixture substitutions, synthetic staff sign-off or speculative app fixes
+were used to manufacture missing acceptance. Software acceptance remains BLOCKED;
+pilot remains NO-GO.
+
 ## Consolidated verification and actual recovery
 
 | Check | Result | Local evidence (not committed) |
 | --- | --- | --- |
-| Final full suite | PASS: 79 files passed, 2 skipped; 608 tests passed, 2 skipped; 51.73 s | `.local-dev/d52-full-tests.log` |
-| Typecheck | PASS | `.local-dev/d52-typecheck.log` (successful exit; empty log) |
-| Frontend/PWA/server production build | PASS; PWA 15 entries; server bundle produced; existing chunk-size advisory | `.local-dev/d52-build.log` |
+| Full suite, fresh 2026-10-28 | PASS: 79 files passed, 2 skipped; 608 tests passed, 2 skipped; 96.02 s | `.local-dev/d55-full-tests.log` |
+| Typecheck, fresh 2026-10-28 | PASS | `.local-dev/d55-typecheck.log` (successful exit; empty log) |
+| Frontend/PWA/server production build, fresh 2026-10-28 | PASS; PWA 15 entries; server bundle produced; existing chunk-size advisory | `.local-dev/d55-build.log` |
 | QR/PDF regressions | PASS in final automated suite | Full-suite log |
 | Focused receipt/location checks | PASS: 37 tests | `.local-dev/d5-closure-receipt-tests.log` |
 | Actual service/database restart and fresh restore | PASS, independent opt-in recovery execution | `.local-dev/d50-recovery-run.log`, `.local-dev/d50-recovery-summary.json` |
 | Complete integrated browser acceptance | BLOCKED, scoped results above | Browser session evidence; no fabricated aggregate PASS |
 
+No application or recovery assumptions changed in this documentation-only slice;
+the prior actual recovery evidence is reused, not claimed as a fresh execution.
 Two default-suite opt-in tests were skipped; the separate recovery run supplies
 actual recovery evidence rather than treating a skip as PASS. Recovery used local
 PostgreSQL port 55432, schema
