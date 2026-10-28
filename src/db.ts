@@ -1,3 +1,4 @@
+
 import { AddLedgerCapabilities1792540800017 } from "./migration/1792540800017-AddLedgerCapabilities";
 import { AddCommitmentLedger1792540800015 } from "./migration/1792540800015-AddCommitmentLedger";
 import { HardenCommitmentEventEvidence1792540800016 } from "./migration/1792540800016-HardenCommitmentEventEvidence";
@@ -56,6 +57,9 @@ import { CustomElementType } from "./entity/CustomElementType.ts";
 import { SerialNumber } from "./entity/SerialNumber.ts";
 import { StockLedger } from "./entity/StockLedger.ts";
 import { stocktakeEntities } from "./entity/Stocktake.ts";
+import { OperationalEvidenceEvent } from "./entity/OperationalEvidence";
+import { OperationalEvidence1793232000030 } from "./migration/1793232000030-OperationalEvidence";
+import { AggregateWorkOrderDemand1793232000031 } from "./migration/1793232000031-AggregateWorkOrderDemand";
 import { AddPhysicalStocktake1791504000003 } from "./migration/1791504000003-AddPhysicalStocktake.ts";
 import { WarehouseTransfer } from "./entity/WarehouseTransfer.ts";
 import { WarehouseTransferLine } from "./entity/WarehouseTransferLine.ts";
@@ -150,6 +154,7 @@ export const AppDataSource = new DataSource({
     SerialNumber,
     StockLedger,
     ...stocktakeEntities,
+    OperationalEvidenceEvent,
     WarehouseTransfer,
     WarehouseTransferLine,
     CycleCount,
@@ -172,6 +177,9 @@ export const AppDataSource = new DataSource({
     ComponentAlternate,
   ],
   migrations: [
+    OperationalEvidence1793232000030,
+    AggregateWorkOrderDemand1793232000031,
+
     AddCommitmentLedger1792540800015,
     HardenCommitmentEventEvidence1792540800016,
     AddLedgerCapabilities1792540800017,

@@ -1,5 +1,7 @@
 import { recordHistoricalDecision } from "../services/HistoricalDecisionService";
 import { StocktakeService } from "../services/StocktakeService";
+import { appendOperationalEvidence, operationalCollectors } from "../services/OperationalEvidenceService";
+import type { OperationalCommand } from "../features/inventory/operationalEvidenceTypes";
 import type { HistoricalDecisionInput } from "../features/inventory/reconciliationTypes";
 import { dispatchPacking, acknowledgeDelivery, type DispatchInput, type DeliveryInput } from '../services/TrustedDeliveryService';
 import { mutateTrustedCompletion,type InstallationCreate,type InstallationAction,type ClosureInput } from '../services/TrustedCompletionService';
@@ -57,7 +59,7 @@ export class TrustedLedgerAuthority {
     await assertDatabaseBoundary(db, "ledger", schema);
     return new TrustedLedgerAuthority(db, key);
   }
-  private claims(token: string, capability: boolean, stocktake = false): JwtPayload {
+  private claims(token: string, capability: boolean, stocktake = false, operational = false): JwtPayload {
     const p = jwt.verify(token, this.#key, { algorithms: ["HS256"],
       issuer: capability ? issuer : "experimind-auth",
       audience: capability ? audience : "experimind-api" });
@@ -66,16 +68,16 @@ export class TrustedLedgerAuthority {
       p.iss !== (capability ? issuer : "experimind-auth") || p.aud !== (capability ? audience : "experimind-api") ||
       !Number.isInteger(p.exp) || !Number.isInteger(p.iat) || p.exp! <= p.iat! || p.iat! > Math.floor(Date.now()/1000) ||
       typeof p.sid !== "string" || !/^[a-f0-9]{64}$/.test(p.sid) ||
-      !(stocktake ? ["admin", "super_admin", "manager"] : ["admin", "super_admin"]).includes(p.role) || p.type || p.purpose ||
+      !(operational ? operationalCollectors : stocktake ? ["admin", "super_admin", "manager"] : ["admin", "super_admin"]).includes(p.role) || p.type || p.purpose ||
       p.orgId === "00000000-0000-0000-0000-000000000000" ||
       (capability && (!uuid.test(p.jti ?? "") || p.exp! - p.iat! > 60 || p.scope !== "ledger:mutate")))
       throw new Error("Authenticated administrator session required");
     return p;
   }
-  private async current(m: EntityManager, p: JwtPayload, stocktake = false): Promise<void> {
+  private async current(m: EntityManager, p: JwtPayload, stocktake = false, operational = false): Promise<void> {
     // All session revocation paths acquire this same user row FOR UPDATE first.
     if (!(await m.query(`SELECT id FROM users WHERE id=$1 AND organization_id=$2 AND is_active
-      AND role=ANY($3::text[]) FOR SHARE`, [p.sub, p.orgId, stocktake ? ['admin','super_admin','manager'] : ['admin','super_admin']])).length)
+      AND role=ANY($3::text[]) ${operational ? 'AND role=$4' : ''} FOR SHARE`, [p.sub, p.orgId, operational ? operationalCollectors : stocktake ? ['admin','super_admin','manager'] : ['admin','super_admin'], ...(operational ? [p.role] : [])])).length)
       throw new Error("Active tenant administrator required");
     if (!(await m.query(`SELECT id FROM refresh_tokens WHERE user_id=$1 AND token_hash=$2
       AND NOT is_revoked AND expires_at>clock_timestamp()`, [p.sub, p.sid])).length)
@@ -95,6 +97,16 @@ export class TrustedLedgerAuthority {
       await this.current(m, p, true);
       const result = await new StocktakeService(this.#db).transition(p.orgId!, id, p.sub!, revision, 'post', '', false, m);
       await this.current(m, p, true);
+      return result;
+    });
+  }
+  async performOperationalForSession(accessToken: string, key: string, command: OperationalCommand) {
+    const normalized = JSON.parse(JSON.stringify(command)) as OperationalCommand;
+    const p = this.claims(accessToken, false, false, true);
+    return this.#db.transaction(async m => {
+      await this.current(m, p, false, true);
+      const result = await appendOperationalEvidence(m, p.orgId!, p.sub!, p.role, key, normalized);
+      await this.current(m, p, false, true);
       return result;
     });
   }

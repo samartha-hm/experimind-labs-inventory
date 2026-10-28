@@ -4,6 +4,7 @@ import { useAuth } from "../../AuthContext";
 import { apiFetch } from "../../utils/api";
 import OperationalReadinessPanel from "./OperationalReadinessPanel";
 import BlindCountSheet from "./BlindCountSheet";
+import OperationalEvidencePanel from "./OperationalEvidencePanel";
 import type { Stocktake, StocktakeTarget, CountEntry, PhysicalStockScope } from "../../entity/Stocktake";
 interface Item { id:string; name:string; description:string; unit:string; legacy_quantity:string; stock_status:string; verified_on_hand:number|null; scope:PhysicalStockScope|null }
 interface View { session:Stocktake; missing:{item_id:string;location:string}[]; counts:(CountEntry & { discrepancy:string|null; legacy_quantity:string })[] }
@@ -51,6 +52,7 @@ export default function StocktakePanel() {
     <h2 className="text-xl font-semibold">Physical stocktake and verified balances</h2>
     <p className="text-sm text-slate-500">Legacy quantities, prices and locations are unverified. Verified stock comes from approved counts and accepted receipts in the ledger. Active reservations reduce available stock; pending inspection is unavailable.</p>
     {error&&<p role="alert" className="text-red-600">{error}</p>}
+    <OperationalEvidencePanel session={session}/>
     {session && <BlindCountSheet id={session.id} revision={session.revision}/>}
     <fieldset disabled={busy} className="space-y-4">
       <div className="flex flex-wrap gap-3"><label>Stocktake <select className={input} value={session?.id??""} onChange={e=>{const id=e.target.value;if(id)void run(()=>load(id));}}><option value="">Select session</option>{sessions.map(s=><option key={s.id} value={s.id}>{s.name} · {s.status} · r{s.revision}</option>)}</select></label>

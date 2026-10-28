@@ -17,6 +17,9 @@ async function installedWorkOrderTables(db: Sql): Promise<string[]> {
   return [...(history?["trusted_historical_decisions"]:[]),...(closure?["trusted_installation_sources","site_installations","project_completions"]:[]),...(dispatch ? ["trusted_dispatches","trusted_dispatch_units","trusted_delivery_receipts"] : []),...baseWorkOrderTables,...(installed ? ["production_output_custody"] : []),...(packing ? ["trusted_packing_plans","trusted_packing_allocations","trusted_packing_qc"] : [])];
 }
 const workOrderUpdates = ["production_work_orders","production_input_reservations","site_installations","project_completions"];
+async function evidenceInstalled(db: Sql): Promise<boolean> {
+  return (await db.query("SELECT to_regclass('operational_evidence_events') IS NOT NULL installed"))[0].installed;
+}
 async function workOrdersInstalled(db: Sql): Promise<boolean> {
   return (await db.query("SELECT to_regclass('commitment_work_orders') IS NOT NULL installed"))[0].installed;
 }
@@ -58,7 +61,8 @@ export async function configureDatabaseBoundary(db: Sql, schema: string,
   const poWrites=[...(po?["commitment_po_lines","commitment_po_coverage","purchase_orders"]:[]),...(receipt?receiptWrites:[])];
   const prWrites=[...(pr?["commitment_pr_lines","purchase_requests"]:[]),...poWrites];
   const executionTables = await executionBlockedTables(db);
-  const protectedTables = [...ledgerTables,...(d2 ? ["commitment_reservations",...reservationWrites] : []),...prWrites,...executionTables,...(workOrders?workOrderTables:[])];
+  const evidence = await evidenceInstalled(db);
+  const protectedTables = [...ledgerTables,...(evidence?["operational_evidence_events"]:[]),...(d2 ? ["commitment_reservations",...reservationWrites] : []),...prWrites,...executionTables,...(workOrders?workOrderTables:[])];
   await db.query(`REVOKE ALL ON SCHEMA ${s} FROM PUBLIC;
     REVOKE ALL ON ALL TABLES IN SCHEMA ${s} FROM PUBLIC;
     REVOKE ALL ON ALL SEQUENCES IN SCHEMA ${s} FROM PUBLIC;
@@ -81,6 +85,9 @@ export async function configureDatabaseBoundary(db: Sql, schema: string,
       WHERE attrelid=$1::regclass AND attnum>0 AND NOT attisdropped`, [t]);
     for (const { attname } of columns)
       await db.query(`REVOKE ALL (${sqlIdentifier(attname)}) ON ${t} FROM ${runtime}`);
+  }
+  if (evidence) {
+    await db.query(`REVOKE ALL ON ${s}.operational_evidence_events FROM ${identity},${ledger}; GRANT SELECT ON ${s}.operational_evidence_events TO ${identity}; GRANT SELECT,INSERT ON ${s}.operational_evidence_events TO ${ledger}`);
   }
   // PostgreSQL requires one UPDATE column for FOR SHARE. This column conveys no identity.
   await db.query(`GRANT UPDATE(updated_at) ON ${s}.users TO ${runtime},${ledger}`);
@@ -162,7 +169,8 @@ export async function assertDatabaseBoundary(db: DataSource, kind: "runtime" | "
   const recipes=await recipePublicationInstalled(db);
   const workOrders=await workOrdersInstalled(db);
   const workOrderTables=await installedWorkOrderTables(db);
-  const d2Tables=[...(d2 ? ["commitment_reservations",...reservationWrites] : []),...(pr?["commitment_pr_lines","purchase_requests"]:[]),...(po?["commitment_po_lines","commitment_po_coverage","purchase_orders"]:[]),...(receipt?receiptWrites:[]),...(workOrders?workOrderTables:[])];
+  const evidence=await evidenceInstalled(db);
+  const d2Tables=[...(evidence?["operational_evidence_events"]:[]),...(d2 ? ["commitment_reservations",...reservationWrites] : []),...(pr?["commitment_pr_lines","purchase_requests"]:[]),...(po?["commitment_po_lines","commitment_po_coverage","purchase_orders"]:[]),...(receipt?receiptWrites:[]),...(workOrders?workOrderTables:[])];
   const [{ path }] = await db.query("SELECT current_setting('search_path') path");
   if (path.replace(/\s/g, "") !== `pg_catalog,${schema},pg_temp`) fail();
   const [role] = await db.query(`SELECT r.rolsuper,r.rolcreaterole,r.rolcreatedb,r.rolreplication,r.rolbypassrls,
@@ -207,7 +215,7 @@ export async function assertDatabaseBoundary(db: DataSource, kind: "runtime" | "
       ['physical_stock_scopes','physical_stocktake_events'].includes(relname) ? ['INSERT'] : [] : [];
     const writable = kind === "runtime" ? operational : kind === "identity" ? identityTables.includes(relname) : [...ledgerTables,...d2Tables].includes(relname);
     for (const privilege of ["INSERT","UPDATE","DELETE","TRUNCATE","REFERENCES","TRIGGER"]) {
-      const allowed = kind === "ledger" && workOrders && relname === "audit_logs" && privilege === "INSERT" || kind === "ledger" && recipes && relname === "production_recipes" && privilege === "INSERT" || writable && ["INSERT",...(kind === "ledger" && (receipt && relname === "stock_ledger" || workOrders && workOrderTables.includes(relname) && !workOrderUpdates.includes(relname)) ? [] : ["UPDATE"]),...(kind === "ledger" ? [] : ["DELETE"])].includes(privilege) ||
+      const allowed = kind === "ledger" && workOrders && relname === "audit_logs" && privilege === "INSERT" || kind === "ledger" && recipes && relname === "production_recipes" && privilege === "INSERT" || writable && ["INSERT",...(kind === "ledger" && (relname === "operational_evidence_events" || receipt && relname === "stock_ledger" || workOrders && workOrderTables.includes(relname) && !workOrderUpdates.includes(relname)) ? [] : ["UPDATE"]),...(kind === "ledger" ? [] : ["DELETE"])].includes(privilege) ||
         kind === "identity" && relname === "audit_logs" && privilege === "INSERT";
       if (!allowed && !stocktakePrivileges.includes(privilege) && (await db.query("SELECT has_table_privilege($1,$2) allowed",[t,privilege]))[0].allowed) fail();
     }
@@ -234,7 +242,7 @@ export async function assertDatabaseBoundary(db: DataSource, kind: "runtime" | "
   if (kind === "ledger" && recipes && !(await db.query("SELECT has_table_privilege('production_recipes','INSERT') allowed"))[0].allowed) fail();
   for (const table of kind === "identity" ? identityTables : kind === "ledger" ? [...ledgerTables,...d2Tables] : [...ledgerTables,...d2Tables,...identityTables]) {
     for (const privilege of kind === "runtime" ? ["SELECT"] : ["SELECT","INSERT","UPDATE"]) {
-      if (kind === "ledger" && privilege === "UPDATE" && (receipt && table === "stock_ledger" || workOrders && workOrderTables.includes(table) && !workOrderUpdates.includes(table))) continue;
+      if (kind === "ledger" && privilege === "UPDATE" && (table === "operational_evidence_events" || receipt && table === "stock_ledger" || workOrders && workOrderTables.includes(table) && !workOrderUpdates.includes(table))) continue;
       if (!(await db.query("SELECT has_table_privilege($1,$2) allowed",[`${sqlIdentifier(schema)}.${sqlIdentifier(table)}`,privilege]))[0].allowed) fail();
     }
   }

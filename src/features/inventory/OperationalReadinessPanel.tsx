@@ -20,7 +20,7 @@ export default function OperationalReadinessPanel() {
   useEffect(() => { void load(); }, []);
   return <section className="space-y-4 rounded-2xl border border-slate-300 p-4" aria-labelledby="operational-readiness-title" aria-busy={busy}>
     <h2 id="operational-readiness-title" className="text-xl font-semibold">Operational pilot preparation — NO-GO</h2>
-    <p>Physical stock and valuation remain UNKNOWN. This screen prepares unsigned evidence; it cannot accept sign-offs, authorize balances or activate operations.</p>
+    <p>Physical stock and valuation remain UNKNOWN. Attributed evidence and independent reviews can be collected below. Reviews do not confer operational verification, authorize balances or activate operations.</p>
     <button className="min-h-11 rounded-xl border px-4" disabled={busy} onClick={() => void load()}>Refresh readiness</button>
     {error && <p role="alert">{error}</p>}
     {busy && <p role="status">Loading readiness…</p>}

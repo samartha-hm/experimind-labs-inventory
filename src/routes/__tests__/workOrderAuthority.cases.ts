@@ -1,5 +1,9 @@
 import { verifyDeliveryAuthority } from './deliveryAuthority.cases';
+import { verifyD6Journey } from './d6Journey.cases';
 import { verifyTrustedStocktake } from './trustedStocktake.cases';
+import { verifyOperationalEvidence } from './operationalEvidence.cases';
+import { OperationalEvidence1793232000030 } from '../../migration/1793232000030-OperationalEvidence';
+import { AggregateWorkOrderDemand1793232000031 } from '../../migration/1793232000031-AggregateWorkOrderDemand';
 import { verifyHistoricalDecisions } from './historicalDecisions.cases';
 import { HistoricalEvidenceDecisions1793232000029 } from '../../migration/1793232000029-HistoricalEvidenceDecisions';
 import { TrustedDispatchCustody1793145600027 } from '../../migration/1793145600027-TrustedDispatchCustody';
@@ -26,7 +30,7 @@ import type { WorkOrderResult, WorkOrderIssueResult } from "../../services/WorkO
 type Claim=Extract<LedgerRequest,{action:"claimWorkOrder"}>;
 type Issue=Extract<LedgerRequest,{action:"issueWorkOrder"}>;
 type Output=Extract<LedgerRequest,{action:"recordFinishedOutput"}>;
-export async function verifyWorkOrderAuthority(h:Parameters<typeof verifyExecutionBoundary>[0]&{password:string;fixture:(full?:boolean|"custody")=>Promise<Fixture>}) {
+export async function verifyWorkOrderAuthority(h:Parameters<typeof verifyExecutionBoundary>[0]&{password:string;fixture:(full?:boolean|"custody"|"d6")=>Promise<Fixture>}) {
   await h.db.transaction(async m=>{
     await new TrustedWorkOrderAuthority1793059200024().up(m.queryRunner!);
     await new AddFinishedOutputCustody1793059200025().up(m.queryRunner!);
@@ -34,6 +38,8 @@ export async function verifyWorkOrderAuthority(h:Parameters<typeof verifyExecuti
     await new TrustedDispatchCustody1793145600027().up(m.queryRunner!);
     await new TrustedProjectClosure1793145600028().up(m.queryRunner!);
     await new HistoricalEvidenceDecisions1793232000029().up(m.queryRunner!);
+    await new OperationalEvidence1793232000030().up(m.queryRunner!);
+    await new AggregateWorkOrderDemand1793232000031().up(m.queryRunner!);
     await configureDatabaseBoundary(m,h.schema,h.roles);
   });
   for(const [pool,kind] of [[h.runtime,"runtime"],[h.identity,"identity"],[h.writer,"ledger"]] as const)
@@ -44,6 +50,7 @@ export async function verifyWorkOrderAuthority(h:Parameters<typeof verifyExecuti
   const authority=await TrustedLedgerAuthority.create(h.writer,env.jwtSecret,h.schema);
   const {token}=await new AuthService(h.identity).login(h.admin.email,h.password);
   await verifyTrustedStocktake(h,authority,token!);
+  await verifyOperationalEvidence(h,authority,token!);
   const app=express();app.use(express.json());app.use("/production",productionPlanningRouter(h.runtime,authority));
   app.use("/closed",productionPlanningRouter(h.runtime));
   const server=await new Promise<Server>(resolve=>{const s=app.listen(0,"127.0.0.1",()=>resolve(s));});
@@ -176,5 +183,6 @@ export async function verifyWorkOrderAuthority(h:Parameters<typeof verifyExecuti
     await verifyPackingAuthority(h,authority,token,`http://127.0.0.1:${address.port}/production`);
     await verifyDeliveryAuthority(h,authority,token,`http://127.0.0.1:${address.port}/production`);
     await verifyHistoricalDecisions(h,authority,token);
+    await verifyD6Journey(h,authority,token);
   } finally{server.closeAllConnections();await new Promise<void>((resolve,reject)=>server.close(e=>e?reject(e):resolve()));}
 }

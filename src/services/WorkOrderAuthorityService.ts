@@ -37,8 +37,15 @@ export async function claimWorkOrder(m: EntityManager, c: LedgerContext, i: Work
   const definition = recipe.definition as RecipeDefinition;
   if (definition.unit !== i.unit) throw Error("Canonical output unit required");
   const lines = await m.query(`SELECT l FROM requirement_approvals a,LATERAL jsonb_array_elements(a.snapshot->'lines') l
-    WHERE a.id=$1 AND a.organization_id=$2 AND l->>'site_id'=$3 AND l->>'inventory_item_id'=$4 AND l->>'unit'=$5 AND l ? 'material_id'`,[i.approval,c.organization,i.site,definition.output_item_id,i.unit]);
-  if (lines.length !== 1) throw Error("One unambiguous approved output demand line required");
+    WHERE a.id=$1 AND a.organization_id=$2 AND l->>'site_id'=$3 AND l->>'inventory_item_id'=$4 AND l->>'unit'=$5 AND l ? 'material_id' ORDER BY l::text`,[i.approval,c.organization,i.site,definition.output_item_id,i.unit]);
+  if (!lines.length) throw Error("Approved output demand required");
+  // A shared SKU can occur in activities and several crate types. Its entitlement
+  // covers their frozen sum, while retaining every source line as evidence.
+  const demand = lines.length === 1 ? lines[0].l : {
+    inventory_item_id: definition.output_item_id, unit: i.unit,
+    quantity: stockText(lines.reduce((sum: bigint, row: {l: {quantity: string}}) => sum + stockUnits(String(row.l.quantity)), 0n)),
+    lines: lines.map((row: {l: unknown}) => row.l),
+  };
   // No transfer is inferred from historical planning reservations, procurement or synthetic claims.
   const ids = [definition.output_item_id,...definition.inputs.map(v=>v.item_id)].sort();
   const items: {id:string;unit:string}[] = await m.query(`SELECT id,unit FROM inventory_items WHERE organization_id=$1 AND id=ANY($2::uuid[]) ORDER BY id FOR UPDATE`,[c.organization,ids]);
@@ -51,7 +58,7 @@ export async function claimWorkOrder(m: EntityManager, c: LedgerContext, i: Work
     (SELECT 1 FROM commitment_work_orders w WHERE w.output_claim=c.id)`,[account.id])).length) throw Error("Existing output ownership needs explicit reconciliation/transfer");
   if (!account) account={id:await ledger.createAccount(c,{project:i.project,site:i.site,obligation:`material:${definition.output_item_id}:${i.unit}`,dimension:"material",item:definition.output_item_id,unit:i.unit,selector:{item:definition.output_item_id}})};
   let [entitlement]=await m.query("SELECT id FROM commitment_entitlements WHERE account_id=$1 AND approval_id=$2",[account.id,i.approval]);
-  if (!entitlement) entitlement={id:await ledger.entitlement(c,account.id,i.approval,i.demandRevision,String(lines[0].l.quantity),[lines[0].l])};
+  if (!entitlement) entitlement={id:await ledger.entitlement(c,account.id,i.approval,i.demandRevision,String(demand.quantity),lines.map((row: {l: unknown}) => row.l))};
   const event=(a:string,e:string,op:Parameters<CommitmentLedgerService["executeInTransaction"]>[6])=>ledger.executeInTransaction(m,c,a,e,randomUUID(),"Trusted recipe work order",op);
   const [balance]=await m.query("SELECT entitlement_id FROM commitment_balances WHERE account_id=$1",[account.id]);
   if (balance.entitlement_id!==entitlement.id) await event(account.id,entitlement.id,{kind:"authorize",payload:{}});
@@ -60,7 +67,7 @@ export async function claimWorkOrder(m: EntityManager, c: LedgerContext, i: Work
   await m.query(`INSERT INTO production_work_orders(id,organization_id,number,output_item_id,recipe_id,recipe_snapshot,project_id,site_id,demand_revision,planned_quantity,unit,inputs,status,created_by,released_by,updated_by)
     VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,'in_progress',$13,$13,$13)`,[id,c.organization,`D3-${id}`,definition.output_item_id,i.recipe,definition,i.project,i.site,i.demandRevision,quantity,i.unit,JSON.stringify(inputs),c.actor]);
   await m.query(`INSERT INTO commitment_work_orders(order_id,organization_id,source_id,output_claim,approval_id,demand_line,actor_id,operation_key)
-    VALUES($1,$2,$3,$4,$5,$6,$7,$8)`,[id,c.organization,i.source,outputClaim,i.approval,lines[0].l,c.actor,key]);
+    VALUES($1,$2,$3,$4,$5,$6,$7,$8)`,[id,c.organization,i.source,outputClaim,i.approval,demand,c.actor,key]);
   const materials: WorkOrderResult["materials"]=[];
   for (const [index,b] of budget.entries()) {
     const material=randomUUID(), claim=randomUUID(), reservation=randomUUID();

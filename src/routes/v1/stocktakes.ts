@@ -6,6 +6,7 @@ import { authenticateJwt } from "../../middleware/auth";
 import { dto } from "./product-templates";
 import { StocktakeService } from "../../services/StocktakeService";
 import { OperationalPreparationService } from "../../services/OperationalPreparationService";
+import { OperationalEvidenceService } from "../../services/OperationalEvidenceService";
 import { HistoricalReconciliationService } from "../../services/HistoricalReconciliationService";
 import { HistoricalLineageSimulationService } from "../../services/HistoricalLineageSimulationService";
 import type { TrustedLedgerAuthority } from "../../security/TrustedLedgerAuthority";
@@ -72,6 +73,24 @@ export function stocktakeRouter(db: DataSource, authority?: TrustedLedgerAuthori
   router.get("/operational-readiness", action(async(req,res)=>{
     res.setHeader("Cache-Control", "no-store");
     res.json(await new OperationalPreparationService(db).readiness(req.user!.orgId!, req.user!.id));
+  }));
+  router.get("/operational-evidence", action(async(req,res)=>{
+    res.setHeader("Cache-Control", "no-store");
+    if (req.query.stream !== undefined && typeof req.query.stream !== "string") throw new DraftKitError(400,"Invalid evidence stream");
+    res.json(await new OperationalEvidenceService(db).list(req.user!.orgId!, req.user!.id, req.query.stream as string | undefined));
+  }));
+  router.post("/operational-evidence", action(async(req,res)=>{
+    if (!authority) throw new DraftKitError(503,"Trusted operational evidence authority unavailable");
+    if (!req.body || typeof req.body !== "object" || Array.isArray(req.body)) throw new DraftKitError(400,"Evidence command required");
+    const key = req.header("Idempotency-Key");
+    if (!key?.trim() || key.length > 100) throw new DraftKitError(400,"Idempotency-Key required");
+    try {
+      res.setHeader("Cache-Control", "no-store");
+      res.status(201).json(await authority.performOperationalForSession(req.headers.authorization!.slice(7), key, req.body));
+    } catch (error) {
+      if (error instanceof DraftKitError) throw error;
+      throw new DraftKitError(403,"Live operational session required");
+    }
   }));
   router.get("/:id/count-sheet", action(async(req,res)=>{
     const revision = req.query.revision;

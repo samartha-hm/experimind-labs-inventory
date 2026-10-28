@@ -1,20 +1,9 @@
-# Next task — remaining D6 software preparation
+# Next task
 
-Read `docs/erp/D6_OPERATIONAL_PILOT_PREPARATION.md`. D6 software is PARTIAL;
-operational pilot remains NO-GO. Use `/new` or `/compact` to continue.
+D6 software remains PARTIAL; operational pilot remains NO-GO. Stay on feature/kit-builder-milestone-1. See docs/erp/D6_OPERATIONAL_PILOT_PREPARATION.md and the verified final commit from this chat.
 
-1. Implement tenant-scoped append-only staff/device evidence submissions and
-   independent authorized reviews through a dedicated trusted writer. Preserve
-   actor/reviewer attribution, evidence integrity, role denial and no synthetic GO.
-2. Persist stocktake assignments, independent passes and distinct physical-status
-   evidence without introducing another ledger or authorizing real postings.
-3. Add safe migration preview, paired private-file recovery and isolated service,
-   load/offline acceptance. Keep all operational modifications opt-in and unexecuted.
-4. Rehearse exact D6 School A two Science Grades 8–10 sets (six common/two universal
-   crates), School B three Grade 8-only sets (three common/zero universal), plus
-   independent Math through the full synthetic journey. Prove retries/conservation.
-5. Repeat relevant tests, full final verification and explicit software verdict.
+Resolve two P0 contracts before claiming complete rehearsal: explicit procurement-to-recipe ownership transfer, and output-material fulfillment/closure reconciliation. The exact two-school synthetic journey reaches closure but deliberately reports retained material holds; do not mask them with direct SQL or synthetic authority.
 
-Real stock, physical sign-offs, credentials, deployment and pilot cutover require
-separate operational authorization/evidence. Preserve unrelated `AGENTS.md` and
-`.test-tmp/`. Verify local/remote full SHAs before edits and after scoped pushes.
+Operational evidence and blind two-person counts now persist through the restricted trusted writer. REVIEWED is not VERIFIED. A production verification authority and real physical/device/staff/deployment evidence remain absent.
+
+Rehearse pending production migrations on an isolated clone, then paired database/private-file recovery, intended-host permissions/network/load/offline/PWA/rollback checks. Never deploy, rotate live credentials, change real stock, merge main or enable pilot without separate authorization. Preserve unrelated AGENTS.md and private .test-tmp files.

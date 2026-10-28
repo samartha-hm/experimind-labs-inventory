@@ -3,14 +3,16 @@ import { InventoryItem } from "../entity/InventoryItem";
 import { Stocktake } from "../entity/Stocktake";
 import { DraftKitError } from "./ProductTemplateService";
 import { hardwareAcceptance, operationalGates, staffAcceptance } from "../features/inventory/operationalReadiness";
+import { OperationalEvidenceService } from "./OperationalEvidenceService";
 
 /** Preparation only. Never writes stock, readiness approvals or physical attestations. */
 export class OperationalPreparationService {
   constructor(private readonly db: DataSource) {}
   async readiness(org: string, actor: string) {
     const sessions = await this.db.getRepository(Stocktake).countBy({organization_id: org});
+    const evidence = await new OperationalEvidenceService(this.db).list(org, actor);
     return {mode: "read_only", pilot: "NO-GO", evidence_acceptance_available: false,
-      generated_for: actor, generated_at: new Date().toISOString(), gates: operationalGates(sessions),
+      generated_for: actor, generated_at: new Date().toISOString(), gates: operationalGates(sessions), evidence,
       staff: staffAcceptance.map(([workflow, role, scenario]) => ({workflow, role, scenario,
         status: "NOT STARTED", training: "Supervised walkthrough followed by independent practical exercise",
         evidence: "Named operator, authenticated identity, scenario/result, timestamp, evidence reference/hash and independent supervisor review",

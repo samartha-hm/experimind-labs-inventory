@@ -1,169 +1,45 @@
-# D6 operational pilot preparation — 2026-10-28
+# D6 operational pilot preparation
 
-**Software preparation: PARTIAL. Operational pilot: NO-GO.** Physical stock and
-valuation remain UNKNOWN. This implementation is a preparation slice, not completed
-D6 acceptance. D5 acceptance remains limited to the synthetic scope in
-[the D5 report](D5_ERP_READINESS_AND_PILOT_GATE.md).
+Software verdict: PARTIAL. Operational pilot: NO-GO.
+All rehearsal records are SYNTHETIC TEST EVIDENCE. No real stock or deployment is authorized.
 
-## Implemented scope and gap matrix
+## Delivered authority
 
-| Area | Implemented | Remaining before D6 software PASS |
-| --- | --- | --- |
-| Readiness | Authenticated tenant-scoped 12-gate dashboard; evidence requirements and next actions; explicit NO-GO | Durable append-only evidence submission and independently authorized review |
-| Stocktake | SKU/identity/unit/location blank sheets, revision checks, unsigned JSON and isolated printable HTML | Persisted assignment/progress, distinct count passes and physical-status evidence |
-| Hardware | Six practical scenario groups and unsigned evidence template | Actual submission/review workflow; real device acceptance remains separate |
-| Staff | Nine role scenarios, training/evidence/supervisor requirements | Named assignments, evidence records and authorized completion review |
-| Deployment | Read-only configuration/artifact/disk preflight and opt-in bounded PostgreSQL checks | Executable migration preview, private-file recovery, service and 25-operator load acceptance |
-| Rehearsal | Fresh authenticated preparation browser checks; fresh restart/restore of retained synthetic journey | Exact D6 two-school quantities through the complete journey |
+Authenticated, organization-scoped operational records persist through the trusted ledger writer. Commands record actor, observation time, evidence identifier/provenance/SHA256, revision, payload fingerprint and classification. Independent authorized reviewers may record REVIEWED, REJECTED, MORE_EVIDENCE or EXPIRED; these decisions never mean operationally VERIFIED. Immutable revisions and same-key exact retries retain the original response; conflicting payloads, stale revisions, self-review, revoked sessions and foreign scope are rejected. Runtime/identity roles cannot insert records; the writer cannot update/delete them.
 
-No readiness write/approval endpoint or operational GO transition was added.
-The existing stocktake writer is scoped to stocktake authority, not staff/device
-approval. A generic status toggle would bypass evidence, independent reviewer and
-immutable audit contracts. Until a dedicated trusted evidence writer is implemented,
-these operational gates stay blocked. Preparation export attribution identifies the
-authenticated requesting actor; it is not a signature or accepted observation.
+The stocktake UI supports scope assignments, two independent counters, UNKNOWN quantities, alternating passes, discrepancy/recount and independent review. Before the second pass, another counter's quantity is withheld, including history. Agreement does not post stock or authorize an opening balance. Retained evidence is available after reload and as attributed JSON. Uncertain UI saves retain the original command/key for retry during that page session; reload requires history reconciliation.
 
-## Operator procedure
+The readiness dashboard separates retained claims from verification and keeps physical stock UNKNOWN and device acceptance NOT TESTED until real authority exists. Simulations and submitted hashes are not proof of the referenced artifact's authenticity or availability.
 
-1. Sign in and open Inventory / stocktake. Review the operational preparation
-   dashboard. Existing sessions make stocktake preparation IN PROGRESS; this does
-   not measure physical coverage or prove completion.
-2. Declare the stocktake scope and every physical location using the existing
-   session workflow. Review item identity and canonical units before counting.
-3. Prepare the blind count sheet at the current revision. Download the separate
-   HTML sheet and print that file; printing the whole ERP page may reveal other
-   stock information. Assign an operator, date and independent count-pass number
-   on the sheet. The downloaded JSON deliberately contains null quantities.
-4. Count without reference to ledger or legacy balances. Keep UNKNOWN, MISSING,
-   DISPUTED and VERIFIED observations distinct on the unsigned evidence. MISSING
-   is not permission to enter zero. Preserve evidence reference/hash and reviewer.
-5. Use a fresh sheet for each independent pass. Reconcile discrepancies and stale
-   revisions against the current session before entering agreed numeric counts.
-   The preparation screen does not save these status/assignment/pass fields.
-6. Use the existing reconciliation preview for authoritative ledger differences.
-   Do not post opening balances or stock adjustments under this D6 authorization.
-   Historical activation requires separate explicit authorization.
+## Synthetic transaction rehearsal
 
-Only selected session targets and locations appear on a sheet; the sheet is not a
-claim that every warehouse item/location was included. Identity/unit errors and
-stale revisions block export. Exports cannot be imported or used to post stock.
+School A: two complete Grades 8–10 kits, six common crates and two universal crates. School B: three Grade-8-only common kits, three common crates and no universal crates. One independent Math quantity is included for A. Shared output SKU demand is aggregated with all frozen source lines retained; packing remains bound to each approved line. Sub-unit SQL proof formatting is canonicalized.
 
-## Hardware and staff acceptance responsibilities
+The test exercises approval, recipe material budgets, verified synthetic opening input, work-order claim/issue/output, full allocation, all six QC checks, blocked pre-QC dispatch, dispatch, partial acknowledgment, exact retries/duplicate rejection, installation acceptance and project closure. Input conservation is checked; delivery acknowledgment does not move physical stock.
 
-Record printer/scanner model, driver/firmware, connection/input mode, media,
-physical label size, print scale and quiet zones. Print representative common,
-universal and independent Math labels. Compare decoded identity with the printed
-school/project/package. Test duplicate, malformed, damaged and wrong-school scans,
-scanner terminator/focus behavior, disconnect/reconnect and retry reconciliation.
-Retain label samples and observed results. Record NOT TESTED, TEST IN PROGRESS,
-FAILED or VERIFIED with named operator and independent reviewer externally until
-the trusted evidence workflow exists. Automated QR/PDF tests cannot verify devices.
+Two P0 gaps prevent a full end-to-end PASS:
 
-The dashboard supplies practical scenarios for warehouse, purchasing, production,
-packing, QC, dispatch, delivery, installation and administration. Assign real people
-to their existing authorized roles; complete supervised training and an independent
-exercise. Record authenticated identity, scenario, observation time, result,
-evidence reference/hash, supervisor and remaining blocker. Exported templates
-remain unsigned; no staff sign-off is generated or accepted by this implementation.
+- Procurement PR/PO/receipt/incoming-QC acceptance runs separately. There is no approved transfer contract linking purchased raw-material ownership into this recipe journey. Implement and independently test explicit ownership transfer; do not fabricate continuity with direct SQL.
+- Closed projects retain output-material commitment holds although delivery slots are fulfilled. The test preserves and reports these residual balances. Define an authorized, replayable material fulfillment transition and prevent closure with unresolved commitments.
 
-## Windows deployment preflight and runbook
+## Preflight and recovery
 
-From the repository directory, with separately supplied approved configuration:
+Run `node scripts/ops/pilot-preflight.mjs` with separately supplied environment variables. This read-only tool reports PASS/BLOCKED/NOT_VERIFIED, severity, evidence reference and corrective action. Opt-in local PostgreSQL checks are bounded and read-only; schema-aware journal comparison lists pending/unregistered migrations. It never applies migrations, rotates credentials, restarts services or grants GO. Source registration alone does not establish upgrade safety.
 
-```powershell
-node scripts/ops/pilot-preflight.mjs
-```
+The isolated recovery runner fingerprints populated stock, commitment, custody, operational evidence and audit tables; restarts only a verified workspace-owned cluster, restores a nonempty dump to a fresh database, replays commitments and checks fresh authenticated restricted-role HTTP plus original-key retries. Results are private local artifacts. Database recovery does not verify private-file restore, production ACLs or operational disaster recovery.
 
-Default execution makes no database connection or writes. It reports NO-GO and
-exits 1 while any check is blocked; it cannot deploy or grant readiness. It checks
-Node 22+, production mode, JWT presence/length/default patterns, guest access,
-four distinct role URLs addressing one local database, HTTPS origin, build files,
-backup directory, retention of at least 14 days and at least 10 GiB free storage.
-Existence does not prove artifact freshness, ACL correctness or backup recoverability.
-Secret values and connection errors are suppressed. Do not publish configuration.
+## Remaining real gates
 
-Set `PILOT_BACKUP_DIRECTORY`, `PILOT_BACKUP_RETENTION_DAYS` and approved application
-configuration through the normal private environment mechanism. Optional
-`PILOT_PREFLIGHT_CONNECT=true` enables loopback-only, read-only connections with
-three-second connection/query bounds. These inspect PostgreSQL 14+, restricted
-role attributes and runtime ledger table-write denial. They do not prove every
-function grant, identity boundary or migration privilege. Retain restricted-role
-test evidence separately. This option was not run against operational infrastructure.
+P0: resolve the two ownership/closure gaps; approve an independent operational verification contract; rehearse production migration ordering on a clone and reconcile its journal.
 
-Before a separately authorized deployment:
+P1: accountable operators must perform warehouse coverage/variance review and separately authorize opening stock; print and scan representative QR/PDF labels on actual devices; complete supervised staff scenarios; provision intended-host credentials; test paired private-file restore, service lifecycle, HTTPS/LAN ACLs, 25-operator load, offline/reconnect/PWA freshness, logging/retention, feature flags and rollback. Retain attributed evidence and independent review for each gate.
 
-1. Review registered/applied migrations and rollback compatibility in an isolated
-   clone. Never use a general migration command as a preview against live data.
-2. Retain a paired database and private-file backup, matching manifest, hashes,
-   permissions and recovery point. Verify retention and capacity with measured data.
-3. Restore to a fresh isolated database/private-file destination; compare stock,
-   commitments, custody, fulfillment, audit and readiness evidence and authenticate
-   with restricted roles. A database-only dump is insufficient for private files.
-4. On an isolated service, start the verified production artifact under its
-   configured noninteractive service account. Check the existing health endpoint,
-   authenticated login, role denial and database connectivity. Exercise graceful
-   stop and restart; confirm in-flight transaction rollback and retry behavior.
-5. Approve HTTPS certificates, LAN-only firewall/proxy rules, private-file ACLs,
-   monitoring and backup failure alerts. Verify approximately 25 concurrent
-   operators before sizing acceptance. No service/firewall commands were executed
-   against operational infrastructure in D6.
-6. For an upgrade, quiesce writes, capture the paired recovery point, rehearse
-   migration and authenticated reconciliation in isolation, then seek cutover
-   authorization. Rollback requires a compatible artifact/schema or coordinated
-   restore; do not downgrade an incompatible schema in place.
+No live credential was rotated and no pilot GO transition was introduced. Local synthetic checks cannot satisfy these real gates.
 
-PWA caching does not authorize offline mutations or acceptance. On disconnect,
-stop operational acceptance; reconnect, refresh revisions and reconcile server
-state before retrying. Prevent stale cached deployment artifacts during upgrades.
+## Validation retained for this implementation
 
-## Contracts and verification evidence
+Full regression: 80 files passed, two skipped; 611 tests passed, two skipped. Four preflight tests, TypeScript and PWA/server build passed. The nonempty synthetic database restart/restore drill passed all three restricted authenticated HTTP phases, evidence fingerprints, exact retries and commitment replay. These results do not resolve the two P0 business-contract gaps above.
 
-- `GET /api/v1/stocktakes/operational-readiness`: active authenticated tenant context,
-  no-store, actor/time attribution, six gate-status vocabulary values, fixed NO-GO,
-  `evidence_acceptance_available=false`. D5 VERIFIED is explicitly historical.
-- `GET /api/v1/stocktakes/:id/count-sheet?revision=N`: tenant-filtered repeatable-read
-  export; foreign session 404, malformed revision 400, stale revision 409; no ledger,
-  expected, legacy or previously entered quantities. Rows contain blank evidence
-  fields. Printable HTML escapes user text and uses only identity fields.
-- Focused acceptance: 19 tests passed across stocktake route and preparation unit
-  tests. Preflight configuration tests: 3 passed.
-- Full regression: 80 files passed, two opt-in recovery files skipped; 611 tests
-  passed, two skipped. Includes existing QR/PDF, restricted authorization,
-  concurrency and rollback coverage; this is bounded automated coverage.
-- Typecheck and production frontend/PWA/server build passed. Existing large-bundle
-  warning remains; performance/load acceptance is outstanding.
-- Fresh authenticated Edge browser test passed: readiness, unsigned downloads,
-  and 390×844, 1024×768, 1440×1000 layouts.
-  Semantic labels/statuses and targeted responsive checks are not a full
-  accessibility audit. No hardware or real operator acceptance was inferred.
-- Explicit recovery exercise passed before/restart/fresh database restore with
-  restricted authenticated HTTP, exact retries, ledger/custody/fulfillment
-  reconciliation and unchanged preparation gate/scenario projections. It used
-  the retained D5 synthetic browser schema; 103 commitment accounts replayed.
-  Private ignored evidence: `.local-dev/d6-recovery-summary.json`,
-  `.local-dev/d6-recovery-run.log`, `.local-dev/d6-browser.log`,
-  `.local-dev/d6-regression.log`, `.local-dev/d6-build.log`.
+Browser acceptance observed synthetic login and authenticated retained evidence/count and NO-GO dashboard rendering. Controls disappeared between interactions; browser write/reload, responsive, keyboard and QR/PDF acceptance remain incomplete for this change. No successful browser claim write or physical device acceptance is asserted.
 
-All simulated physical attestations in the retained fixture are SYNTHETIC TEST
-EVIDENCE. This is not a fresh exact D6 two-school end-to-end rehearsal or a paired
-private-file recovery. Required rehearsal remains School A: two Science Grades
-8–10 sets → six common/two universal crates; School B: three Grade 8-only sets →
-three common/zero universal crates; plus independent Math. Those exact quantities
-must traverse procurement through installation/closure with exactly-once and
-conservation assertions before claiming D6 software PASS.
-
-## Severity-ranked decision matrix
-
-| Severity | Required evidence | Current result | Decision |
-| --- | --- | --- | --- |
-| P0 | Verified physical stock, reviewed reconciliation, separately authorized balances | UNKNOWN / absent | NO-GO |
-| P0 | Explicit operational approval and historical source authorization | Absent; no GO transition | NO-GO |
-| P1 | Durable authorized hardware/staff evidence workflow and real acceptance | Preparation templates only | Software PARTIAL; pilot NO-GO |
-| P1 | Restricted operational roles, security, paired recovery and service acceptance | Synthetic subset only | NO-GO |
-| P1 | Exact two-school D6 rehearsal, migration preview, load/offline acceptance | Incomplete | Software PARTIAL |
-| P2 | Full accessibility and measured deployment performance | Targeted checks only | Outstanding |
-
-No real stock was posted, historical inventory activated, operational credentials
-rotated, staff feature flags enabled, service deployed or cutover performed.
-No main merge or force push is authorized. Continue the remaining D6 software
-scope before claiming PASS; real-world pilot approval is a separate decision.
+Read-only final preflight artifact: private .local-dev/d6-final-preflight.json; source-only migration preview, ready=false, pilot=NO-GO. Intended-host environment and database migration journal were not verified by this invocation.

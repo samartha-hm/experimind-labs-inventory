@@ -341,8 +341,9 @@ export function commitmentFoundationTests(get: () => Harness) {
     try{await expect(new AddCommitmentLedger1792540800015().down(runner)).rejects.toThrow("Preserve commitment evidence");await runner.rollbackTransaction();}finally{await runner.release();}
     h.evidence.commitment_rollback={populated_ledger_downgrade:"REFUSED",events_preserved:true};
   });
-  trustedLedgerBoundaryTests(get, fixture, async(full:boolean|"custody"=false)=>{
+  trustedLedgerBoundaryTests(get, fixture, async(full:boolean|"custody"|"d6"=false)=>{
     const custom=planningFixture(get().wire.id);
+    if(full==="d6"){custom.content.sites[0].selections[0].context.grade_quantities[custom.mathGradeId]=1;return fixture(custom);}
     if(full==="custody") {
       let first=true;
       for(const subject of custom.subjects) {

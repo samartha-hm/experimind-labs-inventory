@@ -49,6 +49,7 @@ it.skipIf(!phase)("preserves production custody and authenticated exact retries 
       "commitment_work_order_issues","production_output_custody","trusted_packing_plans","trusted_packing_allocations","trusted_packing_qc",
       "trusted_dispatches","trusted_dispatch_units","trusted_delivery_receipts","trusted_installation_sources","site_installations","project_completions","supply_events","audit_logs","commitment_authorizations"];
     if(evidence.historical_decisions)tables.push("trusted_historical_decisions");
+    if(evidence.operational_evidence)tables.push("operational_evidence_events");
     const fingerprint=async()=>Object.fromEntries(await Promise.all(tables.map(async t=>[t,(await runtime.query(
       `SELECT count(*)::int count,md5(coalesce(string_agg(row_to_json(t)::text,'' ORDER BY row_to_json(t)::text),'')) hash FROM ${t} t`))[0]])));
     const before=await fingerprint();expect(before.production_output_custody.count).toBeGreaterThan(0);
@@ -90,6 +91,22 @@ it.skipIf(!phase)("preserves production custody and authenticated exact retries 
     expect(readinessResponse.status).toBe(200);
     const readiness=await readinessResponse.json();
     expect(readiness.pilot).toBe('NO-GO');expect(readiness.evidence_acceptance_available).toBe(false);
+    if(evidence.operational_evidence) {
+      const saved=await runtime.query('SELECT stream_id FROM operational_evidence_events WHERE organization_id=$1',[output.organization_id]);
+      expect(saved.length).toBeGreaterThan(0);
+      const response=await fetch(`http://127.0.0.1:${address.port}/review/operational-evidence`,{headers});
+      expect(response.status).toBe(200);
+      const records=await response.json();
+      expect(records.some((record:any)=>record.kind==='count')).toBe(true);
+      expect(records.some((record:any)=>record.kind==='evidence')).toBe(true);
+      if(evidence.operational_evidence.retry_command) {
+        expect(admin.id).toBe(evidence.operational_evidence.actor);
+        const retry=await fetch(`http://127.0.0.1:${address.port}/review/operational-evidence`,{method:'POST',headers:{...headers,'Content-Type':'application/json','Idempotency-Key':evidence.operational_evidence.retry_key},body:JSON.stringify(evidence.operational_evidence.retry_command)});
+        expect(retry.status).toBe(201);expect(await retry.json()).toEqual(evidence.operational_evidence.retry_result);
+      }
+      await expect(runtime.query('INSERT INTO operational_evidence_events DEFAULT VALUES')).rejects.toMatchObject({code:'42501'});
+      await expect(writer.query('UPDATE operational_evidence_events SET revision=revision')).rejects.toMatchObject({code:'42501'});
+    }
     const preparation={gates:readiness.gates,staff:readiness.staff,hardware:readiness.hardware};
     if(phase!=='before'){
       const previous=JSON.parse(await readFile(`.local-dev/${prefix}-recovery-${phase==='restart'?'before':'restart'}.json`,'utf8'));
