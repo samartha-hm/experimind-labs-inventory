@@ -1,16 +1,14 @@
 # Session handoff — 2026-10-28
 
-Branch: feature/kit-builder-milestone-1. D6-R software BLOCKED; pilot NO-GO.
-Starting SHA: c9ce4de7e6370683215e720dff159121d876555c.
-Feature commit verified local=remote: e9879b14d6687d77c166968c049d3072cbcec96c.
+Branch: feature/kit-builder-milestone-1. D6-C software BLOCKED; pilot NO-GO.
+Starting SHA: 41bf6d696e5ddf7d9900e53ae2fa6e374fbc05ec.
+D6-C feature commit verified local=remote: 9fe2dbf7b4fc8860809900f0606f6cbfb45dab6f.
 Final handoff commit SHA is reported in the completion message.
 
-Delivered fail-closed project closure for residual balance/claim holds and unfinished delivery entitlement, plus tenant/project reconciliation reporting. Synthetic-only migration 32 preserves historical evidence; no ownership settlement or production activation was invented.
+Delivered docs/erp/D6C_OWNERSHIP_DECISION_CONTRACT_DRAFT.md: O1–O10 ownership recommendations, alternatives, conservation examples, risks and exact approvals. DRAFT / NOT AUTHORIZED; no named approval, settlement implementation or historical activation. Migration 32 and residual-hold closure protection remain unchanged.
 
-Missing P0 authority: procurement-to-recipe source transfer/remainder and output-material settlement. Exact A/B Science crate mix and independent Math pass downstream synthetic execution through installation; procurement remains separately exercised. Closure now rejects unresolved material holds, including repeated requests, without custody changes. Complete end-to-end rehearsal remains BLOCKED.
+Recovered actual synthetic full-app login after PostgreSQL recovery, duplicate workspace-server cleanup and frontend compilation. Vite ignores private database/rehearsal artifacts. Account/hash/schema/restricted roles checked. Actual authenticated reload, procurement/production navigation, keyboard readiness retry and sign-out succeeded; HTTP refresh reuse after logout returned 401. Shell widths fit 390/1024/1440. Complete positive workflows, readiness/closure screens, role/tenant denial, retry/conflict and workflow responsive acceptance remain NOT VERIFIED. Production flag is absent; trusted packing/delivery require package entry context. Report distinguishes infrastructure contributors from unproven product defects and component acceptance.
 
-Validation: full serial regression 611 passed/two skipped; targeted authority 37, migration safety four and ops eight passed; TypeScript/build passed. Verified workspace restart and fresh nonempty database restore pass restricted authenticated mutations/retries/replay and retain closure blockers in all three phases. Component browsers pass keyboard retry, responsive layouts, accessible previews/downloads and closure protection. Full-app operator acceptance remains INCOMPLETE after login/loading failures; no full-app transaction PASS claimed. Infrastructure interruption and regenerated current evidence are documented separately.
+Final regression: 615 passed/two skipped, 81 files passed/two skipped; focused 37 passed; TypeScript/build passed. Existing migration-32 restart/fresh-restore recovery remains applicable; no ledger/database logic changed. Earlier overlapping run timed out under memory pressure.
 
-Actual host acceptance NOT PERFORMED. Production clone migration rehearsal, paired private-file recovery and physical/device/staff acceptance remain outstanding. No real stock, deployment, main merge or live credential change. Preserve unrelated AGENTS.md and .test-tmp/.
-
-Read D6 report and NEXT_TASK. Use /new or /compact for the next milestone.
+Read D6 report and NEXT_TASK. Stop at D6-C. No real stock, deployment, main merge or live credential change. Preserve unrelated AGENTS.md and .test-tmp/. Use /new or /compact before the next milestone.

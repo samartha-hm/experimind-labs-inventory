@@ -1,11 +1,11 @@
 # Next task
 
-D6-R software BLOCKED; operational pilot NO-GO. Stay on feature/kit-builder-milestone-1. Read docs/erp/D6_OPERATIONAL_PILOT_PREPARATION.md and the verified final commit from this chat.
+D6-C stops here. Software BLOCKED; operational pilot NO-GO. Remain on feature/kit-builder-milestone-1. Read docs/erp/D6C_OWNERSHIP_DECISION_CONTRACT_DRAFT.md and the current D6 report before further work.
 
-Obtain an accountable business decision for procurement-to-recipe ownership transfer and output-material settlement before implementing either transition. Specify source witnesses, units/rounding, partial transfer and remainder, liability owner, release/fulfillment timing, retries, concurrency and historical treatment. Do not infer approval from planning quantities, output creation, delivery or installation.
+Obtain named accountable APPROVE / REJECT / REVISE decisions for O1–O10, including exact alternatives, scope, effective date, conditions and signatures. The draft grants no authority. Do not implement procurement-to-production transfer or output settlement until explicitly authorized. Keep migration-32 residual-hold closure protection and historical evidence intact.
 
-Current closure protection denies unresolved material balances/claims and unfinished delivery entitlement. Historical evidence remains untouched. Exact two-school downstream synthetic rehearsal reaches installation; procurement lineage and settlement remain BLOCKED. After approval, implement conserved transitions and adversarial tests, then rerun the exact rehearsal and recovery.
+Full-app acceptance is PARTIAL. Login, authenticated reload, navigation and sign-out recovered; do not repeat the old claim that no authenticated screen was established. Use one workspace server, wait for frontend compilation, and document synthetic feature flags and exact retained package entry points. Complete actual production/packing/delivery/readiness operations, closure blocker, original-key retries/conflicts, role/tenant denial and keyboard/phone/tablet/desktop workflow checks. Shell layout and component browser passes do not establish those outcomes. Investigate invalid-login error recovery separately. No credential or auth-product defect was established.
 
-Full-app authenticated operator acceptance remains INCOMPLETE; isolate the login/loading issue before claiming positive transactions, reload/retry, roles and responsive acceptance. Component browser PASS is separate evidence. Actual intended-host acceptance is NOT PERFORMED.
+After business authorization, scope a separate implementation with conserved source/remainder witnesses, signed restricted writes, atomic retries/concurrency tests and populated-clone migration rehearsal. Repeat exact two-school end-to-end acceptance and recovery against that implementation.
 
-Do not deploy, run production migrations, change real stock/live credentials, activate historical data, merge main or enable pilot without separate authorization. Preserve unrelated AGENTS.md and .test-tmp/.
+Actual intended-host acceptance remains NOT PERFORMED. Do not deploy, run production migrations, alter real stock/live credentials, activate historical data, merge main or enable pilot without separate authorization. Preserve unrelated AGENTS.md and .test-tmp/. Start a fresh chat or compact before continuing.
