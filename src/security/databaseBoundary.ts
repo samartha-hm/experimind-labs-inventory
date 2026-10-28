@@ -104,6 +104,11 @@ export async function configureDatabaseBoundary(db: Sql, schema: string,
   if (po) await db.query(`GRANT SELECT ON ${s}.vendors,${s}.purchase_goods_receipts,${s}.purchase_order_lines TO ${ledger}`);
   // Stock is append-only. Other protected receipt tables also have immutable/final-state guards.
   if (receipt) await db.query(`REVOKE UPDATE ON ${s}.stock_ledger FROM ${ledger}`);
+  if (receipt && (await db.query("SELECT to_regclass($1) IS NOT NULL installed", [`${s}.physical_stocktakes`]))[0].installed) {
+    await db.query(`GRANT SELECT,UPDATE ON ${s}.physical_stocktakes TO ${ledger};
+      GRANT SELECT,INSERT ON ${s}.physical_stock_scopes,${s}.physical_stocktake_events,${s}.stock_ledger TO ${ledger};
+      GRANT SELECT,UPDATE(updated_at) ON ${s}.inventory_items TO ${ledger}`);
+  }
   for (const table of executionTables) for (const role of [identity, ledger]) {
     const t = `${s}.${sqlIdentifier(table)}`;
     await db.query(`REVOKE ALL ON ${t} FROM ${role}; GRANT SELECT ON ${t} TO ${role}`);
@@ -198,19 +203,28 @@ export async function assertDatabaseBoundary(db: DataSource, kind: "runtime" | "
   for (const {relname} of tables) {
     const t = `${sqlIdentifier(schema)}.${sqlIdentifier(relname)}`;
     const operational = ![...ledgerTables,...d2Tables,...identityTables,...executionTables,"migrations","typeorm_metadata"].includes(relname);
+    const stocktakePrivileges = receipt && kind === 'ledger' ? relname === 'physical_stocktakes' ? ['UPDATE'] :
+      ['physical_stock_scopes','physical_stocktake_events'].includes(relname) ? ['INSERT'] : [] : [];
     const writable = kind === "runtime" ? operational : kind === "identity" ? identityTables.includes(relname) : [...ledgerTables,...d2Tables].includes(relname);
     for (const privilege of ["INSERT","UPDATE","DELETE","TRUNCATE","REFERENCES","TRIGGER"]) {
       const allowed = kind === "ledger" && workOrders && relname === "audit_logs" && privilege === "INSERT" || kind === "ledger" && recipes && relname === "production_recipes" && privilege === "INSERT" || writable && ["INSERT",...(kind === "ledger" && (receipt && relname === "stock_ledger" || workOrders && workOrderTables.includes(relname) && !workOrderUpdates.includes(relname)) ? [] : ["UPDATE"]),...(kind === "ledger" ? [] : ["DELETE"])].includes(privilege) ||
         kind === "identity" && relname === "audit_logs" && privilege === "INSERT";
-      if (!allowed && (await db.query("SELECT has_table_privilege($1,$2) allowed",[t,privilege]))[0].allowed) fail();
+      if (!allowed && !stocktakePrivileges.includes(privilege) && (await db.query("SELECT has_table_privilege($1,$2) allowed",[t,privilege]))[0].allowed) fail();
     }
     const columns: {attname:string; writable:boolean}[] = await db.query(`SELECT attname,
       (has_column_privilege($1,attname,'INSERT') OR has_column_privilege($1,attname,'UPDATE')) writable
       FROM pg_attribute WHERE attrelid=$1::regclass AND attnum>0 AND NOT attisdropped`,[t]);
+    if (stocktakePrivileges.length) {
+      for (const privilege of ['SELECT', ...stocktakePrivileges])
+        if (!(await db.query('SELECT has_table_privilege($1,$2) allowed',[t,privilege]))[0].allowed) fail();
+      for (const privilege of ['INSERT','UPDATE'].filter(p => !stocktakePrivileges.includes(p)))
+        if ((await db.query(`SELECT 1 FROM pg_attribute WHERE attrelid=$1::regclass AND attnum>0 AND NOT attisdropped
+          AND has_column_privilege($1,attname,$2) LIMIT 1`,[t,privilege])).length) fail();
+    }
     if (kind === "ledger" && recipes && relname === "production_recipes" &&
       (await db.query(`SELECT 1 FROM pg_attribute WHERE attrelid=$1::regclass AND attnum>0 AND NOT attisdropped
         AND has_column_privilege($1,attname,'UPDATE') LIMIT 1`,[t])).length) fail();
-    if (!writable && !(kind === "ledger" && workOrders && relname === "audit_logs") && !(kind === "identity" && relname === "audit_logs") && !(kind === "ledger" && recipes && relname === "production_recipes") && columns.some(c=>c.writable &&
+    if (!writable && !stocktakePrivileges.length && !(kind === "ledger" && workOrders && relname === "audit_logs") && !(kind === "identity" && relname === "audit_logs") && !(kind === "ledger" && recipes && relname === "production_recipes") && columns.some(c=>c.writable &&
       !(c.attname === "updated_at" && (relname === "users" && kind === "runtime" || kind === "ledger" && ["users","planning_projects",...(d2?["inventory_items"]:[]),...(workOrderTables.includes("trusted_historical_decisions")?reconciliationSources:[])].includes(relname))))) fail();
   }
   // Missing authority is also unsafe: never silently substitute runtime credentials for identity/writer credentials.

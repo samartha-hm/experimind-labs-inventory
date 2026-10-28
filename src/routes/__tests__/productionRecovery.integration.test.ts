@@ -22,7 +22,7 @@ const phase=process.env.PRODUCTION_RECOVERY_PHASE;
 const prefix=process.env.PRODUCTION_RECOVERY_ARTIFACT_PREFIX??'d3';
 if(!/^d[0-9]+$/.test(prefix))throw Error('Invalid recovery artifact prefix');
 it.skipIf(!phase)("preserves production custody and authenticated exact retries after restart and restore",async()=>{
-  const evidence=JSON.parse(await readFile(`.test-tmp/${prefix}-evidence.json`,"utf8")),{schema}=evidence;
+  const evidence=JSON.parse(await readFile(process.env.PRODUCTION_RECOVERY_EVIDENCE??`.test-tmp/${prefix}-evidence.json`,"utf8")),{schema}=evidence;
   const url=new URL(process.env.KIT_BUILDER_TEST_DATABASE_URL!);
   const database=process.env.PRODUCTION_RECOVERY_DATABASE??"experimind_kitbuilder_test";
   if(url.hostname!=="127.0.0.1"||!["55432","55433"].includes(url.port)||!/^requirement_test_[a-f0-9]{32}$/.test(schema)
@@ -44,7 +44,7 @@ it.skipIf(!phase)("preserves production custody and authenticated exact retries 
     for(const pool of pools)await pool.initialize();
     const [runtime,identity,writer]=pools;
     for(const [index,kind] of (["runtime","identity","ledger"] as const).entries())await assertDatabaseBoundary(pools[index],kind,schema);
-    const tables=["stock_ledger","commitment_events","commitment_balances","commitment_claims","commitment_entitlements",
+    const tables=["physical_stocktakes","physical_stock_scopes","physical_stocktake_events","stock_ledger","commitment_events","commitment_balances","commitment_claims","commitment_entitlements",
       "production_work_orders","production_input_issues","commitment_work_orders","commitment_work_order_materials",
       "commitment_work_order_issues","production_output_custody","trusted_packing_plans","trusted_packing_allocations","trusted_packing_qc",
       "trusted_dispatches","trusted_dispatch_units","trusted_delivery_receipts","trusted_installation_sources","site_installations","project_completions","supply_events","audit_logs","commitment_authorizations"];
@@ -52,8 +52,28 @@ it.skipIf(!phase)("preserves production custody and authenticated exact retries 
     const fingerprint=async()=>Object.fromEntries(await Promise.all(tables.map(async t=>[t,(await runtime.query(
       `SELECT count(*)::int count,md5(coalesce(string_agg(row_to_json(t)::text,'' ORDER BY row_to_json(t)::text),'')) hash FROM ${t} t`))[0]])));
     const before=await fingerprint();expect(before.production_output_custody.count).toBeGreaterThan(0);
+    if(evidence.browser_output)for(const table of ['physical_stocktakes','physical_stock_scopes','physical_stocktake_events','stock_ledger'])
+      expect(before[table].count).toBeGreaterThan(0);
+    if(evidence.browser_output) {
+      const stock=JSON.parse(await readFile('.local-dev/d5-browser/stocktake.json','utf8'));
+      const production=JSON.parse(await readFile('.local-dev/d5-browser/production.json','utf8'));
+      const delivery=JSON.parse(await readFile('.local-dev/d5-browser/delivery.json','utf8'));
+      const [balance]=await runtime.query('SELECT sum(qty_delta)::numeric balance FROM stock_ledger WHERE item_id=$1',[stock.item]);
+      expect(Number(balance.balance)).toBe(12); // counted 12 + received 2 - issued 2
+      const [allocation]=await runtime.query('SELECT sum(quantity)::numeric quantity FROM trusted_packing_allocations WHERE output_id=$1',[production.output.id]);
+      expect(Number(allocation.quantity)).toBe(2);
+      const units=await runtime.query(`SELECT c.quantity,c.fulfilled,c.released FROM trusted_dispatch_units u
+        JOIN commitment_claims c ON c.id=u.claim_id WHERE u.dispatch_id=$1`,[delivery.dispatch.id]);
+      // Each assembly contains multiple claim-bearing lines.
+      expect(units.length).toBeGreaterThanOrEqual(delivery.dispatch.roots.length);
+      for(const unit of units)expect([Number(unit.quantity),Number(unit.fulfilled),Number(unit.released)]).toEqual([1,1,0]);
+      const [completion]=await runtime.query('SELECT status FROM project_completions WHERE project_id=$1',[production.project]);
+      expect(completion.status).toBe('closed');
+    }
     if(phase!=="before")expect(before).toEqual(JSON.parse(await readFile(`.local-dev/${prefix}-recovery-${phase==="restart"?"before":"restart"}.json`,"utf8")).after);
-    const [output]=await runtime.query("SELECT * FROM production_output_custody WHERE location='Production shelf' ORDER BY id LIMIT 1");
+    const [output]=evidence.browser_output
+      ?await runtime.query('SELECT * FROM production_output_custody WHERE id=$1',[evidence.browser_output])
+      :await runtime.query("SELECT * FROM production_output_custody WHERE location='Production shelf' ORDER BY id LIMIT 1");
     const [admin]=await identity.query("SELECT id,email FROM users WHERE id=$1",[output.actor_id]);
     const auth=new AuthService(identity),password=randomBytes(24).toString("hex")+"Aa1!";
     await identity.getRepository(User).update(admin.id,{password_hash:await auth.hashPassword(password)});
@@ -67,23 +87,33 @@ it.skipIf(!phase)("preserves production custody and authenticated exact retries 
     const address=server.address();if(!address||typeof address==="string")throw Error("Missing port");
     const base=`http://127.0.0.1:${address.port}/production`,headers={Authorization:`Bearer ${access}`,"Content-Type":"application/json","Idempotency-Key":output.operation_key};
     const queue=await fetch(base+"/trusted-work-queue",{headers});expect(queue.status).toBe(200);
+    if(evidence.browser_output) {
+      const posted=await runtime.query("SELECT id,revision FROM physical_stocktakes WHERE status='posted' AND organization_id=$1 AND posted_by=$2",[output.organization_id,admin.id]);
+      expect(posted.length).toBeGreaterThan(0);
+      for(const stocktake of posted) {
+        const retry=await fetch(`http://127.0.0.1:${address.port}/review/${stocktake.id}/post`,{method:'POST',headers,body:JSON.stringify({revision:stocktake.revision-1})});
+        expect(retry.status).toBe(200);
+      }
+      expect(await fingerprint()).toEqual(before);
+    }
     expect((await queue.json()).orders.find((o:any)=>o.id===output.order_id).outputs.some((o:any)=>o.id===output.id)).toBe(true);
-    const input={order:output.order_id,source:output.source_id,quantity:output.quantity,unit:output.unit,location:output.location};
+    const input={order:output.order_id,source:output.source_id,quantity:evidence.browser_output?String(Number(output.quantity)):output.quantity,unit:output.unit,location:output.location};
     const response=await fetch(`${base}/operator/orders/${output.order_id}/finished-outputs`,{method:"POST",headers,body:JSON.stringify(input)});
     expect(response.status).toBe(201);expect(await response.json()).toEqual({id:output.id,order:output.order_id,quantity:output.quantity,qr:output.qr});
     const duplicate=await fetch(`${base}/operator/orders/${output.order_id}/finished-outputs`,{method:"POST",headers:{...headers,"Idempotency-Key":suffix},body:JSON.stringify(input)});
     expect(duplicate.status).toBe(409);
     const packingResponse=await fetch(base+'/trusted-packing',{headers});expect(packingResponse.status).toBe(200);
     const packing=await packingResponse.json();
-    expect(packing.plans.flatMap((p:any)=>p.inspections).map((q:any)=>q.decision)).toEqual(expect.arrayContaining(['accept','reject']));
+    expect(packing.plans.flatMap((p:any)=>p.inspections).map((q:any)=>q.decision)).toEqual(expect.arrayContaining(evidence.browser_output?['accept']:['accept','reject']));
     for(const [table,path] of [['trusted_packing_plans','plans'],['trusted_packing_allocations','allocations'],['trusted_packing_qc','inspections']]) {
-      const rows=await runtime.query(`SELECT * FROM ${table} WHERE actor_id=$1`,[admin.id]);expect(rows.length).toBeGreaterThan(0);
+      const rows=await runtime.query(`SELECT * FROM ${table} WHERE actor_id=$1${evidence.browser_plan?` AND ${path==='plans'?'id':'plan_id'}=$2`:''}`,
+        evidence.browser_plan?[admin.id,evidence.browser_plan]:[admin.id]);expect(rows.length).toBeGreaterThan(0);
       for(const row of rows) {
         const request=path==='plans'?{project:row.project_id,site:row.site_id,approval:row.approval_id,demandRevision:row.demand_revision}:
           path==='allocations'?{plan:row.plan_id,package:row.package_id,output:row.output_id,line:row.line_id,quantity:row.quantity}:
           {plan:row.plan_id,package:row.package_id,allocationRevision:row.allocation_revision,decision:row.decision,checks:row.checks,notes:row.notes};
         const retry=await fetch(`${base}/operator/packing/${path}`,{method:'POST',headers:{...headers,'Idempotency-Key':row.operation_key},body:JSON.stringify(request)});
-        expect(retry.status).toBe(201);delete row.created_at;expect(await retry.json()).toEqual(row);
+        const result=await retry.json();expect(retry.status,`${path}: ${JSON.stringify(result)}`).toBe(201);delete row.created_at;expect(result).toEqual(row);
       }
     }
     if(process.env.PRODUCTION_BROWSER==='true'&&phase==='before')await verifyPackingBrowser(app,`http://127.0.0.1:${address.port}`,access,admin,packing);
@@ -103,7 +133,7 @@ it.skipIf(!phase)("preserves production custody and authenticated exact retries 
     }
     for(const request of evidence.delivery.requests) {
       const retry=await fetch(`${base}/operator/delivery/${request.path}`,{method:'POST',headers:{...headers,'Idempotency-Key':request.key},body:JSON.stringify(request.input)});
-      expect(retry.status).toBe(201);expect(await retry.json()).toEqual(request.result);
+      const result=await retry.json();expect(retry.status,`${request.path}: ${JSON.stringify(result)}`).toBe(201);expect(result).toEqual(request.result);
     }
     if(evidence.purchasing_operator) {
       for(const {request,result} of evidence.purchasing_operator.requests) {
@@ -140,14 +170,16 @@ it.skipIf(!phase)("preserves production custody and authenticated exact retries 
       expect(freshReview.status).toBe(201); expect((await freshReview.json()).revision).toBe(latest.revision+1);
       await expect(runtime.query("UPDATE trusted_historical_decisions SET reason='rewrite'")).rejects.toMatchObject({code:"42501"});
     }
+    if(evidence.delivery.recovery_installation) {
     const [job]=await runtime.query("SELECT * FROM site_installations WHERE id=$1",[evidence.delivery.recovery_installation]);
     const fresh=await fetch(`${base}/operator/delivery/installation-actions`,{method:'POST',headers:{...headers,'Idempotency-Key':randomUUID()},
       body:JSON.stringify({id:job.id,input:{revision:job.revision,action:'note',notes:`Authenticated ${phase} recovery evidence`}})});
     expect(fresh.status).toBe(201);expect((await fresh.json()).revision).toBe(job.revision+1);
+    }
     const after=await fingerprint();
     for(const table of tables.filter(t=>!['site_installations','supply_events','audit_logs','commitment_authorizations','trusted_historical_decisions'].includes(t)))expect(after[table]).toEqual(before[table]);
     await writeFile(`.local-dev/${prefix}-recovery-${phase}.json`,JSON.stringify({phase,database,schema,before,after:await fingerprint(),
-      authenticated_http:true,fresh_authenticated_mutation:true,delivery_exact_retry:true,exact_retry:true,duplicate_denied:true,replayed_accounts:balances.length,
+      authenticated_http:true,fresh_authenticated_mutation:Boolean(evidence.delivery.recovery_installation),delivery_exact_retry:evidence.delivery.requests.length>0,exact_retry:true,duplicate_denied:true,replayed_accounts:balances.length,
       historical_review_exact_retry:Boolean(evidence.historical_decisions),historical_review_fresh_mutation:Boolean(evidence.historical_decisions),
       purchasing_operator_exact_retry:Boolean(evidence.purchasing_operator),receipt_operator_exact_retry:Boolean(evidence.receipt_operator),historical_simulation_read_only:Boolean(evidence.historical_simulation),
       operator_browser:process.env.PRODUCTION_BROWSER==="true"&&phase==="before"?"PASS":"not run",

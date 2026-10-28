@@ -7,7 +7,7 @@ import { randomBytes } from 'node:crypto';
 const prefix=process.env.PRODUCTION_RECOVERY_ARTIFACT_PREFIX??'d3';
 if(!/^d[0-9]+$/.test(prefix))throw Error('Invalid recovery artifact prefix');
 const url=new URL(process.env.KIT_BUILDER_TEST_DATABASE_URL);
-const {schema}=JSON.parse(readFileSync(`.test-tmp/${prefix}-evidence.json`,'utf8'));
+const {schema}=JSON.parse(readFileSync(process.env.PRODUCTION_RECOVERY_EVIDENCE??`.test-tmp/${prefix}-evidence.json`,'utf8'));
 if(url.hostname!=='127.0.0.1'||!['55432','55433'].includes(url.port)||url.pathname!=='/experimind_kitbuilder_test'
   ||!/^requirement_test_[a-f0-9]{32}$/.test(schema))throw Error('Isolated synthetic target required');
 const bin=resolve('.local-dev/tools/postgresql-17.5/pgsql/bin');

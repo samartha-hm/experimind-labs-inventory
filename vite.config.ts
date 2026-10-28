@@ -30,6 +30,9 @@ export default defineConfig(() => {
           ],
         },
         workbox: {
+          // The complete trusted workflow entry exceeds Workbox's 2 MiB default.
+          // Keep it available offline while retaining a bounded precache budget.
+          maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,
           cleanupOutdatedCaches: true,
           clientsClaim: true,
           skipWaiting: true,

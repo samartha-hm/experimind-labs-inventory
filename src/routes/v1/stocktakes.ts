@@ -105,7 +105,17 @@ export function stocktakeRouter(db: DataSource, authority?: TrustedLedgerAuthori
   router.put("/:id/count",action(async(req,res)=>{const d=await dto(req.body,CountDto);res.json(await service.count(req.user!.orgId!,req.params.id,req.user!.id,d.revision,d.item_id,d.location,d.quantity,d.unit,d.remove));}));
   router.post("/:id/review",action(async(req,res)=>{const d=await dto(req.body,ReviewDto);res.json(await service.transition(req.user!.orgId!,req.params.id,req.user!.id,d.revision,"review",d.reason,d.allow_partial));}));
   for(const verb of ["approve","post","reopen"] as const) router.post(`/:id/${verb}`,action(async(req,res)=>{
-    const d=await dto(req.body,RevisionDto);res.json(await service.transition(req.user!.orgId!,req.params.id,req.user!.id,d.revision,verb,""));
+    const d=await dto(req.body,RevisionDto);
+    if (verb === 'post' && authority) {
+      try {
+        res.json(await authority.postStocktakeForSession(req.headers.authorization!.slice(7), req.params.id, d.revision));
+      } catch (error) {
+        if (error instanceof DraftKitError) throw error;
+        if (error instanceof Error && /session|expired|administrator|capability|jwt|signature/i.test(error.message))
+          throw new DraftKitError(403,"Current authorized approver session required");
+        throw error;
+      }
+    } else res.json(await service.transition(req.user!.orgId!,req.params.id,req.user!.id,d.revision,verb,""));
   }));
   return router;
 }

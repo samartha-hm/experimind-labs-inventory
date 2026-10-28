@@ -1,4 +1,5 @@
 import { verifyDeliveryAuthority } from './deliveryAuthority.cases';
+import { verifyTrustedStocktake } from './trustedStocktake.cases';
 import { verifyHistoricalDecisions } from './historicalDecisions.cases';
 import { HistoricalEvidenceDecisions1793232000029 } from '../../migration/1793232000029-HistoricalEvidenceDecisions';
 import { TrustedDispatchCustody1793145600027 } from '../../migration/1793145600027-TrustedDispatchCustody';
@@ -42,6 +43,7 @@ export async function verifyWorkOrderAuthority(h:Parameters<typeof verifyExecuti
   const input=await h.db.getRepository(InventoryItem).save({organization_id:h.admin.organization_id,name:"Synthetic D3 input",unit:"g",sku:randomUUID(),base_price:0,quantity:0,threshold:0});
   const authority=await TrustedLedgerAuthority.create(h.writer,env.jwtSecret,h.schema);
   const {token}=await new AuthService(h.identity).login(h.admin.email,h.password);
+  await verifyTrustedStocktake(h,authority,token!);
   const app=express();app.use(express.json());app.use("/production",productionPlanningRouter(h.runtime,authority));
   app.use("/closed",productionPlanningRouter(h.runtime));
   const server=await new Promise<Server>(resolve=>{const s=app.listen(0,"127.0.0.1",()=>resolve(s));});

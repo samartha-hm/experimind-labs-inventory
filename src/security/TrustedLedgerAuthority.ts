@@ -1,4 +1,5 @@
 import { recordHistoricalDecision } from "../services/HistoricalDecisionService";
+import { StocktakeService } from "../services/StocktakeService";
 import type { HistoricalDecisionInput } from "../features/inventory/reconciliationTypes";
 import { dispatchPacking, acknowledgeDelivery, type DispatchInput, type DeliveryInput } from '../services/TrustedDeliveryService';
 import { mutateTrustedCompletion,type InstallationCreate,type InstallationAction,type ClosureInput } from '../services/TrustedCompletionService';
@@ -56,7 +57,7 @@ export class TrustedLedgerAuthority {
     await assertDatabaseBoundary(db, "ledger", schema);
     return new TrustedLedgerAuthority(db, key);
   }
-  private claims(token: string, capability: boolean): JwtPayload {
+  private claims(token: string, capability: boolean, stocktake = false): JwtPayload {
     const p = jwt.verify(token, this.#key, { algorithms: ["HS256"],
       issuer: capability ? issuer : "experimind-auth",
       audience: capability ? audience : "experimind-api" });
@@ -65,16 +66,16 @@ export class TrustedLedgerAuthority {
       p.iss !== (capability ? issuer : "experimind-auth") || p.aud !== (capability ? audience : "experimind-api") ||
       !Number.isInteger(p.exp) || !Number.isInteger(p.iat) || p.exp! <= p.iat! || p.iat! > Math.floor(Date.now()/1000) ||
       typeof p.sid !== "string" || !/^[a-f0-9]{64}$/.test(p.sid) ||
-      !["admin", "super_admin"].includes(p.role) || p.type || p.purpose ||
+      !(stocktake ? ["admin", "super_admin", "manager"] : ["admin", "super_admin"]).includes(p.role) || p.type || p.purpose ||
       p.orgId === "00000000-0000-0000-0000-000000000000" ||
       (capability && (!uuid.test(p.jti ?? "") || p.exp! - p.iat! > 60 || p.scope !== "ledger:mutate")))
       throw new Error("Authenticated administrator session required");
     return p;
   }
-  private async current(m: EntityManager, p: JwtPayload): Promise<void> {
+  private async current(m: EntityManager, p: JwtPayload, stocktake = false): Promise<void> {
     // All session revocation paths acquire this same user row FOR UPDATE first.
     if (!(await m.query(`SELECT id FROM users WHERE id=$1 AND organization_id=$2 AND is_active
-      AND role IN ('admin','super_admin') FOR SHARE`, [p.sub, p.orgId])).length)
+      AND role=ANY($3::text[]) FOR SHARE`, [p.sub, p.orgId, stocktake ? ['admin','super_admin','manager'] : ['admin','super_admin']])).length)
       throw new Error("Active tenant administrator required");
     if (!(await m.query(`SELECT id FROM refresh_tokens WHERE user_id=$1 AND token_hash=$2
       AND NOT is_revoked AND expires_at>clock_timestamp()`, [p.sub, p.sid])).length)
@@ -84,6 +85,18 @@ export class TrustedLedgerAuthority {
       throw new Error("Session revoked or expired");
     if ((await m.query("SELECT extract(epoch FROM clock_timestamp()) >= $1 expired", [p.exp]))[0].expired)
       throw new Error("Authorization expired");
+  }
+  /** A live approver session and the posting transaction share the same identity lock.
+   * Stocktake identity/revision supplies the durable retry key; no new capability is exposed.
+   */
+  async postStocktakeForSession(accessToken: string, id: string, revision: number) {
+    const p = this.claims(accessToken, false, true);
+    return this.#db.transaction(async m => {
+      await this.current(m, p, true);
+      const result = await new StocktakeService(this.#db).transition(p.orgId!, id, p.sub!, revision, 'post', '', false, m);
+      await this.current(m, p, true);
+      return result;
+    });
   }
   /** Only authenticated server code can call the issuer; no SQL minting function exists. */
   async performForSession(accessToken: string, capability: string, request: LedgerRequest) {

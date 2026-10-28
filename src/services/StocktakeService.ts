@@ -84,8 +84,8 @@ export class StocktakeService {
       s.revision++;return this.persist(m,s,actor);
     });
   }
-  async transition(org: string,id: string,actor: string,revision: number,action: "review"|"approve"|"post"|"reopen",reason: string,allowPartial=false) {
-    return this.db.transaction(async m => {
+  async transition(org: string,id: string,actor: string,revision: number,action: "review"|"approve"|"post"|"reopen",reason: string,allowPartial=false,manager?: EntityManager) {
+    const apply = async (m: EntityManager) => {
       // Retry of a successful post is idempotent even with its old revision.
       const s=await this.owned(m,org,id,undefined,true); if(action==="post"&&s.status==="posted") return s;
       if(s.revision!==revision) throw new DraftKitError(409,"Stocktake changed; reopen it");
@@ -142,7 +142,8 @@ export class StocktakeService {
         s.status="posted";s.posted_by=actor;
       }
       s.revision++;return this.persist(m,s,actor);
-    });
+    };
+    return manager ? apply(manager) : this.db.transaction(apply);
   }
   async history(org: string,id: string) {
     await this.owned(this.db.manager,org,id);

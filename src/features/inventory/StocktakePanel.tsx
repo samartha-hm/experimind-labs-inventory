@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import * as Dialog from "@radix-ui/react-dialog";
 import { useAuth } from "../../AuthContext";
 import { apiFetch } from "../../utils/api";
 import type { Stocktake, StocktakeTarget, CountEntry, PhysicalStockScope } from "../../entity/Stocktake";
@@ -16,6 +17,10 @@ export default function StocktakePanel() {
   const [counts,setCounts]=useState<Record<string,{quantity:string;unit:string}>>({});
   const [reason,setReason]=useState("");const [partial,setPartial]=useState(false);const [error,setError]=useState("");const [busy,setBusy]=useState(false);
   const [history,setHistory]=useState<unknown[]>([]);const [ledger,setLedger]=useState<unknown[]>([]);
+  const [confirmation,setConfirmation]=useState<View>();
+  const postButton=useRef<HTMLButtonElement>(null);
+  const panel=useRef<HTMLElement>(null);
+  const posting=useRef(false);
   async function load(id?:string) {
     const [i,s]=await Promise.all([apiFetch("/api/v1/stocktakes/inventory"),apiFetch("/api/v1/stocktakes")]);setItems(i);setSessions(s);
     if(id){const v:View=await apiFetch(`/api/v1/stocktakes/${id}`);setView(v);setName(v.session.name);setNotes(v.session.notes);setTargets(v.session.targets);
@@ -28,10 +33,19 @@ export default function StocktakePanel() {
   const session=view?.session;
   async function transition(action:string) {
     if(!session)return;
-    if(action==="post"&&!window.confirm("Post these approved physical counts exactly once? Legacy inventory values will be preserved."))return;
+    if(action==="post") {setConfirmation(view);return;}
     await run(async()=>{await apiFetch(`/api/v1/stocktakes/${session.id}/${action}`,{method:"POST",body:JSON.stringify({revision:session.revision,...(action==="review"?{reason,allow_partial:partial}:{})})});await load(session.id);});
   }
-  return <section className="space-y-4 rounded-2xl border border-slate-300 p-4">
+  async function confirmPosting() {
+    if(!confirmation||posting.current||!approver)return;
+    posting.current=true;
+    const approved=confirmation.session;
+    try {await run(async()=>{
+      await apiFetch(`/api/v1/stocktakes/${approved.id}/post`,{method:"POST",body:JSON.stringify({revision:approved.revision})});
+      await load(approved.id);
+    });} finally {posting.current=false;setConfirmation(undefined);}
+  }
+  return <section ref={panel} tabIndex={-1} className="space-y-4 rounded-2xl border border-slate-300 p-4">
     <h2 className="text-xl font-semibold">Physical stocktake and verified balances</h2>
     <p className="text-sm text-slate-500">Legacy quantities, prices and locations are unverified. Verified stock comes from approved counts and accepted receipts in the ledger. Active reservations reduce available stock; pending inspection is unavailable.</p>
     {error&&<p role="alert" className="text-red-600">{error}</p>}
@@ -64,10 +78,32 @@ export default function StocktakePanel() {
           {entry&&<p className="break-all text-xs text-slate-500">Counted by {entry.counted_by} · reviewed by {entry.reviewed_by??"Pending"} · approved by {entry.approved_by??"Pending"}{entry.conversion_id?` · conversion ${entry.conversion_id}, factor ${entry.conversion_factor}`:""}</p>}
         </div>;}))}
         {session.status==="draft"&&reviewer&&<><label className="block">Review / reconciliation reason <input className={`${input} w-full`} value={reason} onChange={e=>setReason(e.target.value)}/></label><label><input type="checkbox" checked={partial} onChange={e=>setPartial(e.target.checked)}/> Explicitly review partial counts</label><button className={button} onClick={()=>void transition("review")}>Review counts</button></>}
-        <div className="flex flex-wrap gap-3">{session.status==="reviewed"&&approver&&<button className={button} onClick={()=>void transition("approve")}>Approve counts</button>}{session.status==="approved"&&approver&&<button className={button} onClick={()=>void transition("post")}>Post approved counts</button>}{["reviewed","approved"].includes(session.status)&&reviewer&&<button className={button} onClick={()=>void transition("reopen")}>Reopen for recount</button>}
+        <div className="flex flex-wrap gap-3">{session.status==="reviewed"&&approver&&<button className={button} onClick={()=>void transition("approve")}>Approve counts</button>}{session.status==="approved"&&approver&&<button ref={postButton} className={button} onClick={()=>void transition("post")}>Post approved counts</button>}{["reviewed","approved"].includes(session.status)&&reviewer&&<button className={button} onClick={()=>void transition("reopen")}>Reopen for recount</button>}
           <button className={button} onClick={()=>void run(async()=>{setHistory(await apiFetch(`/api/v1/stocktakes/${session.id}/history`));setLedger(await apiFetch("/api/v1/stocktakes/ledger"));})}>History and ledger</button></div>
       </div>}
     </fieldset>
+    <Dialog.Root open={!!confirmation} onOpenChange={open=>{if(!open&&!posting.current)setConfirmation(undefined);}}>
+      <Dialog.Portal>
+        <Dialog.Overlay className="fixed inset-0 z-50 bg-black/60" />
+        <Dialog.Content className="fixed left-1/2 top-1/2 z-50 max-h-[90dvh] w-[calc(100%_-_2rem)] max-w-xl -translate-x-1/2 -translate-y-1/2 overflow-auto rounded-2xl border border-slate-300 bg-white p-5 text-slate-900 shadow-xl dark:bg-slate-900 dark:text-slate-100"
+          onCloseAutoFocus={event=>{event.preventDefault();(postButton.current??panel.current)?.focus();}}>
+          <Dialog.Title className="text-xl font-semibold">Confirm stocktake posting</Dialog.Title>
+          <Dialog.Description className="my-3">Posting irreversibly records these approved physical counts in the immutable stock ledger and changes verified on-hand stock. It cannot be undone here. Legacy inventory values are preserved. Stock changes since review will block posting.</Dialog.Description>
+          {confirmation&&<>
+            <p className="break-words">{confirmation.session.name} · revision {confirmation.session.revision}</p>
+            <p className="break-all text-sm">Stocktake {confirmation.session.id}</p>
+            <ul className="my-3 space-y-2">{confirmation.counts.map(entry=><li key={entry.id} className="break-words">
+              {items.find(item=>item.id===entry.item_id)?.name??entry.item_id} · {entry.location}: approved on-hand {entry.canonical_quantity??entry.quantity} {entry.canonical_unit??entry.unit}; {entry.baseline==null?"initial verified balance (previously unverified)":`previous verified balance ${entry.baseline}; change ${entry.discrepancy}`}
+            </li>)}</ul>
+            {confirmation.missing.length>0&&<p>{confirmation.missing.length} missing counts remain unverified.</p>}
+          </>}
+          <div className="mt-4 flex flex-wrap gap-3">
+            <Dialog.Close asChild><button className={button} disabled={busy}>Cancel</button></Dialog.Close>
+            <button className={button} disabled={busy||!approver} onClick={()=>void confirmPosting()}>{busy?"Posting…":"Confirm and post counts"}</button>
+          </div>
+        </Dialog.Content>
+      </Dialog.Portal>
+    </Dialog.Root>
     <details><summary className="min-h-11 cursor-pointer py-3">Verified balances and legacy reconciliation</summary><div className="overflow-auto"><table className="w-full text-left text-sm"><thead><tr>{["Item","Legacy quantity (unverified)","Verified on-hand","Unit","Coverage"].map(h=><th key={h} className="p-3">{h}</th>)}</tr></thead><tbody>{items.map(i=><tr key={i.id}><td className="p-3">{i.name}</td><td className="p-3">{i.legacy_quantity}</td><td className="p-3">{i.verified_on_hand??"Unverified"}</td><td className="p-3">{i.unit}</td><td className="p-3">{i.scope?.locations.join(", ")??"Not declared"}</td></tr>)}</tbody></table></div></details>
     {history.length>0&&<details><summary className="min-h-11 cursor-pointer py-3">Immutable count history</summary><pre className="overflow-auto text-xs">{JSON.stringify(history,null,2)}</pre></details>}
     {ledger.length>0&&<details><summary className="min-h-11 cursor-pointer py-3">Verified stock ledger</summary><pre className="overflow-auto text-xs">{JSON.stringify(ledger,null,2)}</pre></details>}
