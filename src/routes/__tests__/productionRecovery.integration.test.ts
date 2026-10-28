@@ -17,6 +17,7 @@ import { supplyPlanningRouter } from "../v1/supply-planning";
 import { verifyProductionBrowser } from "./productionBrowser.cases";
 import { verifyPackingBrowser } from "./packingBrowser.cases";
 import { verifyDeliveryBrowser } from "./deliveryBrowser.cases";
+import { trustedProjectProgress } from "../../services/TrustedCompletionService";
 
 const phase=process.env.PRODUCTION_RECOVERY_PHASE;
 const prefix=process.env.PRODUCTION_RECOVERY_ARTIFACT_PREFIX??'d3';
@@ -202,12 +203,20 @@ it.skipIf(!phase)("preserves production custody and authenticated exact retries 
       body:JSON.stringify({id:job.id,input:{revision:job.revision,action:'note',notes:`Authenticated ${phase} recovery evidence`}})});
     expect(fresh.status).toBe(201);expect((await fresh.json()).revision).toBe(job.revision+1);
     }
+    if(evidence.d6_exact_journey) {
+      const progress=await trustedProjectProgress(runtime.manager,output.organization_id,evidence.d6_exact_journey.project);
+      expect(progress.completion).toBeNull();
+      expect(progress.blockers).toEqual(expect.arrayContaining([expect.stringContaining('unresolved material ownership hold')]));
+      expect(progress.reconciliation?.some(row=>row.dimension==='material'&&Number(row.held)>0)).toBe(true);
+      expect((await runtime.query('SELECT requirement_d4_project_blocked($1,$2) blocked',[output.organization_id,evidence.d6_exact_journey.project]))[0].blocked).toBe(true);
+    }
     const after=await fingerprint();
     for(const table of tables.filter(t=>!['site_installations','supply_events','audit_logs','commitment_authorizations','trusted_historical_decisions'].includes(t)))expect(after[table]).toEqual(before[table]);
     await writeFile(`.local-dev/${prefix}-recovery-${phase}.json`,JSON.stringify({phase,database,schema,before,after:await fingerprint(),
       preparation,authenticated_http:true,fresh_authenticated_mutation:Boolean(evidence.delivery.recovery_installation),delivery_exact_retry:evidence.delivery.requests.length>0,exact_retry:true,duplicate_denied:true,replayed_accounts:balances.length,
       historical_review_exact_retry:Boolean(evidence.historical_decisions),historical_review_fresh_mutation:Boolean(evidence.historical_decisions),
       purchasing_operator_exact_retry:Boolean(evidence.purchasing_operator),receipt_operator_exact_retry:Boolean(evidence.receipt_operator),historical_simulation_read_only:Boolean(evidence.historical_simulation),
+      residual_ownership_blocks_closure:Boolean(evidence.d6_exact_journey),
       operator_browser:process.env.PRODUCTION_BROWSER==="true"&&phase==="before"?"PASS":"not run",
       server:await runtime.query("SELECT current_database(),pg_postmaster_start_time()")},null,2));
   } finally {

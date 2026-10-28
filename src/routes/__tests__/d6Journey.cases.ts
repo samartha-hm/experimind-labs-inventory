@@ -60,10 +60,12 @@ export async function verifyD6Journey(h:Parameters<typeof verifyWorkOrderAuthori
     schools.push({site:site.id,common,universal,quantity,roots:roots.length,plan:plan.id,dispatch:shipment.id});
   }
   const close={action:'closeTrustedProject',key:randomUUID(),input:{project:f.project.id,input:{revision:0,project_revision:1,action:'close',recipient:'Synthetic NGO recipient',notes:'SYNTHETIC TEST EVIDENCE'}}} as const;
-  const closed=await perform(close);expect(closed.status).toBe('closed');expect(await perform(close)).toEqual(closed);
+  await expect(perform(close)).rejects.toThrow(/Completion blocked/);
+  await expect(perform(close)).rejects.toThrow(/Completion blocked/);
+  expect(await h.db.query('SELECT id FROM project_completions WHERE project_id=$1',[f.project.id])).toEqual([]);
   const [{quantity}]=await h.db.query('SELECT sum(qty_delta)::text quantity FROM stock_ledger WHERE item_id=$1',[input.id]);expect(Number(quantity)).toBe(0);
   const balances=await h.db.query('SELECT a.dimension,b.* FROM commitment_balances b JOIN commitment_accounts a ON a.id=b.account_id WHERE a.project_id=$1',[f.project.id]);
   // Preserve the existing authority boundary: output ownership has no approved fulfillment transition.
   for(const balance of balances)expect({account:balance.account_id,held:Number(balance.held),fulfilled:Number(balance.fulfilled)}).toEqual({account:balance.account_id,held:balance.dimension==='material'?Number(balance.approved):0,fulfilled:balance.dimension==='material'?0:Number(balance.approved)});
-  h.evidence.d6_exact_journey={classification:'SYNTHETIC TEST EVIDENCE',project:f.project.id,schools,independent_math:1,input_opening:'3.7 g',input_remaining:'0 g',output:'3.7 m',closure:closed.id,physical_delivery_mutation:false,balances,software:'PARTIAL',reconciliation_blocker:'Output material ownership remains held after closure; explicit authorized fulfillment contract required',procurement:'Separately exercised by purchasing acceptance cases; not linked to this journey',pilot:'NO-GO'};
+  h.evidence.d6_exact_journey={classification:'SYNTHETIC TEST EVIDENCE',project:f.project.id,schools,independent_math:1,input_opening:'3.7 g',input_remaining:'0 g',output:'3.7 m',closure:'BLOCKED: retained material ownership',physical_delivery_mutation:false,balances,software:'BLOCKED',reconciliation_blocker:'Output material ownership remains held; explicit authorized fulfillment contract required',procurement:'Separately exercised by purchasing acceptance cases; not linked to this journey',pilot:'NO-GO'};
 }

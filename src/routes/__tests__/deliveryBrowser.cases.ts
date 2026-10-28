@@ -23,13 +23,16 @@ export async function verifyDeliveryBrowser(app:Express,base:string,access:strin
     await expect(page.getByRole('combobox',{name:'Dispatched school assemblies'})).toHaveValue(dispatch.id);
     await expect(page.getByText('2 acknowledged / 2 dispatched',{exact:true})).toBeVisible();
     await expect(page.getByRole('button',{name:'Record evidenced school receipt'})).toBeDisabled();
-    await expect(page.getByText('Project: closed',{exact:true})).toBeVisible();
+    await expect(page.getByText('Project: active',{exact:true})).toBeVisible();
+    await expect(page.getByText(/unresolved material ownership hold/).first()).toBeVisible();
     await expect(page.getByRole('button',{name:'Record recipient acceptance and close project'})).toBeDisabled();
     await page.getByRole('button',{name:'Preview dispatch manifest'}).click();
-    await expect(page.getByTitle('Dispatch manifest preview')).toHaveAttribute('src',/^blob:/);
+    const manifest=page.getByRole('region',{name:'Dispatch manifest preview',exact:true});
+    await expect(manifest).toContainText(dispatch.id);
+    await expect(manifest.getByRole('img',{name:'Package lookup QR code'}).first()).toBeVisible();
     const download=page.waitForEvent('download');await page.getByRole('button',{name:'Download dispatch manifest'}).click();
     expect((await download).suggestedFilename()).toBe(`dispatch-${dispatch.id}.pdf`);
-    for(const width of [390,1024]){await page.setViewportSize({width,height:844});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);}
+    for(const width of [390,1024,1440]){await page.setViewportSize({width,height:844});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);}
     await page.getByLabel('Package label',{exact:true}).fill('unavailable-package');await page.getByRole('button',{name:'Find dispatch package'}).click();
     await expect(page.getByRole('alert')).toContainText('Package unavailable for this tenant');expect(errors).toEqual([]);
   } finally {await browser.close();}

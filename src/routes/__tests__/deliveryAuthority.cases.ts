@@ -138,10 +138,13 @@ export async function verifyDeliveryAuthority(h:Parameters<typeof verifyWorkOrde
     await send('installations',{...createJob,site_id:site.id,required:false,checklist:[],survey:'Synthetic school B requires no installation'});
   }
   const progress=await fetch(`${base}/trusted-delivery/projects/${f.project.id}/progress`,{headers:{Authorization:`Bearer ${token}`}});
-  expect(progress.status).toBe(200);expect((await progress.json()).blockers,JSON.stringify(await h.db.query(`SELECT a.dimension,b.held,b.fulfilled FROM commitment_accounts a JOIN commitment_balances b ON b.account_id=a.id WHERE a.project_id=$1 AND b.held<>0`,[f.project.id]))).toEqual([]);
-  const closeKey=randomUUID(),closed=await send('closure',close,closeKey);expect(closed.status).toBe('closed');
-  expect(await send('closure',close,closeKey)).toEqual(closed);
-  await act('reopen',{},[409]);
+  expect(progress.status).toBe(200);expect((await progress.json()).blockers).toEqual(expect.arrayContaining([expect.stringContaining('unresolved material ownership hold')]));
+  const unresolvedCustody=await custody();
+  const closeKey=randomUUID();await send('closure',close,closeKey,[409]);
+  await send('closure',close,closeKey,[409]);
+  expect(await custody()).toEqual(unresolvedCustody);
+  expect(await h.db.query('SELECT id FROM project_completions WHERE project_id=$1',[f.project.id])).toEqual([]);
+  await send('closure',{...close,input:{...close.input,action:'reopen'}},randomUUID(),[409]);
   await expect(h.writer.query('UPDATE site_installations SET revision=revision+1 WHERE id=$1',[job.id])).rejects.toMatchObject({code:'23514'});
   for(const table of ['trusted_dispatches','trusted_dispatch_units','trusted_delivery_receipts']) {
     await expect(h.runtime.query(`INSERT INTO ${table} DEFAULT VALUES`)).rejects.toMatchObject({code:'42501'});
@@ -149,7 +152,7 @@ export async function verifyDeliveryAuthority(h:Parameters<typeof verifyWorkOrde
     await expect(h.writer.query(`UPDATE ${table} SET id=id`)).rejects.toMatchObject({code:'42501'});
     await expect(h.db.query(`DELETE FROM ${table}`)).rejects.toMatchObject({code:'23514'});
   }
-  h.evidence.delivery={dispatch:dispatch.id,receipts:2,partial:'H2/F0 -> H1/F1 -> H0/F2',physical:'unchanged',retry:'durable',duplicate:'denied',direct_consume:'denied',installation:job.id,closure:closed.id,requests};
+  h.evidence.delivery={dispatch:dispatch.id,receipts:2,partial:'H2/F0 -> H1/F1 -> H0/F2',physical:'unchanged',retry:'durable',duplicate:'denied',direct_consume:'denied',installation:job.id,closure:'BLOCKED: retained material ownership',requests};
   const complete=await h.fixture('custody'),schoolCounts=[];
   for(const site of complete.project.sites) {
     const packed=await authority.performProductionForSession(token,{action:'createPackingPlan',key:randomUUID(),input:{project:complete.project.id,site:site.id,approval:complete.approval.id,demandRevision:1}}) as {id:string;snapshot:PackingSnapshot};

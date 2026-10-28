@@ -18,6 +18,8 @@ export interface SchoolCompletion {
   delivery_status: string; issues: number; installation: InstallationJob | null;
 }
 export interface CompletionProgress {
+  reconciliation?: { account_id: string; site_id: string; dimension: string; item_key: string; unit: string;
+    approved: string; fulfilled: string; held: string; uncommitted: string; claim_held: string }[];
   project_id: string; project_revision: number; schools: SchoolCompletion[]; blockers: string[];
   completion: ProjectCompletion | null; history: { kind: string; revision: number; snapshot: unknown }[];
 }

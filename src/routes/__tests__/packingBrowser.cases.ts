@@ -31,7 +31,9 @@ export async function verifyPackingBrowser(app:Express,base:string,access:string
     await expect(page.getByRole('button',{name:'Allocate physical output'})).toBeDisabled();
     await expect(page.getByText(qc.notes,{exact:true})).toBeVisible();
     await page.getByRole('button',{name:'Preview package label'}).click();
-    await expect(page.getByTitle('Trusted package label preview')).toHaveAttribute('src',/^blob:/);
+    const preview=page.getByRole('region',{name:'Package label preview',exact:true});
+    await expect(preview.getByRole('img',{name:'Package lookup QR code'})).toBeVisible();
+    await expect(preview.getByRole('link',{name:'Open package lookup'})).toHaveAttribute('href',new RegExp(qc.package_id));
     const downloaded=page.waitForEvent('download');await page.getByRole('button',{name:'Download package label'}).click();
     expect((await downloaded).suggestedFilename()).toMatch(/^PK-.*\.pdf$/);
     const rejected=plan.inspections.find(q=>q.decision==='reject')!;

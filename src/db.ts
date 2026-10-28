@@ -60,6 +60,7 @@ import { stocktakeEntities } from "./entity/Stocktake.ts";
 import { OperationalEvidenceEvent } from "./entity/OperationalEvidence";
 import { OperationalEvidence1793232000030 } from "./migration/1793232000030-OperationalEvidence";
 import { AggregateWorkOrderDemand1793232000031 } from "./migration/1793232000031-AggregateWorkOrderDemand";
+import { BlockResidualProjectHolds1793232000032 } from "./migration/1793232000032-BlockResidualProjectHolds";
 import { AddPhysicalStocktake1791504000003 } from "./migration/1791504000003-AddPhysicalStocktake.ts";
 import { WarehouseTransfer } from "./entity/WarehouseTransfer.ts";
 import { WarehouseTransferLine } from "./entity/WarehouseTransferLine.ts";
@@ -179,6 +180,7 @@ export const AppDataSource = new DataSource({
   migrations: [
     OperationalEvidence1793232000030,
     AggregateWorkOrderDemand1793232000031,
+    BlockResidualProjectHolds1793232000032,
 
     AddCommitmentLedger1792540800015,
     HardenCommitmentEventEvidence1792540800016,

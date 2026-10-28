@@ -42,9 +42,22 @@ export async function trustedProjectProgress(m:EntityManager,org:string,id:strin
   }
   const [{blocked}]=await m.query('SELECT requirement_d4_project_blocked($1,$2) blocked',[org,id]);
   if(blocked)blockers.push('Project custody, production or installation evidence is incomplete');
+  const reconciliation: NonNullable<CompletionProgress['reconciliation']> = await m.query(`SELECT a.id account_id,a.site_id,a.dimension,a.item_key,a.unit,
+    coalesce(b.approved,0)::text approved,coalesce(b.fulfilled,0)::text fulfilled,
+    coalesce(b.held,0)::text held,
+    (coalesce(b.approved,0)-coalesce(b.fulfilled,0)-coalesce(b.held,0))::text uncommitted,
+    coalesce((SELECT sum(c.held) FROM commitment_claims c WHERE c.account_id=a.id),0)::text claim_held
+    FROM commitment_accounts a LEFT JOIN commitment_balances b ON b.account_id=a.id
+    WHERE a.organization_id=$1 AND a.project_id=$2 ORDER BY a.site_id,a.id`,[org,id]);
+  for(const row of reconciliation) {
+    if(Number(row.held)!==0||Number(row.claim_held)!==0)
+      blockers.push(`${row.site_id}: unresolved ${row.dimension} ownership hold ${row.held} ${row.unit} (claims ${row.claim_held}; account ${row.account_id})`);
+    if(row.dimension==='slot'&&row.approved!==row.fulfilled&&Number(row.approved)!==Number(row.fulfilled))
+      blockers.push(`${row.site_id}: approved delivery entitlement remains (account ${row.account_id})`);
+  }
   const completion:ProjectCompletion[]=await m.query('SELECT * FROM project_completions WHERE organization_id=$1 AND project_id=$2',[org,id]);
   const history=await m.query("SELECT kind,revision,snapshot FROM supply_events WHERE organization_id=$1 AND kind IN ('installation','project_completion') AND snapshot->>'project_id'=$2 ORDER BY created_at,id",[org,id]);
-  return {project_id:id,project_revision:project.revision,schools,blockers,completion:completion[0]??null,history};
+  return {project_id:id,project_revision:project.revision,schools,blockers,completion:completion[0]??null,history,reconciliation};
 }
 
 export type InstallationCreate=Parameters<ProjectCompletionService['createInstallation']>[3];

@@ -1,6 +1,6 @@
 # D6 operational pilot preparation
 
-Software verdict: PARTIAL. Operational pilot: NO-GO.
+Software verdict: BLOCKED (D6-R). Operational pilot: NO-GO.
 All rehearsal records are SYNTHETIC TEST EVIDENCE. No real stock or deployment is authorized.
 
 ## Delivered authority
@@ -15,12 +15,30 @@ The readiness dashboard separates retained claims from verification and keeps ph
 
 School A: two complete Grades 8–10 kits, six common crates and two universal crates. School B: three Grade-8-only common kits, three common crates and no universal crates. One independent Math quantity is included for A. Shared output SKU demand is aggregated with all frozen source lines retained; packing remains bound to each approved line. Sub-unit SQL proof formatting is canonicalized.
 
-The test exercises approval, recipe material budgets, verified synthetic opening input, work-order claim/issue/output, full allocation, all six QC checks, blocked pre-QC dispatch, dispatch, partial acknowledgment, exact retries/duplicate rejection, installation acceptance and project closure. Input conservation is checked; delivery acknowledgment does not move physical stock.
+The test exercises approval, recipe material budgets, verified synthetic opening input, work-order claim/issue/output, full allocation, all six QC checks, blocked pre-QC dispatch, dispatch, partial acknowledgment, exact retries/duplicate rejection and installation acceptance. Closure and its same-key retry now fail closed without a completion record. Input conservation is checked; delivery acknowledgment does not move physical stock. The synthetic recipe consumes 3.7 g to produce 3.7 m; this is recipe yield, not a stock-unit conversion. It does not prove procurement lineage.
 
 Two P0 gaps prevent a full end-to-end PASS:
 
 - Procurement PR/PO/receipt/incoming-QC acceptance runs separately. There is no approved transfer contract linking purchased raw-material ownership into this recipe journey. Implement and independently test explicit ownership transfer; do not fabricate continuity with direct SQL.
-- Closed projects retain output-material commitment holds although delivery slots are fulfilled. The test preserves and reports these residual balances. Define an authorized, replayable material fulfillment transition and prevent closure with unresolved commitments.
+- Output-material commitment holds remain although delivery slots are fulfilled. D6-R prevents new closure with these residual balances. Historical closed records are preserved and report their blockers; no settlement, deletion, reopening or inventory release is implied.
+
+## D6-R ownership transition matrix
+
+| Existing operation | Authority / exclusive ownership | Permitted transition |
+| --- | --- | --- |
+| School approval | Frozen school deliverable entitlement, material and slot accounts | Establishes approved demand; not physical inventory |
+| PR / PO source coverage | Procurement planning hold and immutable source witness | Existing purchase/QC workflow only; a coverage claim is not a second exclusive physical-stock reservation |
+| Accepted incoming QC | Receipt custody and explicit physical posting | Posts accepted physical quantity exactly once; preserves procurement commitment A/F/H/U |
+| Recipe / work-order claim | Recipe-derived material budget; exclusive input reservation and output entitlement claim | Uses existing work-order authority; no authorized procurement claim transfer is specified |
+| Work-order issue | Reserved raw input at its location | Consumes input reservation and debits physical raw stock once; consumption remains irrevocable |
+| Finished output | Produced-output custody against issued recipe inputs | Records output once; no additional raw-stock debit or implicit procurement settlement |
+| Packing / dispatch | Output allocation and dispatched package custody | Allocation/QC/dispatch do not fulfill raw-material claims or create stock |
+| Delivery acknowledgment | Frozen school delivery slots | Fulfills delivered slots once; no physical-stock mutation or material-hold settlement |
+| Project closure | All current delivery, installation, custody and commitment evidence | Blocked while any account or claim has a nonzero hold, or delivery slots remain unfulfilled |
+
+Required business decisions: identify the procurement source entitlement and recipe destination, their units/yield witness, which liability/approval owner authorizes a partial transfer, and the append-only event that settles output-material ownership. Specify cancellation/remainder and retry/concurrency semantics. Shared school/SKU identity is insufficient authority. No transfer or settlement has been invented; its partial-transfer/concurrency acceptance remains BLOCKED.
+
+Migration `1793232000032` replaces only the existing D4 closure predicate, preserving function identity/ACL and all data. It includes claim-held evidence even where a balance cache is absent. Its scope guard permits only the isolated synthetic database/schema, and its rollback refuses removal of the protection. Production upgrade remains BLOCKED pending clone rehearsal and an approved deployment path. The authenticated progress response reports per-account approved, fulfilled, held, uncommitted and claim-held quantities; these are commitment units, not available warehouse stock. Existing production/physical reservation and procurement blockers remain in force.
 
 ## Preflight and recovery
 
@@ -30,7 +48,7 @@ The isolated recovery runner fingerprints populated stock, commitment, custody, 
 
 ## Remaining real gates
 
-P0: resolve the two ownership/closure gaps; approve an independent operational verification contract; rehearse production migration ordering on a clone and reconcile its journal.
+P0: authorize the missing ownership transfer and material settlement contracts; approve an independent operational verification contract; rehearse production migration ordering on a clone and reconcile its journal. Closure protection is implemented; residual ownership itself is unresolved.
 
 P1: accountable operators must perform warehouse coverage/variance review and separately authorize opening stock; print and scan representative QR/PDF labels on actual devices; complete supervised staff scenarios; provision intended-host credentials; test paired private-file restore, service lifecycle, HTTPS/LAN ACLs, 25-operator load, offline/reconnect/PWA freshness, logging/retention, feature flags and rollback. Retain attributed evidence and independent review for each gate.
 
@@ -38,8 +56,30 @@ No live credential was rotated and no pilot GO transition was introduced. Local 
 
 ## Validation retained for this implementation
 
-Full regression: 80 files passed, two skipped; 611 tests passed, two skipped. Four preflight tests, TypeScript and PWA/server build passed. The nonempty synthetic database restart/restore drill passed all three restricted authenticated HTTP phases, evidence fingerprints, exact retries and commitment replay. These results do not resolve the two P0 business-contract gaps above.
+Current D6-R regression: 80 files passed, two skipped; 611 tests passed, two skipped (one worker). The initial parallel run had two five-second fixture timeouts and cascading failures (603 passed, eight failed); the serial rerun passed. Targeted authoritative integration: 37 passed. Eight preflight/recovery-helper tests, four additional migration safety tests, TypeScript and PWA/server build passed. Private evidence: `.local-dev/d6r-evidence.json`, `d6r-full-serial.log`, `d6r-ops-tests.log`, `d6r-typecheck-final.log`, `d6r-build.log`. These results do not resolve the two P0 business-contract gaps above.
 
-Browser acceptance observed synthetic login and authenticated retained evidence/count and NO-GO dashboard rendering. Controls disappeared between interactions; browser write/reload, responsive, keyboard and QR/PDF acceptance remain incomplete for this change. No successful browser claim write or physical device acceptance is asserted.
+Historical D6 evidence observed synthetic login and authenticated retained evidence/count and NO-GO rendering, but controls disappeared between interactions. Historical recovery passed three phases; it predates this closure change and is not current recovery proof. Current D6-R browser/recovery results are recorded below; no database-only assertion establishes full-app browser acceptance or physical device acceptance.
 
-Read-only final preflight artifact: private .local-dev/d6-final-preflight.json; source-only migration preview, ready=false, pilot=NO-GO. Intended-host environment and database migration journal were not verified by this invocation.
+Current read-only preflight: `.local-dev/d6r-preflight.json`; ready=false, pilot=NO-GO, missing operational role/environment configuration, migration registration BLOCKED, applied journal and feature flags NOT_VERIFIED. Startup/boundary regression tests passed; this source-only invocation supplied no intended-host credentials and applied no migration. Actual host acceptance: NOT PERFORMED.
+
+| Required verdict | D6-R result |
+| --- | --- |
+| Procurement-to-production authority | BLOCKED: approved transfer contract absent |
+| Material stock and reservation reconciliation | PARTIAL: synthetic input conservation passes; procurement lineage and residual material ownership unresolved |
+| School closure accounting | Protection PASS; settlement BLOCKED; historical evidence retained |
+| Exact two-school rehearsal | BLOCKED end to end; required crate mix, Math and downstream synthetic execution pass through installation; procurement separate and closure denied |
+| Browser acceptance | PARTIAL: authenticated component checks PASS; full-app operator acceptance INCOMPLETE |
+| D6 software preparation | BLOCKED by ownership authority and incomplete acceptance |
+| Operational pilot | NO-GO; intended-host acceptance NOT PERFORMED |
+
+## Current D6-R recovery and browser evidence
+
+Guarded database recovery PASS: `.local-dev/d632-recovery-summary.json` records a verified workspace-cluster restart and a nonempty dump restored into a fresh database. Before/restart/restore phases pass restricted authenticated HTTP, fresh mutations, original-key retries, commitment replay and fingerprints. All three phases confirm unresolved material ownership still blocks project closure; no closure receipt exists for the exact rehearsal. This does not prove paired private-file or intended-host recovery.
+
+Authenticated component browser checks PASS: `.local-dev/d6r-component-browser.log`. Production, packing and delivery use real restricted HTTP with a bootstrapped authenticated profile. Checks include keyboard retry, accessible DOM QR previews, package lookup rejection, PDF downloads, responsive delivery layouts at 390/1024/1440 pixels, residual-hold messages and disabled closure. Obsolete iframe-preview assertions were corrected to test the current accessible previews. These checks do not exercise full-app login or establish complete role/positive-transaction acceptance.
+
+Full-app browser acceptance INCOMPLETE. Fresh in-app tabs on local ports 3100 and 3101 displayed the login form. Port 3100 showed a loading screen after submission; reload returned to login. A clean-origin attempt on 3101 did not establish an authenticated operator screen, including after keyboard submission. No current full-app write/reload/role/responsive PASS is claimed. Captured browser errors were empty and a bounded synthetic database activity check found no active query; neither observation establishes a product or browser-infrastructure root cause. Keep this distinct from the passing component and database tests.
+
+Infrastructure interruption: local tool sessions/browser bindings disappeared and the workspace PostgreSQL service stopped during execution. The earlier synthetic schema was absent after restart. Fresh isolated evidence was regenerated and the current targeted suite passed 37 tests before the successful recovery/component checks above. Do not attribute this interruption to a product regression without further evidence. Current artifacts use schema `requirement_test_5f11bc62677d4c48915c2c67cc2ea27d`; older artifacts are not substituted for current proof.
+
+Missing-contract adversarial cases (partial ownership transfer/remainder, competing transfer consumers and transfer retries) remain BLOCKED rather than simulated as an authorized transition. Existing physical issue/concurrency, tenant/school/unit, rollback, restricted-role and delivery retry checks remain regression evidence for their own authorities.

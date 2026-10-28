@@ -4,6 +4,7 @@ import { verifyTrustedStocktake } from './trustedStocktake.cases';
 import { verifyOperationalEvidence } from './operationalEvidence.cases';
 import { OperationalEvidence1793232000030 } from '../../migration/1793232000030-OperationalEvidence';
 import { AggregateWorkOrderDemand1793232000031 } from '../../migration/1793232000031-AggregateWorkOrderDemand';
+import { BlockResidualProjectHolds1793232000032 } from '../../migration/1793232000032-BlockResidualProjectHolds';
 import { verifyHistoricalDecisions } from './historicalDecisions.cases';
 import { HistoricalEvidenceDecisions1793232000029 } from '../../migration/1793232000029-HistoricalEvidenceDecisions';
 import { TrustedDispatchCustody1793145600027 } from '../../migration/1793145600027-TrustedDispatchCustody';
@@ -40,6 +41,7 @@ export async function verifyWorkOrderAuthority(h:Parameters<typeof verifyExecuti
     await new HistoricalEvidenceDecisions1793232000029().up(m.queryRunner!);
     await new OperationalEvidence1793232000030().up(m.queryRunner!);
     await new AggregateWorkOrderDemand1793232000031().up(m.queryRunner!);
+    await new BlockResidualProjectHolds1793232000032().up(m.queryRunner!);
     await configureDatabaseBoundary(m,h.schema,h.roles);
   });
   for(const [pool,kind] of [[h.runtime,"runtime"],[h.identity,"identity"],[h.writer,"ledger"]] as const)
