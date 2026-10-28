@@ -5,7 +5,7 @@ All rehearsal records are SYNTHETIC TEST EVIDENCE. No real stock or deployment i
 
 ## Current D6-C decision and acceptance verdicts
 
-The [ownership decision contract](D6C_OWNERSHIP_DECISION_CONTRACT_DRAFT.md) is **DRAFT / NOT AUTHORIZED**. O1–O10 give recommendations, alternatives, conserved accounting examples, risks and exact accountable approvals. The proposal is ready for business review; no named approver has approved it. Its future adversarial matrix is a specification, not executed acceptance evidence.
+The [ownership decision contract](D6C_OWNERSHIP_DECISION_CONTRACT_DRAFT.md) is **DRAFT / NOT AUTHORIZED**. O1–O10 give recommendations, alternatives, conserved accounting examples, risks and exact accountable approvals. The proposal is ready for business review; no named approver has approved it. The refined package separates source coverage, exclusive material responsibility, physical S/R, school entitlement and payables; adds exact accounting, disposition/transition matrices and an unsigned O1–O10 approval register. Financial-tail controls require separate approval and never bypass residual material holds. Its future adversarial matrix is a specification, not executed acceptance evidence. This refinement is documentation only; no new runtime acceptance was performed.
 
 | Required verdict | D6-C result |
 | --- | --- |
