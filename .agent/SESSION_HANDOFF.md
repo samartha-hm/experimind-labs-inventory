@@ -1,32 +1,33 @@
 # Session handoff — 2026-10-28
 
 Branch: `feature/kit-builder-milestone-1`.
-Evidence checkpoint: `4a6af9b1920359eb22316f9e7bedc8c79b6496b1` (pushed; remote matched).
-Starting revision: `3ecdb7c3ee111cdeeb15efcfce45c6457117964e`.
-Modified: `docs/erp/D5_ERP_READINESS_AND_PILOT_GATE.md`; this handoff and NEXT_TASK.
-No application code changed. D5 software acceptance BLOCKED; pilot NO-GO.
+Milestone: D5 software acceptance PASS, scoped synthetic evidence; STOP after D5.
+Implementation: `5834b9eb89ee2591aea0615066bc14e2b383ad12` (pushed; full remote SHA matched).
+Starting HEAD: `1b47253c9b42e71eb6c78376469436a9daa63a43`.
 
-Interrupted stocktake reconciled through authenticated supported read APIs before
-retry and after interruption: `4c6e3a5f-db11-4c79-9fd2-a892f640997e` is approved
-r4, four audit revisions, zero stocktake ledger entries: NOT POSTED.
-Evidence: ignored `.local-dev/d55-stocktake-read.json`.
+Resolved native confirmation/browser blocker with accessible application dialog,
+trusted stocktake writer/live session locking and deterministic production-build
+Playwright harness. Runtime stock-ledger writes remain denied; manager authority
+is stocktake-only. PWA precache build handles the current entry size.
+Modified areas: stocktake UI/service/router, trusted authority/database boundary,
+security/recovery/browser tests and readiness report.
 
-Fresh browser login/selection succeeded. One post-button click raised the native
-confirmation interruption; an uncaught click promise reset the runtime. After
-reinitialization the dialog API returned no dialog. Fresh tabs loaded authenticated
-dashboards, but navigation clicks reported completion without changing the tree.
-No confirmation or duplicate posting was submitted. Screenshot:
-`.local-dev/d55-browser-blocker.png`. Full fresh custody chain and complete browser
-role/flag/offline/accessibility matrix remain unverified.
+Verified: 608 tests passed, two opt-in recovery skips; typecheck and frontend/PWA/
+server build passed. Two real browser tests passed: stocktake cancel/interruption/
+posting plus authenticated requirement → purchasing/receipt/QC → production →
+packing/six-check QC → dispatch/manifest → partial/final receipt → installation →
+closure. Targeted mobile/tablet/desktop dialog and keyboard checks passed.
+Fixture versus browser boundaries and non-exhaustive matrices are documented.
 
-Vite-mode login timed out; static local production-mode serving restored prompt
-health/login/read APIs. All three PostgreSQL roles connected without observed
-blocking sessions. Development slowdown root cause remains unproven.
+Nonempty same-browser-schema recovery passed before/restart/fresh restore;
+103 accounts replayed, stock/custody/audit fingerprints preserved, exact retries
+unchanged. Older mismatched-schema recovery evidence was superseded.
+Private evidence: ignored `.local-dev/d5-browser/` and recovery summary.
 
-Fresh checks: 608 tests passed, two opt-in skips; typecheck and frontend/PWA/server
-build passed (`.local-dev/d55-*`). Prior actual recovery evidence reused because
-no implementation/recovery assumptions changed. No fabricated browser PASS.
+Actual historical activation BLOCKED; pilot NO-GO. No main merge, deployment,
+real inventory activation, physical QC approval or cutover. Production role
+provisioning and real operational acceptance remain outstanding.
+Unrelated modified `AGENTS.md` and untracked `.test-tmp/` are preserved.
 
-All evidence SIMULATED / SYNTHETIC TEST EVIDENCE. No real inspection, staff sign-off,
-historical activation, deployment or pilot acceptance. Preserve unrelated AGENTS.md
-and `.test-tmp/`; never commit ignored credentials/dumps. Use /new or /compact.
+Next: review `docs/erp/D5_ERP_READINESS_AND_PILOT_GATE.md`; await separately
+scoped authorization before any further milestone. Start `/new` or `/compact`.

@@ -1,6 +1,17 @@
 # ERP state — historical implementation notes
 
-## D3 partial implementation — 2026-10-19 — current
+## D5 software acceptance — 2026-10-28 — current
+
+Scoped synthetic software PASS. Implementation checkpoint
+`5834b9eb89ee2591aea0615066bc14e2b383ad12` is pushed and remote-verified.
+Real browser stocktake and requirement-through-school-closure journeys passed;
+608 regression tests, typecheck, build and same-schema nonempty restart/restore
+passed. Detailed fixture boundaries and limitations are recorded in
+`docs/erp/D5_ERP_READINESS_AND_PILOT_GATE.md`.
+Actual historical activation remains BLOCKED; operational pilot remains NO-GO.
+D5 is complete. Further milestones require separate scope authorization.
+
+## D3 partial implementation — 2026-10-19 — historical
 
 Trusted immutable canonical recipe publication is implemented and tested through
 authenticated HTTP and the existing session capability writer. Synthetic-only
