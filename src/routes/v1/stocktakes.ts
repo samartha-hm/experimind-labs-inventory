@@ -5,6 +5,7 @@ import { User } from "../../entity/User";
 import { authenticateJwt } from "../../middleware/auth";
 import { dto } from "./product-templates";
 import { StocktakeService } from "../../services/StocktakeService";
+import { OperationalPreparationService } from "../../services/OperationalPreparationService";
 import { HistoricalReconciliationService } from "../../services/HistoricalReconciliationService";
 import { HistoricalLineageSimulationService } from "../../services/HistoricalLineageSimulationService";
 import type { TrustedLedgerAuthority } from "../../security/TrustedLedgerAuthority";
@@ -68,6 +69,16 @@ export function stocktakeRouter(db: DataSource, authority?: TrustedLedgerAuthori
     }next();
   }));
   router.param("id",(_req,res,next,id:string)=>{if(!uuid.test(id)){res.status(400).json({error:"Invalid stocktake identity"});return;}next();});
+  router.get("/operational-readiness", action(async(req,res)=>{
+    res.setHeader("Cache-Control", "no-store");
+    res.json(await new OperationalPreparationService(db).readiness(req.user!.orgId!, req.user!.id));
+  }));
+  router.get("/:id/count-sheet", action(async(req,res)=>{
+    const revision = req.query.revision;
+    if (typeof revision !== "string" || !/^[1-9]\d{0,8}$/.test(revision)) throw new DraftKitError(400, "Current revision required");
+    res.setHeader("Cache-Control", "no-store");
+    res.json(await new OperationalPreparationService(db).countSheet(req.user!.orgId!, req.user!.id, req.params.id, Number(revision)));
+  }));
   router.get("/reconciliation",action(async(req,res)=>{
     res.setHeader("Cache-Control", "no-store");
     res.json(await new HistoricalReconciliationService(db).preview(req.user!.orgId!,req.user!.id,

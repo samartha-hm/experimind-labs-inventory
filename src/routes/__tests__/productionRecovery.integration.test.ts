@@ -86,6 +86,15 @@ it.skipIf(!phase)("preserves production custody and authenticated exact retries 
     server=await new Promise<Server>(resolve=>{const s=app.listen(0,"127.0.0.1",()=>resolve(s));});
     const address=server.address();if(!address||typeof address==="string")throw Error("Missing port");
     const base=`http://127.0.0.1:${address.port}/production`,headers={Authorization:`Bearer ${access}`,"Content-Type":"application/json","Idempotency-Key":output.operation_key};
+    const readinessResponse=await fetch(`http://127.0.0.1:${address.port}/review/operational-readiness`,{headers});
+    expect(readinessResponse.status).toBe(200);
+    const readiness=await readinessResponse.json();
+    expect(readiness.pilot).toBe('NO-GO');expect(readiness.evidence_acceptance_available).toBe(false);
+    const preparation={gates:readiness.gates,staff:readiness.staff,hardware:readiness.hardware};
+    if(phase!=='before'){
+      const previous=JSON.parse(await readFile(`.local-dev/${prefix}-recovery-${phase==='restart'?'before':'restart'}.json`,'utf8'));
+      expect(preparation).toEqual(previous.preparation);
+    }
     const queue=await fetch(base+"/trusted-work-queue",{headers});expect(queue.status).toBe(200);
     if(evidence.browser_output) {
       const posted=await runtime.query("SELECT id,revision FROM physical_stocktakes WHERE status='posted' AND organization_id=$1 AND posted_by=$2",[output.organization_id,admin.id]);
@@ -179,7 +188,7 @@ it.skipIf(!phase)("preserves production custody and authenticated exact retries 
     const after=await fingerprint();
     for(const table of tables.filter(t=>!['site_installations','supply_events','audit_logs','commitment_authorizations','trusted_historical_decisions'].includes(t)))expect(after[table]).toEqual(before[table]);
     await writeFile(`.local-dev/${prefix}-recovery-${phase}.json`,JSON.stringify({phase,database,schema,before,after:await fingerprint(),
-      authenticated_http:true,fresh_authenticated_mutation:Boolean(evidence.delivery.recovery_installation),delivery_exact_retry:evidence.delivery.requests.length>0,exact_retry:true,duplicate_denied:true,replayed_accounts:balances.length,
+      preparation,authenticated_http:true,fresh_authenticated_mutation:Boolean(evidence.delivery.recovery_installation),delivery_exact_retry:evidence.delivery.requests.length>0,exact_retry:true,duplicate_denied:true,replayed_accounts:balances.length,
       historical_review_exact_retry:Boolean(evidence.historical_decisions),historical_review_fresh_mutation:Boolean(evidence.historical_decisions),
       purchasing_operator_exact_retry:Boolean(evidence.purchasing_operator),receipt_operator_exact_retry:Boolean(evidence.receipt_operator),historical_simulation_read_only:Boolean(evidence.historical_simulation),
       operator_browser:process.env.PRODUCTION_BROWSER==="true"&&phase==="before"?"PASS":"not run",

@@ -62,6 +62,29 @@ describe.skipIf(!url)("PostgreSQL physical stocktake acceptance",()=>{
     baseline=JSON.stringify(await db.query("SELECT * FROM inventory_items ORDER BY id"));await start();
   },30000);
   afterAll(async()=>{if(server)await close();if(db?.isInitialized)await db.destroy();});
+  it("prepares tenant-only blind evidence without exposing expected counts or authorizing operational GO",async()=>{
+    const s=await create();
+    const path=`/stocktakes/${s.id}/count-sheet?revision=${s.revision}`;
+    const before=JSON.stringify(await db.query("SELECT * FROM inventory_items ORDER BY id"));
+    const sheet=await request("GET",path,maker);
+    expect(sheet).toMatchObject({kind:"UNSIGNED BLIND COUNT SHEET",revision:s.revision,exported_by:maker.id,opening_balance_posting:"NOT AUTHORIZED"});
+    expect(sheet.rows).toHaveLength(2);
+    expect(sheet.rows[0]).toMatchObject({sku:"WIRE",canonical_unit:"m",quantity:null,physical_status:"UNKNOWN",assigned_to:null});
+    expect(JSON.stringify(sheet)).not.toMatch(/legacy_quantity|baseline|verified_on_hand|entries/);
+    await request("GET",path,other,undefined,404);
+    await request("GET",path,undefined,undefined,401);
+    await request("GET",`/stocktakes/${s.id}/count-sheet?revision=0`,maker,undefined,400);
+    await request("GET",`/stocktakes/${s.id}/count-sheet?revision=1&revision=2`,maker,undefined,400);
+    await count(s,"3");
+    await request("GET",path,maker,undefined,409);
+    const readiness=await request("GET","/stocktakes/operational-readiness",maker);
+    expect(readiness).toMatchObject({mode:"read_only",pilot:"NO-GO",evidence_acceptance_available:false,generated_for:maker.id});
+    expect(readiness.gates.find((g:{id:string})=>g.id==="pilot").status).toBe("BLOCKED");
+    expect(readiness.gates.filter((g:{id:string;status:string})=>g.id!=="d5").every((g:{status:string})=>g.status!=="VERIFIED")).toBe(true);
+    expect(readiness.hardware.every((h:{status:string})=>h.status==="NOT TESTED")).toBe(true);
+    await request("POST","/stocktakes/operational-readiness",viewer,{status:"VERIFIED"},403);
+    expect(JSON.stringify(await db.query("SELECT * FROM inventory_items ORDER BY id"))).toBe(before);
+  });
   it("exports repeatable tenant-only historical evidence without approving or changing stock",async()=>{
     const before=JSON.stringify(await db.query("SELECT * FROM inventory_items ORDER BY id"));
     const path="/stocktakes/reconciliation?source=inventory_items&offset=0";
