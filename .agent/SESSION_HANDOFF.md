@@ -1,16 +1,16 @@
 # Session handoff — 2026-10-28
 
-Branch: feature/kit-builder-milestone-1. Software PARTIAL; pilot NO-GO.
-Starting SHA: 5c3708c65badfbc7d3b1cb324ade85470faf2a10. Final pushed SHA is reported in the completion message.
+Branch: feature/kit-builder-milestone-1. D6-R software BLOCKED; pilot NO-GO.
+Starting SHA: c9ce4de7e6370683215e720dff159121d876555c.
+Feature commit verified local=remote: e9879b14d6687d77c166968c049d3072cbcec96c.
+Final handoff commit SHA is reported in the completion message.
 
-Delivered authenticated append-only operational claims/reviews, exact retries, tenant/role boundaries, persisted blind independent counts, discrepancies/recounts/history/export UI, schema-aware preflight and migration registration. REVIEWED never means VERIFIED; no real opening balance or pilot activation is authorized.
+Delivered fail-closed project closure for residual balance/claim holds and unfinished delivery entitlement, plus tenant/project reconciliation reporting. Synthetic-only migration 32 preserves historical evidence; no ownership settlement or production activation was invented.
 
-Exact synthetic rehearsal: A has two Grades 8–10 kits, six common/two universal crates and independent Math; B has three Grade-8 common kits, three common/no universal crates. Shared-SKU work-order entitlement and fractional proofs are corrected. Journey reaches QC, delivery, installation and closure, but reports residual material holds.
+Missing P0 authority: procurement-to-recipe source transfer/remainder and output-material settlement. Exact A/B Science crate mix and independent Math pass downstream synthetic execution through installation; procurement remains separately exercised. Closure now rejects unresolved material holds, including repeated requests, without custody changes. Complete end-to-end rehearsal remains BLOCKED.
 
-Two P0 blockers: no approved procurement-to-recipe ownership transfer contract; closed projects retain output-material commitment holds. Define explicit replayable transitions and closure reconciliation before claiming complete end-to-end acceptance.
+Validation: full serial regression 611 passed/two skipped; targeted authority 37, migration safety four and ops eight passed; TypeScript/build passed. Verified workspace restart and fresh nonempty database restore pass restricted authenticated mutations/retries/replay and retain closure blockers in all three phases. Component browsers pass keyboard retry, responsive layouts, accessible previews/downloads and closure protection. Full-app operator acceptance remains INCOMPLETE after login/loading failures; no full-app transaction PASS claimed. Infrastructure interruption and regenerated current evidence are documented separately.
 
-Validation: 611 tests passed, two opt-in skips; four preflight tests, TypeScript and PWA/server build passed. Nonempty database restore and verified isolated cluster restart passed authenticated restricted HTTP, immutable evidence, exact retries, fingerprints and commitment replay. Browser synthetic login and retained evidence/NO-GO rendering observed; write/reload/responsive acceptance incomplete because controls disappeared between interactions. No browser write success claimed.
-
-Production migration-clone rehearsal, paired private-file recovery, real stock/device/staff/security evidence and intended-host load/offline/rollback remain outstanding. No deployment, real stock posting, live credential rotation, main merge or pilot GO occurred. Preserve unrelated AGENTS.md and private .test-tmp/.
+Actual host acceptance NOT PERFORMED. Production clone migration rehearsal, paired private-file recovery and physical/device/staff acceptance remain outstanding. No real stock, deployment, main merge or live credential change. Preserve unrelated AGENTS.md and .test-tmp/.
 
 Read D6 report and NEXT_TASK. Use /new or /compact for the next milestone.

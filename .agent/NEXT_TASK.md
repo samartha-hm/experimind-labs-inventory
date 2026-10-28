@@ -1,9 +1,11 @@
 # Next task
 
-D6 software remains PARTIAL; operational pilot remains NO-GO. Stay on feature/kit-builder-milestone-1. See docs/erp/D6_OPERATIONAL_PILOT_PREPARATION.md and the verified final commit from this chat.
+D6-R software BLOCKED; operational pilot NO-GO. Stay on feature/kit-builder-milestone-1. Read docs/erp/D6_OPERATIONAL_PILOT_PREPARATION.md and the verified final commit from this chat.
 
-Resolve two P0 contracts before claiming complete rehearsal: explicit procurement-to-recipe ownership transfer, and output-material fulfillment/closure reconciliation. The exact two-school synthetic journey reaches closure but deliberately reports retained material holds; do not mask them with direct SQL or synthetic authority.
+Obtain an accountable business decision for procurement-to-recipe ownership transfer and output-material settlement before implementing either transition. Specify source witnesses, units/rounding, partial transfer and remainder, liability owner, release/fulfillment timing, retries, concurrency and historical treatment. Do not infer approval from planning quantities, output creation, delivery or installation.
 
-Operational evidence and blind two-person counts now persist through the restricted trusted writer. REVIEWED is not VERIFIED. A production verification authority and real physical/device/staff/deployment evidence remain absent.
+Current closure protection denies unresolved material balances/claims and unfinished delivery entitlement. Historical evidence remains untouched. Exact two-school downstream synthetic rehearsal reaches installation; procurement lineage and settlement remain BLOCKED. After approval, implement conserved transitions and adversarial tests, then rerun the exact rehearsal and recovery.
 
-Rehearse pending production migrations on an isolated clone, then paired database/private-file recovery, intended-host permissions/network/load/offline/PWA/rollback checks. Never deploy, rotate live credentials, change real stock, merge main or enable pilot without separate authorization. Preserve unrelated AGENTS.md and private .test-tmp files.
+Full-app authenticated operator acceptance remains INCOMPLETE; isolate the login/loading issue before claiming positive transactions, reload/retry, roles and responsive acceptance. Component browser PASS is separate evidence. Actual intended-host acceptance is NOT PERFORMED.
+
+Do not deploy, run production migrations, change real stock/live credentials, activate historical data, merge main or enable pilot without separate authorization. Preserve unrelated AGENTS.md and .test-tmp/.
