@@ -1,14 +1,14 @@
-# Session handoff — 2026-10-28
+# Session handoff — 2026-10-29
 
-Branch: feature/kit-builder-milestone-1. D6-C software BLOCKED; pilot NO-GO.
-Starting SHA: e9362383653cd1ac7955c66a9d341deeb0f73ec6.
-Contract checkpoint verified local=remote: ef820fdd493ec8b92a0db3f32f70d6fb8e299bce.
-Final handoff commit SHA is reported in the completion message.
+Branch: feature/kit-builder-milestone-1. D6-P diagnostic scope PASS; D6 software BLOCKED; pilot NO-GO. Contract DRAFT / NOT AUTHORIZED.
+Starting SHA: 06dcb719185db60642867af3f8188d3bc1dc05e1.
+Implementation checkpoint verified local=remote: ead81ddc30eb8e0066eb3348201dfd085d336c4b.
+Final handoff SHA is reported in the completion message.
 
-Refined docs/erp/D6C_OWNERSHIP_DECISION_CONTRACT_DRAFT.md and the D6 report: O1–O10 decision matrix, exact separated accounting, unused-material dispositions, immutable school/output/package mapping, transition/evidence matrix, unsigned approval register and unanswered business choices. Procurement H and raw H are two views of one commitment, never additive. Supplier/payables obligations remain separate. Migration-32 residual-hold closure guard and live authorization, separated approvals, restricted writes, atomicity, append-only evidence and idempotency remain required.
+Implemented authenticated, live-authorized, tenant-scoped read-only material reconciliation: 34 evidence lanes, separate units/accounts/physical stock, provenance diagnostics and residual closure blockers. Nine detached synthetic fixtures preserve existing semantics. Added exact conservation, coverage, lineage, authorization and restart/restore checks. No ownership-transfer migration or execution was introduced.
 
-DRAFT / NOT AUTHORIZED. No named owners, signatures, effective scope or decisions recorded. No code, migration, transfer, settlement, hold release, real stock, deployment or pilot activation. Unapproved dispositions and partial/lost/damaged-output settlement remain blocked. Separate financial-tail controls require finance approval and cannot waive material holds.
+Verification: full regression 628 passed / 2 opt-in skipped; final typecheck and PWA/server build passed (existing bundle-size warning). Dedicated recovery passed before restart, after restart and after fresh restore with identical reconciliation hash. Desktop/tablet/phone component browser acceptance passed keyboard navigation, overflow, error handling, actual tenant 404/current-role 403 boundaries and no mutation requests. Full-app acceptance remains PARTIAL; intended-host acceptance NOT PERFORMED. Preview caps each lane at 500 rows and flags truncation/incomplete evidence.
 
-Current checks: document structure, local links and safety markers passed; scoped git diff --check passed; npm run typecheck --silent passed. Runtime tests/build/browser/database checks were not run for this documentation-only refinement. Prior runtime evidence remains historical; full-app acceptance stays PARTIAL and intended-host acceptance NOT PERFORMED.
+Evidence and future technical impact: docs/erp/D6P_OWNERSHIP_RECONCILIATION_PREPARATION.md. Private artifacts: .local-dev/d6p-full.log, d6p-typecheck-final.log, d6p-build-final.log, d67-recovery-summary.json and d6p-browser/acceptance.json.
 
-Preserved unrelated AGENTS.md and .test-tmp/. Next: obtain signed scoped O1–O10 decisions and separate contracts before implementation authorization. Stop after this package. Use /new or /compact before further work.
+No transfer, settlement, hold release, real stock posting, production migration, deployment or pilot activation. Preserved unrelated AGENTS.md and .test-tmp/. Stop after this milestone; obtain actual signed scoped business decisions before separately authorized ownership implementation. Use /new or /compact before further work.

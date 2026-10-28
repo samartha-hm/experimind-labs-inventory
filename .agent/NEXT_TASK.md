@@ -1,9 +1,5 @@
 # Next task
 
-Stop at the D6-C contract package. DRAFT / NOT AUTHORIZED; software BLOCKED; pilot NO-GO. Stay on feature/kit-builder-milestone-1.
+Obtain actual named business owners and signed, scoped APPROVE / REJECT / REVISE decisions for O1–O10 in docs/erp/D6C_OWNERSHIP_DECISION_CONTRACT_DRAFT.md, including effective date, exact chosen text, conditions and supporting evidence. Resolve procurement/material/payables boundaries, remainder dispositions, immutable output/school/package mappings, partial/lost/damaged delivery, financial-tail controls and separated approvals; obtain separate business contracts where required.
 
-Obtain actual named responsible owners and signed APPROVE / REJECT / REVISE entries for O1–O10 in docs/erp/D6C_OWNERSHIP_DECISION_CONTRACT_DRAFT.md: exact chosen text, effective scope/date, conditions and supporting evidence. Resolve source/material/payables boundaries, remainder dispositions, output/package/partial acceptance, financial-tail controls and approval separation. Separate reuse, supplier-return, cancellation, reassignment, conversion/loss and unsupported partial-delivery contracts remain necessary where selected.
-
-Policy approval alone does not authorize implementation, schema changes, migrations, inventory posting, deployment or pilot. Preserve migration-32 zero account/claim hold closure guard and historical evidence. Full-app acceptance remains PARTIAL; intended-host acceptance NOT PERFORMED. See D6 report for historical evidence and remaining acceptance gaps; no runtime work is part of this package.
-
-Preserve unrelated AGENTS.md and .test-tmp/. Use /new or /compact before a separately authorized next slice.
+D6-P read-only diagnostics are PASS; contract remains DRAFT / NOT AUTHORIZED, D6 software BLOCKED and pilot NO-GO. This is the single next task, not authorization to begin it automatically. Policy approval alone does not authorize ownership implementation, migrations, posting, deployment or pilot activation. Preserve the residual account/claim hold closure guard, unrelated AGENTS.md and .test-tmp/. See the D6-P report for completed verification and remaining full-app/intended-host acceptance gaps. Use /new or /compact before separately authorized work.
