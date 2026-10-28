@@ -1,7 +1,46 @@
 # D6 operational pilot preparation
 
-Software verdict: BLOCKED (D6-R). Operational pilot: NO-GO.
+Software verdict: BLOCKED (D6-C). Operational pilot: NO-GO.
 All rehearsal records are SYNTHETIC TEST EVIDENCE. No real stock or deployment is authorized.
+
+## Current D6-C decision and acceptance verdicts
+
+The [ownership decision contract](D6C_OWNERSHIP_DECISION_CONTRACT_DRAFT.md) is **DRAFT / NOT AUTHORIZED**. O1–O10 give recommendations, alternatives, conserved accounting examples, risks and exact accountable approvals. The proposal is ready for business review; no named approver has approved it. Its future adversarial matrix is a specification, not executed acceptance evidence.
+
+| Required verdict | D6-C result |
+| --- | --- |
+| Residual-hold closure protection | PASS in retained restricted-role regression/recovery; migration 32 unchanged |
+| Ownership proposal | READY FOR REVIEW; DRAFT / NOT AUTHORIZED |
+| Business approval and settlement implementation | BLOCKED; no approval, transfer, settlement or historical activation added |
+| Full-app browser acceptance | PARTIAL; login/navigation/reload/logout recovered, transaction and role acceptance incomplete |
+| D6 software preparation | BLOCKED by missing authority and incomplete full-app acceptance |
+| Operational pilot | NO-GO; intended-host acceptance NOT PERFORMED |
+
+### Login investigation and infrastructure repair
+
+The synthetic account exists in the intended isolated schema, is active/unlocked, has a matching password hash, and connects through the configured restricted database roles. PostgreSQL recovered after its interrupted local startup and returned ready; no schema reset was used. The older full-app stall is not evidence of incorrect credentials or an authentication product defect.
+
+Three concurrent workspace dev servers consumed scarce memory on the 8 GB host (about 240 MB free). Even health/auth requests stalled, while fresh browser navigation timed out during cold frontend compilation. Only the verified workspace-owned duplicate servers were stopped. Vite now excludes `.local-dev` PostgreSQL files and `.test-tmp` rehearsal artifacts from its watcher. With one server and frontend compilation settled, a fresh tab on `http://127.0.0.1:3102` authenticated through the actual form. This establishes a recovered local path and observed infrastructure contributors; it does not isolate watcher activity as the sole cause or establish intended-host performance.
+
+| Investigation / actual-screen check | Current evidence and limit |
+| --- | --- |
+| Origin, request and response | Fresh 3102 origin; synthetic HTTP login 200 with user/token and HttpOnly refresh cookie; no credential/token retained in this report |
+| Loading and dialogs | Actual form advanced to authenticated Approver/Administrator shell; no native dialog observed on successful login. Invalid-password/error recovery remains unverified |
+| Session persistence | Actual reload retained authenticated shell; actual Sign Out returned to login. HTTP logout 200; reuse of revoked refresh token on registered `/auth/refresh-token` returned 401 |
+| Procurement | Actual Replenishment screen rendered reservations/purchasing, material quantities and inspection controls; no new procurement transaction claimed |
+| Production | Actual Preparation queue rendered retained synthetic work orders and explicit legacy read-only readiness blocker; keyboard Return exercised Retry readiness |
+| Trusted production / packing / delivery | Full-app positive acceptance NOT VERIFIED. Current production feature flag is absent; packing/delivery require a retained package query parameter. These entry conditions were not bypassed or treated as business authority |
+| Readiness, residual-hold closure | Current component/restricted HTTP evidence retained below; actual full-app operator path NOT VERIFIED |
+| Responsive / keyboard | Authenticated overview document/body widths equalled 390, 1024 and 1440 px viewports (no document overflow); viewport reset. This is shell layout evidence, not complete workflow/device acceptance |
+| Role/tenant denial, conflicting retries | Targeted backend regressions pass; actual full-app role switching, cross-tenant denial and positive transaction retry/conflict remain NOT VERIFIED |
+
+Private evidence: `.local-dev/d6c-auth-http.json`, `d6c-browser-app.log`, `d6c-postgres.log` and the in-app tab 6 interaction trace. Earlier probes of nonexistent `/auth/me` and `/auth/refresh` reached SPA/404 behavior and are excluded from session verdicts. Browser navigation timeouts during cold compilation are retained as limitations, not silently counted as passes. Completion requires a controlled single-server session with documented synthetic feature flags/package entry points, then actual production/packing/delivery/readiness writes, reload/retry/conflict and role/tenant checks at all requested sizes. No full-app end-to-end PASS is claimed.
+
+### Current verification
+
+Focused authoritative integration: **37 passed**. Final full serial regression: **81 files passed, two skipped; 615 tests passed, two skipped**. TypeScript and PWA/server build passed. An earlier run overlapped dev servers/build under memory pressure and hit two fixture timeouts before being stopped; the final suite ran alone and passed. Private evidence: `d6c-focused.log`, `d6c-full-serial-final.log`, `d6c-typecheck-final.log`, `d6c-build-final.log` under `.local-dev`.
+
+The existing `.local-dev/d632-recovery-summary.json` remains applicable: this change adds no ledger, migration, authority or database mutation logic. Its before/restart/fresh-restore phases preserve restricted authenticated mutations, original-key retries, replay, fingerprints and residual-hold closure denial. Paired private-file and intended-host recovery remain unverified. Historical D6-R results below are retained as historical evidence, not substituted for current full-app acceptance.
 
 ## Delivered authority
 

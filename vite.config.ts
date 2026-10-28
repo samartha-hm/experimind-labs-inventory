@@ -104,7 +104,10 @@ export default defineConfig(() => {
     },
     server: {
       hmr: process.env.DISABLE_HMR !== 'true',
-      watch: process.env.DISABLE_HMR === 'true' ? null : {},
+      // Local PostgreSQL clusters and rehearsal artifacts are not frontend sources.
+      watch: process.env.DISABLE_HMR === 'true' ? null : {
+        ignored: ['**/.local-dev/**', '**/.test-tmp/**'],
+      },
     },
   };
 });
