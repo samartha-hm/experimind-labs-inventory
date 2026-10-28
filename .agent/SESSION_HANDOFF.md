@@ -1,14 +1,14 @@
 # Session handoff — 2026-10-28
 
 Branch: feature/kit-builder-milestone-1. D6-C software BLOCKED; pilot NO-GO.
-Starting SHA: 41bf6d696e5ddf7d9900e53ae2fa6e374fbc05ec.
-D6-C feature commit verified local=remote: 9fe2dbf7b4fc8860809900f0606f6cbfb45dab6f.
+Starting SHA: e9362383653cd1ac7955c66a9d341deeb0f73ec6.
+Contract checkpoint verified local=remote: ef820fdd493ec8b92a0db3f32f70d6fb8e299bce.
 Final handoff commit SHA is reported in the completion message.
 
-Delivered docs/erp/D6C_OWNERSHIP_DECISION_CONTRACT_DRAFT.md: O1–O10 ownership recommendations, alternatives, conservation examples, risks and exact approvals. DRAFT / NOT AUTHORIZED; no named approval, settlement implementation or historical activation. Migration 32 and residual-hold closure protection remain unchanged.
+Refined docs/erp/D6C_OWNERSHIP_DECISION_CONTRACT_DRAFT.md and the D6 report: O1–O10 decision matrix, exact separated accounting, unused-material dispositions, immutable school/output/package mapping, transition/evidence matrix, unsigned approval register and unanswered business choices. Procurement H and raw H are two views of one commitment, never additive. Supplier/payables obligations remain separate. Migration-32 residual-hold closure guard and live authorization, separated approvals, restricted writes, atomicity, append-only evidence and idempotency remain required.
 
-Recovered actual synthetic full-app login after PostgreSQL recovery, duplicate workspace-server cleanup and frontend compilation. Vite ignores private database/rehearsal artifacts. Account/hash/schema/restricted roles checked. Actual authenticated reload, procurement/production navigation, keyboard readiness retry and sign-out succeeded; HTTP refresh reuse after logout returned 401. Shell widths fit 390/1024/1440. Complete positive workflows, readiness/closure screens, role/tenant denial, retry/conflict and workflow responsive acceptance remain NOT VERIFIED. Production flag is absent; trusted packing/delivery require package entry context. Report distinguishes infrastructure contributors from unproven product defects and component acceptance.
+DRAFT / NOT AUTHORIZED. No named owners, signatures, effective scope or decisions recorded. No code, migration, transfer, settlement, hold release, real stock, deployment or pilot activation. Unapproved dispositions and partial/lost/damaged-output settlement remain blocked. Separate financial-tail controls require finance approval and cannot waive material holds.
 
-Final regression: 615 passed/two skipped, 81 files passed/two skipped; focused 37 passed; TypeScript/build passed. Existing migration-32 restart/fresh-restore recovery remains applicable; no ledger/database logic changed. Earlier overlapping run timed out under memory pressure.
+Current checks: document structure, local links and safety markers passed; scoped git diff --check passed; npm run typecheck --silent passed. Runtime tests/build/browser/database checks were not run for this documentation-only refinement. Prior runtime evidence remains historical; full-app acceptance stays PARTIAL and intended-host acceptance NOT PERFORMED.
 
-Read D6 report and NEXT_TASK. Stop at D6-C. No real stock, deployment, main merge or live credential change. Preserve unrelated AGENTS.md and .test-tmp/. Use /new or /compact before the next milestone.
+Preserved unrelated AGENTS.md and .test-tmp/. Next: obtain signed scoped O1–O10 decisions and separate contracts before implementation authorization. Stop after this package. Use /new or /compact before further work.
