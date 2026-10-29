@@ -1,14 +1,15 @@
 # Session handoff — 2026-10-29
 
-Branch: feature/kit-builder-milestone-1. D6-M migration readiness BLOCKED; D6-B acceptance PARTIAL; D6 software BLOCKED; pilot NO-GO. O1–O10 DRAFT / NOT AUTHORIZED.
-Starting SHA: f70de07d7a38e98939678cc6d2f747c297e517ec.
-Evidence checkpoint verified local=remote: ff3cadc408e105810c572110396de1b4ce066030.
+Branch: feature/kit-builder-milestone-1. D6-MH software diagnostics/refusal PASS; historical upgrade acceptance BLOCKED; D6 software BLOCKED; pilot NO-GO. D6-B full-app acceptance remains PARTIAL; O1–O10 DRAFT / NOT AUTHORIZED.
+
+Starting SHA: bc938afe877679d76de028e1d736779b3301d6a1.
+Code/evidence checkpoint verified local=remote: 949cddfe4b8e9a0e684d0bc105b5063bcf38a49e.
 Final handoff SHA is reported in the completion message.
 
-Delivery: docs/erp/D6M_MIGRATION_REGISTRY_AND_UPGRADE_ACCEPTANCE.md and D6-B follow-up. All 50 canonical migrations explicitly registered with immutable source digests; shared read-only planner, guarded runner, metadata grant protection and scoped tests added. Historical migration sources unchanged. Runner refuses conflicting/unverified history and operational targets.
+Delivery: read-only historical identity diagnostics and offline report; exact collision candidates, journal IDs/order, source digests, schema-column fingerprint and explicit evidence statuses. Authentic provenance cannot be inferred from synthetic journals/schema. Original migrations and refusal guards retained. Report: docs/erp/D6M_MIGRATION_REGISTRY_AND_UPGRADE_ACCEPTANCE.md.
 
-Verification: regression 641 passed / 2 skipped (83 files / 2 skipped); typecheck and default frontend/PWA/server build passed; four preflight checks passed. Populated clone retained 114 table hashes. Migration 32 savepoint rollback/retry and metadata grant denial passed. Separately activated restricted authenticated recovery passed before restart, after actual PostgreSQL restart and fresh restore with matching reconciliation and closure denial. Affected component browser checks passed before restart; full built-app matrix remains incomplete.
+Verification: focused 16 PASS; regression 644 PASS / 2 default recovery skips; typecheck/build PASS. Restored synthetic clone retained 114 table hashes; prefix/conflict/unknown/reorder/rollback/retry/metadata-denial cases passed. Separately activated restricted authenticated recovery passed before actual workspace PostgreSQL restart, after restart and fresh-database restore with matching reconciliation hashes. Private artifact hashes and limitations recorded in report.
 
-Blockers: duplicate timestamp 1689500000007, absent genuine applied journal, synthetic-only prerequisites, unproved restricted migration-owner execution and historical/fresh-install upgrade equivalence. No successful full-chain upgrade claimed. Production host and paired private-file recovery remain unverified; private evidence hashes are in the D6-M report.
+Blockers: duplicate timestamp 1689500000007; no genuine applied journal or attested release/backup provenance; historical ordering and full-chain/restricted-owner upgrade equivalence unproved. Database/backup and release custodians must be identified and supply authentic evidence. Full-app browser matrix, production host and paired private-file recovery remain unverified.
 
-No ownership execution, real stock, operational migration/deployment or cutover. Unrelated AGENTS.md and .test-tmp/ preserved. Use /new or /compact before separately authorized follow-up.
+No operational migration, deployment, stock or ownership execution. Unrelated AGENTS.md and .test-tmp/ preserved. Stop milestone; use /new or /compact for separately authorized follow-up.
