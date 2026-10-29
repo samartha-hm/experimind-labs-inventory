@@ -1,21 +1,8 @@
+import { registeredMigrations } from './migrations/registry';
 
-import { AddLedgerCapabilities1792540800017 } from "./migration/1792540800017-AddLedgerCapabilities";
-import { AddCommitmentLedger1792540800015 } from "./migration/1792540800015-AddCommitmentLedger";
-import { HardenCommitmentEventEvidence1792540800016 } from "./migration/1792540800016-HardenCommitmentEventEvidence";
 import { commitmentEntities } from "./entity/CommitmentLedger";
-import { HardenApprovedPackingDemand1792454400014 } from "./migration/1792454400014-HardenApprovedPackingDemand";
-import { AddRequirementApproval1792368000013 } from "./migration/1792368000013-AddRequirementApproval";
-import { AddPacking1791849600007 } from "./migration/1791849600007-AddPacking.ts";
-import { HardenPackingReadiness1791936000008 } from "./migration/1791936000008-HardenPackingReadiness.ts";
-import { AddDeliveryCustody1792022400009 } from "./migration/1792022400009-AddDeliveryCustody.ts";
-import { AddProjectCompletion1792108800010 } from "./migration/1792108800010-AddProjectCompletion.ts";
-import { AddPrivateAttachments1792195200011 } from "./migration/1792195200011-AddPrivateAttachments.ts";
-import { AddSharedLabelLayouts1792281600012 } from "./migration/1792281600012-AddSharedLabelLayouts.ts";
-import {HardenProductionReconciliation1791763200006} from "./migration/1791763200006-HardenProductionReconciliation";
 import { productionEntities } from "./entity/ProductionPlanning";
-import { AddProductionPlanning1791763200005 } from "./migration/1791763200005-AddProductionPlanning";
 import { supplyEntities } from "./entity/SupplyPlanning";
-import { AddReservationsAndProcurement1791676800004 } from "./migration/1791676800004-AddReservationsAndProcurement";
 import "reflect-metadata";
 import { DataSource } from "typeorm";
 import { env } from "./config/env.ts";
@@ -23,9 +10,6 @@ import { ProductTemplate } from "./entity/ProductTemplate.ts";
 import { ProductTemplateVersion } from "./entity/ProductTemplateVersion.ts";
 import { ProductTemplateRevision } from "./entity/ProductTemplateRevision.ts";
 import { planningEntities } from "./entity/PlanningProject.ts";
-import { AddProjectPlanning1791417600002 } from "./migration/1791417600002-AddProjectPlanning.ts";
-import { AddProductTemplates1791417600000 } from "./migration/1791417600000-AddProductTemplates.ts";
-import { AddKitSubjectsAndGrades1791417600001 } from "./migration/1791417600001-AddKitSubjectsAndGrades.ts";
 
 import { User } from "./entity/User.ts";
 import { InventoryItem } from "./entity/InventoryItem.ts";
@@ -58,10 +42,6 @@ import { SerialNumber } from "./entity/SerialNumber.ts";
 import { StockLedger } from "./entity/StockLedger.ts";
 import { stocktakeEntities } from "./entity/Stocktake.ts";
 import { OperationalEvidenceEvent } from "./entity/OperationalEvidence";
-import { OperationalEvidence1793232000030 } from "./migration/1793232000030-OperationalEvidence";
-import { AggregateWorkOrderDemand1793232000031 } from "./migration/1793232000031-AggregateWorkOrderDemand";
-import { BlockResidualProjectHolds1793232000032 } from "./migration/1793232000032-BlockResidualProjectHolds";
-import { AddPhysicalStocktake1791504000003 } from "./migration/1791504000003-AddPhysicalStocktake.ts";
 import { WarehouseTransfer } from "./entity/WarehouseTransfer.ts";
 import { WarehouseTransferLine } from "./entity/WarehouseTransferLine.ts";
 import { CycleCount } from "./entity/CycleCount.ts";
@@ -83,22 +63,6 @@ import { RmaLine } from "./entity/RmaLine.ts";
 import { BomNode } from "./entity/BomNode.ts";
 import { ComponentAlternate } from "./entity/ComponentAlternate.ts";
 
-import { Init1689500000000 } from "./migration/1689500000000-Init.ts";
-import { AddOrgAuditOrdersInvoices1689500000001 } from "./migration/1689500000001-AddOrgAuditOrdersInvoices.ts";
-import { SeedDefaultOrganization1689500000002 } from "./migration/1689500000002-SeedDefaultOrganization.ts";
-import { AlignEntitiesAndSchema1689500000003 } from "./migration/1689500000003-AlignEntitiesAndSchema.ts";
-import { CleanSchemaAlignment1689500000004 } from "./migration/1689500000004-CleanSchemaAlignment.ts";
-import { FinalSchemaReconciliation1689500000005 } from "./migration/1689500000005-FinalSchemaReconciliation.ts";
-import { SeedAdminUser1689500000006 } from "./migration/1689500000006-SeedAdminUser.ts";
-import { AddVisualWarehouseAndSerialNumbers1689500000007 } from "./migration/1689500000007-AddVisualWarehouseAndSerialNumbers.ts";
-import { AddStockLedgerAndWmsOps1689500000008 } from "./migration/1689500000008-AddStockLedgerAndWmsOps.ts";
-import { AddRbacAndSessions1689500000009 } from "./migration/1689500000009-AddRbacAndSessions.ts";
-import { EnterpriseMultiLocationAndAuditCore1689500000010 } from "./migration/1689500000010-EnterpriseMultiLocationAndAuditCore.ts";
-import { AddQmsAndESignatures1689500000011 } from "./migration/1689500000011-AddQmsAndESignatures.ts";
-import { AddOrderFulfillmentFields1689500000012 } from "./migration/1689500000012-AddOrderFulfillmentFields.ts";
-import { AddHardwareElectronicsBOM1689500000013 } from "./migration/1689500000013-AddHardwareElectronicsBOM.ts";
-import { AddStockIntegrityAndSpatialTree1689500000014 } from "./migration/1689500000014-AddStockIntegrityAndSpatialTree.ts";
-import { AddReservedQuantity1689500000015 } from "./migration/1689500000015-AddReservedQuantity.ts";
 
 const isLocalhostDb = env.databaseUrl.includes("localhost") || env.databaseUrl.includes("127.0.0.1");
 export const databaseSchema = process.env.DATABASE_SCHEMA ?? "public";
@@ -177,45 +141,8 @@ export const AppDataSource = new DataSource({
     BomNode,
     ComponentAlternate,
   ],
-  migrations: [
-    OperationalEvidence1793232000030,
-    AggregateWorkOrderDemand1793232000031,
-    BlockResidualProjectHolds1793232000032,
-
-    AddCommitmentLedger1792540800015,
-    HardenCommitmentEventEvidence1792540800016,
-    AddLedgerCapabilities1792540800017,
-    HardenApprovedPackingDemand1792454400014,
-    AddRequirementApproval1792368000013,
-    AddPacking1791849600007,
-    HardenPackingReadiness1791936000008,
-    AddDeliveryCustody1792022400009,
-    AddProjectCompletion1792108800010,
-    AddPrivateAttachments1792195200011,
-    AddSharedLabelLayouts1792281600012,
-    AddProductionPlanning1791763200005,HardenProductionReconciliation1791763200006,
-    AddReservationsAndProcurement1791676800004,
-    AddPhysicalStocktake1791504000003,
-    AddProjectPlanning1791417600002,
-    AddProductTemplates1791417600000,
-    AddKitSubjectsAndGrades1791417600001,
-    Init1689500000000,
-    AddOrgAuditOrdersInvoices1689500000001,
-    SeedDefaultOrganization1689500000002,
-    AlignEntitiesAndSchema1689500000003,
-    CleanSchemaAlignment1689500000004,
-    FinalSchemaReconciliation1689500000005,
-    SeedAdminUser1689500000006,
-    AddVisualWarehouseAndSerialNumbers1689500000007,
-    AddStockLedgerAndWmsOps1689500000008,
-    AddRbacAndSessions1689500000009,
-    EnterpriseMultiLocationAndAuditCore1689500000010,
-    AddQmsAndESignatures1689500000011,
-    AddOrderFulfillmentFields1689500000012,
-    AddHardwareElectronicsBOM1689500000013,
-    AddStockIntegrityAndSpatialTree1689500000014,
-    AddReservedQuantity1689500000015,
-  ],
+  migrationsRun: false,
+  migrations: registeredMigrations,
   subscribers: [],
 });
 

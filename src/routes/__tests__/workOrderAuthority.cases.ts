@@ -41,8 +41,31 @@ export async function verifyWorkOrderAuthority(h:Parameters<typeof verifyExecuti
     await new HistoricalEvidenceDecisions1793232000029().up(m.queryRunner!);
     await new OperationalEvidence1793232000030().up(m.queryRunner!);
     await new AggregateWorkOrderDemand1793232000031().up(m.queryRunner!);
+    const definition=async()=> (await m.query("SELECT pg_get_functiondef('requirement_d4_project_blocked(uuid,uuid)'::regprocedure) definition"))[0].definition;
+    const predecessor=await definition();
+    const ledger=async()=>m.query("SELECT md5(coalesce(string_agg(row_to_json(t)::text,'' ORDER BY row_to_json(t)::text),'')) hash FROM commitment_events t");
+    const preserved=await ledger();
+    await m.query('SAVEPOINT d6m_interrupted');
     await new BlockResidualProjectHolds1793232000032().up(m.queryRunner!);
+    expect(await definition()).not.toBe(predecessor);
+    await m.query('ROLLBACK TO SAVEPOINT d6m_interrupted');
+    expect(await definition()).toBe(predecessor);
+    expect(await ledger()).toEqual(preserved);
+    await new BlockResidualProjectHolds1793232000032().up(m.queryRunner!);
+    expect(await ledger()).toEqual(preserved);
+    await expect(new BlockResidualProjectHolds1793232000032().down()).rejects.toThrow('paired backup');
+    // Test-only metadata has no invented applied rows and is removed in this transaction.
+    await m.query('CREATE TABLE migrations(id serial PRIMARY KEY,timestamp bigint,name varchar)');
+    for(const role of Object.values(h.roles)) {
+      if(!/^[a-z_][a-z0-9_]*$/.test(role))throw Error('Unsafe test role');
+      await m.query(`GRANT INSERT(name),UPDATE(name) ON migrations TO "${role}"`);
+    }
     await configureDatabaseBoundary(m,h.schema,h.roles);
+    for(const role of Object.values(h.roles)) {
+      const [privileges]=await m.query("SELECT has_table_privilege($1,'migrations','INSERT,UPDATE,DELETE,TRUNCATE') writable,has_column_privilege($1,'migrations','name','INSERT') column_insert,has_column_privilege($1,'migrations','name','UPDATE') column_update",[role]);
+      expect(privileges).toEqual({writable:false,column_insert:false,column_update:false});
+    }
+    await m.query('DROP TABLE migrations');
   });
   for(const [pool,kind] of [[h.runtime,"runtime"],[h.identity,"identity"],[h.writer,"ledger"]] as const)
     await assertDatabaseBoundary(pool,kind,h.schema);

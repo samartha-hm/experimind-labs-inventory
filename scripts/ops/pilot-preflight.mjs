@@ -1,7 +1,9 @@
-import { stat, statfs, readFile, readdir } from 'node:fs/promises';
+import { stat, statfs } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { resolve } from 'node:path';
 import pg from 'pg';
+import { migrationManifest } from '../../src/migrations/manifest.mjs';
+import { inspectMigrationSources, planMigrations, readMigrationJournal } from './migration-integrity.mjs';
 
 /** No secret values, URLs, role names or database errors enter the report. */
 export function configurationChecks(env, nodeVersion = process.versions.node) {
@@ -66,9 +68,8 @@ export async function preflight(env = process.env) {
         const {rows: [role]} = await client.query(`SELECT current_setting('server_version_num')::int AS version, rolsuper, rolcreatedb, rolcreaterole, rolbypassrls FROM pg_roles WHERE rolname=current_user`);
         const restricted = role && !role.rolsuper && !role.rolcreatedb && !role.rolcreaterole && !role.rolbypassrls;
         add(`${key}-connect`, restricted && role.version >= 140000 ? 'PASS' : 'BLOCKED', 'Require PostgreSQL 14+ and nonsuperuser roles without CREATEDB, CREATEROLE or BYPASSRLS. Table/function grants still require restricted-role acceptance tests.');
+        if (key === 'MIGRATION_DATABASE_URL') appliedMigrations = await readMigrationJournal(client.query.bind(client), schema);
         if (key === 'DATABASE_URL') {
-          const journal = await client.query("SELECT to_regclass('migrations') IS NOT NULL present");
-          if (journal.rows[0].present) appliedMigrations = (await client.query('SELECT name FROM migrations ORDER BY timestamp,id')).rows.map(row=>row.name);
           const {rows} = await client.query(`SELECT n.nspname, c.relname, has_table_privilege(current_user,c.oid,'INSERT,UPDATE,DELETE') AS writable FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE c.relname IN ('stock_ledger','commitment_events') AND c.relkind='r' AND n.nspname=ANY(current_schemas(false))`);
           add('runtime-ledger-denial', rows.length >= 2 && rows.every(row => !row.writable) ? 'PASS' : 'BLOCKED', 'Runtime must not write immutable stock or commitment ledgers; inspect all trusted grants separately.');
         }
@@ -76,21 +77,20 @@ export async function preflight(env = process.env) {
       finally { await client.end().catch(() => {}); }
     }
   } else add('database-inspection', 'BLOCKED', 'Set PILOT_PREFLIGHT_CONNECT=true for bounded local read-only checks. No connectivity was attempted.');
-  const migrationPreview = {mode:appliedMigrations?'READ_ONLY_JOURNAL':'SOURCE_ONLY', discovered:[], registered:[], unregistered:[], pending:[], applied:appliedMigrations??[]};
+  let migrationPreview;
   try {
-    const source = await readFile(resolve('src/db.ts'), 'utf8');
-    const registry = source.split('migrations: [')[1]?.split('],')[0] ?? '';
-    migrationPreview.discovered = (await readdir(resolve('src/migration'))).filter(name=>/^\d+-.+\.ts$/.test(name)).sort();
-    for (const name of migrationPreview.discovered) {
-      const body = await readFile(resolve('src/migration',name),'utf8');
-      const symbol = body.match(/export class (\w+)/)?.[1];
-      (symbol && new RegExp(`\\b${symbol}\\b`).test(registry) ? migrationPreview.registered : migrationPreview.unregistered).push(name);
-      if (symbol && appliedMigrations && !appliedMigrations.includes(symbol)) migrationPreview.pending.push(symbol);
-    }
-    add('migration-registration',migrationPreview.unregistered.length ? 'BLOCKED':'PASS','Reconcile unregistered migrations and rehearse the ordered upgrade against an isolated clone before cutover.');
-  } catch { add('migration-registration','NOT_VERIFIED','Run from the repository with readable migration sources.'); }
-  add('migration-applied-preview',appliedMigrations?(migrationPreview.pending.length?'BLOCKED':'PASS'):'NOT_VERIFIED',
-    'Read-only journal comparison; pending migrations require isolated upgrade and recovery rehearsal before cutover. No SQL is applied.');
+    const sources = await inspectMigrationSources();
+    const plan = planMigrations(migrationManifest, appliedMigrations);
+    const issues = [...new Set([...sources.issues, ...plan.issues])];
+    migrationPreview = {...sources, ...plan, issues, ready: issues.length === 0,
+      mode: appliedMigrations === undefined ? 'SOURCE_ONLY' : 'READ_ONLY_JOURNAL'};
+    add('migration-registration', sources.issues.length ? 'BLOCKED' : 'PASS', 'All canonical migrations must match the immutable manifest and source digests.');
+    add('migration-integrity', migrationPreview.ready ? 'PASS' : 'BLOCKED', 'Resolve identity, timestamp, source and journal conflicts through an approved history decision; never synthesize journal rows.');
+    add('migration-applied-preview', !migrationPreview.ready || plan.pending.length ? 'BLOCKED' : 'PASS', 'Read-only owner journal inspection; pending migrations require a populated clone and recovery evidence. No SQL is applied.');
+  } catch {
+    migrationPreview = {mode:'UNVERIFIED', ready:false};
+    add('migration-integrity', 'BLOCKED', 'Manifest or journal inspection failed. No upgrade is authorized.');
+  }
   for (const [id, action] of [
     ['restore-evidence', 'Require a paired database/private-file restore, authenticated checks and stock/custody/fulfillment reconciliation.'],
     ['service-lifecycle', 'Rehearse startup, shutdown and restart only on a workspace-owned isolated service.'],

@@ -51,6 +51,8 @@ Browser capture labels and visible text are retained privately in `.local-dev/d6
 
 ## Production migration preparation — read-only checks
 
+2026-10-29 D6-M follow-up: [migration registry and upgrade acceptance](D6M_MIGRATION_REGISTRY_AND_UPGRADE_ACCEPTANCE.md) supersedes the registration-coverage finding below: all 50 canonical migrations are now registered with source digests and shared refusal checks. The duplicate historical timestamp and absent genuine applied journal remain BLOCKED. Populated-clone preservation/recovery passed; successful historical upgrade and production readiness remain unverified. The following table retains the original D6-B evidence.
+
 Read-only preflight connected to the populated clone and inspected source registration, catalogs, role attributes, function grants and current closure guard. No migration command was executed against an operational database, and no upgrade was inferred from schema synchronization.
 
 | Check | Evidence and verdict |

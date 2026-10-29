@@ -18,7 +18,7 @@ export async function verifyDeliveryBrowser(app:Express,base:string,access:strin
     },{access,profile,organization,pending});
     await page.goto(`${base}/delivery-test?trusted_packing_package=${dispatch.roots[0]}`);
     await page.getByRole('button',{name:'Retry saved delivery request'}).focus();await page.keyboard.press('Enter');
-    await expect(page.getByRole('status')).toContainText(dispatch.id);
+    await expect(page.getByRole('status').filter({hasText:dispatch.id})).toBeVisible();
     await page.getByRole('button',{name:'Find dispatch package'}).click();
     await expect(page.getByRole('combobox',{name:'Dispatched school assemblies'})).toHaveValue(dispatch.id);
     await expect(page.getByText('2 acknowledged / 2 dispatched',{exact:true})).toBeVisible();

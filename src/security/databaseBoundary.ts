@@ -71,6 +71,15 @@ export async function configureDatabaseBoundary(db: Sql, schema: string,
     GRANT USAGE ON SCHEMA ${s} TO ${runtime},${identity},${ledger};
     REVOKE CREATE ON SCHEMA ${s} FROM ${runtime},${identity},${ledger}`);
   // Existing operational services require CRUD. Identity and ledger objects are excluded.
+  for (const table of ['migrations', 'typeorm_metadata']) {
+    const t = `${s}.${sqlIdentifier(table)}`;
+    if (!(await db.query('SELECT to_regclass($1) IS NOT NULL installed', [t]))[0].installed) continue;
+    await db.query(`REVOKE ALL ON ${t} FROM ${runtime},${identity},${ledger}`);
+    const columns: { attname: string }[] = await db.query(`SELECT attname FROM pg_attribute
+      WHERE attrelid=$1::regclass AND attnum>0 AND NOT attisdropped`, [t]);
+    for (const { attname } of columns)
+      await db.query(`REVOKE ALL (${sqlIdentifier(attname)}) ON ${t} FROM ${runtime},${identity},${ledger}`);
+  }
   const operational: { relname: string }[] = await db.query(`SELECT c.relname FROM pg_class c
     JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname=$1 AND c.relkind IN ('r','p')
     AND c.relname<>ALL($2::text[])`, [schema, [...ledgerTables, ...identityTables, "migrations", "typeorm_metadata"]]);
@@ -185,6 +194,13 @@ export async function assertDatabaseBoundary(db: DataSource, kind: "runtime" | "
   if (!role || !role.same_login || Object.entries(role).some(([k,v]) => k !== "same_login" && v === true)) fail();
   if ((await db.query(`SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
     WHERE n.nspname=$1 AND p.proowner=(SELECT oid FROM pg_roles WHERE rolname=current_user) LIMIT 1`, [schema])).length) fail();
+  // Migration history is owner authority, including pre-existing column grants.
+  if ((await db.query(`SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
+    WHERE n.nspname=$1 AND c.relname IN ('migrations','typeorm_metadata') AND (
+      has_table_privilege(c.oid,'INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER') OR
+      EXISTS(SELECT 1 FROM pg_attribute a WHERE a.attrelid=c.oid AND a.attnum>0 AND NOT a.attisdropped
+        AND (has_column_privilege(c.oid,a.attnum,'INSERT') OR has_column_privilege(c.oid,a.attnum,'UPDATE'))))
+    LIMIT 1`, [schema])).length) fail();
   for (const table of [...ledgerTables, ...identityTables]) {
     const t = `${sqlIdentifier(schema)}.${sqlIdentifier(table)}`;
     const forbidden = kind === "runtime" || (kind === "identity" && ledgerTables.includes(table)) ||
