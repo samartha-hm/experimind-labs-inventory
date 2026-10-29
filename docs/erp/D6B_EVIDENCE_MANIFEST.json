@@ -1,0 +1,81 @@
+{
+  "baseline": "2060d82d0ae48ef96f0d555226b35074f1220f06",
+  "classification": "SYNTHETIC TEST EVIDENCE",
+  "artifacts": [
+    {
+      "path": ".local-dev/d6b-regression-final.log",
+      "bytes": 13571,
+      "sha256": "ec478bcf7fdbbf18cfdb73ac040b48d81deb23445808c7ee35049126d88262ed"
+    },
+    {
+      "path": ".local-dev/d6b-typecheck.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": ".local-dev/d6b-build.log",
+      "bytes": 1666,
+      "sha256": "f1585b4beacedb6069e7190be53e1aeb51cbb046a953103298e21f657dc37c67"
+    },
+    {
+      "path": ".local-dev/d6b-enabled-build.log",
+      "bytes": 1666,
+      "sha256": "0c691f0ae1b6148e0684f7a6a251c34973bbd2297c547117243bd6d76c19a766"
+    },
+    {
+      "path": ".local-dev/d6b-all-enabled-build-final.log",
+      "bytes": 1665,
+      "sha256": "f288226e5bdb315b34589115ce36337d8f07a50ed1ab3d2fefe32de96e009f89"
+    },
+    {
+      "path": ".local-dev/d6b-preflight-tests.log",
+      "bytes": 483,
+      "sha256": "87dc1538ac033acf9e7b6a79d9ca8e829979adfe4bef592cbe75265a2e2fac92"
+    },
+    {
+      "path": ".local-dev/d6b-auth-results.json",
+      "bytes": 989,
+      "sha256": "fe3a352bae255e0ecebbcd9359df515674bba325603b52224574c99e184369f6"
+    },
+    {
+      "path": ".local-dev/d6b-conflict-results.json",
+      "bytes": 595,
+      "sha256": "db2e4486b13d89e081d7f20c1e07fb5a2f2a8c3e74c64a76d692826a33188d0d"
+    },
+    {
+      "path": ".local-dev/d6b-browser-evidence.json",
+      "bytes": 172259,
+      "sha256": "150103a308bc22533cc293d6750787a7324ebf15a3dd0c3f30777c6dcc5338a4"
+    },
+    {
+      "path": ".local-dev/d6b-migration-inspection.json",
+      "bytes": 25090,
+      "sha256": "61dddf0b2217df2628485d898bd7d1a712ba324fc382b4e19b790571bffcdb73"
+    },
+    {
+      "path": ".local-dev/d6b-preflight.json",
+      "bytes": 18665,
+      "sha256": "198ae694905cf5388fcf2f5e05792d9df83d90e255f10f4ad19ee0c3da5b6f89"
+    },
+    {
+      "path": ".local-dev/d6b-lifecycle.json",
+      "bytes": 571,
+      "sha256": "b970a7dad3490bbf20edbb0531495069501cb4f65524e5e35bdac46c1b5025ff"
+    },
+    {
+      "path": ".local-dev/d6b-service-lifecycle.json",
+      "bytes": 237,
+      "sha256": "cc8e539e46223e28b3bbbcf2a80e83725171ebd26d9a0df3e58fa8092243d300"
+    },
+    {
+      "path": ".local-dev/d6b-recovery.log",
+      "bytes": 202,
+      "sha256": "42b90ffc67db38bb1a86b9331a2d1bc7e230191271214da639586a152bb2a204"
+    },
+    {
+      "path": ".local-dev/d68-recovery-summary.json",
+      "bytes": 52697,
+      "sha256": "07c5c0ba70ece518ea5ebf7907aa9deebc98cb3922bf72faecb8250c40e5f825"
+    }
+  ]
+}

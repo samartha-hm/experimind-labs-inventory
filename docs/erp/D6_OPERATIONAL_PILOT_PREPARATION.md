@@ -3,6 +3,21 @@
 Software verdict: BLOCKED (ownership execution). Operational pilot: NO-GO.
 All rehearsal records are SYNTHETIC TEST EVIDENCE. No real stock or deployment is authorized.
 
+## D6-B independent software acceptance — 2026-10-29
+
+Latest executed evidence and limits: [D6-B acceptance report](D6B_FINAL_INDEPENDENT_SOFTWARE_ACCEPTANCE.md). Actual administrator/viewer form sign-in, role navigation, school/count/production/receipt screens, package/manifest previews, delivery holds, read-only 34-lane reconciliation and synthetic operational claim submission were exercised in the built full application. Independent review, expiry, tenant denial and stale/exact retries were separately tested by HTTP. These do not establish a complete browser transaction PASS.
+
+| Required verdict | D6-B result |
+| --- | --- |
+| Full-app browser acceptance | **PARTIAL**; positive transaction, expiry/device/accessibility matrix incomplete |
+| Production migration readiness | **BLOCKED**; duplicate identifier, unregistered migrations 18–29, no applied clone journal, synthetic-only guard and historical upgrade gaps |
+| Deployment preflight | **PARTIAL** in isolated Windows process rehearsal; actual production host **NOT VERIFIED** |
+| Ownership contract authorization | **DRAFT / NOT AUTHORIZED**; O1–O10 unchanged |
+| D6 overall software readiness | **BLOCKED** |
+| Operational pilot | **NO-GO** |
+
+Current verification: **628 tests passed, two skipped; 82 files passed, two skipped**; typecheck, default-off frontend/PWA/server build, explicit synthetic feature builds and four preflight unit checks passed. Dedicated restricted-role recovery passed before restart, after PostgreSQL restart and after fresh nonempty restore; reconciliation hash `ea4ee282e4a8061e9c53bb1ce19c2de7b076ba0fd239abc8fd23818587ea1127` remained identical and residual holds continued to block closure. Isolated process startup/restart/shutdown, loopback binding, health, missing-secret refusal and sampled log checks passed. These results supersede only the matching older checks below; production host, paired private-file recovery, retention enforcement and complete browser acceptance remain unverified. No production migration, ownership execution or operational cutover occurred.
+
 ## D6-P read-only reconciliation preparation — 2026-10-29
 
 The [D6-P implementation and impact preview](D6P_OWNERSHIP_RECONCILIATION_PREPARATION.md) adds an authenticated GET-only project/material diagnostic panel with 34 separate source lanes, exact account balances and units, source/approval/witness identities, six issue classes and residual-hold closure blockers. Live session, current role and tenant authorization are checked; a fresh authorization read follows the repeatable-read, read-only evidence snapshot. The reader has no authority writer or execution controls. Missing caches and incomplete sources cannot imply zero holds. Financial obligations remain separate and unassessed.
