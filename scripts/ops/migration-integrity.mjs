@@ -64,7 +64,7 @@ export async function readMigrationJournal(query, schema) {
   if (!/^[a-z_][a-z0-9_]*$/.test(schema)) throw new Error('invalid-schema');
   const { rows } = await query('SELECT to_regclass($1) IS NOT NULL AS present', [`${schema}.migrations`]);
   if (!rows[0]?.present) return undefined;
-  return (await query(`SELECT name, timestamp FROM "${schema}".migrations ORDER BY id`)).rows;
+  return (await query(`SELECT id, name, timestamp FROM "${schema}".migrations ORDER BY id`)).rows;
 }
 
 export async function inspectMigrationPlan(query, schema, root = process.cwd()) {
@@ -72,7 +72,40 @@ export async function inspectMigrationPlan(query, schema, root = process.cwd()) 
   const journal = await readMigrationJournal(query, schema);
   const plan = planMigrations(migrationManifest, journal);
   const issues = [...new Set([...sources.issues, ...plan.issues])];
+  const { rows: [schemaEvidence] } = await query(`SELECT md5(coalesce(string_agg(
+    concat_ws(':',table_name,column_name,ordinal_position,data_type,is_nullable,column_default),
+    '|' ORDER BY table_name,ordinal_position),'')) AS fingerprint
+    FROM information_schema.columns WHERE table_schema=$1`, [schema]);
   return { ...sources, ...plan, issues, ready: issues.length === 0,
+    historicalIdentity: diagnoseHistoricalIdentity(migrationManifest, journal, schemaEvidence?.fingerprint ?? null),
     mode: journal === undefined ? 'SOURCE_ONLY' : 'READ_ONLY_JOURNAL',
     limitation: 'Journal identities do not prove schema or historical source equivalence; require a verified populated clone and paired backup.' };
+}
+
+// Evidence observations never authorize execution or establish historical provenance.
+export function diagnoseHistoricalIdentity(manifest, journal, schemaFingerprint = null) {
+  const plan = planMigrations(manifest, journal);
+  const collisions = [...new Set(manifest.map(entry => entry.timestamp))]
+    .map(timestamp => ({ timestamp, candidates: manifest.map((entry, index) => ({ ...entry, registryIndex: index }))
+      .filter(entry => entry.timestamp === timestamp) }))
+    .filter(group => group.candidates.length > 1)
+    .map(group => ({ ...group, status: 'AMBIGUOUS', applied: journal?.filter(row => String(row.timestamp) === String(group.timestamp)) ?? [] }));
+  const observations = manifest.map((entry, registryIndex) => {
+    const rows = journal?.filter(row => row.name === entry.name) ?? [];
+    const collision = collisions.some(group => group.timestamp === entry.timestamp);
+    const conflict = rows.length > 1 || rows.some(row => String(row.timestamp) !== String(entry.timestamp));
+    return { ...entry, registryIndex, journalPositions: journal?.flatMap((row, index) => row.name === entry.name ? [index] : []) ?? [],
+      status: conflict ? 'CONFLICT' : journal === undefined ? 'MISSING EVIDENCE' : collision ? 'AMBIGUOUS' : rows.length ? 'VERIFIED' : 'NOT APPLICABLE',
+      meaning: rows.length ? 'Journal identity comparison only; historical execution and source provenance are not established.' : 'No applied identity established.' };
+  });
+  return { ready: false, identityComparisonReady: plan.ready, issues: plan.issues, collisions, observations,
+    unexpectedApplied: journal?.filter(row => !manifest.some(entry => entry.name === row.name)).map(row => ({ ...row, status: 'CONFLICT' })) ?? [],
+    pending: plan.pending, appliedOrdering: journal ?? null,
+    checks: {
+      journal: { status: journal === undefined ? 'MISSING EVIDENCE' : 'VERIFIED', meaning: 'Presence only' },
+      orderingAndDependencies: { status: journal === undefined ? 'MISSING EVIDENCE' : plan.issues.some(issue => ['non-prefix-history', 'prerequisite-mismatch', 'unordered-source'].includes(issue)) ? 'CONFLICT' : 'VERIFIED' },
+      historicalProvenance: { status: 'MISSING EVIDENCE', meaning: 'Requires custodian-attested journal, release sources and paired backup provenance.' },
+      schema: { status: schemaFingerprint ? 'AMBIGUOUS' : 'MISSING EVIDENCE', fingerprint: schemaFingerprint,
+        meaning: 'Current schema cannot prove which historical migration executed.' },
+    }, historicalUpgrade: 'BLOCKED' };
 }

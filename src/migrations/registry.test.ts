@@ -3,9 +3,10 @@ import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { DataSource, MigrationExecutor } from 'typeorm';
 import { migrationManifest } from './manifest.mjs';
 import { registeredMigrations } from './registry';
-import { inspectMigrationSources, inspectMigrationAuthority, planMigrations, readMigrationJournal } from '../../scripts/ops/migration-integrity.mjs';
+import { diagnoseHistoricalIdentity, inspectMigrationSources, inspectMigrationAuthority, planMigrations, readMigrationJournal } from '../../scripts/ops/migration-integrity.mjs';
 
 const manifest = [1, 2, 3].map((n, index) => ({ name: `Test${1700000000000 + n}`,
   file: `${1700000000000 + n}-Test.ts`, timestamp: 1700000000000 + n,
@@ -13,6 +14,40 @@ const manifest = [1, 2, 3].map((n, index) => ({ name: `Test${1700000000000 + n}`
 const journal = manifest.map(({ name, timestamp }) => ({ name, timestamp: String(timestamp) }));
 
 describe('migration integrity', () => {
+  it('reproduces TypeORM name identity and timestamp-only ordering without connecting', async () => {
+    const db = new DataSource({ type: 'postgres' });
+    const candidates = registeredMigrations.filter(Migration => Migration.name.endsWith('1689500000007'));
+    for (const order of [candidates, [...candidates].reverse()]) {
+      db.migrations.splice(0, db.migrations.length, ...order.map(Migration => new Migration()));
+      expect((await new MigrationExecutor(db).getAllMigrations()).map(row => row.name)).toEqual(order.map(Migration => Migration.name));
+    }
+    db.migrations.splice(0, db.migrations.length, new candidates[0](), new candidates[0]());
+    await expect(new MigrationExecutor(db).getAllMigrations()).rejects.toThrow('Duplicate migrations');
+  });
+  it('never promotes compatible schema or complete synthetic history to historical acceptance', () => {
+    for (const rows of [undefined, [], journal]) {
+      const result = diagnoseHistoricalIdentity(manifest, rows, 'compatible-schema');
+      expect(result.ready).toBe(false);
+      expect(result.historicalUpgrade).toBe('BLOCKED');
+      expect(result.checks.historicalProvenance.status).toBe('MISSING EVIDENCE');
+      expect(result.checks.schema.status).toBe('AMBIGUOUS');
+    }
+    expect(diagnoseHistoricalIdentity(manifest, journal).observations.map(row => row.status)).toEqual(['VERIFIED', 'VERIFIED', 'VERIFIED']);
+    expect(diagnoseHistoricalIdentity(manifest, []).observations[0].status).toBe('NOT APPLICABLE');
+  });
+  it('reports both collision identities, applied positions, missing and conflicting evidence', () => {
+    const candidates = migrationManifest.filter(entry => entry.timestamp === 1689500000007);
+    const rows = candidates.map(entry => ({ id: 8, name: entry.name, timestamp: String(entry.timestamp) }));
+    const result = diagnoseHistoricalIdentity(migrationManifest, rows, 'same-schema');
+    expect(result.collisions).toHaveLength(1);
+    expect(result.collisions[0].candidates.map(row => row.name)).toEqual(candidates.map(row => row.name));
+    expect(result.observations.filter(row => row.timestamp === 1689500000007).map(row => row.status)).toEqual(['AMBIGUOUS', 'AMBIGUOUS']);
+    expect(diagnoseHistoricalIdentity(manifest, undefined).observations[0].status).toBe('MISSING EVIDENCE');
+    expect(diagnoseHistoricalIdentity(manifest, [{ ...journal[0], timestamp: '1' }]).observations[0].status).toBe('CONFLICT');
+    expect(diagnoseHistoricalIdentity(manifest, [journal[0], journal[0]]).observations[0].status).toBe('CONFLICT');
+    expect(diagnoseHistoricalIdentity(manifest, [{ name: 'Unknown', timestamp: '1' }]).unexpectedApplied).toHaveLength(1);
+    expect(diagnoseHistoricalIdentity(manifest, [...journal].reverse()).checks.orderingAndDependencies.status).toBe('CONFLICT');
+  });
   it('requires a dedicated unelevated schema owner without role memberships', async () => {
     const role={same_login:true,owns_schema:true,rolsuper:false,rolcreatedb:false,rolcreaterole:false,rolreplication:false,rolbypassrls:false,membership:false};
     const inspect=(value: typeof role)=>inspectMigrationAuthority(async()=>({rows:[value]}),'synthetic');

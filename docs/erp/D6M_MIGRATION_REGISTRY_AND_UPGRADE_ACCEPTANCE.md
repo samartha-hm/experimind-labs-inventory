@@ -94,3 +94,92 @@ Production startup retains `synchronize:false` and explicit `migrationsRun:false
 Obtain genuine applied journal/source provenance for the intended baseline and an approved reconciliation of the two `1689500000007` identities. Do not rename either historical identity, manufacture applied rows, weaken synthetic guards or replay the chain against a synchronized baseline. After that decision, provision and prove a restricted schema-owner migration account and separately authorize an isolated populated historical upgrade/fresh-install comparison with paired backup/recovery.
 
 Registration coverage and fail-closed drift detection are verified. Stable unique historical identifiers, an approved executable order and successful historical upgrade are unresolved, so **D6-M remains BLOCKED**. D6 remains **BLOCKED** by O1–O10 and independent acceptance gaps; the operational pilot remains **NO-GO**.
+
+## D6-MH historical identity diagnostics — 2026-10-29
+
+Baseline: branch `feature/kit-builder-milestone-1`, local and GitHub full SHA
+`bc938afe877679d76de028e1d736779b3301d6a1`; single worktree at the requested repository.
+Unrelated `AGENTS.md` and `.test-tmp/` preserved. Initial sandbox DNS failed;
+the network-authorized remote check confirmed the expected baseline.
+
+### Reproducible collision and runner interpretation
+
+Run `node scripts/ops/historical-identity-report.mjs` from the repository root.
+Expected exit 1: read-only source report, genuine journal unavailable, historical upgrade BLOCKED.
+Run `node --env-file=.env.kit-builder-development node_modules/vitest/vitest.mjs run src/migrations/registry.test.ts --reporter=dot`
+for executable source/registry and actual TypeORM interpretation checks.
+
+| Identity | Evidence |
+| --- | --- |
+| `src/migration/1689500000007-AddVisualWarehouseAndSerialNumbers.ts` | Class and explicit name `AddVisualWarehouseAndSerialNumbers1689500000007`; creates physical racks, layouts, element types and serial numbers; latest source commit `e33700f7f4922aadbe232dcddb7862c5135fb62f` |
+| `src/migration/1689500000007-ProductionReconciliation.ts` | Class and explicit name `ProductionReconciliation1689500000007`; adds warehouse/order/inventory relationship columns and constraints; latest source commit `bbd2e14556903d7b5a19909ee936bdc3d30ab505` |
+| Registry | Both explicitly registered exactly once in `src/migrations/registry.ts` and manifest. Source filename, timestamp suffix and class agree; source digests match. Distinct changes share timestamp `1689500000007`; neither duplicate registration nor accidental class/filename mismatch |
+| Possible applied metadata | Two distinct full names above, each with timestamp `1689500000007`. No genuine applied row found; do not infer either was applied |
+| Actual runner | Installed TypeORM `MigrationExecutor.getMigrations()` uses explicit name or constructor name, parses its final 13 digits, rejects duplicate **names**, sorts only by timestamp. Pending filtering matches full names. Metadata loads by descending journal `id`; diagnostics deliberately expose ascending execution order |
+| Equal timestamp | Stable JavaScript sorting retains registration order. The executable test reverses registration and proves the equal-timestamp order reverses. No independent secondary key or historically approved dependency order is supplied by TypeORM. Filename order is not consulted. Distinct names distinguish metadata but do not prove historical execution order |
+| Decision | Keep hard block. No migration rename, source edit, manifest rewrite or secondary-order workaround. Whether either identity was previously applied is MISSING EVIDENCE |
+
+### Evidence matrix and required custody
+
+| Source reviewed | Classification | What it establishes / next evidence |
+| --- | --- | --- |
+| Pinned manifest, explicit registry, canonical source digests and Git source commits | VERIFIED | Source identity/coverage only; release execution is not established |
+| Existing D6-M/D6-B acceptance records and private synthetic clone/backup evidence | VERIFIED | Recorded baselines were synchronized synthetic schemas with no genuine applied journal; not production migration provenance |
+| Fresh restored populated synthetic clone | MISSING EVIDENCE | `migrations` relation absent before and after rollback; 50 pending source candidates do not establish unapplied historical work |
+| Authorized local backup/restore metadata and execution evidence | MISSING EVIDENCE | Available D6-M artifacts are synthetic; no attested intended historical baseline journal or release deployment log was supplied. No operational database queried or dump contents ingested |
+| Current column-schema fingerprint | AMBIGUOUS | Read-only deterministic MD5 over ordered column catalog fields, including defaults; observation only, not a complete schema/dependency fingerprint or proof of migration execution |
+| Intended-baseline database/backup custodian | MISSING EVIDENCE | Responsible human: person administering the intended historical database and its backups. Name is not established in accessible records; project owner must identify this person. Require a consistent read-only export of schema-qualified `migrations` rows (`id,timestamp,name ORDER BY id`), relation DDL, database/schema identity, capture time, paired backup identifier/hash and chain of custody |
+| Release/deployment custodian | MISSING EVIDENCE | Responsible human: person who executed/approved deployments to that baseline. Name is not established. Require deployed commit/full migration source hashes, TypeORM/runtime versions, registry order/configuration and dated execution logs for both conflicting identities |
+
+Custodians must reconcile journal rows with the captured backup and exact deployed
+sources, verify unique full names/timestamps and monotonic journal IDs, explain
+gaps/unknown entries and equal-timestamp execution order, and attest provenance.
+Compare restored schema/dependency observations without using compatibility to fill
+missing history. Keep secrets and connection strings out of exports/reports.
+Only then design and separately review an executable historical upgrade path.
+
+### Implementation and separate verdicts
+
+Shared read-only planning now includes journal IDs/positions, exact collision candidates,
+source digests, dependency/order issues, unknown entries, pending names and a column
+fingerprint. Results use VERIFIED, AMBIGUOUS, MISSING EVIDENCE, CONFLICT and NOT APPLICABLE.
+VERIFIED observations describe a named comparison (such as journal presence or exact
+identity match), never historical source provenance. Provenance remains MISSING EVIDENCE
+and historicalUpgrade BLOCKED even for a complete synthetic journal and compatible schema.
+The offline report never connects to a database. Existing runner refusal remains unchanged.
+
+| Verdict | D6-MH result |
+| --- | --- |
+| Migration registry integrity | Coverage/digests PASS; timestamp integrity BLOCKED |
+| Historical identity verification | AMBIGUOUS collision; no proven applied history |
+| Applied-journal provenance | MISSING EVIDENCE; custody requirements above |
+| Synthetic compatibility | Diagnostic/refusal and populated-clone preservation PASS; full-chain upgrade NOT VERIFIED |
+| Genuine historical upgrade acceptance | BLOCKED |
+| D6 software | BLOCKED |
+| Operational pilot | NO-GO |
+
+Fresh verification: focused migration tests 16 PASS; full regression 644 PASS / 2
+default recovery skips; typecheck PASS; default production frontend/PWA/server build PASS.
+The disposable restored clone preserved all 114 table fingerprints, including stock,
+commitment, custody and audit data. Valid synthetic prefix, conflicting timestamp,
+unknown entry, reordered history, duplicate collision refusal, interrupted metadata
+rollback/retry and existing restricted fixture-role metadata denial passed.
+No full migration-chain execution or restricted migration-owner execution is claimed.
+Feature flags retain default-OFF behavior through existing regression and default build.
+Sandboxed first attempts failed on temporary-file rename/local network access; a workspace
+temporary directory and authorized local-network rerun passed. The fixture's configured
+DATABASE_URL was elevated; the rehearsal correctly refused it and was corrected to reuse
+an existing restricted synthetic role, without creating/changing credentials.
+
+D6-MH software diagnostics/refusal verification: PASS (historical acceptance remains
+BLOCKED). Separately activated restricted authenticated recovery passed before restart,
+after an actual workspace PostgreSQL restart (changed postmaster), and after fresh-database
+restore. All three phases retained reconciliation SHA-256
+`c1392d18079baffa223f7e9fb6a3c1211fcdacf663dce6f3c5423ec2d4873b57`.
+Private evidence SHA-256 (artifacts are local synthetic evidence, not historical proof):
+
+| Artifact | SHA-256 |
+| --- | --- |
+| `.local-dev/d601-recovery-summary.json` | `CCCF5263E1BF12554A0E1AAEBC0D42A78A5E0A1A56F765F5E37E824A28E4E9C0` |
+| `.local-dev/d6m-recovery/evidence.json` | `82E8546DB873AAD1A14B04BA4E29E4E711E3A915FF41F89B9EB6783DE7177E1B` |
+| `.local-dev/d6mh-identity.json` | `B05D617A5667FE3A7AC2E059AAD2C1AF6054EF86F6B2CE83670807D1AD7A57AA` |
