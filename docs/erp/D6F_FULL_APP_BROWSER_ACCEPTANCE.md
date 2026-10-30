@@ -73,3 +73,10 @@ Still required: browser PR creation and PO/source-coverage creation; explicit re
 Final typecheck, consolidated regression, default frontend/PWA/server build and isolated restart/restore recovery passed. Browser acceptance remains incomplete. The resulting scoped commit and verified local/remote SHA are reported in the delivery response; no main merge or operational action is authorized.
 
 Resume only within this isolated synthetic scope. Preserve physical stock, commitment, custody and immutable audit invariants; do not release/recreate claims or infer material ownership fulfillment. Correct closure denial is an expected success criterion, but has not yet been browser-exercised in this run.
+
+
+## D6-F2R follow-up — 2026-10-30
+
+**PARTIAL — NOT PASS; D6 BLOCKED; pilot NO-GO.** Preserved PostgreSQL source recovery, clean restart and fresh-database schema restore verified. Authenticated fallback browser controls created one 0.1000 m allocation (HTTP 201), receipt `803da359-66f8-4cdf-b618-b89ee3d6cc06`, using a fresh key. This supersedes the earlier observation that no allocation had succeeded, but does not establish replay of the original pending key or classify its historical denial. Original outbound payload/detailed error were not retained; reconstructed original-key authority succeeds only in a rollback diagnostic. No implementation defect proved or code changed.
+
+Focused tests: 20 passed; complete database-enabled regression: 645 passed / 2 default recovery skips; typecheck and frontend/PWA/server builds passed. Separate restricted authenticated replay and 111-table reconciliation passed before restart, after restart and fresh restore. Six-check QC, PDF download, downstream and remaining adversarial/device/accessibility browser acceptance remain outstanding. See [D6-F2R report](D6F2R_RECOVERY_AND_ALLOCATION_ROOT_CAUSE.md) and the appended manifest section for exact scope and evidence limitations.

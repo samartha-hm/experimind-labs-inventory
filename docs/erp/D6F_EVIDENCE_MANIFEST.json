@@ -105,5 +105,151 @@
     }
   ],
   "excluded": "09-packing-denied.txt captured after navigation; does not independently prove initial packing error",
-  "credentials": "Private environment/account files and database dumps excluded"
+  "credentials": "Private environment/account files and database dumps excluded",
+  "d6f2r": {
+    "date": "2026-10-30",
+    "classification": "PARTIAL — NOT PASS",
+    "recovery": "Verified preserved source restart and fresh-database schema restore",
+    "original_denial": "INCONCLUSIVE: original outbound payload and detailed error unavailable",
+    "browser": "Repository Playwright/Edge fallback; actual UI login and allocation HTTP 201 with fresh key; post-restart UI reload",
+    "pending_key_replay": "Not completed in browser; reconstructed original key accepted only in rollback diagnostic",
+    "receipt": "803da359-66f8-4cdf-b618-b89ee3d6cc06",
+    "reconciliation": {
+      "tables": 111,
+      "sha256": "c6ffdc72010b6f61e9038db5fb02d65e5cb7c5ca0798298ed331dc289875a743",
+      "scope": "Post-allocation source before/after restart and fresh restore; excludes users, sessions, refresh_tokens; credentials separately match"
+    },
+    "verification": {
+      "focused_passed": 20,
+      "regression_passed": 645,
+      "regression_skipped": 2,
+      "typecheck": "PASS",
+      "frontend_pwa_server_build": "PASS"
+    },
+    "limitations": [
+      "Historical denial remains unclassified; no implementation fix justified",
+      "Initial pre-allocation health JSON overwritten; retained state JSONL independently shows zero plan allocations",
+      "Both screenshot files show post-restart read-only login, not original allocation submission",
+      "Log snapshots are sealed copies of ongoing local server logs",
+      "No genuine migration journal; no historical provenance claim",
+      "QC and downstream browser acceptance not performed"
+    ],
+    "artifacts": [
+      {
+        "artifact": ".local-dev/d6f2r-postgres-snapshot.log",
+        "sha256": "18f9a013a044292ef8561cc82dbadce28ba1f1871bf9c01c9d2afee138e7a91d",
+        "bytes": 183047
+      },
+      {
+        "artifact": ".local-dev/d6f2r-restart-snapshot.log",
+        "sha256": "ea23e06c1aeb23a6dd052dbd2ecc1296ca0153a87c90f1be0c53fd5d1cdda8b8",
+        "bytes": 7017
+      },
+      {
+        "artifact": ".local-dev/d6f2r-resources.json",
+        "sha256": "5e2b042f38ca559ac9b55bc79f9c5665fcc2a2e5ddc10a5b0ae700612f9bc6af",
+        "bytes": 4610
+      },
+      {
+        "artifact": ".local-dev/d6f2r-state.jsonl",
+        "sha256": "fbd8a16220cdfd14569c3affb247f1c0aff8d1c20554586884067606ec43d04a",
+        "bytes": 31863
+      },
+      {
+        "artifact": ".local-dev/d6f2r-owner-probe.log",
+        "sha256": "b780255eccfadb580f48ed470537f4f79f60c4161d5bb2d9f9644643e4639fe9",
+        "bytes": 317
+      },
+      {
+        "artifact": ".local-dev/d6f2r-ledger-probe.log",
+        "sha256": "b780255eccfadb580f48ed470537f4f79f60c4161d5bb2d9f9644643e4639fe9",
+        "bytes": 317
+      },
+      {
+        "artifact": ".local-dev/d6f2r-authority.json",
+        "sha256": "fbf5a43129013971936e2465293b46cf1a14a9f1febdb31d7731d38142136b27",
+        "bytes": 1046
+      },
+      {
+        "artifact": ".local-dev/d6f2r-browser.json",
+        "sha256": "28dadf3b4176715058452485e1e96526afbea35f040c6c6c90ae1b7511ab7f85",
+        "bytes": 6121
+      },
+      {
+        "artifact": ".local-dev/d6f2r-browser-restart.json",
+        "sha256": "1da01bce196da1326f2439234a69b3b7d84b093e9d3538239e06057c21b345e8",
+        "bytes": 5207
+      },
+      {
+        "artifact": ".local-dev/d6f2r-browser-before.png",
+        "sha256": "bd40065c3b42ea73d86eb41f5ed3835c7d0f6bc8155acce87f9103e482c9f8e2",
+        "bytes": 184321
+      },
+      {
+        "artifact": ".local-dev/d6f2r-browser-after.png",
+        "sha256": "bd40065c3b42ea73d86eb41f5ed3835c7d0f6bc8155acce87f9103e482c9f8e2",
+        "bytes": 184321
+      },
+      {
+        "artifact": ".local-dev/d6f2r-before-restart.json",
+        "sha256": "01db6189ee243a346932bca4f18d030adb2bf06656e3f29c6a037fdfb75c5c1d",
+        "bytes": 20572
+      },
+      {
+        "artifact": ".local-dev/d6f2r-after-restart.json",
+        "sha256": "398c9ccb48a4f5808f6503a720b60f5aade763575f30c7b491d4765b078f0bf2",
+        "bytes": 23438
+      },
+      {
+        "artifact": ".local-dev/d6f2r-restored-health.json",
+        "sha256": "a52d92cbaea5563954208ec1d3395630b1195968048603815e3468c06faa8331",
+        "bytes": 23434
+      },
+      {
+        "artifact": ".local-dev/d6f2r-recovery-check.json",
+        "sha256": "62fa0db0edd6a871fc320e1bdd88827d4ef6bad164ccd9b094a3fb5c062f0d94",
+        "bytes": 340
+      },
+      {
+        "artifact": ".local-dev/d6f2r-after-restart-check.json",
+        "sha256": "62fa0db0edd6a871fc320e1bdd88827d4ef6bad164ccd9b094a3fb5c062f0d94",
+        "bytes": 340
+      },
+      {
+        "artifact": ".local-dev/d6f2r-restored-check.json",
+        "sha256": "1e450ebe7ed168b16b700b0e33d445445e12ef290db8ac967487d0d46d1df0e5",
+        "bytes": 336
+      },
+      {
+        "artifact": ".local-dev/d6f2r-restore.json",
+        "sha256": "c6e7de07b7a211abe655eb5fba8290643ea353ef36aef68b7c5f40204afd31cb",
+        "bytes": 221
+      },
+      {
+        "artifact": ".local-dev/d6f2r-lineage.json",
+        "sha256": "0da411116cd857a85cdf13270361daff3cdc4eca47cbf5276ad1a791a5eaf2f8",
+        "bytes": 57786
+      },
+      {
+        "artifact": ".local-dev/d6f2r-focused.log",
+        "sha256": "9bd89da0233add95a5ff0946434eedc031d4bf9f13d73a8804518b9da83acd4b",
+        "bytes": 233
+      },
+      {
+        "artifact": ".local-dev/d6f2r-regression.log",
+        "sha256": "5b7a12e1dfeab265202dba1eea5e60fe3f1ce7fc1d9d28c1c4cf27ea135aa2c8",
+        "bytes": 264
+      },
+      {
+        "artifact": ".local-dev/d6f2r-typecheck.log",
+        "sha256": "d1c66aa4fb26d014d35d932f32438d5d825e59676f3e289aeade54e4e8774f68",
+        "bytes": 65
+      },
+      {
+        "artifact": ".local-dev/d6f2r-build.log",
+        "sha256": "4535f6e7a1e0e60751d465a87fc12146d0856923de3b3ec3d004c19a89dfbc7d",
+        "bytes": 1665
+      }
+    ]
+  }
 }

@@ -103,3 +103,8 @@ Private isolated account/environment setup is required for the browser harness.
 
 D5 stops here. No merge, deployment, real stock activation, historical activation,
 physical QC approval or pilot cutover is authorized by this acceptance.
+
+
+## D6-F2R recovery checkpoint — 2026-10-30
+
+D6 remains **BLOCKED**, pilot **NO-GO**. Preserved synthetic PostgreSQL restart/restore and current authenticated allocation verified; original allocation-denial classification remains **INCONCLUSIVE**, so D6-F2R is **PARTIAL — NOT PASS**. No application code or authority contract changed. Regression 645 passed / 2 default recovery skips; focused 20 passed; typecheck/build passed. Historical migration provenance, O1–O10 approval and remaining browser acceptance remain unresolved. See [focused recovery report](D6F2R_RECOVERY_AND_ALLOCATION_ROOT_CAUSE.md).
