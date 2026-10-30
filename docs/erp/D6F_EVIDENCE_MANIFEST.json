@@ -401,5 +401,49 @@
     "historicalDenial": "INCONCLUSIVE",
     "software": "BLOCKED",
     "pilot": "NO-GO"
+  },
+  "d6f5": {
+    "date": "2026-10-31",
+    "baseline": "36bc6ae55163929c12d9e8fee00cb80f84c0fccd",
+    "report": "docs/erp/D6F5_ENVIRONMENT_DIAGNOSIS.md",
+    "browser": {
+      "discovery": true,
+      "selection": "TIMEOUT; kernel reset",
+      "budgetMs": 10000,
+      "authenticated": false,
+      "transactions": 0,
+      "fallback": false
+    },
+    "conservation": {
+      "tables": 111,
+      "digest": "c6ffdc72010b6f61e9038db5fb02d65e5cb7c5ca0798298ed331dc289875a743",
+      "restrictedRoles": true,
+      "guardsMatch": true,
+      "credentialsMatch": true
+    },
+    "software": "BLOCKED",
+    "pilot": "NO-GO",
+    "artifacts": [
+      {
+        "artifact": ".local-dev/d6f5-health.json",
+        "sha256": "58b00c86920933d1c89f8ee3bf30a7ae30d6a27d9c8b31a0ccbbed98e03ac665",
+        "bytes": 23443
+      },
+      {
+        "artifact": ".local-dev/d6f5-verification.json",
+        "sha256": "44b8776870a44cefbf92e4ec0a283ca5c7e4ee1f909763cb65b5fcd2ca144cea",
+        "bytes": 1224
+      },
+      {
+        "artifact": ".local-dev/d6f5-state.jsonl",
+        "sha256": "8b4de9be3cc9f03903cc2801838eca2d6e65fd4272be32040b6e5f6faf6b7d5b",
+        "bytes": 32331
+      },
+      {
+        "artifact": ".local-dev/d6f5-verify.mjs",
+        "sha256": "c25d8b2becb722baee6ea276044882122b355ac2c1d3c53cc18bee4a04b03d52",
+        "bytes": 1772
+      }
+    ]
   }
 }
