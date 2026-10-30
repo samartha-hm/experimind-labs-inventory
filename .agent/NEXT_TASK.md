@@ -1,5 +1,7 @@
 # Next task
 
-If further diagnosis is authorized, recover the original D6-F allocation request/error evidence using read-only inspection and compare it with the D6-F2R trace. Do not replay the old key into the now-filled package. If exact evidence is unavailable, retain the historical denial as INCONCLUSIVE rather than inventing a classification. See docs/erp/D6F2R_RECOVERY_AND_ALLOCATION_ROOT_CAUSE.md.
+Recover the supported in-app browser connection, then resume D6-F3 authenticated acceptance from existing allocation `803da359-66f8-4cdf-b618-b89ee3d6cc06`. Follow the matrix in `docs/erp/D6F3_DOWNSTREAM_BROWSER_ACCEPTANCE.md`: QC, labels/PDF, dispatch/custody, partial delivery, installation, readiness and adversarial/UI checks. Capture sanitized request/key/response and authoritative before/after state for each mutation. Do not repeat successful upstream transactions or reuse old keys.
 
-D6-F2R remains PARTIAL — NOT PASS; D6 BLOCKED; pilot NO-GO. No automatic downstream rehearsal or operational work is authorized. Preserve the original cluster, synthetic audit history, private evidence, unrelated AGENTS.md and .test-tmp/. Use /new or /compact.
+D6-F3 remains **BLOCKED — NOT PASS**; D6 **BLOCKED**; pilot **NO-GO**. Historical packing denial remains **INCONCLUSIVE**. Unit crate counts and database restart/restore conservation do not establish browser acceptance or exclusive allocation. Dedicated authenticated recovery harnesses and feature-enabled browser build remain unrun.
+
+Preserve the original synthetic cluster, audit history, private evidence, unrelated `AGENTS.md` and `.test-tmp/`. O1–O10 and authentic historical provenance remain blockers. No operational migration, settlement, real stock movement, deployment or pilot authorization. Use `/new` or `/compact`.
