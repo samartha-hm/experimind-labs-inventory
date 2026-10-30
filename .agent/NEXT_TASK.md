@@ -1,7 +1,7 @@
 # Next task
 
-Restore supported Codex in-app browser selection. D6-F4 explicit selection timed out after 10.48 seconds despite successful inventory; see `docs/erp/D6F4_AUTHENTICATED_BROWSER_ACCEPTANCE.md`. Prove authenticated tenant/role, two read-only screens and session persistence before any mutation.
+Resolve supported Codex in-app browser selection through product support. See `docs/erp/D6F5_ENVIRONMENT_DIAGNOSIS.md` for bounded reproduction, current service/conservation checks and exact unresolved boundary. Do not repeat selection timeouts without new diagnostic evidence or use another controller.
 
-Then verify authoritative retained allocation `803da359-66f8-4cdf-b618-b89ee3d6cc06` and resume synthetic six-check QC, followed by authorized downstream acceptance. Do not replay upstream successes or infer a defect from fresh-key success. Historical denial remains INCONCLUSIVE.
+After supported recovery, prove all ten authenticated readiness steps. Then recheck retained allocation `803da359-66f8-4cdf-b618-b89ee3d6cc06` and resume six-check QC/downstream browser acceptance without replaying upstream successes. Capture actual requests, receipts and before/after state.
 
-D6-F4/D6 BLOCKED; pilot NO-GO; O1–O10 DRAFT / NOT AUTHORIZED; historical migration evidence unresolved. Preserve AGENTS.md, .test-tmp/, fixtures and private evidence. No credential changes, ownership settlement, real stock posting, operational migration, deployment or cutover. Use `/new` or `/compact`.
+D6 BLOCKED; pilot NO-GO; O1–O10 DRAFT / NOT AUTHORIZED; historical migration provenance unresolved. No settlement, credential rotation, physical stock movement, operational migration or deployment. Preserve AGENTS.md, .test-tmp/ and private evidence. Use `/new` or `/compact` after the external connection issue is resolved.
