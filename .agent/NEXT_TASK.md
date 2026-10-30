@@ -1,7 +1,7 @@
 # Next task
 
-Recover the supported in-app browser connection, then resume D6-F3 authenticated acceptance from existing allocation `803da359-66f8-4cdf-b618-b89ee3d6cc06`. Follow the matrix in `docs/erp/D6F3_DOWNSTREAM_BROWSER_ACCEPTANCE.md`: QC, labels/PDF, dispatch/custody, partial delivery, installation, readiness and adversarial/UI checks. Capture sanitized request/key/response and authoritative before/after state for each mutation. Do not repeat successful upstream transactions or reuse old keys.
+Restore the supported Codex in-app browser selection/control connection, then rerun only the readiness sequence in `docs/erp/D6BR_BROWSER_RUNTIME_READINESS.md`. D6-BR is BLOCKED despite healthy independent ERP/PostgreSQL checks. No browser authentication, screenshot or QC was reached. Do not attempt downstream acceptance until the complete gate passes.
 
-D6-F3 remains **BLOCKED — NOT PASS**; D6 **BLOCKED**; pilot **NO-GO**. Historical packing denial remains **INCONCLUSIVE**. Unit crate counts and database restart/restore conservation do not establish browser acceptance or exclusive allocation. Dedicated authenticated recovery harnesses and feature-enabled browser build remain unrun.
+If ready, exercise at most the authorized synthetic six-check QC from existing allocation `803da359-66f8-4cdf-b618-b89ee3d6cc06`, subject to actual eligibility/authority. Do not replay successful upstream transactions. D6-F3/D6 BLOCKED; pilot NO-GO; O1–O10 DRAFT / NOT AUTHORIZED; historical migration upgrade BLOCKED; historical packing denial INCONCLUSIVE.
 
-Preserve the original synthetic cluster, audit history, private evidence, unrelated `AGENTS.md` and `.test-tmp/`. O1–O10 and authentic historical provenance remain blockers. No operational migration, settlement, real stock movement, deployment or pilot authorization. Use `/new` or `/compact`.
+Preserve original synthetic cluster, credentials, prior evidence, unrelated AGENTS.md and .test-tmp/. No real stock movement, ownership transfer, settlement, operational migration, deployment or cutover. Use `/new` or `/compact`.
