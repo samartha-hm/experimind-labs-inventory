@@ -3,6 +3,8 @@
 **BLOCKED — NOT PASS. D6 software BLOCKED; operational pilot NO-GO.**
 All inspection, fixture and recovery evidence is **SYNTHETIC**. No actual physical inspection or real inventory authority is established.
 
+D6-BR follow-up: [browser runtime readiness diagnostic](D6BR_BROWSER_RUNTIME_READINESS.md) remains **BLOCKED**. Runtime initialization and browser inventory work, but explicit in-app browser selection times out before acquiring a handle. Independent loopback ERP/database checks pass; no new authenticated browser coverage or QC is established.
+
 ## Baseline and execution boundary
 
 Starting local and GitHub branch `feature/kit-builder-milestone-1` both resolved to `a42175258eb59f283d1d116cddc9368a936aac42`. Unrelated modified `AGENTS.md` and untracked `.test-tmp/` preserved. Read project instructions, handoff, NEXT_TASK, D6-F/F2R reports, manifest, readiness report and unsigned O1–O10 contract.
