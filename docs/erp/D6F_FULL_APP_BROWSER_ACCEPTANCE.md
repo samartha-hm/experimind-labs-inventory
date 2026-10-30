@@ -1,5 +1,11 @@
 # D6-F full-app browser acceptance
 
+## D6-F3 follow-up — 2026-10-30
+
+**BLOCKED — NOT PASS.** [Downstream coverage matrix and evidence](D6F3_DOWNSTREAM_BROWSER_ACCEPTANCE.md): browser runtime selection/documentation timed out twice after documented recovery; zero new authenticated browser transitions or application mutations. All downstream QC/dispatch/delivery/installation and adversarial/device checks remain unexercised. The original allocation denial remains INCONCLUSIVE. No standalone browser fallback or old-key replay was attempted.
+
+Current supporting checks: 19 focused tests passed; database-enabled regression 645 passed / two dedicated recovery-harness skips; typecheck and default frontend/PWA/server build passed. Fresh isolated unit fixtures confirm School A 6 common/2 universal, School B 3/0, Math 0/0 crates. Source clean restart and fresh nonempty restore retain the exact F2R 111-table digest, guard/credential identity and closure blocker. These are unit/database checks, not full-app acceptance. D6 BLOCKED; pilot NO-GO.
+
 Status: **PARTIAL — NOT PASS**. D6 overall remains **BLOCKED**; operational pilot **NO-GO**.
 
 This run uses synthetic records only. No recorded QC represents an actual physical inspection. O1–O10 ownership transfers and settlements remain unauthorized. Historical migration acceptance was not revisited.

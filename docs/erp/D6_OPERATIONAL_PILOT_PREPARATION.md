@@ -3,6 +3,12 @@
 Software verdict: BLOCKED (ownership execution). Operational pilot: NO-GO.
 All rehearsal records are SYNTHETIC TEST EVIDENCE. No real stock or deployment is authorized.
 
+## D6-F3 downstream acceptance — 2026-10-30
+
+**BLOCKED — NOT PASS**, due to browser runtime connection failure after documented recovery. [Current coverage matrix](D6F3_DOWNSTREAM_BROWSER_ACCEPTANCE.md) records zero new browser transactions and all remaining QC/dispatch/delivery/installation gaps. No business denial or application defect is inferred. O1–O10 remain unsigned, genuine historical provenance absent, D6 software BLOCKED and pilot NO-GO.
+
+Fresh supporting verification: 19 focused tests passed; complete database-enabled regression 645 passed / two dedicated recovery skips; typecheck and default frontend/PWA/server build passed. Exact two-school/Math crate exemplar passed in isolated unit fixtures. Original synthetic cluster clean restart and new nonempty restore preserve all 111 F2R table hashes, restricted roles, guard definitions, credential digest and residual-hold closure blocker. No material hold settlement, operational migration or real stock movement occurred. Historical packing denial remains INCONCLUSIVE.
+
 ## D6-F authenticated browser attempt — 2026-10-29
 
 **PARTIAL — NOT PASS.** [D6-F evidence and remaining gaps](D6F_FULL_APP_BROWSER_ACCEPTANCE.md) separates authenticated UI transitions from fixture prerequisites. Browser evidence covers receipt pending/quarantine/accept/reject, purchase-request review/approval, school demand approval, raw issue, finished output, durable packing-plan retry and QR preview. An aggregate-output selector defect was repaired; allocation submission still returns a guarded denial. Six-check synthetic QC and downstream/adversarial acceptance remain incomplete. Final sequential regression: **645 PASS / 2 default skips**; typecheck and frontend/PWA/server builds PASS. Explicit isolated authenticated restart/fresh-database restore recovery PASS in all three phases. The unsigned ownership contract and unavailable authentic historical upgrade evidence remain blockers; operational pilot stays **NO-GO**.

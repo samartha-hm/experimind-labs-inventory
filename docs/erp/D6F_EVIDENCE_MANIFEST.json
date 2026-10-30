@@ -251,5 +251,137 @@
         "bytes": 1665
       }
     ]
+  },
+  "d6f3": {
+    "date": "2026-10-30",
+    "classification": "BLOCKED — NOT PASS",
+    "baseline": "a42175258eb59f283d1d116cddc9368a936aac42",
+    "report": "docs/erp/D6F3_DOWNSTREAM_BROWSER_ACCEPTANCE.md",
+    "browser": {
+      "transactions": 0,
+      "authenticated": false,
+      "blocker": "Browser runtime selection/documentation timed out twice; documented recovery exhausted",
+      "fallback": false,
+      "applicationMutations": 0
+    },
+    "crateExemplar": {
+      "evidence": "Fresh in-memory unit fixtures only",
+      "schoolA": {
+        "common": 6,
+        "universal": 2
+      },
+      "schoolB": {
+        "common": 3,
+        "universal": 0
+      },
+      "math": {
+        "common": 0,
+        "universal": 0
+      },
+      "databaseAllocationExclusivity": "NOT VERIFIED"
+    },
+    "verification": {
+      "focusedPassed": 19,
+      "focusedFiles": 5,
+      "regressionPassed": 645,
+      "regressionSkipped": 2,
+      "regressionFilesPassed": 84,
+      "typecheck": "PASS",
+      "defaultFrontendPwaServerBuild": "PASS",
+      "featureEnabledBrowserBuild": "NOT RUN",
+      "skips": [
+        "receiptRecovery.integration.test.ts: RECEIPT_RECOVERY_PHASE not set",
+        "productionRecovery.integration.test.ts: PRODUCTION_RECOVERY_PHASE not set"
+      ],
+      "browserMatrix": "NOT EXERCISED"
+    },
+    "recovery": {
+      "synthetic": true,
+      "tables": 111,
+      "digest": "c6ffdc72010b6f61e9038db5fb02d65e5cb7c5ca0798298ed331dc289875a743",
+      "restart": true,
+      "systemIdentifier": "7699797950123419544",
+      "startBefore": "2026-10-30T17:34:07.159Z",
+      "startAfter": "2026-10-30T17:38:55.062Z",
+      "freshRestore": "d6f3_restore_20261030",
+      "credentialsAndGuardsMatch": true,
+      "restrictedRoles": true,
+      "closureBlocked": true
+    },
+    "software": "BLOCKED",
+    "pilot": "NO-GO",
+    "historicalDenial": "INCONCLUSIVE",
+    "artifacts": [
+      {
+        "artifact": ".local-dev/d6f3-focused.log",
+        "sha256": "ed48012731a7e31a91b029f86977c3829c2cb8ce1b25bb5b7d642aedf466f9cc",
+        "bytes": 3447
+      },
+      {
+        "artifact": ".local-dev/d6f3-focused-elevated.log",
+        "sha256": "f65a4222041a7737a461893b3af003ace26e0d9ab8611636d5c446bf3479fb59",
+        "bytes": 645
+      },
+      {
+        "artifact": ".local-dev/d6f3-typecheck.log",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "bytes": 0
+      },
+      {
+        "artifact": ".local-dev/d6f3-build.log",
+        "sha256": "fb0348eec0ad2ffedfeff08fe4052375df77787d78c5308fa972f5036de8cd8a",
+        "bytes": 1665
+      },
+      {
+        "artifact": ".local-dev/d6f3-regression.log",
+        "sha256": "f25254365eca8c014f047065e6ca1c8ea7a0c84bf128742cc5c1cf172057af34",
+        "bytes": 12561
+      },
+      {
+        "artifact": ".local-dev/d6f3-baseline.json",
+        "sha256": "d41a4c799cda92d8fe276605eb4ed88ed04c6a1b0c41b95889a4827f11c43274",
+        "bytes": 23438
+      },
+      {
+        "artifact": ".local-dev/d6f3-before-restart.json",
+        "sha256": "d41a4c799cda92d8fe276605eb4ed88ed04c6a1b0c41b95889a4827f11c43274",
+        "bytes": 23438
+      },
+      {
+        "artifact": ".local-dev/d6f3-after-restart.json",
+        "sha256": "085e943441f4e9f4154f9dd62e85c54595e9ad68e5708517607897341a1ebb2a",
+        "bytes": 23438
+      },
+      {
+        "artifact": ".local-dev/d6f3-restored-health.json",
+        "sha256": "14f72945eb4ea9dea120fdc5178c1558a4fa7704fb65e3bde6c3ec586631798c",
+        "bytes": 23433
+      },
+      {
+        "artifact": ".local-dev/d6f3-restore.json",
+        "sha256": "a00bab8c2aa2a6bea9b37e5ded8bc5d4894f41aeb67a54af58262143e943aada",
+        "bytes": 220
+      },
+      {
+        "artifact": ".local-dev/d6f3-recovery-summary.json",
+        "sha256": "7c0242063af7fa2ed0e609434232b1b25ed770cee15dd89a1c45e6d314d75390",
+        "bytes": 407
+      },
+      {
+        "artifact": ".local-dev/d6f3-postgres.log",
+        "sha256": "e0097a7fea063f640869b238cb7e28e852d4fccfaac20f2c92103b9bfa293343",
+        "bytes": 687
+      },
+      {
+        "artifact": ".local-dev/d6f3-postgres-elevated.log",
+        "sha256": "2f9a8d137585f2c4099ce02ebe62173e8a008ca5c2c0c85da17ae68167a6120e",
+        "bytes": 179570
+      },
+      {
+        "artifact": ".local-dev/d6f3-restart.log",
+        "sha256": "9f7ce430e9e1be916ce101e0fea2f967b38119fa265c26aa96a477a60b52f256",
+        "bytes": 405
+      }
+    ]
   }
 }
