@@ -1,5 +1,9 @@
 # D6-F full-app browser acceptance
 
+## D6-F4 resumption — 2026-10-30
+
+**BLOCKED — NOT PASS.** [Authenticated browser acceptance resumption](D6F4_AUTHENTICATED_BROWSER_ACCEPTANCE.md): supported inventory lists the in-app browser, but explicit selection times out after 10.48 seconds. No tab, authentication, QC or downstream transition reached; no application mutation or fresh database verification. Prior results remain historical; original allocation denial INCONCLUSIVE. D6 BLOCKED; pilot NO-GO.
+
 ## D6-F3 follow-up — 2026-10-30
 
 **BLOCKED — NOT PASS.** [Downstream coverage matrix and evidence](D6F3_DOWNSTREAM_BROWSER_ACCEPTANCE.md): browser runtime selection/documentation timed out twice after documented recovery; zero new authenticated browser transitions or application mutations. All downstream QC/dispatch/delivery/installation and adversarial/device checks remain unexercised. The original allocation denial remains INCONCLUSIVE. No standalone browser fallback or old-key replay was attempted.

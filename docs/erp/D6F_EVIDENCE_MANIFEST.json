@@ -383,5 +383,23 @@
         "bytes": 405
       }
     ]
+  },
+  "d6f4": {
+    "date": "2026-10-30",
+    "verdict": "BLOCKED — NOT PASS",
+    "baseline": "ec9e1f63ee20b87261eae0a7e75f883d1c977431",
+    "report": "docs/erp/D6F4_AUTHENTICATED_BROWSER_ACCEPTANCE.md",
+    "evidence": "Supported browser tool transcript in current chat; no screenshot or new private artifact",
+    "browserSkill": "26.1027.30824",
+    "inventory": "iab discovered, ID 2",
+    "failureStage": "explicit in-app browser selection",
+    "elapsedMs": 10480,
+    "authenticatedTransitions": 0,
+    "mutationRequests": 0,
+    "databaseReconciliation": "NOT RERUN",
+    "verification": "Documentation only; tests/build/typecheck/recovery not rerun",
+    "historicalDenial": "INCONCLUSIVE",
+    "software": "BLOCKED",
+    "pilot": "NO-GO"
   }
 }

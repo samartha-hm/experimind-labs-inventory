@@ -3,6 +3,10 @@
 Software verdict: BLOCKED (ownership execution). Operational pilot: NO-GO.
 All rehearsal records are SYNTHETIC TEST EVIDENCE. No real stock or deployment is authorized.
 
+## D6-F4 resumption — 2026-10-30
+
+**BLOCKED — NOT PASS.** [D6-F4 evidence and coverage](D6F4_AUTHENTICATED_BROWSER_ACCEPTANCE.md): explicit supported in-app browser selection timed out after 10.48 seconds despite successful inventory. Authentication and all remaining downstream workflows were not reached; no mutations or fresh reconciliation performed. Ownership contract, historical migration evidence and acceptance gaps remain unresolved. D6 BLOCKED; pilot NO-GO.
+
 ## D6-F3 downstream acceptance — 2026-10-30
 
 **BLOCKED — NOT PASS**, due to browser runtime connection failure after documented recovery. [Current coverage matrix](D6F3_DOWNSTREAM_BROWSER_ACCEPTANCE.md) records zero new browser transactions and all remaining QC/dispatch/delivery/installation gaps. No business denial or application defect is inferred. O1–O10 remain unsigned, genuine historical provenance absent, D6 software BLOCKED and pilot NO-GO.
