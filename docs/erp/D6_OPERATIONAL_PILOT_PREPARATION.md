@@ -3,6 +3,10 @@
 Software verdict: BLOCKED (ownership execution). Operational pilot: NO-GO.
 All rehearsal records are SYNTHETIC TEST EVIDENCE. No real stock or deployment is authorized.
 
+## D6-F authenticated browser attempt — 2026-10-29
+
+**PARTIAL — NOT PASS.** [D6-F evidence and remaining gaps](D6F_FULL_APP_BROWSER_ACCEPTANCE.md) separates authenticated UI transitions from fixture prerequisites. Browser evidence covers receipt pending/quarantine/accept/reject, purchase-request review/approval, school demand approval, raw issue, finished output, durable packing-plan retry and QR preview. An aggregate-output selector defect was repaired; allocation submission still returns a guarded denial. Six-check synthetic QC and downstream/adversarial acceptance remain incomplete. Final sequential regression: **645 PASS / 2 default skips**; typecheck and frontend/PWA/server builds PASS. Explicit isolated authenticated restart/fresh-database restore recovery PASS in all three phases. The unsigned ownership contract and unavailable authentic historical upgrade evidence remain blockers; operational pilot stays **NO-GO**.
+
 ## D6-B independent software acceptance — 2026-10-29
 
 Latest executed evidence and limits: [D6-B acceptance report](D6B_FINAL_INDEPENDENT_SOFTWARE_ACCEPTANCE.md). Actual administrator/viewer form sign-in, role navigation, school/count/production/receipt screens, package/manifest previews, delivery holds, read-only 34-lane reconciliation and synthetic operational claim submission were exercised in the built full application. Independent review, expiry, tenant denial and stale/exact retries were separately tested by HTTP. These do not establish a complete browser transaction PASS.

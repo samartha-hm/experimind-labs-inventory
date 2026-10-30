@@ -3,7 +3,7 @@ import { useAuth } from '../../AuthContext';
 import { apiFetch } from '../../utils/api';
 import { qcChecks } from './packingTypes';
 import { stockText, stockUnits } from '../inventory/physicalQuantity';
-import { inspectionFor, type TrustedPackingView } from './trustedPackingTypes';
+import { inspectionFor, outputMatchesMaterial, type TrustedPackingView } from './trustedPackingTypes';
 import { TrustedLabelPreview } from './TrustedLabelPreview';
 import { trustedPackingPDF } from './trustedPackingLabels';
 import type { PackingQCInput } from '../../services/TrustedPackingService';
@@ -29,7 +29,7 @@ export default function TrustedPackingPanel({projectId}:{projectId?:string}) {
   },[storageKey,projectId]);
   const plans=view.plans.filter(p=>!projectId||p.project_id===projectId),plan=plans.find(p=>p.id===selected),pack=plan?.snapshot.packages.find(p=>p.id===packageId),qc=plan&&pack?inspectionFor(plan,pack.id):undefined;
   const available=view.outputs.filter(o=>(!projectId||o.project_id===projectId)&&stockUnits(o.available)>0n);
-  const eligible=available.filter(o=>plan&&pack&&o.project_id===plan.project_id&&o.site_id===plan.site_id&&o.approval_id===plan.approval_id&&o.demand_revision===plan.demand_revision&&o.demand_line.selection_id===pack.selection_id&&o.demand_line.version_id===pack.version_id&&o.demand_line.material_id===line);
+  const eligible=available.filter(o=>plan&&pack&&outputMatchesMaterial(o,plan,pack,line));
   async function submit(operation:Pending){setBusy(true);setError('');setConfirmed(false);setReconciled(false);try{sessionStorage.setItem(storageKey,JSON.stringify(operation));setPending(operation);const receipt=await apiFetch(endpoint+operation.path,{method:'POST',headers:{'Idempotency-Key':operation.key},body:JSON.stringify(operation.input)});sessionStorage.removeItem(storageKey);setPending(null);setConfirmed(false);setMessage(`Recorded evidence ${receipt.id}`);await refresh();}catch(e){setError(`${String(e)}. Retry the saved request unchanged or reconcile before clearing it.`);}finally{setBusy(false);}}
   const write=(path:string,input:unknown)=>void submit({path:`/operator/packing/${path}`,key:crypto.randomUUID(),input});
   function choosePackage(id:string){setPackage(id);setLine('');setOutput('');setChecks(blankChecks());setNotes('');setConfirmed(false);setPreview('');}

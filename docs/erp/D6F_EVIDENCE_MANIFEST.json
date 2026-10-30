@@ -1,0 +1,109 @@
+{
+  "classification": "SYNTHETIC TEST EVIDENCE; partial browser acceptance",
+  "schema": "requirement_test_65e4d0314cc341f7b81dae97c9e936df",
+  "browser": "Codex in-app browser; authenticated local application",
+  "artifacts": [
+    {
+      "artifact": ".local-dev/d6f-browser/01-authenticated-reload.txt",
+      "sha256": "b800d91e078946554a49c320ab10921bb66080b7f159c4679bd0dd0b2d03f465",
+      "bytes": 30691
+    },
+    {
+      "artifact": ".local-dev/d6f-browser/02-receipt-created.txt",
+      "sha256": "bc374b7ec9f5e30950ca4322fe80d972e3846450f0011914fff7afad92c6d198",
+      "bytes": 31225
+    },
+    {
+      "artifact": ".local-dev/d6f-browser/03-quarantined.txt",
+      "sha256": "d50c445238f88bc912cce8919d6bb8ac921ba91041301809ba129c94851822ad",
+      "bytes": 31201
+    },
+    {
+      "artifact": ".local-dev/d6f-browser/04-accepted.txt",
+      "sha256": "78f25bcdf167fdcca7e42c3d159d157efd393ca2f747c324dd3646b544e40b21",
+      "bytes": 30982
+    },
+    {
+      "artifact": ".local-dev/d6f-browser/05-rejected-pr-review.txt",
+      "sha256": "e279132c2f468c6d7081dd18abbd10f646df3c38a0a179474c6247c3535d1f42",
+      "bytes": 31261
+    },
+    {
+      "artifact": ".local-dev/d6f-browser/06-school-approved.txt",
+      "sha256": "072aecb5cf327f9deb24dd12738d4979ace676407ef99a678f23444fe79f4a38",
+      "bytes": 27110
+    },
+    {
+      "artifact": ".local-dev/d6f-browser/07-raw-issued.txt",
+      "sha256": "058001da4125096cfc8f1e873fbe1f1288d66765d24785b542a29f838e00a360",
+      "bytes": 28934
+    },
+    {
+      "artifact": ".local-dev/d6f-browser/08-output.txt",
+      "sha256": "ae3b1cf7814407a68b56af1bea1582965fd8b0ef209e20bf08645a9412e30bf4",
+      "bytes": 28840
+    },
+    {
+      "artifact": ".local-dev/d6f-browser/10-durable-retry.txt",
+      "sha256": "c7efbed7f40e508ca79dbaecb395d7838ab63a744d9bc766590bf13edd30cb86",
+      "bytes": 26187
+    },
+    {
+      "artifact": ".local-dev/d6f-browser/11-allocation-no-match.txt",
+      "sha256": "aaf005faa2ef5f904fc81a19d671516e2cf9a5bb9c3ba7a4dda1fe1b17ae2ce9",
+      "bytes": 30064
+    },
+    {
+      "artifact": ".local-dev/d6f-browser/12-package-qr-preview.txt",
+      "sha256": "9325e294fbbf415c9303be0eec1fe8a2ac30471be1bf013949f4cef5835d408d",
+      "bytes": 30782
+    },
+    {
+      "artifact": ".local-dev/d6f-browser-13-allocation-fixed.txt",
+      "sha256": "3cfd3a6d220a5f392d77cb8a13b14a6b817e1f728ad56fd9bcaf7dec64327940",
+      "bytes": 30858
+    },
+    {
+      "artifact": ".local-dev/d6f-receipt-proof.json",
+      "sha256": "b36ae615870fe7df2bc5340dfcb90a6cc7e2922118b810a0eadd459101374971",
+      "bytes": 2522
+    },
+    {
+      "artifact": ".local-dev/d6f-matching-final.log",
+      "sha256": "65280ab56ab152d6df341484ea015f4af3708ce76432bc8365d91e0d995429f2",
+      "bytes": 232
+    },
+    {
+      "artifact": ".local-dev/d6f-typecheck-resume.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "artifact": ".local-dev/d6f-regression-resume.log",
+      "sha256": "bbb9e507ec1a4dee7f5b3e26ebe67049b919e0a03f1d1eaaff68c00b981c053e",
+      "bytes": 13625
+    },
+    {
+      "artifact": ".local-dev/d6f-default-build.log",
+      "sha256": "734b50a65c79fce6c2cce43ae55cc9ed1a03aa728cc30bced6188121c154dc72",
+      "bytes": 1665
+    },
+    {
+      "artifact": ".local-dev/d6f-fixed-build.log",
+      "sha256": "8b8951bde2444160574e955c6e8dea85b64370335ebcd152bb11611a5e96db7e",
+      "bytes": 1666
+    },
+    {
+      "artifact": ".local-dev/d606-recovery-summary.json",
+      "sha256": "7524451683599682c576bd967f8cd8107aaa257e6d0e631035a12d90c5a65aba",
+      "bytes": 52692
+    },
+    {
+      "artifact": ".local-dev/d6f-recovery.log",
+      "sha256": "42b90ffc67db38bb1a86b9331a2d1bc7e230191271214da639586a152bb2a204",
+      "bytes": 202
+    }
+  ],
+  "excluded": "09-packing-denied.txt captured after navigation; does not independently prove initial packing error",
+  "credentials": "Private environment/account files and database dumps excluded"
+}
