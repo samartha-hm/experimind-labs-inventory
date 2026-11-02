@@ -30,6 +30,7 @@
 - Make the smallest safe diff. Run affected tests first and expand checks when failures or changed scope justify it.
 - Run the full suite, typecheck, and build once at milestone review. Never skip or conceal security/persistence failures; report causes and checks not run.
 - Before a local commit, inspect the diff and status and explicitly exclude sensitive/generated files. Do not claim historical checks as freshly verified.
+- **Browser Automation Resilience**: Prefer accessibility inspection (`tab.ax.*`) over full DOM serialization (`playwright.domSnapshot()`) to avoid CDP layout-flush deadlocks on occluded tabs. Treat browser tabs as ephemeral: spawn fresh tabs (`tabs.new()`) after idle pauses rather than reusing dormant tabs. Regenerate synthetic credentials via `scripts/prepare-pilot-accounts.mjs` if testing against a restored database.
 
 ## GitHub checkpoint workflow
 - GitHub is authoritative. After successful verification, review status/diff, explicitly stage completed code/docs without secrets, `.env`, dumps or generated artifacts, and create logically separate descriptive commits.
