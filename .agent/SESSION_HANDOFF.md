@@ -1,13 +1,9 @@
 # Session handoff - 2026-11-03
 
-Branch feature/kit-builder-milestone-1. D6-F8 evidence checkpoint 8aea71eb356d9efc8002b01248924414fe3b9d99 pushed and remote verified. Final continuity SHA is in the completion response. Baseline 739a391cfc254bda62d2d5b0e63ef1a73fc9ee1d; application source unchanged.
+Branch feature/kit-builder-milestone-1. Implementation checkpoint d6538c0 (local only): long delivery-manifest contents now paginate per wrapped line; synthetic regression added. Report docs/erp/ERP_ACCELERATED_COMPLETION_SPRINT.md records partial scope and remaining work.
 
-BUILD PASS / QC BLOCKED. Direct Vite child exit 0; isolated trusted frontend served at 127.0.0.1:3108, proxying existing synthetic app 3104. Default served dist unchanged and trusted packing OFF. F7 exact wrapper failure unprovable from retained stderr; direct child capture avoids PowerShell stderr/status ambiguity. No compiler defect established.
+Fresh checks: delivery/packing PDF tests 3 passed; TypeScript passed; default frontend/PWA and backend builds passed into private .local-dev outputs. Full regression: 496 passed, 20 failed, 132 skipped; loopback/PostgreSQL EACCES prevented clean acceptance. Do not treat prior 645-pass checkpoint as freshly verified.
 
-Supported in-app browser authenticated existing synthetic admin, reached all six checks and verified incomplete evidence/unchecked physical confirmation leaves acceptance disabled. Fresh tab reproduced pending package. Actual physical inspection unavailable: no attestation, QC submission, new receipt/audit, retry or downstream acceptance.
+Push failed: github.com DNS resolution unavailable. Cached origin remains c75c9b621f2290b03e0ba02b10c26cf7b65a7a73; live remote SHA unverified. Running dist, production flags, fixtures, AGENTS.md and unrelated .test-tmp/ preserved. No database or browser journey executed; conservation not freshly fingerprinted.
 
-Full regression child exit 0: 645 passed, two recovery tests skipped; 84 files passed, two skipped. Typecheck, isolated default frontend/PWA, trusted frontend and server bundle passed. All 111 business/audit fingerprints, credentials, roles, closure guards and database identity unchanged. App/PostgreSQL PIDs 20828/5296 preserved; private preview PID 17040.
-
-Report: docs/erp/D6F8_TRUSTED_PACKING_BUILD_AND_QC_ACCEPTANCE.md; acceptance, readiness, index and manifest updated. Private evidence remains .local-dev; .test-tmp/ and AGENTS.md preserved and excluded.
-
-Next: actual inspection capability before truthful browser QC, then durable receipt/audit, identical-request retry and conservation. D6 BLOCKED; pilot NO-GO; O1-O10 DRAFT / NOT AUTHORIZED. Historical migration provenance and dispatch/delivery/installation acceptance remain open. No stock, settlement, ownership, migration, main merge or deployment. Use /new for continuation.
+Next: rerun full regression with loopback access, verify remote connectivity and push local commits, then audit supported UI/API module wiring. Broad platform completion remains unfinished. Prior physical QC acceptance remains outstanding. D6 BLOCKED; pilot NO-GO; O1-O10 unauthorized; historical provenance unresolved. No deployment, merge, operational stock movement or attestation.
