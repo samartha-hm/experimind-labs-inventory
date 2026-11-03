@@ -107,3 +107,44 @@ Evidence retained privately under `.local-dev/shell-*`: dashboard, selected proj
 Remaining limitations by class: software — no additional reproducible software defect established; final live recheck of the three panel-loading changes and generated QR navigation remains NOT TESTED. Browser/infrastructure — restore responsive in-app tab/API interaction, then finish those bounded checks and authorized synthetic partial/retry writes. Physical acceptance — genuine receipt/QC, installation and recipient sign-off remain required. Business authorization — O1–O10 settlement/ownership authority remains unresolved. Historical migration evidence — provenance remains unresolved; no historical migration executed.
 
 **D6 BLOCKED; operational pilot NO-GO.** This is controlled synthetic shell evidence, not operational acceptance. No new QC, delivery or installation attestations, stock/custody/commitment movement, settlement, reset, deployment, main merge, force push, migration activation or cutover. Preserve unrelated AGENTS.md, `.test-tmp/`, fixtures and prior evidence. Implementation publication and exact branch-SHA verification follow in the session handoff/result.
+
+## Release-candidate acceptance checkpoint - 2026-11-03
+
+**SOFTWARE DEMO BLOCKED.** Automated synthetic acceptance passes, but the essential outstanding full-shell checks remain blocked by the supported in-app browser connection. No newly reproducible application defect was established. This checkpoint supplements, rather than replaces, the historical browser evidence above. **D6 BLOCKED; pilot NO-GO.**
+
+Baseline: branch `feature/kit-builder-milestone-1`; local HEAD and live origin branch both exactly `ebdadc812b037232d4cdfaaa2d28684f21512c7f`. Tracked tree initially clean; existing untracked `.test-tmp/` preserved. PostgreSQL listens on 55432 and the existing application on 3106 returns HTTP 200. Sandbox loopback denial was an execution restriction, not a database/application outage; permitted checks succeeded. No fixture reset, credential change or service replacement was needed.
+
+The installed browser skill was used. No supported tabs were available to reuse. One fresh-tab/open/accessibility attempt against the real shell timed out after 20 seconds and reset the tool kernel. Repeated browser attempts stopped as instructed. **No browser action completed and no browser write occurred in this session.** HTTP readiness is not authenticated shell acceptance.
+
+| Module | Full-shell browser status at this checkpoint | Evidence boundary / outstanding work |
+| --- | --- | --- |
+| Dashboard | PARTIAL | Prior full-shell PASS retained; fresh authenticated shell unavailable. |
+| School requirements | PARTIAL | Prior full-shell PASS retained; no repeat required absent regression evidence. |
+| Demand approval | PARTIAL | Prior read PASS retained; fresh automated authorization/workflow tests pass. |
+| Procurement | PARTIAL | Prior read/refresh PASS retained; fresh automated integration passes. |
+| Receipt QC | PARTIAL | Prior guard inspection retained; physical inspection remains unauthorized. |
+| Production | BLOCKED | Final loaded-panel and pending-to-loaded transition recheck unavailable. |
+| Packing | BLOCKED | Pending-state recheck, QR follow-through and return navigation unavailable. |
+| Packing QC | PARTIAL | Prior disabled-control inspection retained; no fabricated checks. |
+| Dispatch | BLOCKED | Correct live dispatch selection from package URL and fresh previews unavailable. |
+| Delivery | BLOCKED | Pending-state recheck, saved-request browser retry, refresh and return navigation unavailable. |
+| Installation | BLOCKED | Browser reopen/completion and return navigation unavailable; automated lifecycle passes. |
+| Reconciliation | PARTIAL | Prior read PASS retained; fresh automated custody/hold checks pass. |
+| Project closure readiness | PARTIAL | Prior disabled closure retained; fresh server denial with material holds passes. |
+| Audit history | PARTIAL | Prior expanded-history PASS retained; fresh audit tests/fingerprints pass. |
+
+Visible tenant/project isolation and role restrictions, post-action state refresh, label/manifest preview rendering and QR navigation are **BLOCKED for fresh browser acceptance**, not promoted from unit/API evidence. Historical viewer and other-tenant dashboard reads remain exactly as bounded above.
+
+**Synthetic integration PASS:** focused `packing.integration.test.ts`, `requirementApproval.integration.test.ts` and `deliveryRecovery.test.ts`: **65 passed, zero failed**. These use isolated synthetic test schemas and actual authenticated API requests where applicable, not browser actions. Verified partial delivery; failed delivery/quarantined return/correction/retry; concurrent exact idempotent dispatch, receipt and installation-check replay; changed-payload and unauthorized requests denied; installation reopen, finish and recipient acceptance; reconciliation/audit history; unchanged physical stock; and trusted closure denied despite completed fulfillment/installation while residual material holds remain. Delivery receipt, installation completion and fulfillment stay separate states. Synthetic fixture strings are not physical attestations.
+
+Saved-request identity/validation is **unit-test PASS**, including unchanged key/path/payload; full-shell save/reload/retry remains **BLOCKED**. Fresh full regression also passes four initial-loading SSR regressions, 12 tenant-scoped package lookup cases, three trusted PDF/QR tests and three audit-chain tests. These prove the tested logic/output and initial pending messages, not live navigation, post-load rendering or previews.
+
+Actual fixes this session: **none**. The demonstrated presentation fixes already in the starting HEAD are retained; no new failing application case justified a code change or additional regression test. Remaining application defects: none newly reproduced; the unexecuted browser checks remain acceptance gaps, not assumed successes.
+
+Final verification: **671 passed, zero failed, two intentionally gated recovery skips (673 tests), actual exit 0**. The skipped nonempty recovered-database restart/restore scenarios were not activated or represented as fresh PASS. **TypeScript `--noEmit`, frontend/PWA and backend builds PASS, all exit 0**; the existing frontend large-chunk warning remains. Production, packing and delivery frontend flags are unset/OFF in the normal development environment and `.env.example`; source gates require literal `true`. Default build outputs are isolated under `.local-dev/rc-default` and `.local-dev/rc-server.cjs`; running `dist` and configuration are preserved.
+
+Database/audit: fresh read-only repeatable-read census finds **114 actual tables, all 111 baseline tables present and identical by row count/content hash, zero missing or changed baseline tables**. The additional `users`, `sessions`, `refresh_tokens` are the exact identity-table exclusions explicitly coded in the historical `.local-dev/d6f2r-health.mjs` collector (which separately includes `audit_logs`). There are **zero unexplained extra tables**. This corrects the possible interpretation that the old 111-table fingerprint was a complete schema census. Historical identity-table content equality cannot be established from that baseline; no such equality is claimed. Audit logs, stock ledger, custody, supply and commitment event fingerprints match. No baseline replacement, schema migration or difference auto-acceptance occurred.
+
+Private evidence: `.local-dev/rc-focused-permitted.json`, `rc-full.json`, `rc-typecheck.log`, `rc-frontend.log`, `rc-build.log`, `rc-integrity.json` and corresponding logs/runners. The initial sandbox-denied focused run remains separately retained as `rc-focused.*`; it is not an application regression. Historical evidence, fixtures, `AGENTS.md` and `.test-tmp/` remain preserved and excluded from these documentation commits. Publication uses a normal feature-branch push; exact published checkpoint SHA is recorded in the session handoff and final local/live-remote verification.
+
+Physical acceptance: **NOT AUTHORIZED / NOT PERFORMED**. Non-software launch blockers remain genuine QC/receipt/delivery/installation and recipient sign-off, unsigned O1-O10 ownership/settlement decisions, and unresolved historical provenance. No operational pilot cutover, inventory movement, settlement, migration activation, deployment or main merge is authorized or performed. Next executable step: restore a responsive supported in-app browser, then finish only the bounded loading, QR/navigation, visible authorization, refresh/preview and isolated partial/retry shell gaps above.
