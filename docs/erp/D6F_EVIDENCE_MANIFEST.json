@@ -445,5 +445,102 @@
         "bytes": 1772
       }
     ]
+  },
+  "d6f6": {
+    "report": "docs/erp/D6F6_PACKING_QC_ACCEPTANCE.md",
+    "checkpoint": "148ad39553b5bf8d5fcf2b2ebdcfb1e29f2046fb",
+    "browserConnection": "PASS",
+    "authenticatedNavigation": "PASS",
+    "qcAcceptance": "BLOCKED",
+    "pilot": "NO-GO"
+  },
+  "d6f7": {
+    "report": "docs/erp/D6F7_PACKING_QC_FRONTEND_GATE_DIAGNOSIS.md",
+    "inspectedHead": "782b9b133df208e0515584c86c5f7f78f04176c7",
+    "classification": [
+      "B: effective build-time feature flag OFF",
+      "E: artifact mismatch for intended feature-enabled test; cache staleness unproven"
+    ],
+    "diagnosis": "PASS: correct OFF behavior verified",
+    "browser": "Authenticated existing session; fresh project and direct package tabs; six-check controls absent",
+    "qcAcceptance": "BLOCKED / NOT RUN",
+    "applicationChanges": false,
+    "tests": {
+      "passed": 14,
+      "files": 4,
+      "backendAuthoritySuites": "NOT RUN; source trace only",
+      "initialSandbox": "EPERM; approved rerun passed"
+    },
+    "build": {
+      "isolated": true,
+      "served": false,
+      "wrapperExitCode": 1,
+      "success": "UNVERIFIED; feature-enabled main asset emitted"
+    },
+    "conservation": {
+      "tables": 111,
+      "digest": "c6ffdc72010b6f61e9038db5fb02d65e5cb7c5ca0798298ed331dc289875a743",
+      "unchanged": true
+    },
+    "d6": "BLOCKED",
+    "pilot": "NO-GO",
+    "ownership": "O1-O10 DRAFT / NOT AUTHORIZED",
+    "artifacts": [
+      {
+        "artifact": ".local-dev/d6f7-bundle.json",
+        "sha256": "65edf5fbeb456decb7b0b88fd6568d0dadca904095eab30a7cf6664556f2042e",
+        "bytes": 1103
+      },
+      {
+        "artifact": ".local-dev/d6f7-health.json",
+        "sha256": "53ef1cf4ed0a5eb120dcef986126759c93b4883c06da31067b3dd3568fd21bff",
+        "bytes": 23443
+      },
+      {
+        "artifact": ".local-dev/d6f7-final-health.json",
+        "sha256": "75ddd92e076fc1dc52fc1d9cf1bda15e118501e1831b8960bbb44d185f71b858",
+        "bytes": 23443
+      },
+      {
+        "artifact": ".local-dev/d6f7-state.jsonl",
+        "sha256": "e47589cea275ceb32d7674aa7ba4977aa1d819f5325197de929d841bb7e29c6c",
+        "bytes": 64636
+      },
+      {
+        "artifact": ".local-dev/d6f7-verification.json",
+        "sha256": "487aaab3ce1733349eb4ee909d3c96b28636f52cab340ddab81d103a08b5fa7b",
+        "bytes": 629
+      },
+      {
+        "artifact": ".local-dev/d6f7-feature-build.log",
+        "sha256": "80df39daac4070107a93a1652bbba06c451139236a94995581aa1c282c653a11",
+        "bytes": 1268
+      },
+      {
+        "artifact": ".local-dev/d6f7-feature-preview/assets/index-CZ-jNXX9.js",
+        "sha256": "dec8d8d5c93f1e2bf665b4495a835d6ddb6359ede04d4c79bf4429f938ed244f",
+        "bytes": 1746698
+      },
+      {
+        "artifact": ".local-dev/d6f7-browser/packing-dom.txt",
+        "sha256": "6bed778a8b109bf2b506b30ec515bc326af448a04c884e74c6425b0f4dcd3385",
+        "bytes": 16841
+      },
+      {
+        "artifact": ".local-dev/d6f7-browser/packing.png",
+        "sha256": "4047de49f652318f658368f3dfc41630803ee95984a5e63c580752921250e980",
+        "bytes": 72530
+      },
+      {
+        "artifact": ".local-dev/d6f7-browser/direct-entry-dom.txt",
+        "sha256": "97d5b2164c59c7ad222771c89e752fd4e7104c206e883e2fe94f82f97f33207a",
+        "bytes": 2915
+      },
+      {
+        "artifact": ".local-dev/d6f7-browser/direct-entry.png",
+        "sha256": "543a4e2abfc05a04eec90f27ae06f861a3424f16cec01d30b6d08db351866fa6",
+        "bytes": 72519
+      }
+    ]
   }
 }

@@ -55,3 +55,7 @@ Private local evidence, excluded from GitHub:
 Fresh service readiness, authenticated browser evidence, second-tab persistence and before/after fingerprints passed. No application changes required regression tests; no full suite or build was rerun. Documentation whitespace verification is recorded at commit time. Existing fixtures, private restoration evidence, `.test-tmp/` and unrelated instructions were preserved.
 
 Next bounded task: determine why the active frontend omits the trusted packing panel, prepare a concrete authorized remedy without disturbing healthy services, then resume the same allocation through browser controls. Six-check evidence must reflect actual synthetic inspection capability; the UI's physical-inspection attestation must not be falsely confirmed. O1–O10 remain DRAFT / NOT AUTHORIZED; historical migration provenance remains unresolved. No settlement, ownership transfer, real stock change, migration, deployment, merge to main or pilot occurred.
+
+## D6-F7 follow-up - 2026-11-03
+
+[Bounded frontend diagnosis](D6F7_PACKING_QC_FRONTEND_GATE_DIAGNOSIS.md) confirms the served production bundle omits trusted packing. The runtime VITE flag does not enable code removed at build time; the integrated legacy read-only gate is correct. Fresh authenticated browser reproduction and unchanged 111-table fingerprints were recorded. No QC acceptance or service restart occurred. D6 remains BLOCKED; pilot NO-GO.
