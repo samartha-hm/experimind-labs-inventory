@@ -18,7 +18,7 @@ export async function trustedDeliveryManifest(dispatch:TrustedDispatch,origin:st
     const {modules}=QRCode.create(trustedPackageDestination(origin,id),{errorCorrectionLevel:'M'}),size=35/(modules.size+8);
     doc.setFillColor('#000000');for(let row=0;row<modules.size;row++)for(let col=0;col<modules.size;col++)if(modules.get(row,col))doc.rect(15+(col+4)*size,y+(row+4)*size,size,size,'F');
     y+=44;doc.text('Contents (one delivered assembly):',15,y);y+=7;
-    for(const p of contents){const wrapped=doc.splitTextToSize(`${p.kind}: ${p.name} #${p.pack_number} / ${p.code}`,180);if(y+wrapped.length*5>280){doc.addPage();y=15;}doc.text(wrapped,15,y);y+=wrapped.length*5+2;}
+    for(const p of contents){const wrapped=doc.splitTextToSize(`${p.kind}: ${p.name} #${p.pack_number} / ${p.code}`,180);for(const line of wrapped){if(y+5>280){doc.addPage();y=15;}doc.text(line,15,y);y+=5;}y+=2;}
   }
   return doc;
 }

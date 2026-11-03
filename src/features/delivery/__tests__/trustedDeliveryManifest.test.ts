@@ -6,6 +6,13 @@ import { trustedPackageDestination } from '../../packing/trustedPackingLabels';
 import type { TrustedDispatch } from '../trustedDeliveryTypes';
 import { dispatchAssembly } from '../trustedDeliveryContract';
 
+it('keeps every wrapped contents line inside page margins',async()=>{
+  const root=randomUUID();
+  const dispatch={id:randomUUID(),roots:[root],demand_revision:1,approval_id:randomUUID(),transport:{carrier:'Synthetic',vehicle:'TEST',planned_date:'2026-11-03'},receipts:[],snapshot:{project_name:'Synthetic',site_name:'Synthetic school',packages:[{id:root,parent_id:null,kind:'kit',name:'Contents '.repeat(1000),pack_number:1,version_number:1,code:`PK-${root}`}]}} as unknown as TrustedDispatch;
+  const pdf=await trustedDeliveryManifest(dispatch,'https://erp.example');
+  expect(pdf.getNumberOfPages()).toBeGreaterThan(4);
+});
+
 it('prints frozen school evidence and vector QR without multiplying assembly entitlement',async()=>{
   const root=randomUUID(),child=randomUUID(),dispatch={id:randomUUID(),roots:[root],demand_revision:1,approval_id:randomUUID(),transport:{carrier:'Synthetic carrier',vehicle:'TEST',planned_date:'2026-10-22'},receipts:[{roots:[root],recipient:'Synthetic recipient',acknowledged_at:'2026-10-22T10:00:00Z'}],snapshot:{project_name:'Synthetic project',site_name:'School A',packages:[{id:root,parent_id:null,kind:'kit',name:'Science set',pack_number:1,version_number:2,code:`PK-${root}`},{id:child,parent_id:root,kind:'pouch',name:'Child contents',pack_number:1,code:`PK-${child}`} ]}} as unknown as TrustedDispatch;
   const before=JSON.stringify(dispatch),pdf=await trustedDeliveryManifest(dispatch,'https://erp.example/private?token=secret'),output=pdf.output();
