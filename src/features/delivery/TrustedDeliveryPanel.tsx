@@ -16,6 +16,7 @@ export default function TrustedDeliveryPanel({projectId}:{projectId?:string}) {
   const context=`${storageKey}.${projectId}`,activeContext=useRef(context);activeContext.current=context;
   const inFlight=useRef(false),generation=useRef(0);
   const [recoveryBlocked,setRecoveryBlocked]=useState(false),[recoveryConfirmed,setRecoveryConfirmed]=useState(false);
+  const [loading,setLoading]=useState(true);
   const [packing,setPacking]=useState<TrustedPackingView>({enabled:false,plans:[],outputs:[]}),[view,setView]=useState<TrustedDeliveryView>({enabled:false,dispatches:[]});
   const [planId,setPlan]=useState(''),[dispatchId,setDispatch]=useState(''),[roots,setRoots]=useState<string[]>([]),[received,setReceived]=useState<string[]>([]);
   const [carrier,setCarrier]=useState(''),[vehicle,setVehicle]=useState(''),[planned,setPlanned]=useState(''),[recipient,setRecipient]=useState(''),[notes,setNotes]=useState(''),[when,setWhen]=useState(''),[scan,setScan]=useState('');
@@ -31,9 +32,9 @@ export default function TrustedDeliveryPanel({projectId}:{projectId?:string}) {
     if(scope!==activeContext.current||version!==generation.current)return;
     setPacking(p);setView(d);setProgress(nextProgress);setReconciled(true);
   }
-  useEffect(()=>{let live=true;generation.current++;setRecoveryBlocked(false);setRecoveryConfirmed(false);setReconciled(false);setPending(null);setPacking({enabled:false,plans:[],outputs:[]});setView({enabled:false,dispatches:[]});setError('');setMessage('');setNotes('');setRecipient('');setProgress(null);setPlan('');setDispatch('');setRoots([]);setReceived([]);setConfirmed(false);
+  useEffect(()=>{let live=true;setLoading(true);generation.current++;setRecoveryBlocked(false);setRecoveryConfirmed(false);setReconciled(false);setPending(null);setPacking({enabled:false,plans:[],outputs:[]});setView({enabled:false,dispatches:[]});setError('');setMessage('');setNotes('');setRecipient('');setProgress(null);setPlan('');setDispatch('');setRoots([]);setReceived([]);setConfirmed(false);
     try{const saved=sessionStorage.getItem(storageKey);if(saved)setPending(parseDeliveryRequest(saved));}catch{setRecoveryBlocked(true);setError('Saved custody request cannot be read. Reconcile with an administrator.');}
-    void Promise.all([apiFetch(`${endpoint}/trusted-packing`),apiFetch(`${endpoint}/trusted-delivery`)]).then(([p,d])=>{if(live){setPacking(p);setView(d);}}).catch(e=>{if(live)setError(String(e));});return()=>{live=false;};
+    void Promise.all([apiFetch(`${endpoint}/trusted-packing`),apiFetch(`${endpoint}/trusted-delivery`)]).then(([p,d])=>{if(live){setPacking(p);setView(d);}}).catch(e=>{if(live)setError(String(e));}).finally(()=>{if(live)setLoading(false);});return()=>{live=false;};
   },[storageKey,projectId]);
   useEffect(()=>{let live=true;setProgress(null);setSite('');if(project&&view.enabled)void apiFetch(`${endpoint}/trusted-delivery/projects/${project}/progress`).then(p=>{if(live)setProgress(p);}).catch(e=>{if(live)setError(String(e));});return()=>{live=false;};},[project,view.enabled]);
   useEffect(()=>{const id=new URLSearchParams(location.search).get('trusted_packing_package');if(id)setScan(id);},[]);
@@ -62,7 +63,7 @@ export default function TrustedDeliveryPanel({projectId}:{projectId?:string}) {
   async function manifest(download:boolean){if(!dispatch)return;try{if(!download){setPreview(dispatch.id);return;}const pdf=await trustedDeliveryManifest(dispatch,location.origin);pdf.save(`dispatch-${dispatch.id}.pdf`);}catch(e){setError(String(e));}}
   return <section aria-label="Trusted dispatch, delivery and closure" className="precision packing-workspace space-y-4 rounded-2xl border border-slate-300 p-4">
     <h3 className="text-lg font-semibold">Dispatch, school receipt and closure</h3><p>Dispatch holds custody. Record school receipt separately, then submit installation and obtain recipient acceptance.</p>
-    {!view.enabled&&<p role="status">Trusted delivery is unavailable in this environment.</p>}{error&&<p role="alert">{error}</p>}{message&&<p role="status" className="break-all">{message}</p>}
+    {loading?<p role="status">Loading authorized delivery evidence…</p>:!view.enabled&&!error&&<p role="status">Trusted delivery is unavailable in this environment.</p>}{error&&<p role="alert">{error}</p>}{message&&<p role="status" className="break-all">{message}</p>}
     <button className={button} disabled={busy} onClick={()=>void refresh().catch(e=>setError(String(e)))}>Refresh delivery evidence</button>
     {pending&&<div className="break-all"><p>Saved request: {pending.key}</p><button className={button} disabled={busy||!writer||!view.enabled} onClick={()=>void submit(pending)}>Retry saved delivery request</button><label className="block"><input type="checkbox" checked={recoveryConfirmed} onChange={e=>setRecoveryConfirmed(e.target.checked)}/> I refreshed and reconciled this request.</label><button className={button} disabled={busy||!writer||!recoveryConfirmed||!reconciled} onClick={()=>{try{sessionStorage.removeItem(storageKey);setPending(null);setRecoveryConfirmed(false);}catch(e){setError(String(e));}}}>Clear reconciled delivery request</button></div>}
     <label className="block">Package label<input className={control} value={scan} onChange={e=>setScan(e.target.value)} placeholder="PK-… or package UUID"/></label><button className={button} disabled={busy} onClick={findScan}>Find dispatch package</button>

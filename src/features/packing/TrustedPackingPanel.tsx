@@ -18,14 +18,15 @@ export default function TrustedPackingPanel({projectId}:{projectId?:string}) {
   const [selected,setSelected]=useState(''),[packageId,setPackage]=useState(''),[output,setOutput]=useState(''),[line,setLine]=useState(''),[quantity,setQuantity]=useState('');
   const [checks,setChecks]=useState(blankChecks),[notes,setNotes]=useState(''),[confirmed,setConfirmed]=useState(false);
   const [reconciled,setReconciled]=useState(false);
+  const [loading,setLoading]=useState(true);
   const [pending,setPending]=useState<Pending|null>(null),[busy,setBusy]=useState(false),[error,setError]=useState(''),[message,setMessage]=useState(''),[preview,setPreview]=useState('');
   const writer=['admin','super_admin'].includes(currentUser?.role??'');
   const scannedPackage=new URLSearchParams(location.search).get('trusted_packing_package');
   const readURL=`${endpoint}/trusted-packing${scannedPackage?`?package=${encodeURIComponent(scannedPackage)}`:''}`;
   async function refresh() {setView(await apiFetch(readURL));setReconciled(true);}
-  useEffect(()=>{let live=true;setView({enabled:false,plans:[],outputs:[]});setSelected('');setPackage('');setPending(null);
+  useEffect(()=>{let live=true;setLoading(true);setView({enabled:false,plans:[],outputs:[]});setSelected('');setPackage('');setPending(null);
     try{const saved=sessionStorage.getItem(storageKey);if(saved)setPending(JSON.parse(saved));}catch{setError('Reconcile saved custody request before continuing.');}
-    void apiFetch(readURL).then((data:TrustedPackingView)=>{if(!live)return;setView(data);const id=new URLSearchParams(location.search).get('trusted_packing_package');const plan=data.plans.find(p=>p.snapshot.packages.some(x=>x.id===id));if(plan){setSelected(plan.id);setPackage(id!);}else if(id)setError('Package is unavailable for this tenant. Refresh or verify the scanned label.');}).catch(e=>{if(live)setError(String(e));});return()=>{live=false;};
+    void apiFetch(readURL).then((data:TrustedPackingView)=>{if(!live)return;setView(data);const id=new URLSearchParams(location.search).get('trusted_packing_package');const plan=data.plans.find(p=>p.snapshot.packages.some(x=>x.id===id));if(plan){setSelected(plan.id);setPackage(id!);}else if(id)setError('Package is unavailable for this tenant. Refresh or verify the scanned label.');}).catch(e=>{if(live)setError(String(e));}).finally(()=>{if(live)setLoading(false);});return()=>{live=false;};
   },[storageKey,projectId]);
   const plans=view.plans.filter(p=>!projectId||p.project_id===projectId),plan=plans.find(p=>p.id===selected),pack=plan?.snapshot.packages.find(p=>p.id===packageId),qc=plan&&pack?inspectionFor(plan,pack.id):undefined;
   const available=view.outputs.filter(o=>(!projectId||o.project_id===projectId)&&stockUnits(o.available)>0n);
@@ -41,7 +42,7 @@ export default function TrustedPackingPanel({projectId}:{projectId?:string}) {
   return <section aria-label="Trusted packing and QC" className="precision packing-workspace trusted-packing space-y-4 rounded-2xl border border-slate-300 p-4">
     <h3 className="text-lg font-semibold">Trusted packing and QC</h3><p>Allocate recorded output to its approved school package, then record six inspection checks. Accepted assemblies can proceed through enabled dispatch custody. Rework and reversals remain blocked.</p>
     <button className={button} disabled={busy} onClick={()=>void refresh().catch(e=>setError(String(e)))}>Refresh packing evidence</button>
-    {!view.enabled&&<p role="status">Trusted packing is unavailable in this environment.</p>}{error&&<p role="alert">{error}</p>}{message&&<p role="status">{message}</p>}
+    {loading?<p role="status">Loading authorized packing evidence…</p>:!view.enabled&&!error&&<p role="status">Trusted packing is unavailable in this environment.</p>}{error&&<p role="alert">{error}</p>}{message&&<p role="status">{message}</p>}
     {pending&&<div><p>Saved request: {pending.key}</p><button className={button} disabled={busy||!writer} onClick={()=>void submit(pending)}>Retry saved packing request</button><label className="block"><input type="checkbox" checked={confirmed} onChange={e=>setConfirmed(e.target.checked)}/> I refreshed and reconciled the saved request.</label><button className={button} disabled={busy||!confirmed||!reconciled} onClick={()=>{sessionStorage.removeItem(storageKey);setPending(null);setConfirmed(false);}}>Clear reconciled request</button></div>}
     <label className="block">Available output<select aria-label="Available output" className={`${control} w-full`} value={output} onChange={e=>setOutput(e.target.value)}><option value="">Select output</option>{available.map(o=><option key={o.id} value={o.id}>{o.qr} · {o.available} {o.unit} · school {o.site_id}</option>)}</select></label>
     <button className={button} disabled={locked||!output} onClick={()=>{const o=available.find(x=>x.id===output)!;write('plans',{project:o.project_id,site:o.site_id,approval:o.approval_id,demandRevision:o.demand_revision});}}>Create frozen school plan</button>

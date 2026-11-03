@@ -24,6 +24,7 @@ export default function TrustedProductionPanel({projectId}:{projectId?:string}) 
   const [confirmed,setConfirmed]=useState(false),[busy,setBusy]=useState(false),[error,setError]=useState(""),[message,setMessage]=useState("");
   const [pending,setPending]=useState<Pending|null>(null);
   const [reconciled,setReconciled]=useState(false);
+  const [loading,setLoading]=useState(true);
   const writer=["admin","super_admin"].includes(currentUser?.role??"");
   async function refresh() {
     const data: {enabled:boolean;orders:WorkOrder[]}=await apiFetch(`${endpoint}/trusted-work-queue`);
@@ -31,11 +32,11 @@ export default function TrustedProductionPanel({projectId}:{projectId?:string}) 
   }
   useEffect(()=>{
     let active=true;
-    setOrders([]);setEnabled(false);setPending(null);setSelected("");
+    setLoading(true);setOrders([]);setEnabled(false);setPending(null);setSelected("");
     try {const saved=sessionStorage.getItem(storageKey);if(saved)setPending(JSON.parse(saved) as Pending);} catch {setError("Pending request could not be read. Reconcile custody before another operation.");}
     void apiFetch(`${endpoint}/trusted-work-queue`).then((data:{enabled:boolean;orders:WorkOrder[]})=>{
       if(active){setEnabled(data.enabled);setOrders(data.orders.filter(o=>!projectId||o.project_id===projectId));}
-    }).catch(e=>{if(active)setError(e instanceof Error?e.message:"Production queue unavailable");});
+    }).catch(e=>{if(active)setError(e instanceof Error?e.message:"Production queue unavailable");}).finally(()=>{if(active)setLoading(false);});
     return()=>{active=false;};
   },[projectId,storageKey]);
   const order=orders.find(o=>o.id===selected),input=order?.materials.find(m=>m.id===material);
@@ -62,7 +63,7 @@ export default function TrustedProductionPanel({projectId}:{projectId?:string}) 
     <div className="flex flex-wrap items-center justify-between gap-3"><h3 className="text-lg font-semibold">Authorized production</h3>
       <button className={button} disabled={busy} onClick={()=>{setError("");setBusy(true);void refresh().then(()=>setReconciled(true)).catch(e=>setError(e instanceof Error?e.message:"Refresh failed")).finally(()=>setBusy(false));}}>Refresh evidence</button></div>
     <p className="text-sm text-slate-500">Issue verified material or record output against an existing approved work order. Output stays in pending-QC custody until allocated and inspected through the trusted packing workflow. Dispatch requires accepted assemblies.</p>
-    {!enabled&&<p role="status">Trusted production is unavailable in this environment.</p>}
+    {loading?<p role="status">Loading authorized production evidence…</p>:!enabled&&!error&&<p role="status">Trusted production is unavailable in this environment.</p>}
     {error&&<p role="alert" className="text-red-600">{error}</p>}{message&&<p role="status">{message}</p>}
     {pending&&<div className="space-y-2 rounded-xl border border-amber-400 p-3"><p>Saved request source: <code>{pending.input.source}</code>. Keep this identity until reconciled.</p>
       <button className={button} disabled={busy||!writer||!enabled} onClick={()=>void submit(pending)}>Retry saved request</button>

@@ -25,11 +25,12 @@ export default function ProjectPlanningTab() {
   const [result, setResult] = useState<PlanningPreview>();
   const [history, setHistory] = useState<{ revision: number; created_at: string; content: PlanningContent }[]>([]);
   const [approvalGeneration, setApprovalGeneration] = useState(0);
+  const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false); const [error, setError] = useState("");
   const generation = useRef(0);
   const dirty = !!content && (!saved || JSON.stringify(content) !== JSON.stringify(header(saved)));
   useEffect(() => { generation.current++; setResult(undefined); setHistory([]); }, [content]);
-  useEffect(() => { void refresh().catch(e => setError(e instanceof Error ? e.message : "Unable to load projects")); return () => { generation.current++; }; }, []);
+  useEffect(() => { void refresh().catch(e => setError(e instanceof Error ? e.message : "Unable to load projects")).finally(() => setLoading(false)); return () => { generation.current++; }; }, []);
   async function refresh() {
     const [list, catalog] = await Promise.all([apiFetch("/api/v1/planning-projects"), apiFetch("/api/v1/product-templates/approved")]);
     setProjects(list); setVersions(catalog);
@@ -61,7 +62,7 @@ export default function ProjectPlanningTab() {
       {!content && canWrite && <button className={button} disabled={busy} onClick={() => { setSaved(undefined); setContent(empty()); }}>Create project</button>}
     </div>
     {error && <p role="alert" className="rounded-xl bg-red-50 p-4 text-red-700">{error}</p>}
-    {!content ? <div className="space-y-3">{projects.map(p => <button key={p.id} className={`${button} block w-full text-left`} disabled={busy} onClick={() => void open(p.id)}>{p.name} · {p.client || "No client specified"} · revision {p.revision}</button>)}{!projects.length && <p>No projects yet.</p>}</div> : <>
+    {!content ? <div className="space-y-3">{loading && <p role="status">Loading projects…</p>}{projects.map(p => <button key={p.id} className={`${button} block w-full text-left`} disabled={busy} onClick={() => void open(p.id)}>{p.name} · {p.client || "No client specified"} · revision {p.revision}</button>)}{!loading && !error && !projects.length && <p>No projects yet.</p>}</div> : <>
       <fieldset disabled={busy || !canWrite} className="space-y-4"><legend className="font-semibold">Project details</legend>
         {(["name", "client", "notes"] as const).map(key => <label key={key} className="block text-sm">{key === "client" ? "Client / NGO" : key}<input className={input} maxLength={key === "notes" ? 5000 : 200} value={content[key]} onChange={e => setContent({ ...content, [key]: e.target.value })} /></label>)}
         <details><summary className="min-h-11 cursor-pointer py-3">Optional commercial document references</summary><p className="text-sm text-slate-500">References only; quotation and order records are not required or created.</p>
@@ -94,7 +95,7 @@ export default function ProjectPlanningTab() {
       {saved&&!dirty&&<div key={`${saved.id}/${approvalGeneration}`}><SupplyPlanningPanel project={saved} onChange={()=>setResult(undefined)}/></div>}
       {saved&&!dirty&&<ProductionPlanningPanel project={saved} onChange={()=>setResult(undefined)}/>}
       {saved&&!dirty&&<PackingPanel project={saved}/>}
-      {saved&&!dirty&&<DeliveryPanel project={saved}/>}
+      {saved&&!dirty&&import.meta.env.VITE_TRUSTED_DELIVERY_ENABLED!=='true'&&<DeliveryPanel project={saved}/>}
       {saved&&!dirty&&<ProjectAttachmentsPanel project={saved}/>}
       {history.map(h => <details key={h.revision}><summary className="min-h-11 cursor-pointer py-3">Revision {h.revision} · {h.created_at}</summary><pre className="overflow-auto rounded-xl border p-3 text-xs">{JSON.stringify(h.content, null, 2)}</pre></details>)}
       {result && <div aria-live="polite" className="space-y-4">
