@@ -1,9 +1,7 @@
-# Next prerequisite after controlled acceptance
+# Next prerequisite: human Windows-browser evidence
 
-The controlled supported-browser attempt failed again at navigation after successful setup and fresh-tab creation. SOFTWARE DEMO BLOCKED; D6 BLOCKED; operational pilot NO-GO. Zero authenticated checklist actions completed. Do not commission another identical browser-retry task.
+Open http://127.0.0.1:3106 locally with the existing private synthetic administrator account. Follow the consolidated sprint report's Human-operated full-shell preparation section and existing acceptance table. Supply redacted screenshots with operator/time, role/tenant, fixture/revision, action and observed result. Windows-browser rendering/login and all fresh human checklist actions remain NOT RUN.
 
-Require meaningful external browser-repair evidence from an infrastructure maintainer (unassigned), then a human tester executes the existing checklist in docs/erp/ERP_ACCELERATED_COMPLETION_SPRINT.md. Preserve existing synthetic fixtures/accounts; no replacement fixture or physical attestation.
+No Codex-browser operation or infrastructure retry is needed or authorized by this mission. No supplied human evidence yet; SOFTWARE DEMO BLOCKED, D6 BLOCKED, pilot NO-GO. Read-only observation must preserve all 111 baseline fingerprints. Do not submit writes, attest inspections/receipt/installation or close/settle. Missing eligible fixtures block cases; do not invent replacements.
 
-ERP/PostgreSQL readiness, test-only frontend flags and all 111 baseline fingerprints were freshly verified; no services restarted, application code changed or tests/builds rerun. Retain existing rc 671 passed / zero failed / two intentional skips, focused 65 and typecheck/build PASS.
-
-Separately assign accountable signatories and intended-host, historical-provenance, staff/device and physical acceptance owners. O1-O10 DRAFT / NOT AUTHORIZED. No migration, deployment, real stock movement, settlement, merge, force push or pilot cutover. Preserve AGENTS.md, .test-tmp/, fixtures and database history.
+Existing HTTP readiness and synthetic frontend flags verified; healthy services not restarted. Production defaults unchanged OFF. No code changes or tests/build reruns; retain green checkpoint. O1-O10 DRAFT / NOT AUTHORIZED and independent historical, intended-host and physical gates remain unresolved. Preserve AGENTS.md, .test-tmp/, fixtures and database history. No migration, deployment, stock movement, merge or pilot cutover. Stop until actual operator evidence arrives.
