@@ -4,6 +4,7 @@ Open only the authority relevant to the task. Current user instructions and conf
 
 | Topic | Authoritative specification |
 | --- | --- |
+| D6-F6 packing QC browser acceptance | [Supported connection and authenticated navigation pass; trusted packing UI unavailable, QC BLOCKED](D6F6_PACKING_QC_ACCEPTANCE.md); D6 BLOCKED, pilot NO-GO |
 | D6-B independent software acceptance | [Executed full-app, migration and isolated Windows rehearsal evidence](D6B_FINAL_INDEPENDENT_SOFTWARE_ACCEPTANCE.md); browser PARTIAL, migration BLOCKED, pilot NO-GO |
 | D6-P read-only ownership reconciliation | [Diagnostics, fixtures, conservation and future implementation preview](D6P_OWNERSHIP_RECONCILIATION_PREPARATION.md); execution remains BLOCKED |
 | D6-C ownership decisions — DRAFT / NOT AUTHORIZED | [Decision package and approval requirements](D6C_OWNERSHIP_DECISION_CONTRACT_DRAFT.md); [D6 evidence and separate verdicts](D6_OPERATIONAL_PILOT_PREPARATION.md) |
