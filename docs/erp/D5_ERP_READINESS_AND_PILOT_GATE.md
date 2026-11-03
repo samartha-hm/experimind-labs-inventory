@@ -108,3 +108,8 @@ physical QC approval or pilot cutover is authorized by this acceptance.
 ## D6-F2R recovery checkpoint — 2026-10-30
 
 D6 remains **BLOCKED**, pilot **NO-GO**. Preserved synthetic PostgreSQL restart/restore and current authenticated allocation verified; original allocation-denial classification remains **INCONCLUSIVE**, so D6-F2R is **PARTIAL — NOT PASS**. No application code or authority contract changed. Regression 645 passed / 2 default recovery skips; focused 20 passed; typecheck/build passed. Historical migration provenance, O1–O10 approval and remaining browser acceptance remain unresolved. See [focused recovery report](D6F2R_RECOVERY_AND_ALLOCATION_ROOT_CAUSE.md).
+
+
+## D6-F8 follow-up — 2026-11-03
+
+[Isolated build and browser evidence](D6F8_TRUSTED_PACKING_BUILD_AND_QC_ACCEPTANCE.md): BUILD PASS / QC BLOCKED. Direct build child exit 0; private loopback frontend exposed all six checks for the existing synthetic admin. Incomplete evidence/physical confirmation kept acceptance disabled. No physical inspection, QC submission, new receipt/audit or retry was claimed. All 111 retained fingerprints and authority/credential checks were preserved. D6 BLOCKED; pilot NO-GO; O1-O10 DRAFT / NOT AUTHORIZED.

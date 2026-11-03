@@ -59,3 +59,8 @@ Next bounded task: determine why the active frontend omits the trusted packing p
 ## D6-F7 follow-up - 2026-11-03
 
 [Bounded frontend diagnosis](D6F7_PACKING_QC_FRONTEND_GATE_DIAGNOSIS.md) confirms the served production bundle omits trusted packing. The runtime VITE flag does not enable code removed at build time; the integrated legacy read-only gate is correct. Fresh authenticated browser reproduction and unchanged 111-table fingerprints were recorded. No QC acceptance or service restart occurred. D6 remains BLOCKED; pilot NO-GO.
+
+
+## D6-F8 follow-up — 2026-11-03
+
+[Isolated build and browser evidence](D6F8_TRUSTED_PACKING_BUILD_AND_QC_ACCEPTANCE.md): BUILD PASS / QC BLOCKED. Direct build child exit 0; private loopback frontend exposed all six checks for the existing synthetic admin. Incomplete evidence/physical confirmation kept acceptance disabled. No physical inspection, QC submission, new receipt/audit or retry was claimed. All 111 retained fingerprints and authority/credential checks were preserved. D6 BLOCKED; pilot NO-GO; O1-O10 DRAFT / NOT AUTHORIZED.

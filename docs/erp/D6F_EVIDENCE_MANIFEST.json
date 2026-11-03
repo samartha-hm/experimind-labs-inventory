@@ -542,5 +542,119 @@
         "bytes": 72519
       }
     ]
+  },
+  "d6f8": {
+    "date": "2026-11-03",
+    "baseline": "739a391cfc254bda62d2d5b0e63ef1a73fc9ee1d",
+    "report": "docs/erp/D6F8_TRUSTED_PACKING_BUILD_AND_QC_ACCEPTANCE.md",
+    "build": "PASS",
+    "build_child_exit": 0,
+    "application_source_changed": false,
+    "preview": "127.0.0.1:3108",
+    "browser_controls": "PASS",
+    "incomplete_ui_denial": "PASS",
+    "physical_inspection": "BLOCKED: unavailable",
+    "qc_acceptance": "NOT RUN",
+    "receipt_audit_retry": "NOT RUN",
+    "tests": {
+      "passed": 645,
+      "skipped": 2,
+      "files_passed": 84,
+      "files_skipped": 2,
+      "child_exit": 0
+    },
+    "typecheck": "PASS",
+    "default_frontend_and_server_build": "PASS",
+    "conservation": {
+      "tables": 111,
+      "digest": "c6ffdc72010b6f61e9038db5fb02d65e5cb7c5ca0798298ed331dc289875a743",
+      "unchanged": true,
+      "credentials_roles_closure_identity": "unchanged"
+    },
+    "d6": "BLOCKED",
+    "pilot": "NO-GO",
+    "ownership": "O1-O10 DRAFT / NOT AUTHORIZED",
+    "artifacts": [
+      {
+        "artifact": ".local-dev/d6f8-build.mjs",
+        "sha256": "2d3167535bb4892bfa0dac9519f3fa4c041e1d7f2511299f4b9a0ac16af4b177",
+        "bytes": 1529
+      },
+      {
+        "artifact": ".local-dev/d6f8-build.json",
+        "sha256": "7f7b44370cf328fca5a90ec99edeb067747c5be537c3b74050c23248c3411028",
+        "bytes": 2285
+      },
+      {
+        "artifact": ".local-dev/d6f8-regression.mjs",
+        "sha256": "8cd5dd0274b5ab5f1a1280f4cd5ffe60d315f045e2cadcfb83e3ead8ee53ce51",
+        "bytes": 645
+      },
+      {
+        "artifact": ".local-dev/d6f8-regression.json",
+        "sha256": "4240860b443c7ae8262fa2380e6d5eafa2e28ba635e647eb7664ab270732a4e6",
+        "bytes": 35
+      },
+      {
+        "artifact": ".local-dev/d6f8-regression.stdout.log",
+        "sha256": "61540724c1937bd9a39756c3b4cfda8d83cc261eefbf9fe37df13a5d36f17d02",
+        "bytes": 12533
+      },
+      {
+        "artifact": ".local-dev/d6f8-regression.stderr.log",
+        "sha256": "22237c1bd00445a85a845454a477ee46d9da4cd7745ad9949122cb17faa25c0a",
+        "bytes": 1057
+      },
+      {
+        "artifact": ".local-dev/d6f8-other-builds.json",
+        "sha256": "c01dfce0557c1226c6a90198c25ac1f6876ff21d555618e1a3c2fcc497b26d1f",
+        "bytes": 117
+      },
+      {
+        "artifact": ".local-dev/d6f8-typecheck.log",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "bytes": 0
+      },
+      {
+        "artifact": ".local-dev/d6f8-before-health.json",
+        "sha256": "fc18eeeaa42ec3e388c77b65296e92f90abef7bc9298a9296e496a68ad60183d",
+        "bytes": 23443
+      },
+      {
+        "artifact": ".local-dev/d6f8-final-health.json",
+        "sha256": "992ec7bbd111ea221fb0942c76f718a7687ba3bf1358804a42f28dbc43bbffc0",
+        "bytes": 23444
+      },
+      {
+        "artifact": ".local-dev/d6f8-verification.json",
+        "sha256": "ecd51fe3b75277db56bee010a544be6b0d88512edbab3f09787ba011e66a5c8b",
+        "bytes": 848
+      },
+      {
+        "artifact": ".local-dev/d6f8-preview.mjs",
+        "sha256": "a63ac18c3e53ca7d521655b2310998a930ebd4ed92428be475a3fddb8babbefb",
+        "bytes": 1363
+      },
+      {
+        "artifact": ".local-dev/d6f8-browser/incomplete-ax.txt",
+        "sha256": "fee0ad388f1452061d5a117be1fa538c467ea75b29906c9c430394625eb06be7",
+        "bytes": 9141
+      },
+      {
+        "artifact": ".local-dev/d6f8-browser/fresh-tab-ax.txt",
+        "sha256": "490e61dcce43b173927f030ff33fd99e941b1f3f4451fa9d9238bef9740eb022",
+        "bytes": 8942
+      },
+      {
+        "artifact": ".local-dev/d6f8-browser/incomplete.png",
+        "sha256": "4ed28c7c6d622e422c869863f29a784f57e3e4f6f1affb5c025b435893a7d3ad",
+        "bytes": 79198
+      },
+      {
+        "artifact": ".local-dev/d6f8-trusted/assets/index-CZ-jNXX9.js",
+        "sha256": "dec8d8d5c93f1e2bf665b4495a835d6ddb6359ede04d4c79bf4429f938ed244f",
+        "bytes": 1746698
+      }
+    ]
   }
 }
