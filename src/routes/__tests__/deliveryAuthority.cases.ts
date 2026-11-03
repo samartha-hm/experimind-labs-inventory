@@ -1,3 +1,4 @@
+import { reviewDeliveryFixture } from './deliveryReview.cases';
 import { CommitmentLedgerService } from '../../services/CommitmentLedgerService';
 import { randomUUID } from 'node:crypto';
 import jwt from 'jsonwebtoken';
@@ -185,4 +186,5 @@ export async function verifyDeliveryAuthority(h:Parameters<typeof verifyWorkOrde
   const recoveryJob=await send('installations',{project_id:complete.project.id,site_id:complete.site,required:false,checklist:[],survey:'Synthetic recovery school installation decision'});
   (h.evidence.delivery as {recovery_installation?:string}).recovery_installation=recoveryJob.id;
   h.evidence.delivery_multi_school={schoolCounts,actual_production_dispatch_receipt:true,physical_stock_unchanged_by_delivery:true};
+  await reviewDeliveryFixture(base,token,h.admin,f.project.id,{path:'/operator/delivery/dispatches',key:winningKey,input:inputDispatch});
 }

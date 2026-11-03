@@ -166,7 +166,7 @@ export function trustedLedgerBoundaryTests(get: () => Harness, fixture: () => Pr
         await h.db.query(`DROP OWNED BY ${sqlIdentifier(role)}; DROP ROLE IF EXISTS ${sqlIdentifier(role)}`);
       }
     }
-  },180000);
+  },process.env.ERP_DELIVERY_BROWSER_REVIEW ? 780000 : 180000);
 }
 import { verifyExecutionBoundary } from "./executionBoundary.cases";
 import { verifyRecipePublication } from "./recipePublication.cases";
