@@ -1,13 +1,13 @@
-﻿# Session handoff - 2026-11-03
+# Session handoff - 2026-11-03
 
-Branch feature/kit-builder-milestone-1; required starting local/live-remote HEAD ebdadc812b037232d4cdfaaa2d28684f21512c7f verified. Outcome: SOFTWARE DEMO BLOCKED; D6 BLOCKED; pilot NO-GO.
+Branch feature/kit-builder-milestone-1; expected starting HEAD ebdf1093120c108f526e91b4ee3d75fca1c03f83 verified. SOFTWARE DEMO BLOCKED; D6 BLOCKED; operational pilot NO-GO.
 
-Consolidated report updated: docs/erp/ERP_ACCELERATED_COMPLETION_SPRINT.md. No application changes or newly reproduced application defect. Historical browser evidence retained. Supported browser had no reusable tabs; one fresh-tab/open/accessibility attempt timed out at 20 seconds and reset its kernel. No browser action completed this session. PostgreSQL 55432 and application 3106/HTTP 200 are healthy; sandbox loopback restrictions were resolved for independent checks.
+Final browser recovery: supported runtime setup, in-app selection, backend discovery, tab listing and fresh-tab creation succeeded. Isolated recoveryTab.goto('http://127.0.0.1:3106') timed out at 10 seconds; diagnostic: js execution timed out; kernel reset, rerun your request. Bootstrap and interaction troubleshooting read; no applicable additional recovery without repeating initialization/selection. Stopped browser work. No authenticated shell inspection or ERP action completed; no application defect reproduced or code changed. Do not create another repetitive retry mission.
 
-Focused synthetic tests: 65 passed. Full regression: 671 passed, zero failed, two intentionally gated recovery skips (673 total), exit 0. Partial delivery, failure/correction/retry, exact replay, installation reopen/completion, reconciliation/audit and material-hold closure denial pass automatically. Saved-request identity passes unit tests; browser reload/retry remains unverified. Typecheck, frontend/PWA and backend builds pass; existing chunk warning retained. Flags remain OFF by default; running dist preserved.
+ERP HTTP 200 and PostgreSQL 55432 healthy; no restart. Fresh read-only conservation: 114 actual tables, all 111 baseline fingerprints unchanged, only the three documented identity exclusions additional. Audit fingerprints unchanged; identity historical equality unproven. Feature flags remain OFF by default. Private fresh evidence: .local-dev/browser-recovery-integrity.*.
 
-All 111 baseline table fingerprints unchanged. Actual census: 114; users/sessions/refresh_tokens were explicitly excluded by the historical collector. No unexplained extras; historical identity-content equality is unprovable from that baseline. Private evidence: .local-dev/rc-*.
+Retained, not rerun: regression 671 passed/0 failed/2 intentional skips; focused 65 passed; typecheck/frontend-PWA/backend builds PASS. Full-shell module matrix and bounded acceptance gaps unchanged.
 
-Report checkpoint local/live remote matched ef1467a4488cdc3105ddcdef94d68033424ad101 after normal push. This handoff follows; final SHA verified separately. Modified tracked paths: consolidated report, this handoff, NEXT_TASK.md.
+Report checkpoint pushed and local/live remote verified: 87ec95c4639ff421253682771ab5d9f95ab93bdf. Modified paths: consolidated sprint report, this handoff, NEXT_TASK.md. Final handoff SHA verified separately.
 
-Next: restore supported browser responsiveness; finish bounded loading, QR/navigation, visible authorization, refresh/previews and isolated partial/retry shell checks. Physical acceptance NOT AUTHORIZED/NOT PERFORMED. O1-O10, physical sign-offs and historical provenance remain unresolved. Preserve AGENTS.md, .test-tmp/, fixtures and historical evidence. No deployment, merge, settlement, migration activation or cutover.
+Next prerequisite: meaningful external browser-infrastructure repair evidence before further shell acceptance. Physical acceptance NOT AUTHORIZED/NOT PERFORMED; O1-O10 unsigned; historical provenance unresolved/migration inactive. Preserve fixtures, evidence, AGENTS.md and .test-tmp/. No deployment, movement, settlement, migration activation, main merge, force push or cutover.
