@@ -60,6 +60,7 @@ export default function ProductLibrary({ studio }: { studio?: StudioEditorOption
   const [content, setContent] = useState(studio ? { name: studio.draft.name, description: studio.draft.description, category: studio.draft.category } : { name: "", description: "", category: "" });
   const [subjects, setSubjects] = useState<KitSubject[]>(() => withActivities(studio?.draft.subjects ?? []));
   const [conflict, setConflict] = useState<'conflict' | 'uncertain' | null>(null);
+  const [approvalBlocked, setApprovalBlocked] = useState(false);
   const editorRoot = useRef<HTMLElement>(null);
   const Inspector = studio ? 'details' : 'div';
   const Title = studio ? 'h2' : 'h1';
@@ -94,14 +95,17 @@ export default function ProductLibrary({ studio }: { studio?: StudioEditorOption
       .finally(() => { if (mounted) setLoading(false); });
     return () => { mounted = false; };
   }, []);
-  function create() { setContent({ name: "", description: "", category: "" }); setSubjects([]); setEditing("new"); setConflict(null); setError(""); setMessage(""); }
+  function create() { setContent({ name: "", description: "", category: "" }); setSubjects([]); setEditing("new"); setConflict(null); setApprovalBlocked(false); setError(""); setMessage(""); }
   async function approve() {
-    if (busy || conflict || !canWrite || !editing || editing === "new" || dirty || !window.confirm("Approve this saved revision as an immutable version for project planning? The draft remains editable.")) return;
+    if (busy || conflict || approvalBlocked || !canWrite || !editing || editing === "new" || dirty || !window.confirm("Approve this saved revision as an immutable version for project planning? The draft remains editable.")) return;
     setBusy(true); setError(""); setMessage("");
     try {
       const version: { version_number: number } = await apiFetch(`/api/v1/product-templates/${editing.template_id}/approve`, { method: "POST", body: JSON.stringify({ revision: editing.revision }) });
       setMessage(`Approved immutable version ${version.version_number}. Select it in Project requirement planning.`);
-    } catch (error) { setError(error instanceof Error ? error.message : "Unable to approve kit"); }
+    } catch (error) {
+      setApprovalBlocked(true);
+      setError(error instanceof Error ? error.message : "Unable to confirm approval");
+    }
     finally { setBusy(false); }
   }
   async function open(kit: DraftKit) {
@@ -111,6 +115,7 @@ export default function ProductLibrary({ studio }: { studio?: StudioEditorOption
       setEditing(fresh); setContent({ name: fresh.name, description: fresh.description, category: fresh.category });
       setSubjects(withActivities(fresh.subjects ?? []));
       setConflict(null);
+      setApprovalBlocked(false);
     } catch (e) { setError(e instanceof Error ? e.message : "Unable to open kit"); }
     finally { setBusy(false); }
   }
@@ -252,6 +257,7 @@ export default function ProductLibrary({ studio }: { studio?: StudioEditorOption
       {!editing && canWrite && <button onClick={create} className={`${buttonClass} bg-indigo-600 text-white flex items-center gap-2`} disabled={busy}><Plus size={18} />Create Kit</button>}
     </div>
     {error && <div role="alert" className="rounded-xl bg-red-50 dark:bg-red-950 p-4 text-red-700 dark:text-red-300">{error}</div>}
+    {approvalBlocked && <p role="alert">Reopen the draft to check approval status before trying again. Choose “Back to Product Library” and open the saved kit. Approval remains blocked until the draft reloads successfully.</p>}
     {conflict && <p role="alert">{conflict === 'conflict' ? 'Another editor changed this draft.' : 'The save may have reached the server.'} Your changes are retained here for comparison. Copy any needed values before leaving. {editing === 'new' ? 'Reload the Product Library and check whether this kit was created before creating another.' : `Choose “${studio ? 'Close editor' : 'Back to Product Library'}” and reopen the latest revision to check the saved content.`} Saving and approval are blocked until reconciliation.</p>}
     {message && <p role="status" className="rounded-xl bg-emerald-50 dark:bg-emerald-950 p-4 text-emerald-700 dark:text-emerald-300">{message}</p>}
     {editing ? <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 sm:p-8">
@@ -319,7 +325,7 @@ export default function ProductLibrary({ studio }: { studio?: StudioEditorOption
           {blankName && <p className="text-sm text-amber-700 dark:text-amber-300">Every subject, grade and activity needs a name before saving.</p>}
         </fieldset>
         <QuantityPreview subjects={subjects} templateId={editing === "new" ? undefined : editing.template_id} revision={editing === "new" ? undefined : editing.revision} dirty={dirty} disabled={busy} />
-        {!studio && canWrite && editing !== "new" && <button type="button" className={buttonClass} disabled={busy || dirty || !!conflict} onClick={() => void approve()}>Approve immutable version for planning</button>}
+        {!studio && canWrite && editing !== "new" && <button type="button" className={buttonClass} disabled={busy || dirty || !!conflict || approvalBlocked} onClick={approve}>Approve immutable version for planning</button>}
         <p aria-live="polite" className="text-sm text-slate-500">{busy ? "Saving…" : dirty ? "Unsaved changes" : "Saved"} · Draft{editing !== "new" && ` · Version ${editing.version_number} · Revision ${editing.revision}`}</p>
         {canWrite && <div className="studio-savebar flex flex-wrap gap-3"><button type="submit" disabled={busy || !!conflict || (Boolean(studio) && !dirty) || !content.name.trim() || blankName} className={`${buttonClass} bg-indigo-600 text-white`}>{busy ? "Saving…" : "Save draft"}</button>
           {!studio && editing !== "new" && <button type="button" disabled={busy} className={`${buttonClass} text-slate-600 dark:text-slate-300 flex items-center gap-2`} onClick={() => setConfirmArchive(true)}><Archive size={18} />Archive kit</button>}</div>}

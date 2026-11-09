@@ -20,7 +20,7 @@ vi.mock('react', async importOriginal => {
 vi.mock('../../AuthContext', () => ({ useAuth: () => ({ role: 'staff' }) }));
 
 const draft: DraftKit = { id: 'version', template_id: 'template', name: 'Saved kit', description: '', category: '', version_number: 1, revision: 2, updated_at: '', subjects: [] };
-type Control = ReactElement<{ children?: ReactNode; type?: string; value?: string; disabled?: boolean; onClick?: () => void; onChange?: (event: { target: { value: string } }) => void; onSubmit?: (event: { preventDefault: () => void }) => Promise<void> }>;
+type Control = ReactElement<{ children?: ReactNode; type?: string; value?: string; disabled?: boolean; onClick?: () => void | Promise<void>; onChange?: (event: { target: { value: string } }) => void; onSubmit?: (event: { preventDefault: () => void }) => Promise<void> }>;
 function elements(node: ReactNode): Control[] {
   if (Array.isArray(node)) return node.flatMap(elements);
   if (!React.isValidElement(node)) return [];
@@ -46,6 +46,50 @@ const saveButton = (tree: Control[]) => control(tree, element => element.type ==
 
 beforeEach(() => { hooks.values = []; hooks.cursor = 0; setApiAuthToken('synthetic'); });
 afterEach(() => { vi.unstubAllGlobals(); setApiAuthToken(null); });
+
+describe('Approval response recovery', () => {
+  it('allows a deliberate retry after reopening an authoritative draft', async () => {
+    render(true);
+    vi.stubGlobal('window', { confirm: vi.fn(() => true) });
+    const fetch = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify(draft)))
+      .mockRejectedValueOnce(new TypeError('Connection lost'))
+      .mockResolvedValueOnce(new Response(JSON.stringify(draft)))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ version_number: 3 })));
+    vi.stubGlobal('fetch', fetch);
+    await submit(render(false));
+    const approval = (tree: Control[]) => control(tree, element => element.type === 'button' && text(element.props.children) === 'Approve immutable version for planning');
+    await approval(render(false)).props.onClick!();
+    control(render(false), element => element.type === 'button' && text(element.props.children) === 'Back to Product Library').props.onClick!();
+    await control(render(false), element => element.type === 'button' && text(element.props.children).includes('Saved kit')).props.onClick!();
+    const tree = render(false);
+    expect(approval(tree).props.disabled).toBe(false);
+    expect(fetch).toHaveBeenCalledTimes(3);
+    expect(fetch.mock.calls[2][0]).toBe('/api/v1/product-templates/template');
+    await approval(tree).props.onClick!();
+    expect(text(render(false))).toContain('Approved immutable version 3');
+    expect(fetch).toHaveBeenCalledTimes(4);
+  });
+
+  it.each(['connection', 'server', 'invalid-json', 'stale'] as const)('requires reconciliation after %s response', async failure => {
+    render(true);
+    vi.stubGlobal('window', { confirm: vi.fn(() => true) });
+    const fetch = failure === 'connection' ? vi.fn().mockRejectedValue(new TypeError('Connection lost'))
+      : vi.fn().mockResolvedValue(new Response(failure === 'invalid-json' ? '{' : JSON.stringify({ error: 'Approval unavailable' }), {
+        status: failure === 'server' ? 500 : failure === 'stale' ? 409 : 200,
+        headers: { 'Content-Type': 'application/json' },
+      }));
+    vi.stubGlobal('fetch', fetch);
+    const approval = (tree: Control[]) => control(tree, element => element.type === 'button' && text(element.props.children) === 'Approve immutable version for planning');
+    await approval(render(false)).props.onClick!();
+    await vi.waitFor(() => expect(text(render(false))).toContain('Reopen the draft to check approval status before trying again.'));
+    const tree = render(false);
+    expect(approval(tree).props.disabled).toBe(true);
+    expect(tree.some(element => element.type === 'input' && element.props.value === draft.name)).toBe(true);
+    await approval(tree).props.onClick!();
+    expect(fetch).toHaveBeenCalledTimes(1);
+  });
+});
 
 describe('Draft save recovery', () => {
   it.each([
