@@ -1,12 +1,11 @@
 # Session handoff - 2026-11-09
 
-Branch feature/kit-builder-milestone-1. Code checkpoint 5837e57 was pushed after explicit user approval; remote full hash verified as 5837e57abafa607c4135ce3fe560d651e264611f. User also authorized continued development.
+Branch feature/kit-builder-milestone-1. Completed code checkpoint 7d832b5159451541c38dc463324aab1cce7d5a2b pushed and remote hash verified. User authorized continued development and feature pushes.
 
-Completed: truthful inventory snapshot replaces fabricated analytics/email success; report loading/error/empty states, zero-threshold preservation, filtering/pagination, keyboard item buttons, 44px targets and responsive breakpoint repairs. Tailwind source detection is bounded; production build now passes. Assessment and researched architecture/implementation roadmap are linked from docs/erp/INDEX.md.
+Completed this slice: guarded inventory responses against superseded requests and cleanup; account/organization/role changes reset provider cache; practical report retry and last-successful-load time; malformed quantities remain reviewable, zero thresholds preserved. Prior checkpoint replaced fabricated analytics and repaired report accessibility and bounded Tailwind scanning. Plan: docs/erp/ERP_EXCELLENCE_PLAN_2026-11-09.md.
 
-Validation: TypeScript and production build PASS. Full regression: 549 pass, 132 skip (81 files passed, nine skipped). Two additional report rendering regressions PASS. Synthetic browser review: mobile light/tablet dark no overflow, report controls, pagination, unmatched search, keyboard activation and loading/empty/error states. Authenticated end-to-end, full accessibility and whole-ERP pixel-perfect acceptance remain unproven. Large bundle warning remains.
+Validation: TypeScript and production build PASS; 569 tests passed, 132 skipped (83 files passed, nine skipped). Synthetic retry recovers from error; 44px button, no horizontal overflow at 375px/3840px. Authenticated account-switch integration, server completeness/live freshness and whole-ERP pixel-perfect acceptance remain unproven. Large bundle warning remains. PostgreSQL/recovery tests were not enabled.
 
-Next: authenticated inventory request lifecycle, retry/freshness and numeric normalization; then required dynamic builder workflows. Staff-configurable items/kits; no Prastuti workbook blocker. O1–O10 remain unapproved; avoid unnecessary machinery.
+Next: audit the existing staff-authored dynamic template draft create/edit/publish workflow against its acceptance contract, reproduce and fix the first required gap. No Prastuti workbook blocker. Keep staff-configurable items and content; avoid unapproved O1-O10 machinery.
 
-No company database, deployment or ledger changes. D6 BLOCKED, pilot NO-GO; provenance, physical and intended-host recovery gates unresolved. PostgreSQL/recovery tests not enabled. Preserve private .test-tmp/ artifacts; never blanket-stage.
-
+No company database, deployment or ledger changes. D6 BLOCKED, pilot NO-GO; provenance, physical and intended-host recovery gates unresolved. Preserve private .test-tmp/ and .local-dev/ artifacts; never blanket-stage. Checkpoint code and handoff separately, push and verify each.

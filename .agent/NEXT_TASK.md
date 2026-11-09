@@ -1,7 +1,5 @@
-# Next bounded task: inventory request reliability
+# Next bounded task: dynamic template draft workflow
 
-Read SESSION_HANDOFF and docs/erp/ERP_EXCELLENCE_PLAN_2026-11-09.md. Guard inventory requests against stale responses across authentication/account changes. Add practical retry and trustworthy freshness/completeness information; review numeric normalization without silently converting invalid quantities to zero. Reproduce relevant failure/race cases before changing behavior, and verify with targeted tests and typecheck. Keep the reporting UI honest about snapshot limitations.
+Read SESSION_HANDOFF, docs/erp/INDEX.md and the linked dynamic builder acceptance contract. Inspect the existing staff-authored draft create/edit/publish workflow, reproduce the first required missing or broken behavior, then implement and verify a bounded fix. Use staff-configurable items and template content; no corrected Prastuti workbook prerequisite. Search GitHub and compare approaches before implementing unfamiliar features. Preserve published-version immutability, tenant/RBAC boundaries and confirmed Science common/universal rules.
 
-Then continue required dynamic kit-builder workflows with staff-configurable items and template content. Follow confirmed practical scope; do not introduce unapproved O1–O10 policy machinery. Preserve stock/closure guards and company data. D6/pilot/provenance/physical/recovery gates remain unresolved.
-
-Checkpoint 5837e57 is pushed and remote identity verified after user approval. Continued development is authorized. Exclude .test-tmp/, .local-dev/, generated files and secrets from staging.
+Do not introduce unapproved O1-O10 policies. Keep D6/pilot/provenance/physical/recovery gates explicit. Continued development and feature pushes are authorized; no merge, deployment or company database mutation. Exclude private/generated artifacts and secrets from staging. Last verified code checkpoint: 7d832b5159451541c38dc463324aab1cce7d5a2b.
