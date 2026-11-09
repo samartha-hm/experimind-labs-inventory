@@ -10,6 +10,12 @@
 
 ## Current verification
 
+Latest approval-dialog checkpoint supersedes older counts below: 600 tests passed / 132 skipped (85 files passed, 9 skipped); 31 focused recovery/permission tests passed; final typecheck, production build and diff checks passed. Earlier 37 PostgreSQL integration tests were not rerun for this UI-only change.
+
+Native approval confirmation is replaced with a themed, labelled modal. Browser checks passed initial Cancel focus, Tab to Confirm, Escape restoring trigger focus, and persisted immutable approval version 2 while draft revision 1 remained editable. Archive returned “Kit archived” and removed the synthetic kit from active search results.
+
+Both themes showed no document overflow at 375/768/1440/3840 on a nested unsaved editor. A light mobile screenshot confirmed separated header controls and bottom navigation. Viewport reset. Viewer interaction, controlled browser error recovery and the complete screenshot matrix remain pending; no pixel-perfect or 100-percent claim.
+
 - Focused save-recovery and permissions tests: 29 passed after the header/history changes.
 - TypeScript --noEmit and production frontend/backend builds passed after these changes; git diff --check passed.
 - Previous responsive checkpoint full suite: 598 passed, 132 skipped. This was before the header/history changes; do not report it as a fresh full-suite run.
@@ -28,6 +34,6 @@
 
 ## Remaining acceptance
 
-The approval confirmation interrupted browser automation. Subsequent tab interactions stalled; replacing the tab restored readable rendering but did not establish an approval result. Approval, archive, viewer interaction, keyboard focus, controlled browser error recovery and the complete post-fix light/dark breakpoint screenshot matrix remain unverified. Do not infer success from the focused unit tests or claim pixel-perfect/100-percent completion.
+The earlier native approval confirmation stalled automation; the replacement modal now passes approval, archive and approval keyboard acceptance as recorded above. Viewer interaction, controlled browser error recovery and the complete post-fix light/dark breakpoint screenshot matrix remain unverified. Do not infer success from the focused unit tests or claim pixel-perfect/100-percent completion.
 
 Continue from the existing isolated fixture without recreating it or using owner credentials as application credentials. Preserve historical fixtures and private .local-dev / .test-tmp artifacts. D6 remains BLOCKED and pilot NO-GO. No merge, deployment or ownership-policy expansion is authorized by this checkpoint.

@@ -66,6 +66,18 @@ export default function ProductLibrary({ studio }: { studio?: StudioEditorOption
   const Inspector = studio ? 'details' : 'div';
   const Title = studio ? 'h2' : 'h1';
   const [confirmArchive, setConfirmArchive] = useState(false);
+  const [confirmApproval, setConfirmApproval] = useState(false);
+  const approvalDialog = useRef<HTMLDialogElement>(null);
+  const approvalTrigger = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (confirmApproval) approvalDialog.current?.showModal();
+    else approvalDialog.current?.close();
+  }, [confirmApproval]);
+  function closeApproval() {
+    approvalDialog.current?.close();
+    setConfirmApproval(false);
+    approvalTrigger.current?.focus();
+  }
   const dirty = editing === "new" || (!!editing && (content.name !== editing.name || content.description !== editing.description || content.category !== editing.category || JSON.stringify(subjects) !== JSON.stringify(withActivities(editing.subjects ?? []))));
   useEffect(() => {
     if (!dirty && !busy) return;
@@ -98,7 +110,7 @@ export default function ProductLibrary({ studio }: { studio?: StudioEditorOption
   }, []);
   function create() { setContent({ name: "", description: "", category: "" }); setSubjects([]); setEditing("new"); setConflict(null); setApprovalBlocked(false); setArchiveBlocked(false); setConfirmArchive(false); setError(""); setMessage(""); }
   async function approve() {
-    if (busy || conflict || approvalBlocked || archiveBlocked || !canWrite || !editing || editing === "new" || dirty || !window.confirm("Approve this saved revision as an immutable version for project planning? The draft remains editable.")) return;
+    if (!confirmApproval || busy || conflict || approvalBlocked || archiveBlocked || !canWrite || !editing || editing === "new" || dirty) return;
     setBusy(true); setError(""); setMessage("");
     try {
       const version: { version_number: number } = await apiFetch(`/api/v1/product-templates/${editing.template_id}/approve`, { method: "POST", body: JSON.stringify({ revision: editing.revision }) });
@@ -107,7 +119,7 @@ export default function ProductLibrary({ studio }: { studio?: StudioEditorOption
       setApprovalBlocked(true);
       setError(error instanceof Error ? error.message : "Unable to confirm approval");
     }
-    finally { setBusy(false); }
+    finally { setBusy(false); closeApproval(); }
   }
   async function open(kit: DraftKit) {
     setBusy(true); setError(""); setMessage("");
@@ -332,11 +344,16 @@ export default function ProductLibrary({ studio }: { studio?: StudioEditorOption
           {blankName && <p className="text-sm text-amber-700 dark:text-amber-300">Every subject, grade and activity needs a name before saving.</p>}
         </fieldset>
         <QuantityPreview subjects={subjects} templateId={editing === "new" ? undefined : editing.template_id} revision={editing === "new" ? undefined : editing.revision} dirty={dirty} disabled={busy} />
-        {!studio && canWrite && editing !== "new" && <button type="button" className={buttonClass} disabled={busy || dirty || !!conflict || approvalBlocked || archiveBlocked} onClick={approve}>Approve immutable version for planning</button>}
+        {!studio && canWrite && editing !== "new" && <button ref={approvalTrigger} type="button" className={buttonClass} disabled={busy || dirty || !!conflict || approvalBlocked || archiveBlocked} onClick={() => { if (!busy && !dirty && !conflict && !approvalBlocked && !archiveBlocked && canWrite) setConfirmApproval(true); }}>Approve immutable version for planning</button>}
         <p aria-live="polite" className="text-sm text-slate-500">{busy ? "Saving…" : dirty ? "Unsaved changes" : "Saved"} · Draft{editing !== "new" && ` · Version ${editing.version_number} · Revision ${editing.revision}`}</p>
         {canWrite && <div className="studio-savebar flex flex-wrap gap-3"><button type="submit" disabled={busy || !!conflict || archiveBlocked || (Boolean(studio) && !dirty) || !content.name.trim() || blankName} className={`${buttonClass} bg-indigo-600 text-white`}>{busy ? "Saving…" : "Save draft"}</button>
           {!studio && editing !== "new" && <button type="button" disabled={busy || !!conflict || archiveBlocked} className={`${buttonClass} text-slate-600 dark:text-slate-300 flex items-center gap-2`} onClick={() => setConfirmArchive(true)}><Archive size={18} />Archive kit</button>}</div>}
       </form>
+      {!studio && confirmApproval && <dialog ref={approvalDialog} aria-labelledby="library-approval-title" aria-describedby="library-approval-consequences" onCancel={event => { event.preventDefault(); if (!busy) closeApproval(); }} className="m-auto w-[calc(100%-2rem)] max-w-lg max-h-[85vh] overflow-y-auto rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-6 text-slate-900 dark:text-slate-100 shadow-xl backdrop:bg-slate-950/60">
+        <h2 id="library-approval-title" className="text-xl font-bold break-words">Approve {content.name}?</h2>
+        <p id="library-approval-consequences" className="my-4">Saved revision {editing !== "new" && editing.revision} becomes an immutable version for project planning. The draft remains editable. Approval does not reserve, purchase, dispatch or change stock.</p>
+        <div className="flex flex-wrap gap-3"><button type="button" autoFocus disabled={busy} onClick={closeApproval} className={buttonClass}>Cancel approval</button><button type="button" disabled={busy || !canWrite || dirty || !!conflict || approvalBlocked || archiveBlocked} onClick={approve} className={`${buttonClass} bg-indigo-600 text-white`}>{busy ? "Approving…" : "Confirm immutable approval"}</button></div>
+      </dialog>}
       {editing !== "new" && <RevisionHistory templateId={editing.template_id} revision={editing.revision} />}
       {confirmArchive && canWrite && <div role="alert" className="mt-6 rounded-xl border border-amber-200 p-4 text-slate-700 dark:text-slate-200"><p>Archive this kit? It will be removed from the active library. Its saved records will be retained.</p><div className="mt-3 flex flex-wrap gap-3"><button disabled={busy || !!conflict || archiveBlocked} onClick={archive} className={`${buttonClass} bg-amber-600 text-white`}>Confirm archive</button><button disabled={busy} onClick={() => setConfirmArchive(false)} className={buttonClass}>Cancel</button></div></div>}
     </div> : <>

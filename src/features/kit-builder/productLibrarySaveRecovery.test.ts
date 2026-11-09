@@ -138,6 +138,30 @@ describe('Archive response recovery', () => {
 });
 
 describe('Approval response recovery', () => {
+  it('does not approve when review is opened and cancelled', async () => {
+    render(true);
+    const fetch = vi.fn();
+    vi.stubGlobal('fetch', fetch);
+    button(render(false), 'Approve immutable version for planning').props.onClick!();
+    expect(text(render(false))).toContain('Saved revision 2 becomes an immutable version');
+    expect(fetch).not.toHaveBeenCalled();
+    button(render(false), 'Cancel approval').props.onClick!();
+    expect(render(false).some(element => element.type === 'dialog')).toBe(false);
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it('rechecks write permission after approval review opens', async () => {
+    render(true);
+    const fetch = vi.fn();
+    vi.stubGlobal('fetch', fetch);
+    button(render(false), 'Approve immutable version for planning').props.onClick!();
+    hooks.role = 'viewer';
+    const confirm = button(render(false), 'Confirm immutable approval');
+    expect(confirm.props.disabled).toBe(true);
+    await confirm.props.onClick!();
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
   it('allows a deliberate retry after reopening an authoritative draft', async () => {
     render(true);
     vi.stubGlobal('window', { confirm: vi.fn(() => true) });
@@ -150,6 +174,7 @@ describe('Approval response recovery', () => {
     await submit(render(false));
     const approval = (tree: Control[]) => control(tree, element => element.type === 'button' && text(element.props.children) === 'Approve immutable version for planning');
     await approval(render(false)).props.onClick!();
+    await button(render(false), 'Confirm immutable approval').props.onClick!();
     control(render(false), element => element.type === 'button' && text(element.props.children) === 'Back to Product Library').props.onClick!();
     await control(render(false), element => element.type === 'button' && text(element.props.children).includes('Saved kit')).props.onClick!();
     const tree = render(false);
@@ -157,6 +182,7 @@ describe('Approval response recovery', () => {
     expect(fetch).toHaveBeenCalledTimes(3);
     expect(fetch.mock.calls[2][0]).toBe('/api/v1/product-templates/template');
     await approval(tree).props.onClick!();
+    await button(render(false), 'Confirm immutable approval').props.onClick!();
     expect(text(render(false))).toContain('Approved immutable version 3');
     expect(fetch).toHaveBeenCalledTimes(4);
   });
@@ -172,6 +198,7 @@ describe('Approval response recovery', () => {
     vi.stubGlobal('fetch', fetch);
     const approval = (tree: Control[]) => control(tree, element => element.type === 'button' && text(element.props.children) === 'Approve immutable version for planning');
     await approval(render(false)).props.onClick!();
+    await button(render(false), 'Confirm immutable approval').props.onClick!();
     await vi.waitFor(() => expect(text(render(false))).toContain('Reopen the draft to check approval status before trying again.'));
     const tree = render(false);
     expect(approval(tree).props.disabled).toBe(true);
