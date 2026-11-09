@@ -28,3 +28,12 @@
 - Typecheck, production build and whitespace checks passed. Existing large-bundle warning remains.
 
 Remaining: production/packing/delivery acceptance; long-name/deep-editor/keyboard and full theme/viewport visual coverage. This is a partial checkpoint, not 100/100 acceptance. D6 BLOCKED; pilot NO-GO. No company database reset, merge or deployment.
+
+## Trusted workflow build and readiness checkpoint
+
+- Found a frontend build configuration regression: setting trusted workflow flags only in the server runtime environment did not enable their Vite-compiled panels. Added `npm run build:with-env -- <environment-file>` to load the chosen environment before the existing frontend/server build. Default build behavior and feature gates remain unchanged; environment files stay private.
+- Built with `.local-dev/excellence-runtime/builder-app.env` and reloaded the isolated app. Production, packing/QC and dispatch/delivery panels rendered. The current synthetic project has no approved work orders/output or frozen packing plan; production showed its prerequisite message. Closure displayed missing packing/installation/custody evidence and the existing 45 m claim hold, with closure disabled. No ownership policy was introduced.
+- Opened the global production queue and inspected an existing synthetic work order and its pending-QC output without submitting an operation.
+- Revisited the historical package deep link `b5aecf4a-72f2-4f57-9b4d-097962c40300` in the current synthetic tenant. Packing and dispatch lookup both reported the package unavailable. With no output selected, Create frozen school plan was disabled. This verifies current unavailable-package handling; it does not establish that the historical package exists or that QC acceptance passes.
+- Validation: environment-aware production build, script syntax check and TypeScript check passed. Six focused production/packing/delivery test files passed all 48 tests. The test runner required workspace-scoped TEMP/TMP to avoid a sandbox temporary-file rename denial. Existing large-bundle warning remains.
+- No production issue/output, QC attestation, dispatch, school receipt, installation or closure was submitted in this checkpoint. Physical inspection, transaction/retry acceptance and complete visual/keyboard coverage remain outstanding. D6 BLOCKED; pilot NO-GO.
