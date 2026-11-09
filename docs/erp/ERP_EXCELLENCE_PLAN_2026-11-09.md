@@ -114,3 +114,11 @@ Verification: production build and TypeScript pass. The full regression run pass
 Synthetic browser review confirmed no horizontal overflow at 390px light and 768px dark, 44px report controls, pagination, unmatched-search state, keyboard item activation, and separate loading/empty/error states. This is scoped visual evidence, not authenticated end-to-end or whole-ERP pixel-perfect acceptance. The production bundle still emits a large-chunk warning.
 
 Vite transformation completes after restricting Tailwind class detection to application sources and index.html. The specific file responsible for the earlier automatic-scan stall was not established. The explicit source boundary follows [Tailwind source detection documentation](https://tailwindcss.com/docs/detecting-classes-in-source-files).
+
+## Inventory request reliability checkpoint
+
+Inventory loads now reject superseded responses, invalidate pending work on effect cleanup, and reset cached data when account, organization or role changes. Reports offer retry and record the last successful response time; refresh/failure states hide previous counts. Invalid quantities remain reviewable instead of silently becoming zero. Zero thresholds remain valid.
+
+Approach compared: existing React effect cleanup and keyed state boundaries versus adding a query-cache dependency. The bounded fix uses the existing stack, following the official [React useEffect cleanup/race guidance on GitHub](https://github.com/reactjs/react.dev/blob/main/src/content/reference/react/useEffect.md). No new dependency or server contract is introduced.
+
+Validation: TypeScript and production build PASS; 569 tests passed and 132 skipped across 83 passing and nine skipped files. Focused coverage includes out-of-order responses, cleanup invalidation, numeric normalization and report refresh/error rendering. Synthetic browser retry recovered from error; the retry target measures 44px and no horizontal overflow was observed at 375px and 3840px. This fixture does not prove authenticated account switching, server completeness, live freshness or whole-ERP visual acceptance. PostgreSQL/recovery scenarios remain disabled; the bundle-size limitation remains.

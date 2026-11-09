@@ -9,11 +9,14 @@ const labels: Record<StockStatus, string> = {
 const PAGE_SIZE = 25;
 
 export default function PredictiveAnalyticsTab() {
-  const { inventory, loading, inventoryLoadError } = useData();
-  return <InventoryReportsView inventory={inventory} loading={loading} error={inventoryLoadError} />;
+  const { inventory, loading, inventoryLoadError, inventoryLoadedAt, inventoryRefreshing, refreshInventory } = useData();
+  return <InventoryReportsView inventory={inventory} loading={loading} error={inventoryLoadError} loadedAt={inventoryLoadedAt} refreshing={inventoryRefreshing} onRefresh={refreshInventory} />;
 }
 
-export function InventoryReportsView({ inventory, loading, error = null }: { inventory: InventoryItem[]; loading: boolean; error?: string | null }) {
+export function InventoryReportsView({ inventory, loading, error = null, loadedAt = null, refreshing = false, onRefresh }: {
+  inventory: InventoryItem[]; loading: boolean; error?: string | null;
+  loadedAt?: string | null; refreshing?: boolean; onRefresh?: () => Promise<void>;
+}) {
   const [category, setCategory] = useState('');
   const [query, setQuery] = useState('');
   const [status, setStatus] = useState('');
@@ -36,8 +39,12 @@ export function InventoryReportsView({ inventory, loading, error = null }: { inv
         <h2 id="inventory-reports-title" className="text-2xl font-bold tracking-tight">Inventory reports</h2>
         <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">Current loaded inventory snapshot. Quantities are recorded stock, not available-to-promise stock or a physical count.</p>
       </header>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="text-sm text-slate-600 dark:text-slate-300">{loadedAt ? <>Last successful load: <time dateTime={loadedAt}>{new Date(loadedAt).toLocaleString()}</time>. Later changes may not be included.</> : 'No successful inventory load recorded in this session.'}</p>
+        {onRefresh && <button type="button" disabled={loading || refreshing} onClick={() => void onRefresh()} className={`${control} disabled:opacity-50`}>{refreshing ? 'Refreshing…' : error ? 'Retry inventory load' : 'Refresh inventory'}</button>}
+      </div>
       <aside className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-100">
-        Refresh completeness and freshness are not verified here. Forecasting, turnover, valuation and scheduled email reports are unavailable until their source data and services are connected.
+        The load time records a successful response, not verified completeness or live stock freshness. Forecasting, turnover, valuation and scheduled email reports are unavailable until their source data and services are connected.
       </aside>
       <div className="grid gap-3 md:grid-cols-3">
         <label className="flex flex-col gap-1 text-sm font-medium">Search items
@@ -56,7 +63,7 @@ export function InventoryReportsView({ inventory, loading, error = null }: { inv
           </select>
         </label>
       </div>
-      {loading ? <div role="status" className="animate-pulse rounded-xl bg-slate-100 p-8 motion-reduce:animate-none dark:bg-slate-800">Loading inventory snapshot…</div> : error ? <p role="alert" className="rounded-xl border border-red-300 bg-red-50 p-4 text-red-950 dark:border-red-700 dark:bg-red-950 dark:text-red-100">{error}</p> : <>
+      {loading || refreshing ? <div role="status" className="animate-pulse rounded-xl bg-slate-100 p-8 motion-reduce:animate-none dark:bg-slate-800">Loading inventory snapshot…</div> : error ? <p role="alert" className="rounded-xl border border-red-300 bg-red-50 p-4 text-red-950 dark:border-red-700 dark:bg-red-950 dark:text-red-100">{error}</p> : <>
         <dl className="grid grid-cols-2 gap-3 lg:grid-cols-4">
           {([['Loaded items', summary.total], ['Out of stock', summary.out], ['Below threshold', summary.low], ['Review data', summary.invalid]] as const).map(([label, count]) => (
             <div key={label} className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
