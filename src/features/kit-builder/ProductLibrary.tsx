@@ -67,6 +67,8 @@ export default function ProductLibrary({ studio }: { studio?: StudioEditorOption
   const Title = studio ? 'h2' : 'h1';
   const [confirmArchive, setConfirmArchive] = useState(false);
   const [confirmApproval, setConfirmApproval] = useState(false);
+  const [listAttempt, setListAttempt] = useState(0);
+  const [listError, setListError] = useState("");
   const approvalDialog = useRef<HTMLDialogElement>(null);
   const approvalTrigger = useRef<HTMLButtonElement>(null);
   useEffect(() => {
@@ -103,11 +105,13 @@ export default function ProductLibrary({ studio }: { studio?: StudioEditorOption
   useEffect(() => {
     if (studio) return;
     let mounted = true;
+    setLoading(true);
+    setListError("");
     apiFetch("/api/v1/product-templates").then((data: DraftKit[]) => { if (mounted) setKits(data); })
-      .catch((e: Error) => { if (mounted) setError(e.message); })
+      .catch((e: unknown) => { if (mounted) setListError(e instanceof Error ? e.message : "Unable to load draft kits"); })
       .finally(() => { if (mounted) setLoading(false); });
     return () => { mounted = false; };
-  }, []);
+  }, [listAttempt]);
   function create() { setContent({ name: "", description: "", category: "" }); setSubjects([]); setEditing("new"); setConflict(null); setApprovalBlocked(false); setArchiveBlocked(false); setConfirmArchive(false); setError(""); setMessage(""); }
   async function approve() {
     if (!confirmApproval || busy || conflict || approvalBlocked || archiveBlocked || !canWrite || !editing || editing === "new" || dirty) return;
@@ -359,6 +363,7 @@ export default function ProductLibrary({ studio }: { studio?: StudioEditorOption
     </div> : <>
       <label className="flex items-center gap-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-4 focus-within:ring-2 focus-within:ring-indigo-500"><Search size={18} className="text-slate-400" /><input aria-label="Search draft kits" className="w-full min-h-11 py-3 bg-transparent outline-none text-slate-900 dark:text-white" value={search} onChange={e => setSearch(e.target.value)} placeholder="Search kits by name or category" /></label>
       {loading ? <div role="status" className="space-y-3"><span className="sr-only">Loading draft kits</span>{[1, 2, 3].map(id => <div key={id}><SkeletonCard /></div>)}</div>
+        : listError ? <div role="alert" className="rounded-xl border border-red-200 dark:border-red-800 p-4 text-red-700 dark:text-red-300"><h2 className="font-semibold">Product Library could not load</h2><p className="mt-2">{listError}</p><button type="button" className={`${buttonClass} mt-3 border border-current`} onClick={() => { setLoading(true); setListError(""); setListAttempt(attempt => attempt + 1); }}>Retry loading kits</button></div>
         : !filtered.length ? <EmptyState preset="items" title={kits.length ? "No matching kits" : "Your Product Library is empty"} description="Start with a name and save your first draft kit." actionLabel={canWrite ? "Create Kit" : undefined} onAction={create} />
         : <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">{filtered.map(kit => <button key={kit.id} disabled={busy} onClick={() => open(kit)} className="text-left p-6 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-indigo-400 focus-visible:ring-2 focus-visible:ring-indigo-500">
           <Package className="text-indigo-500 mb-4" /><span className="text-xs rounded-full px-2 py-1 bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-300">Draft · v{kit.version_number}</span>

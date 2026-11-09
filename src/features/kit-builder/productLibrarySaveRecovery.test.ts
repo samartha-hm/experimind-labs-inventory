@@ -4,10 +4,10 @@ import ProductLibrary, { type DraftKit } from './ProductLibrary';
 import { setApiAuthToken } from '../../utils/api';
 
 // Exercise editor event handlers and rerenders in the node environment without a DOM.
-const hooks = vi.hoisted(() => ({ values: [] as unknown[], cursor: 0, role: 'staff' }));
+const hooks = vi.hoisted(() => ({ values: [] as unknown[], cursor: 0, role: 'staff', effects: [] as (() => void | (() => void))[] }));
 vi.mock('react', async importOriginal => {
   const actual = await importOriginal<typeof import('react')>();
-  return { ...actual, useEffect: () => {}, useRef: () => ({ current: null }),
+  return { ...actual, useEffect: (effect: () => void | (() => void)) => { hooks.effects.push(effect); }, useRef: () => ({ current: null }),
     useState: <T,>(initial: T | (() => T)) => {
       const index = hooks.cursor++;
       if (!(index in hooks.values)) hooks.values[index] = typeof initial === 'function' ? (initial as () => T)() : initial;
@@ -44,7 +44,7 @@ function control(tree: Control[], predicate: (element: Control) => boolean): Con
 const submit = (tree: Control[]) => control(tree, element => element.type === 'form').props.onSubmit!({ preventDefault() {} });
 const saveButton = (tree: Control[]) => control(tree, element => element.type === 'button' && element.props.type === 'submit');
 
-beforeEach(() => { hooks.values = []; hooks.cursor = 0; hooks.role = 'staff'; setApiAuthToken('synthetic'); });
+beforeEach(() => { hooks.values = []; hooks.cursor = 0; hooks.effects = []; hooks.role = 'staff'; setApiAuthToken('synthetic'); });
 afterEach(() => { vi.unstubAllGlobals(); setApiAuthToken(null); });
 
 const button = (tree: Control[], label: string) => control(tree, element => element.type === 'button' && text(element.props.children) === label);
@@ -53,6 +53,39 @@ function archiveConfirmation(): Control[] {
   button(render(false), 'Archive kit').props.onClick!();
   return render(false);
 }
+
+describe('Library loading recovery', () => {
+  it('distinguishes a failed read from an empty library and retries without mutations', async () => {
+    const fetch = vi.fn().mockRejectedValueOnce(new TypeError('Connection lost'))
+      .mockResolvedValueOnce(new Response(JSON.stringify([draft])));
+    vi.stubGlobal('fetch', fetch);
+    render(false);
+    hooks.effects.at(-1)!();
+    await vi.waitFor(() => expect(text(render(false))).toContain('Product Library could not load'));
+    expect(text(render(false))).not.toContain('Your Product Library is empty');
+    button(render(false), 'Retry loading kits').props.onClick!();
+    expect(text(render(false))).toContain('Loading draft kits');
+    hooks.effects.at(-1)!();
+    await vi.waitFor(() => expect(text(render(false))).toContain('Saved kit'));
+    expect(text(render(false))).not.toContain('Connection lost');
+    expect(fetch).toHaveBeenCalledTimes(2);
+    for (const [url, options] of fetch.mock.calls) {
+      expect(url).toBe('/api/v1/product-templates');
+      expect(options.method ?? 'GET').toBe('GET');
+    }
+  });
+
+  it('ignores a failed response after leaving the library', async () => {
+    let reject!: (reason: Error) => void;
+    vi.stubGlobal('fetch', vi.fn(() => new Promise((_resolve, fail) => { reject = fail; })));
+    render(false);
+    const cleanup = hooks.effects.at(-1)!();
+    if (typeof cleanup === 'function') cleanup();
+    reject(new TypeError('Late failure'));
+    await new Promise(resolve => setTimeout(resolve, 0));
+    expect(text(render(false))).not.toContain('Product Library could not load');
+  });
+});
 
 describe('Archive response recovery', () => {
   it('clears reconciliation only after a successful authoritative reopen', async () => {
