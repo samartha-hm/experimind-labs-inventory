@@ -1,6 +1,6 @@
 # Session handoff - 2026-11-09
 
-Branch feature/kit-builder-milestone-1. Local code checkpoint cac070f; push NOT completed. Automatic approval review rejected the push because remote trust/external-transfer authorization was unverified. Do not bypass; obtain explicit user approval before retrying. Previous verified remote checkpoint d909c71326381d423a70cd62c9ce8a4e4ecea30e.
+Branch feature/kit-builder-milestone-1. Code checkpoint cac070f and handoff d921384 pushed after explicit user approval. Remote feature branch verified at d9213847b961555c2904a94c6f53f5188e963cb0. Push restriction resolved for this approved destination and branch.
 
 Completed: archive permission/busy guards and uncertain-response reconciliation. Failed responses retain draft content and persistent guidance; save/approve/archive remain blocked until a successful authoritative reopen. Nine new regressions cover failures, permission loss, pending mutations, failed/successful reopen and archive success. No automatic replay or published-version changes. Runbook and INDEX updated.
 
