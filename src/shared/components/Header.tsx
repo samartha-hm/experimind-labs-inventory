@@ -192,8 +192,8 @@ export default function Header({
                   onOpenCommandPalette?.();
                 }
               }}
-              placeholder="Global Search (Ctrl+K for Spotlight)..."
-              className="w-full pl-10 pr-12 py-2 bg-slate-50 dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700 rounded-xl text-xs font-medium text-slate-800 dark:text-slate-100 placeholder-slate-400 focus:outline-none cursor-pointer"
+              placeholder="Global search"
+              className="w-full pl-10 pr-16 py-2 bg-slate-50 dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700 rounded-xl text-xs font-medium text-slate-800 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 cursor-pointer"
             />
             <kbd className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-400 bg-slate-200/60 dark:bg-slate-700 px-1.5 py-0.5 rounded border border-slate-300/60 dark:border-slate-600">
               Ctrl K

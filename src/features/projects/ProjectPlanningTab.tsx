@@ -26,11 +26,20 @@ export default function ProjectPlanningTab() {
   const [history, setHistory] = useState<{ revision: number; created_at: string; content: PlanningContent }[]>([]);
   const [approvalGeneration, setApprovalGeneration] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
+  const [loadAttempt, setLoadAttempt] = useState(0);
   const [busy, setBusy] = useState(false); const [error, setError] = useState("");
   const generation = useRef(0);
   const dirty = !!content && (!saved || JSON.stringify(content) !== JSON.stringify(header(saved)));
   useEffect(() => { generation.current++; setResult(undefined); setHistory([]); }, [content]);
-  useEffect(() => { void refresh().catch(e => setError(e instanceof Error ? e.message : "Unable to load projects")).finally(() => setLoading(false)); return () => { generation.current++; }; }, []);
+  useEffect(() => {
+    let active = true;
+    void Promise.all([apiFetch("/api/v1/planning-projects"), apiFetch("/api/v1/product-templates/approved")])
+      .then(([list, catalog]) => { if (active) { setProjects(list); setVersions(catalog); } })
+      .catch(e => { if (active) setLoadError(e instanceof Error ? e.message : "Unable to load projects"); })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; generation.current++; };
+  }, [loadAttempt]);
   async function refresh() {
     const [list, catalog] = await Promise.all([apiFetch("/api/v1/planning-projects"), apiFetch("/api/v1/product-templates/approved")]);
     setProjects(list); setVersions(catalog);
@@ -59,10 +68,11 @@ export default function ProjectPlanningTab() {
   const selectedVersions = versions.filter(v => content?.sites.some(s => s.selections.some(k => k.version_id === v.id)));
   return <section className="space-y-6">
     <div className="flex flex-wrap items-center justify-between gap-3"><div><h1 className="text-2xl font-bold">Project requirement planning</h1><p className="text-sm text-slate-500">Save school allocations, calculate demand and explicitly approve the saved revision. Inventory and execution require their own verified evidence.</p></div>
-      {!content && canWrite && <button className={button} disabled={busy} onClick={() => { setSaved(undefined); setContent(empty()); }}>Create project</button>}
+      {!content && canWrite && <button className={button} disabled={busy || loading || !!loadError} onClick={() => { setSaved(undefined); setContent(empty()); }}>Create project</button>}
     </div>
     {error && <p role="alert" className="rounded-xl bg-red-50 p-4 text-red-700">{error}</p>}
-    {!content ? <div className="space-y-3">{loading && <p role="status">Loading projects…</p>}{projects.map(p => <button key={p.id} className={`${button} block w-full text-left`} disabled={busy} onClick={() => void open(p.id)}>{p.name} · {p.client || "No client specified"} · revision {p.revision}</button>)}{!loading && !error && !projects.length && <p>No projects yet.</p>}</div> : <>
+    {loadError && <div role="alert" className="rounded-xl border border-red-300 p-4 text-red-700 dark:text-red-300"><h2 className="font-semibold">Project planning could not load</h2><p>{loadError}</p><button className={`${button} mt-3`} onClick={() => { setLoading(true); setLoadError(""); setLoadAttempt(attempt => attempt + 1); }}>Retry loading projects</button></div>}
+    {!content ? <div className="space-y-3">{loading && <p role="status">Loading projects…</p>}{projects.map(p => <button key={p.id} className={`${button} block w-full text-left`} disabled={busy || loading || !!loadError} onClick={() => void open(p.id)}>{p.name} · {p.client || "No client specified"} · revision {p.revision}</button>)}{!loading && !loadError && !error && !projects.length && <p>No projects yet.</p>}</div> : <>
       <fieldset disabled={busy || !canWrite} className="space-y-4"><legend className="font-semibold">Project details</legend>
         {(["name", "client", "notes"] as const).map(key => <label key={key} className="block text-sm">{key === "client" ? "Client / NGO" : key}<input className={input} maxLength={key === "notes" ? 5000 : 200} value={content[key]} onChange={e => setContent({ ...content, [key]: e.target.value })} /></label>)}
         <details><summary className="min-h-11 cursor-pointer py-3">Optional commercial document references</summary><p className="text-sm text-slate-500">References only; quotation and order records are not required or created.</p>

@@ -1,5 +1,7 @@
 # Next batch: builder visual acceptance, then project planning
 
+Latest continuation: fixed tablet global-search placeholder overlap; accepted 768 x 900 light/dark screenshots. Added guarded initial project/catalog loading and a Retry action; creation stays disabled until both reads succeed. 51 scoped tests passed, strengthened late-response tests rerun (3 passed), typecheck/build passed. Browser calculated preserved synthetic project demand of 3.7 m with school traces; no project mutations. Remaining: browser outage acceptance for project retry, deep editor/preview/long-name/keyboard coverage, reliable 4K captures, then shortage workflow acceptance. Do not treat earlier full-suite counts below as a fresh full-suite run for this continuation.
+
 Latest checkpoint: Product Library now distinguishes a failed read from an empty library and offers Retry. A controlled outage of only the isolated synthetic app showed the error; restarting the app and clicking Retry restored the library. The app is running again at http://127.0.0.1:3104.
 
 Fresh verification: 602 tests passed / 132 skipped (85 files passed, 9 skipped); 33 focused recovery/permission tests passed; typecheck and production build passed. Two new tests cover read retry without mutations and ignoring failure after unmount. Earlier isolated PostgreSQL integration result: 37 passed, not rerun for this UI change.

@@ -26,6 +26,10 @@ Earlier DOM measurements showed no horizontal document overflow at 375/768/1440/
 
 ## Remaining acceptance
 
+Latest continuation: [light tablet](evidence/builder-2026-11-09/viewer-light-768.jpg) and [dark tablet](evidence/builder-2026-11-09/viewer-dark-768.jpg), both 768 x 900, were visually inspected after fixing search placeholder overlap with the shortcut badge. Dark desktop 1440 x 900 was inspected before that header correction. A cropped 4K capture was discarded; 4K visual acceptance remains open.
+
+Project planning now offers retry when either initial projects or approved-catalog reads fail, prevents creation with an incomplete catalog, and ignores late initial responses after unmount. Scoped recovery and planning checks: 51 passed; the strengthened late-response cases were rerun (3 passed). Typecheck and production build passed. Browser calculation of the preserved synthetic revision returned 3.7 m with separate school traces and zero reported shortage; no project data was changed. The new project retry path has automated handler coverage but has not yet had a controlled browser outage check.
+
 Complete settled tablet/desktop/4K light/dark captures, deeper editor/preview and library states, long-name and keyboard coverage. Existing captures cover the editor's upper viewport, not every nested control. No pixel-perfect or 100-percent claim. Continue project planning/shortages after this visual pass.
 
 The isolated app uses restricted roles with superuser/bypass-RLS/createDB/createRole disabled; private credentials remain ignored. No company database was modified or reset. Preserve fixtures. D6 BLOCKED and pilot NO-GO; no merge/deploy or unapproved policy expansion.
