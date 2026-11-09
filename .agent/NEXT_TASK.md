@@ -1,7 +1,9 @@
-# Next bounded task: archive response recovery
+# Next batch: dynamic builder workflow and responsive acceptance
 
-Read SESSION_HANDOFF and relevant dynamic builder acceptance sections linked by docs/erp/INDEX.md. Audit ProductLibrary archive handling after uncertain responses and permission/busy changes. Reproduce the first required gap, then implement a minimal correction with targeted tests. Preserve saved records and immutable published versions; do not add new workflow policies without evidence. Keep recovery guidance visible until reconciliation, and avoid automatic mutation replay.
+Use docs/erp/ERP_BUILD_BATCH_PLAN_2026-11-09.md and relevant acceptance sections linked by INDEX. Prepare the existing isolated synthetic environment, verifying database identity before any fixture changes; do not seed company or nonempty unknown databases. Historical ports 3104/3108/55432 were not listening.
 
-Keep dynamic staff-configurable items/templates and tenant/RBAC boundaries. No Prastuti workbook blocker or unapproved O1-O10 machinery. Search GitHub and compare approaches before implementing unfamiliar features.
+Walk dynamic item selection, revision creation, quantities, saved reload/history and save/approve/archive recovery with writer/viewer roles. Check 375px, tablet, desktop and 4K layouts, keyboard states and light/dark themes. Capture evidence, fix connected reproduced gaps together, run focused checks during development and full verification once at batch completion. No pixel-perfect claim from controlled-hook tests. Search GitHub and compare approaches before unfamiliar implementation.
 
-Continued development and feature pushes authorized; no merge, deployment or company database mutation. D6 BLOCKED, pilot NO-GO; provenance, physical and intended-host recovery remain unresolved. Explicitly stage intended files; exclude private/generated artifacts and secrets. Last verified code checkpoint: bf9b4407b0f9e5d994d1f4859295d09a9a09dfa1. Commit/push/verify code and handoff separately.
+Preserve tenant/RBAC, published immutability and dynamic staff-authored templates; no Prastuti workbook blocker or unapproved ownership policies. No company database mutation, merge or deployment. D6 BLOCKED; pilot NO-GO. Private/generated artifacts stay unstaged.
+
+Local code checkpoint cac070f. Push was rejected by automatic approval review for unverified remote trust/external transfer authorization; ask explicit approval before retrying, never bypass. Local development remains authorized.
