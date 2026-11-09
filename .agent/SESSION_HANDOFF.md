@@ -1,13 +1,11 @@
 # Session handoff - 2026-11-09
 
-Branch feature/kit-builder-milestone-1. Code checkpoint 9d8a134ca03f90bd0f28fe85845fccfda13f8694 pushed; remote hash verified. Continued development and feature pushes authorized.
+Branch feature/kit-builder-milestone-1. Code checkpoint 610c97f3f5cf04ce07bdb323eb953a2c24b685b9 pushed; remote hash verified. Continued development and feature pushes authorized.
 
-Completed: reproduced viewer/unknown-role users locally reordering draft subjects, grades and activities. ProductLibrary now disables unauthorized reorder controls and guards their handlers. Added four SSR permission regression cases including staff boundary behavior. Updated docs/erp/28_DRAFT_KIT_BUILDER_RUNBOOK.md. Earlier inventory reliability improvements remain intact.
+Completed: reproduced four draft-save recovery failures. ProductLibrary now blocks repeat saves and approval after stale revisions or uncertain network/server/JSON outcomes; local edits remain available. Lost create responses require checking the refreshed library before creating another. Validation failures remain correctable. apiFetch now preserves HTTP status in an Error subclass. Added 11 controlled-hook editor-handler regressions and updated docs/erp/28_DRAFT_KIT_BUILDER_RUNBOOK.md. Prior permission/inventory fixes remain intact.
 
-Validation: focused 22 tests PASS; full suite 573 passed, 132 skipped (84 files passed, nine skipped); TypeScript and production build PASS. Existing large-bundle warning remains. No new authenticated browser, persistence, PostgreSQL or recovery acceptance claimed. Whole-ERP pixel-perfect acceptance remains unproven.
+Validation: 584 tests passed, 132 skipped (85 passing files, nine skipped); TypeScript and production build PASS. Initial restricted full run failed 20 HTTP checks with loopback EACCES; authorized loopback rerun passed. Existing large-chunk warning remains. No authenticated browser, PostgreSQL, persistence or recovery acceptance claimed; whole-ERP pixel-perfect acceptance remains unproven.
 
-Next: audit draft-save conflict handling and uncertain responses in ProductLibrary and Studio. Reproduce the first gap before fixing it; preserve local changes and prevent unsafe replay, overwrite or duplicate creation. See NEXT_TASK.md. Search GitHub before implementing unfamiliar features.
+Next: audit ProductLibrary approval handling after uncertain responses; reproduce the first required gap before a minimal fix. See NEXT_TASK.md. Search GitHub before implementing unfamiliar features.
 
-Keep dynamic staff-configurable items/templates; no Prastuti workbook prerequisite or unapproved O1-O10 machinery. Preserve published-version immutability and tenant/RBAC boundaries.
-
-No merge, deployment or company database mutation. D6 BLOCKED; pilot NO-GO. Provenance, physical and intended-host recovery gates remain unresolved. Preserve private .test-tmp/ and .local-dev/ artifacts; explicitly stage intended files. Push and remote-verify code and handoff checkpoints separately.
+Keep dynamic staff-configurable items/templates, published-version immutability and tenant/RBAC boundaries. No Prastuti workbook prerequisite or unapproved O1-O10 machinery. No merge, deployment or company database mutation. D6 BLOCKED; pilot NO-GO. Provenance, physical and intended-host recovery gates unresolved. Preserve private .test-tmp/ and .local-dev/ artifacts; explicitly stage intended files. Push and remote-verify code and handoff separately.
