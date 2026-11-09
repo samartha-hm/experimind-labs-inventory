@@ -2,25 +2,32 @@
 
 ## Implemented
 
-- Subject, grade and activity name fields, and material notes, retain a preferred flex basis while allowing shrinkage inside narrow nested editors.
-- Activity/material checkbox labels and add-subject/grade/activity actions have a minimum 44px height.
-- Archive confirmation actions wrap; library search has a visible focus-within ring.
-- Material search retains its icon, allows the input to shrink and wraps unbroken inventory result text.
+- Nested subject, grade, activity and material-note fields shrink within narrow editors.
+- Builder checkbox labels and add actions have a minimum 44px height; archive actions wrap and search has visible focus styling.
+- Material search retains its icon and wraps long inventory text.
+- Browser-reproduced mobile header overlap is corrected with separate rows below the large breakpoint and bounded organization names.
+- Floating history controls sit above mobile bottom navigation; the history console fits the viewport width and has a smaller mobile height limit.
 
-These are code-inspection corrections, not completed visual acceptance or a 100/100 rating.
+## Current verification
 
-## Verification
+- Focused save-recovery and permissions tests: 29 passed after the header/history changes.
+- TypeScript --noEmit and production frontend/backend builds passed after these changes; git diff --check passed.
+- Previous responsive checkpoint full suite: 598 passed, 132 skipped. This was before the header/history changes; do not report it as a fresh full-suite run.
+- Fresh isolated PostgreSQL requirement-approval integration run: 37 passed. Existing synthetic test fixtures supplied the source for browser acceptance.
+- After explicit user approval, a fresh synthetic browser schema, restricted roles and synthetic accounts were prepared in the loopback test database. Private credentials remain under ignored .local-dev; the application runs at 127.0.0.1:3104.
+- Runtime, identity and receipt-ledger connections were independently checked: all have superuser, bypass-RLS, create-database and create-role privileges disabled. No company database was seeded or reset.
 
-- Focused productLibrarySaveRecovery: 25 passed.
-- Full Vitest suite: 598 passed, 132 skipped (85 files passed, 9 skipped). Skipped database integration coverage is not fresh PostgreSQL evidence.
-- TypeScript --noEmit passed.
-- Vite production frontend and esbuild backend build steps passed; git diff --check passed.
-- The first sandbox test attempt failed before collection with a temporary-file EPERM rename; the outside-sandbox rerun passed.
+## Observed browser results
 
-## Browser acceptance remains pending
+- Writer created a dynamic kit with subject, grade, activity and an inventory-selected material at 2.5 m per set.
+- Save produced revision 1; returning through the library reopened the persisted values. Revision history displayed the saved revision.
+- Four sets produced the expected 10 m requirement.
+- Before the final header/history fixes, document width matched viewport width at 375, 768, 1440 and 3840 pixels. These measurements alone did not reveal control overlap.
+- A 375px screenshot exposed overlapping header hit targets and a history toolbar covering bottom navigation. After rebuilding, mobile visual inspection and header bounds confirmed the correction; theme switching and navigation worked. Dark desktop rendering at 1280px had no document overflow.
+- Temporary viewport override was reset.
 
-The existing loopback PostgreSQL cluster recovered without resetting data. Sandbox process visibility initially obscured recovery; a conflicting startup attempt interrupted it, after which it recovered using consistent outside-sandbox execution. Read-only metadata confirmed experimind_kitbuilder_test and 87 synthetic schemas, but historical D6-F restricted fixture roles no longer exist. Its app cannot authenticate.
+## Remaining acceptance
 
-Automatic approval review rejected preparing a fresh synthetic clone using the existing preparation logic because that creates persistent schemas, database login roles, synthetic users and private credential files using migration privileges. No replacement fixture was created. Specific user approval is required before retrying that action; do not bypass the rejection or use privileged owner credentials as app credentials.
+The approval confirmation interrupted browser automation. Subsequent tab interactions stalled; replacing the tab restored readable rendering but did not establish an approval result. Approval, archive, viewer interaction, keyboard focus, controlled browser error recovery and the complete post-fix light/dark breakpoint screenshot matrix remain unverified. Do not infer success from the focused unit tests or claim pixel-perfect/100-percent completion.
 
-After approval: preserve historical fixtures, use a new requirement_test_* schema in 127.0.0.1:55432/experimind_kitbuilder_test, random restricted runtime/identity/ledger roles and synthetic accounts; keep credential files private. Verify database boundaries before browser actions. Complete writer/viewer dynamic selection, quantity, save/reopen/history, approval/archive recovery, keyboard and light/dark checks at 375px/tablet/desktop/4K with screenshots. No company data, reset, deployment or policy expansion. D6 BLOCKED; pilot NO-GO.
+Continue from the existing isolated fixture without recreating it or using owner credentials as application credentials. Preserve historical fixtures and private .local-dev / .test-tmp artifacts. D6 remains BLOCKED and pilot NO-GO. No merge, deployment or ownership-policy expansion is authorized by this checkpoint.
