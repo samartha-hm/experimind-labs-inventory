@@ -27,12 +27,12 @@ export function MaterialSearch({ onPick, disabled }: { onPick: (item: InventoryP
   return (
     <div className="relative">
       <div className="flex items-center gap-2">
-        <Search className="h-4 w-4 text-slate-400" aria-hidden="true" />
+        <Search className="h-4 w-4 shrink-0 text-slate-400" aria-hidden="true" />
         <input
           aria-label="Search inventory to add a material"
           placeholder="Search inventory to add a material"
           maxLength={100}
-          className={`${inputClass} flex-1`}
+          className={`${inputClass} min-w-0 flex-1`}
           value={query}
           disabled={disabled}
           onChange={event => setQuery(event.target.value)}
@@ -45,7 +45,7 @@ export function MaterialSearch({ onPick, disabled }: { onPick: (item: InventoryP
           <ul className="mt-1 rounded-xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900 divide-y divide-slate-100 dark:divide-slate-800">
             {results.map(item => (
               <li key={item.id}>
-                <button type="button" disabled={disabled} className="w-full min-h-11 px-3 py-2 text-left text-sm hover:bg-slate-50 dark:hover:bg-slate-800" onClick={() => pick(item)}>
+                <button type="button" disabled={disabled} className="w-full min-h-11 px-3 py-2 text-left text-sm [overflow-wrap:anywhere] hover:bg-slate-50 dark:hover:bg-slate-800" onClick={() => pick(item)}>
                   <span className="font-medium">{item.name}</span>
                   {item.sku ? <span className="ml-2 text-xs text-slate-500">{item.sku}</span> : null}
                   {item.unit ? <span className="ml-2 text-xs text-slate-500">{item.unit}</span> : null}
