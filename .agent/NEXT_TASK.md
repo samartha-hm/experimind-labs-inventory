@@ -1,7 +1,7 @@
-# Next prerequisite: human Windows-browser evidence
+# Next bounded task: inventory request reliability
 
-Open http://127.0.0.1:3106 locally with the existing private synthetic administrator account. Follow the consolidated sprint report's Human-operated full-shell preparation section and existing acceptance table. Supply redacted screenshots with operator/time, role/tenant, fixture/revision, action and observed result. Windows-browser rendering/login and all fresh human checklist actions remain NOT RUN.
+Read SESSION_HANDOFF and docs/erp/ERP_EXCELLENCE_PLAN_2026-11-09.md. Guard inventory requests against stale responses across authentication/account changes. Add practical retry and trustworthy freshness/completeness information; review numeric normalization without silently converting invalid quantities to zero. Reproduce relevant failure/race cases before changing behavior, and verify with targeted tests and typecheck. Keep the reporting UI honest about snapshot limitations.
 
-No Codex-browser operation or infrastructure retry is needed or authorized by this mission. No supplied human evidence yet; SOFTWARE DEMO BLOCKED, D6 BLOCKED, pilot NO-GO. Read-only observation must preserve all 111 baseline fingerprints. Do not submit writes, attest inspections/receipt/installation or close/settle. Missing eligible fixtures block cases; do not invent replacements.
+Then continue required dynamic kit-builder workflows with staff-configurable items and template content. Follow confirmed practical scope; do not introduce unapproved O1–O10 policy machinery. Preserve stock/closure guards and company data. D6/pilot/provenance/physical/recovery gates remain unresolved.
 
-Existing HTTP readiness and synthetic frontend flags verified; healthy services not restarted. Production defaults unchanged OFF. No code changes or tests/build reruns; retain green checkpoint. O1-O10 DRAFT / NOT AUTHORIZED and independent historical, intended-host and physical gates remain unresolved. Preserve AGENTS.md, .test-tmp/, fixtures and database history. No migration, deployment, stock movement, merge or pilot cutover. Stop until actual operator evidence arrives.
+Checkpoint 5837e57 is pushed and remote identity verified after user approval. Continued development is authorized. Exclude .test-tmp/, .local-dev/, generated files and secrets from staging.

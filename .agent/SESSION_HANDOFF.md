@@ -1,11 +1,12 @@
-# Session handoff - 2026-11-03 human-operated acceptance
+# Session handoff - 2026-11-09
 
-Branch feature/kit-builder-milestone-1; starting HEAD 5f26ae9fc8087fff3320e3510ae0240159fc8cdb verified. Tracked tree initially clean; .test-tmp/ preserved untracked. SOFTWARE DEMO BLOCKED; D6 BLOCKED; pilot NO-GO.
+Branch feature/kit-builder-milestone-1. Code checkpoint 5837e57 was pushed after explicit user approval; remote full hash verified as 5837e57abafa607c4135ce3fe560d651e264611f. User also authorized continued development.
 
-Manual operator navigation and screenshot requirements are in the consolidated sprint report's final section. Human opens http://127.0.0.1:3106 using existing private synthetic admin/super_admin credentials. No credentials disclosed. HTTP root/readiness/health returned 200; readiness DB connected; loopback-only listener confirmed. One initial health timeout recovered without restart. Served trusted production/packing/delivery flags true only in synthetic environment; defaults unchanged OFF. Old preview3108 unavailable and not the entry point. Windows-browser rendering/login NOT RUN.
+Completed: truthful inventory snapshot replaces fabricated analytics/email success; report loading/error/empty states, zero-threshold preservation, filtering/pagination, keyboard item buttons, 44px targets and responsive breakpoint repairs. Tailwind source detection is bounded; production build now passes. Assessment and researched architecture/implementation roadmap are linked from docs/erp/INDEX.md.
 
-No Codex browser use or infrastructure diagnostics. No human screenshots supplied, UI actions performed, defects reproduced or code fixed. Every fresh human step NOT RUN. Manual execution needs no Codex-browser repair. Preserve baseline: read/select/refresh/preview only; no saved writes, QC/custody/receipt/install attestations or closure. Full write/recovery cases remain blocked pending eligible separately authorized scenario.
+Validation: TypeScript and production build PASS. Full regression: 549 pass, 132 skip (81 files passed, nine skipped). Two additional report rendering regressions PASS. Synthetic browser review: mobile light/tablet dark no overflow, report controls, pagination, unmatched search, keyboard activation and loading/empty/error states. Authenticated end-to-end, full accessibility and whole-ERP pixel-perfect acceptance remain unproven. Large bundle warning remains.
 
-Read-only comparison: 114 tables, all 111 baseline counts/hashes unchanged, no missing/unexpected tables. Identity tables are historical exclusions. Private human-demo-integrity evidence retained. No migrations/config/fixtures changed. No tests/builds rerun; retained 671 passed, zero failed, two skips; focused65 and typecheck/frontend-PWA/backend PASS.
+Next: authenticated inventory request lifecycle, retry/freshness and numeric normalization; then required dynamic builder workflows. Staff-configurable items/kits; no Prastuti workbook blocker. O1–O10 remain unapproved; avoid unnecessary machinery.
 
-O1-O10 DRAFT / NOT AUTHORIZED; historical provenance, intended-host recovery, staff/device and physical acceptance unresolved. Report commit 241bcb030c2f4b9508bbcf94a2c01c18b06f51da pushed; live remote matched. Final handoff publication verified separately. Next: human tester (unassigned) supplies redacted browser evidence; assess actual failures. Stop preparation here.
+No company database, deployment or ledger changes. D6 BLOCKED, pilot NO-GO; provenance, physical and intended-host recovery gates unresolved. PostgreSQL/recovery tests not enabled. Preserve private .test-tmp/ artifacts; never blanket-stage.
+
