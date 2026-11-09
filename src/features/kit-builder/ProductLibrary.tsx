@@ -3,7 +3,7 @@ import { studioSave } from './studioSave';
 import { StudioReadError } from './studioRead';
 import { ArrowLeft, ArrowDown, ArrowUp, Plus, Search, Archive, Package, Trash2 } from "lucide-react";
 import { useAuth } from "../../AuthContext";
-import { apiFetch } from "../../utils/api";
+import { ApiError, apiFetch } from "../../utils/api";
 import EmptyState from "../../shared/components/EmptyState";
 import { SkeletonCard } from "../../shared/components/SkeletonLoader";
 import { MaterialSearch, type InventoryPick } from "./MaterialSearch";
@@ -59,7 +59,7 @@ export default function ProductLibrary({ studio }: { studio?: StudioEditorOption
   const [editing, setEditing] = useState<DraftKit | "new" | null>(studio?.draft ?? null);
   const [content, setContent] = useState(studio ? { name: studio.draft.name, description: studio.draft.description, category: studio.draft.category } : { name: "", description: "", category: "" });
   const [subjects, setSubjects] = useState<KitSubject[]>(() => withActivities(studio?.draft.subjects ?? []));
-  const [conflict, setConflict] = useState(false);
+  const [conflict, setConflict] = useState<'conflict' | 'uncertain' | null>(null);
   const editorRoot = useRef<HTMLElement>(null);
   const Inspector = studio ? 'details' : 'div';
   const Title = studio ? 'h2' : 'h1';
@@ -94,9 +94,9 @@ export default function ProductLibrary({ studio }: { studio?: StudioEditorOption
       .finally(() => { if (mounted) setLoading(false); });
     return () => { mounted = false; };
   }, []);
-  function create() { setContent({ name: "", description: "", category: "" }); setSubjects([]); setEditing("new"); setError(""); setMessage(""); }
+  function create() { setContent({ name: "", description: "", category: "" }); setSubjects([]); setEditing("new"); setConflict(null); setError(""); setMessage(""); }
   async function approve() {
-    if (!editing || editing === "new" || dirty || !window.confirm("Approve this saved revision as an immutable version for project planning? The draft remains editable.")) return;
+    if (busy || conflict || !canWrite || !editing || editing === "new" || dirty || !window.confirm("Approve this saved revision as an immutable version for project planning? The draft remains editable.")) return;
     setBusy(true); setError(""); setMessage("");
     try {
       const version: { version_number: number } = await apiFetch(`/api/v1/product-templates/${editing.template_id}/approve`, { method: "POST", body: JSON.stringify({ revision: editing.revision }) });
@@ -110,6 +110,7 @@ export default function ProductLibrary({ studio }: { studio?: StudioEditorOption
       const fresh: DraftKit = await apiFetch(`/api/v1/product-templates/${kit.template_id}`);
       setEditing(fresh); setContent({ name: fresh.name, description: fresh.description, category: fresh.category });
       setSubjects(withActivities(fresh.subjects ?? []));
+      setConflict(null);
     } catch (e) { setError(e instanceof Error ? e.message : "Unable to open kit"); }
     finally { setBusy(false); }
   }
@@ -127,8 +128,10 @@ export default function ProductLibrary({ studio }: { studio?: StudioEditorOption
       setKits(previous => [saved, ...previous.filter(kit => kit.template_id !== saved.template_id)]);
       setMessage(`Draft saved · Revision ${saved.revision}. Reopen to verify persisted content.`);
     } catch (e) {
-      if (studio && e instanceof StudioReadError && e.status === 409) setConflict(true);
-      setError(studio && !(e instanceof StudioReadError) ? "Save response unavailable. Changes remain open; close and reopen to check whether the revision was saved before retrying." : e instanceof Error ? e.message : "Unable to save draft");
+      const status = e instanceof StudioReadError || e instanceof ApiError ? e.status : undefined;
+      if (status === 409) setConflict('conflict');
+      else if (status === undefined || status >= 500) setConflict('uncertain');
+      setError(status === undefined || status >= 500 ? "Save outcome could not be confirmed. Your local changes remain open." : e instanceof Error ? e.message : "Unable to save draft");
     }
     finally { setBusy(false); }
   }
@@ -249,7 +252,7 @@ export default function ProductLibrary({ studio }: { studio?: StudioEditorOption
       {!editing && canWrite && <button onClick={create} className={`${buttonClass} bg-indigo-600 text-white flex items-center gap-2`} disabled={busy}><Plus size={18} />Create Kit</button>}
     </div>
     {error && <div role="alert" className="rounded-xl bg-red-50 dark:bg-red-950 p-4 text-red-700 dark:text-red-300">{error}</div>}
-    {conflict && <p role="alert">Another editor changed this draft. Your changes are retained here for comparison. Copy any needed values, then choose “Close editor” to discard local changes and reopen the latest revision. Saving is blocked until reopening.</p>}
+    {conflict && <p role="alert">{conflict === 'conflict' ? 'Another editor changed this draft.' : 'The save may have reached the server.'} Your changes are retained here for comparison. Copy any needed values before leaving. {editing === 'new' ? 'Reload the Product Library and check whether this kit was created before creating another.' : `Choose “${studio ? 'Close editor' : 'Back to Product Library'}” and reopen the latest revision to check the saved content.`} Saving and approval are blocked until reconciliation.</p>}
     {message && <p role="status" className="rounded-xl bg-emerald-50 dark:bg-emerald-950 p-4 text-emerald-700 dark:text-emerald-300">{message}</p>}
     {editing ? <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 sm:p-8">
       <button type="button" disabled={busy} onClick={() => { if (dirty && !window.confirm("Discard unsaved changes?")) return; if (studio) { studio.onClose(); return; } setEditing(null); setConfirmArchive(false); setError(""); }} className={`${buttonClass} mb-6 flex items-center gap-2 text-slate-600 dark:text-slate-300`}><ArrowLeft size={18} />{studio ? 'Close editor' : 'Back to Product Library'}</button>
@@ -316,9 +319,9 @@ export default function ProductLibrary({ studio }: { studio?: StudioEditorOption
           {blankName && <p className="text-sm text-amber-700 dark:text-amber-300">Every subject, grade and activity needs a name before saving.</p>}
         </fieldset>
         <QuantityPreview subjects={subjects} templateId={editing === "new" ? undefined : editing.template_id} revision={editing === "new" ? undefined : editing.revision} dirty={dirty} disabled={busy} />
-        {!studio && canWrite && editing !== "new" && <button type="button" className={buttonClass} disabled={busy || dirty} onClick={() => void approve()}>Approve immutable version for planning</button>}
+        {!studio && canWrite && editing !== "new" && <button type="button" className={buttonClass} disabled={busy || dirty || !!conflict} onClick={() => void approve()}>Approve immutable version for planning</button>}
         <p aria-live="polite" className="text-sm text-slate-500">{busy ? "Saving…" : dirty ? "Unsaved changes" : "Saved"} · Draft{editing !== "new" && ` · Version ${editing.version_number} · Revision ${editing.revision}`}</p>
-        {canWrite && <div className="studio-savebar flex flex-wrap gap-3"><button type="submit" disabled={busy || conflict || (Boolean(studio) && !dirty) || !content.name.trim() || blankName} className={`${buttonClass} bg-indigo-600 text-white`}>{busy ? "Saving…" : "Save draft"}</button>
+        {canWrite && <div className="studio-savebar flex flex-wrap gap-3"><button type="submit" disabled={busy || !!conflict || (Boolean(studio) && !dirty) || !content.name.trim() || blankName} className={`${buttonClass} bg-indigo-600 text-white`}>{busy ? "Saving…" : "Save draft"}</button>
           {!studio && editing !== "new" && <button type="button" disabled={busy} className={`${buttonClass} text-slate-600 dark:text-slate-300 flex items-center gap-2`} onClick={() => setConfirmArchive(true)}><Archive size={18} />Archive kit</button>}</div>}
       </form>
       {editing !== "new" && <RevisionHistory templateId={editing.template_id} revision={editing.revision} />}

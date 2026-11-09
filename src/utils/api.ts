@@ -117,6 +117,10 @@ export function normalizeApiEndpoint(endpoint: string): string {
   return `/api/v1${endpoint.startsWith('/') ? '' : '/'}${endpoint}`;
 }
 
+export class ApiError extends Error {
+  constructor(public readonly status: number, message: string) { super(message); }
+}
+
 export async function apiFetch(endpoint: string, options: RequestInit = {}, responseType: "json" | "blob" = "json") {
   const targetUrl = normalizeApiEndpoint(endpoint);
 
@@ -174,7 +178,7 @@ export async function apiFetch(endpoint: string, options: RequestInit = {}, resp
         }
       }
     } catch (_) {}
-    throw new Error(errorMsg);
+    throw new ApiError(response.status, errorMsg);
   }
 
   if (response.status === 204) return null;
