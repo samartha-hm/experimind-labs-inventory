@@ -146,6 +146,7 @@ export default function ProductLibrary({ studio }: { studio?: StudioEditorOption
     setSubjects(previous => previous.map(subject => subject.id === id ? { ...subject, ...patch } : subject));
   }
   function moveSubject(id: string, delta: number) {
+    if (!canWrite || busy) return;
     setSubjects(previous => {
       const index = previous.findIndex(subject => subject.id === id);
       const target = index + delta;
@@ -166,6 +167,7 @@ export default function ProductLibrary({ studio }: { studio?: StudioEditorOption
       : { ...subject, grades: subject.grades.map(grade => grade.id === gradeId ? { ...grade, ...patch } : grade) }));
   }
   function moveGrade(subjectId: string, gradeId: string, delta: number) {
+    if (!canWrite || busy) return;
     setSubjects(previous => previous.map(subject => {
       if (subject.id !== subjectId) return subject;
       const index = subject.grades.findIndex(grade => grade.id === gradeId);
@@ -192,6 +194,7 @@ export default function ProductLibrary({ studio }: { studio?: StudioEditorOption
         : { ...grade, activities: grade.activities.map(activity => activity.id === activityId ? { ...activity, ...patch } : activity) }) }));
   }
   function moveActivity(subjectId: string, gradeId: string, activityId: string, delta: number) {
+    if (!canWrite || busy) return;
     setSubjects(previous => previous.map(subject => {
       if (subject.id !== subjectId) return subject;
       return { ...subject, grades: subject.grades.map(grade => {
@@ -260,8 +263,8 @@ export default function ProductLibrary({ studio }: { studio?: StudioEditorOption
           {subjects.map((subject, index) => <div key={subject.id} className="rounded-xl border border-slate-200 dark:border-slate-700 p-4 space-y-3">
             <div className="flex flex-wrap items-center gap-2">
               <input aria-label={`Subject ${index + 1} name`} placeholder="Subject name, for example Science" maxLength={100} disabled={!canWrite || busy} className={`${inputClass} flex-1 min-w-48`} value={subject.name} onChange={e => updateSubject(subject.id, { name: e.target.value })} />
-              <button type="button" aria-label={`Move ${subject.name || "subject"} up`} disabled={busy || index === 0} onClick={() => moveSubject(subject.id, -1)} className={iconButtonClass}><ArrowUp size={16} /></button>
-              <button type="button" aria-label={`Move ${subject.name || "subject"} down`} disabled={busy || index === subjects.length - 1} onClick={() => moveSubject(subject.id, 1)} className={iconButtonClass}><ArrowDown size={16} /></button>
+              <button type="button" aria-label={`Move ${subject.name || "subject"} up`} disabled={!canWrite || busy || index === 0} onClick={() => moveSubject(subject.id, -1)} className={iconButtonClass}><ArrowUp size={16} /></button>
+              <button type="button" aria-label={`Move ${subject.name || "subject"} down`} disabled={!canWrite || busy || index === subjects.length - 1} onClick={() => moveSubject(subject.id, 1)} className={iconButtonClass}><ArrowDown size={16} /></button>
               {canWrite && <button type="button" aria-label={`Remove ${subject.name || "subject"}`} disabled={busy} onClick={() => removeSubject(subject.id)} className={`${iconButtonClass} text-red-600 dark:text-red-400`}><Trash2 size={16} /></button>}
             </div>
             <CrateEditor crates={subject.crates ?? []} subjects={subjects} disabled={!canWrite || busy} onChange={crates => updateSubject(subject.id, { crates })} />
@@ -269,8 +272,8 @@ export default function ProductLibrary({ studio }: { studio?: StudioEditorOption
               {studio && <summary>{grade.name || 'New grade'} · Education and packing inspector</summary>}
               <div className="flex flex-wrap items-center gap-2">
                 <input aria-label={`${subject.name || "Subject"} grade ${gradeIndex + 1} name`} placeholder="Grade name, for example Grade 8" maxLength={100} disabled={!canWrite || busy} className={`${inputClass} flex-1 min-w-48`} value={grade.name} onChange={e => updateGrade(subject.id, grade.id, { name: e.target.value })} />
-                <button type="button" aria-label={`Move ${grade.name || "grade"} up`} disabled={busy || gradeIndex === 0} onClick={() => moveGrade(subject.id, grade.id, -1)} className={iconButtonClass}><ArrowUp size={16} /></button>
-                <button type="button" aria-label={`Move ${grade.name || "grade"} down`} disabled={busy || gradeIndex === subject.grades.length - 1} onClick={() => moveGrade(subject.id, grade.id, 1)} className={iconButtonClass}><ArrowDown size={16} /></button>
+                <button type="button" aria-label={`Move ${grade.name || "grade"} up`} disabled={!canWrite || busy || gradeIndex === 0} onClick={() => moveGrade(subject.id, grade.id, -1)} className={iconButtonClass}><ArrowUp size={16} /></button>
+                <button type="button" aria-label={`Move ${grade.name || "grade"} down`} disabled={!canWrite || busy || gradeIndex === subject.grades.length - 1} onClick={() => moveGrade(subject.id, grade.id, 1)} className={iconButtonClass}><ArrowDown size={16} /></button>
                 {canWrite && <button type="button" aria-label={`Remove ${grade.name || "grade"} from ${subject.name || "subject"}`} disabled={busy} onClick={() => removeGrade(subject.id, grade.id)} className={`${iconButtonClass} text-red-600 dark:text-red-400`}><Trash2 size={16} /></button>}
               </div>
               {grade.activities.map((activity, activityIndex) => <Inspector key={activity.id} className="rounded-xl border border-slate-200 dark:border-slate-700 p-4 space-y-3" {...(studio ? { open: true } : {})}>
@@ -279,8 +282,8 @@ export default function ProductLibrary({ studio }: { studio?: StudioEditorOption
                   <input aria-label={`${activity.name || "Activity"} ${activityIndex + 1} code`} placeholder="Code, e.g. 8.4.1" maxLength={50} disabled={!canWrite || busy} className={`${inputClass} w-36`} value={activity.code ?? ""} onChange={e => updateActivity(subject.id, grade.id, activity.id, { code: e.target.value })} />
                   <input aria-label={`${subject.name || "Subject"} ${grade.name || "grade"} activity ${activityIndex + 1} name`} placeholder="Activity name" maxLength={100} disabled={!canWrite || busy} className={`${inputClass} flex-1 min-w-48`} value={activity.name} onChange={e => updateActivity(subject.id, grade.id, activity.id, { name: e.target.value })} />
                   <label className="flex items-center gap-1 text-xs font-medium text-slate-600 dark:text-slate-300"><input type="checkbox" disabled={!canWrite || busy} checked={activity.optional === true} onChange={e => updateActivity(subject.id, grade.id, activity.id, { optional: e.target.checked })} />Optional</label>
-                  <button type="button" aria-label={`Move ${activity.name || "activity"} up`} disabled={busy || activityIndex === 0} onClick={() => moveActivity(subject.id, grade.id, activity.id, -1)} className={iconButtonClass}><ArrowUp size={16} /></button>
-                  <button type="button" aria-label={`Move ${activity.name || "activity"} down`} disabled={busy || activityIndex === grade.activities.length - 1} onClick={() => moveActivity(subject.id, grade.id, activity.id, 1)} className={iconButtonClass}><ArrowDown size={16} /></button>
+                  <button type="button" aria-label={`Move ${activity.name || "activity"} up`} disabled={!canWrite || busy || activityIndex === 0} onClick={() => moveActivity(subject.id, grade.id, activity.id, -1)} className={iconButtonClass}><ArrowUp size={16} /></button>
+                  <button type="button" aria-label={`Move ${activity.name || "activity"} down`} disabled={!canWrite || busy || activityIndex === grade.activities.length - 1} onClick={() => moveActivity(subject.id, grade.id, activity.id, 1)} className={iconButtonClass}><ArrowDown size={16} /></button>
                   {canWrite && <button type="button" aria-label={`Remove ${activity.name || "activity"}`} disabled={busy} onClick={() => removeActivity(subject.id, grade.id, activity.id)} className={`${iconButtonClass} text-red-600 dark:text-red-400`}><Trash2 size={16} /></button>}
                 </div>
                 <textarea rows={2} aria-label={`${activity.name || "Activity"} description`} placeholder="Description (optional)" maxLength={2000} disabled={!canWrite || busy} className={inputClass} value={activity.description ?? ""} onChange={e => updateActivity(subject.id, grade.id, activity.id, { description: e.target.value })} />

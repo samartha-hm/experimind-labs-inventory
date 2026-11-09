@@ -151,3 +151,10 @@ Fixed and per-project/site rules are generic; scope counts are explicit preview 
 PASS: 58 focused tests, 337 full tests / 50 files, typecheck and frontend/PWA/server build. PostgreSQL/HTTP verifies CRUD, restart persistence, revisions, tenant/RBAC, concurrency, published immutability and unchanged inventory/stock-ledger rows. No new migration; existing up/down smoke runs in isolated synthetic schemas. Existing bundle warning remains.
 
 Browser verification is pending because no callable runtime was immediately available. In an enabled browser, verify crate/material CRUD and reorder, rule controls, optional selections/overrides, save/reload/reopen, independent counts, explicit complete-set validation and trace/totals. Verify unchanged previous revisions and stock. Stop for review; no Project Integration, merge or deployment.
+
+## Read-only reorder correction - 2026-11-09
+
+Requirement: viewers must not edit drafts. A synthetic render with two subjects, grades and activities reproduced 14 enabled reorder buttons for viewer and unknown roles. Subject, grade and activity reorder controls now require a writer role, with matching handler guards during read-only or busy states. Staff retain valid moves and list boundary restrictions. This is a local UI correction; server authorization remains authoritative.
+
+Verification: four new rendering regressions pass, along with the existing draft-save and lifecycle tests (22 focused tests). Full regression: 573 passed, 132 skipped across 84 passing and nine skipped files. TypeScript passes. No company data, schema or published versions changed. Authenticated browser/persistence and PostgreSQL/recovery tests were not run for this correction; whole-ERP acceptance remains incomplete.
+Production build also passes; the existing large-chunk warning remains.
