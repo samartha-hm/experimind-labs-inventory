@@ -1,4 +1,7 @@
-@import "tailwindcss";
+/* Scan application sources only, not local databases, exports or rehearsal files. */
+@import "tailwindcss" source(none);
+@source "./**/*.{ts,tsx,js,jsx,html}";
+@source "../index.html";
 
 @custom-variant dark (&:where(.dark, .dark *));
 

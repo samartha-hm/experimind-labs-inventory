@@ -15,6 +15,7 @@ interface DataContextType {
   warehouses: any[];
   bins: any[];
   loading: boolean;
+  inventoryLoadError: string | null;
   
   // Inventory
   addInventoryItem: (item: Omit<InventoryItem, 'id'>) => Promise<string | null>;
@@ -122,6 +123,7 @@ const DataContext = createContext<DataContextType>({
   wmsTransfers: [],
   wmsCycleCounts: [],
   loading: true,
+  inventoryLoadError: null,
   updateCustomerOrderStatus: async () => {},
   updateCustomerOrderFulfillment: async () => {},
   refreshCustomerOrders: async () => {},
@@ -182,7 +184,7 @@ function mapItemToFrontend(dbItem: any): InventoryItem {
     unit: dbItem.unit || 'pcs',
     isCommon: !!dbItem.is_common,
     isSubassembly: !!dbItem.is_subassembly,
-    threshold: Number(dbItem.threshold) || 10,
+    threshold: dbItem.threshold == null ? 10 : Number(dbItem.threshold),
     imageUrl: dbItem.image_url || undefined,
     basePrice: Number(dbItem.base_price) || 0,
     description: dbItem.description || undefined,
@@ -254,6 +256,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [wmsCycleCounts, setWmsCycleCounts] = useState<CycleCount[]>([]);
   const [customerOrders, setCustomerOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [inventoryLoadError, setInventoryLoadError] = useState<string | null>(null);
 
   const loadAllData = async () => {
     try {
@@ -265,6 +268,9 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
       if (resInv.status === 'fulfilled' && Array.isArray(resInv.value)) {
         setInventory(resInv.value.map(mapItemToFrontend));
+        setInventoryLoadError(null);
+      } else {
+        setInventoryLoadError('Inventory could not be loaded. Check your connection and access, then reload this page.');
       }
 
       if (resKits.status === 'fulfilled' && Array.isArray(resKits.value)) {
@@ -522,6 +528,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       }
     } else {
       setInventory([]);
+      setInventoryLoadError(null);
       setKits([]);
       setTransactions([]);
       setVendors([]);
@@ -1763,7 +1770,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <DataContext.Provider value={{
-      inventory, kits, transactions, vendors, customers, purchaseOrders, salesOrders, customerOrders, warehouses, bins, loading,
+      inventory, kits, transactions, vendors, customers, purchaseOrders, salesOrders, customerOrders, warehouses, bins, loading, inventoryLoadError,
       physicalRacks, elementTypes, serialNumbers,
       stockLedger, wmsTransfers, wmsCycleCounts,
       addInventoryItem, updateInventoryItem, deleteInventoryItem, addKitBOM, updateKitBOM, deleteKitBOM, logTransaction,
