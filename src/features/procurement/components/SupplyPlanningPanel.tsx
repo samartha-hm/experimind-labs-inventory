@@ -83,6 +83,6 @@ export default function SupplyPlanningPanel({project,onChange}:{project?:Plannin
       {!!history.length&&<details open><summary>Immutable audit snapshots</summary><pre className="overflow-auto text-xs">{JSON.stringify(history,null,2)}</pre></details>}
     </fieldset>
     <TrustedPurchasingPanel projectId={project?.id} projectName={project?.name} sites={project?.sites} items={items} suppliers={data.suppliers} onChange={async()=>{await load();onChange?.();}}/>
-    <TrustedReceiptPanel projectId={project?.id} onChange={async()=>{await load();onChange?.();}}/>
+    <TrustedReceiptPanel projectId={project?.id} projectName={project?.name} sites={project?.sites} items={items} onChange={async()=>{await load();onChange?.();}}/>
   </section>;
 }

@@ -9,7 +9,7 @@ interface Pending {key:string;input:ReceiptMutation}
 const endpoint="/api/v1/supply-planning",control="min-h-11 w-full rounded-xl border border-slate-300 bg-transparent p-3";
 const button="min-h-11 rounded-xl border border-slate-300 px-4 py-3 disabled:opacity-40";
 
-export default function TrustedReceiptPanel({projectId,onChange}:{projectId?:string;onChange:()=>Promise<void>}) {
+export default function TrustedReceiptPanel({projectId,projectName,sites=[],items=[],onChange}:{projectId?:string;projectName?:string;sites?:{id:string;name:string}[];items?:{id:string;name:string}[];onChange:()=>Promise<void>}) {
   const {currentUser}=useAuth(),writer=["admin","super_admin"].includes(currentUser?.role??"");
   const storageKey=`receipts.pending.${currentUser?.id}`;
   const [coverage,setCoverage]=useState<Coverage[]>([]),[receipts,setReceipts]=useState<PurchaseGoodsReceipt[]>([]);
@@ -30,6 +30,8 @@ export default function TrustedReceiptPanel({projectId,onChange}:{projectId?:str
     void refresh().catch(e=>setError(e instanceof Error?e.message:"Receipt evidence unavailable"));
   },[storageKey,projectId]);
   const source=coverage.find(c=>c.coverage===selected),receipt=receipts.find(r=>r.id===receiptId);
+  const schoolName=(id:string)=>sites.find(s=>s.id===id)?.name.trim()||`School ${id}`;
+  const materialName=(id:string)=>items.find(i=>i.id===id)?.name.trim()||id;
   async function submit(operation:Pending) {
     setBusy(true);setError("");setMessage("");setReconciled(false);setConfirmed(false);
     try {
@@ -64,8 +66,8 @@ export default function TrustedReceiptPanel({projectId,onChange}:{projectId?:str
     {!writer&&<p>Only an active tenant administrator can receive or inspect goods.</p>}
     <fieldset disabled={busy||!!pending||storageError||!enabled||!writer} className="grid gap-3 sm:grid-cols-2">
       <legend className="mb-2 font-medium">Approved source and operation</legend>
-      <label className="sm:col-span-2">PO coverage <select className={control} value={selected} onChange={e=>{setSelected(e.target.value);setReceiptId("");setLocation("");setConfirmed(false);}}><option value="">Select approved PO coverage</option>{coverage.map(c=><option key={c.coverage} value={c.coverage}>{c.order} · {c.remaining} {c.unit} remaining · {c.coverage}</option>)}</select></label>
-      {source&&<p className="break-all sm:col-span-2">Project {source.project} · School {source.site} · Approval {source.approval} · Revision {source.demandRevision}</p>}
+      <label className="sm:col-span-2">PO coverage <select className={control} value={selected} onChange={e=>{setSelected(e.target.value);setReceiptId("");setLocation("");setConfirmed(false);}}><option value="">Select approved PO coverage</option>{coverage.map(c=><option key={c.coverage} value={c.coverage}>{schoolName(c.site)} · {materialName(c.item)} · {c.remaining} {c.unit} remaining · PO {c.order} · {c.coverage}</option>)}</select></label>
+      {source&&<div className="min-w-0 sm:col-span-2 space-y-2"><p className="break-words">{source.project===projectId&&projectName?.trim()||source.project} · {schoolName(source.site)} · {materialName(source.item)} · Revision {source.demandRevision}</p><details className="break-all"><summary>Receipt source references</summary><p>Project {source.project} · School {source.site} · Material {source.item} · Approval {source.approval} · PO {source.order} · Coverage {source.coverage}</p></details></div>}
       <label>Receipt operation <select className={control} value={transition} onChange={e=>{setTransition(e.target.value as ReceiptMutation["transition"]);setConfirmed(false);}}><option value="receive">Receive pending QC</option><option value="accept">Accept QC</option><option value="reject">Reject QC</option><option value="quarantine">Quarantine</option></select></label>
       {transition==="receive"?<><label>Receipt quantity <input className={control} inputMode="decimal" value={quantity} onChange={e=>{setQuantity(e.target.value);setConfirmed(false);}}/></label><label>Receiving location <select className={control} value={location} onChange={e=>{setLocation(e.target.value);setConfirmed(false);}}><option value="">Select verified location</option>{source?.locations.map(value=><option key={value} value={value}>{value}</option>)}</select></label></>:<label>Receipt to inspect <select className={control} value={receiptId} onChange={e=>{setReceiptId(e.target.value);setConfirmed(false);}}><option value="">Select receipt</option>{receipts.filter(r=>r.po_id===source?.order&&r.line_id===source.line&&["pending","quarantined"].includes(r.status)).map(r=><option key={r.id} value={r.id}>{r.id} · {r.quantity} {r.unit} · {r.status} · {r.location}</option>)}</select></label>}
       <label className="sm:col-span-2">Receipt / QC reason <input className={control} maxLength={1000} value={reason} onChange={e=>{setReason(e.target.value);setConfirmed(false);}}/></label>

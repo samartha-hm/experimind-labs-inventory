@@ -18,4 +18,13 @@
 - Replaced project/school/material UUID labels in the trusted demand selector with names from existing project and inventory data; request cards now show school and material names. Missing names retain identity fallbacks. Source values, commitment lineage and approval behavior are unchanged.
 - After production build and browser reload, reopened the project and verified the readable demand option and persisted approved PR r3. Typecheck, build and whitespace checks passed; the build still reports its existing large-bundle warning.
 
-Remaining: trusted PO/receiving/QC continuation, production/packing/delivery acceptance; long-name/deep-editor/keyboard and full theme/viewport visual coverage. This is a partial checkpoint, not 100/100 acceptance. D6 BLOCKED; pilot NO-GO. No company database reset, merge or deployment.
+## Trusted PO and receiving browser acceptance
+
+- Created PO `f55620db-8dd4-4bf4-83f4-f03ce30a21c1` for the approved 45 m PR coverage; reviewed and approved it through the UI (revision 3).
+- Received 45 m at Shelf A as receipt `2f662035-e66b-4b32-b32e-485ebfc676a7`. Pending QC and quarantine both retained zero verified stock, 45 m incoming, 45 m immediate shortage and zero projected shortage.
+- Accepted the quarantined receipt after inspection confirmation. Recalculation showed 45 m verified on-hand, zero reservations, 45 m available, zero incoming and zero immediate/projected shortage. The accepted receipt disappeared from the inspection selector and the operation button was disabled.
+- Receiving now resolves school/material names and shows the project name in the selected-source summary. Expanded Receipt source references verified the original project, school, material, approval, PO and coverage IDs.
+- Reloaded the production build and reauthenticated the synthetic administrator to verify persisted names and source references. At 375 px, document width remained 375 px. Viewport restored afterward. This is a layout check; full visual and keyboard acceptance remains outstanding.
+- Typecheck, production build and whitespace checks passed. Existing large-bundle warning remains.
+
+Remaining: production/packing/delivery acceptance; long-name/deep-editor/keyboard and full theme/viewport visual coverage. This is a partial checkpoint, not 100/100 acceptance. D6 BLOCKED; pilot NO-GO. No company database reset, merge or deployment.
