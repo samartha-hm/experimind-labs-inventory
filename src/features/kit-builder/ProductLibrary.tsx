@@ -61,6 +61,7 @@ export default function ProductLibrary({ studio }: { studio?: StudioEditorOption
   const [subjects, setSubjects] = useState<KitSubject[]>(() => withActivities(studio?.draft.subjects ?? []));
   const [conflict, setConflict] = useState<'conflict' | 'uncertain' | null>(null);
   const [approvalBlocked, setApprovalBlocked] = useState(false);
+  const [archiveBlocked, setArchiveBlocked] = useState(false);
   const editorRoot = useRef<HTMLElement>(null);
   const Inspector = studio ? 'details' : 'div';
   const Title = studio ? 'h2' : 'h1';
@@ -95,9 +96,9 @@ export default function ProductLibrary({ studio }: { studio?: StudioEditorOption
       .finally(() => { if (mounted) setLoading(false); });
     return () => { mounted = false; };
   }, []);
-  function create() { setContent({ name: "", description: "", category: "" }); setSubjects([]); setEditing("new"); setConflict(null); setApprovalBlocked(false); setError(""); setMessage(""); }
+  function create() { setContent({ name: "", description: "", category: "" }); setSubjects([]); setEditing("new"); setConflict(null); setApprovalBlocked(false); setArchiveBlocked(false); setConfirmArchive(false); setError(""); setMessage(""); }
   async function approve() {
-    if (busy || conflict || approvalBlocked || !canWrite || !editing || editing === "new" || dirty || !window.confirm("Approve this saved revision as an immutable version for project planning? The draft remains editable.")) return;
+    if (busy || conflict || approvalBlocked || archiveBlocked || !canWrite || !editing || editing === "new" || dirty || !window.confirm("Approve this saved revision as an immutable version for project planning? The draft remains editable.")) return;
     setBusy(true); setError(""); setMessage("");
     try {
       const version: { version_number: number } = await apiFetch(`/api/v1/product-templates/${editing.template_id}/approve`, { method: "POST", body: JSON.stringify({ revision: editing.revision }) });
@@ -116,11 +117,13 @@ export default function ProductLibrary({ studio }: { studio?: StudioEditorOption
       setSubjects(withActivities(fresh.subjects ?? []));
       setConflict(null);
       setApprovalBlocked(false);
+      setArchiveBlocked(false);
+      setConfirmArchive(false);
     } catch (e) { setError(e instanceof Error ? e.message : "Unable to open kit"); }
     finally { setBusy(false); }
   }
   async function save(event: React.FormEvent) {
-    event.preventDefault(); if (!editing || busy || conflict || !canWrite) return;
+    event.preventDefault(); if (!editing || busy || conflict || archiveBlocked || !canWrite) return;
     setBusy(true); setError(""); setMessage("");
     try {
       const isNew = editing === "new";
@@ -141,13 +144,16 @@ export default function ProductLibrary({ studio }: { studio?: StudioEditorOption
     finally { setBusy(false); }
   }
   async function archive() {
-    if (!editing || editing === "new") return;
-    setBusy(true); setError("");
+    if (!editing || editing === "new" || busy || !canWrite || conflict || archiveBlocked) return;
+    setBusy(true); setError(""); setMessage("");
     try {
       await apiFetch(`/api/v1/product-templates/${editing.template_id}/archive`, { method: "POST", body: JSON.stringify({ revision: editing.revision }) });
       setKits(previous => previous.filter(kit => kit.template_id !== editing.template_id));
       setEditing(null); setConfirmArchive(false); setMessage("Kit archived.");
-    } catch (e) { setError(e instanceof Error ? e.message : "Unable to archive draft"); }
+    } catch (e) {
+      setArchiveBlocked(true);
+      setError(e instanceof Error ? e.message : "Unable to confirm archive");
+    }
     finally { setBusy(false); }
   }
   function updateSubject(id: string, patch: Partial<KitSubject>) {
@@ -258,6 +264,7 @@ export default function ProductLibrary({ studio }: { studio?: StudioEditorOption
     </div>
     {error && <div role="alert" className="rounded-xl bg-red-50 dark:bg-red-950 p-4 text-red-700 dark:text-red-300">{error}</div>}
     {approvalBlocked && <p role="alert">Reopen the draft to check approval status before trying again. Choose “Back to Product Library” and open the saved kit. Approval remains blocked until the draft reloads successfully.</p>}
+    {archiveBlocked && <p role="alert">Archive outcome needs reconciliation. Your local content remains open. Copy any needed values, then reload the Product Library to check whether this kit is still active. If it remains active, reopen it before making changes. Saving, approval and archive are blocked until a draft reloads successfully.</p>}
     {conflict && <p role="alert">{conflict === 'conflict' ? 'Another editor changed this draft.' : 'The save may have reached the server.'} Your changes are retained here for comparison. Copy any needed values before leaving. {editing === 'new' ? 'Reload the Product Library and check whether this kit was created before creating another.' : `Choose “${studio ? 'Close editor' : 'Back to Product Library'}” and reopen the latest revision to check the saved content.`} Saving and approval are blocked until reconciliation.</p>}
     {message && <p role="status" className="rounded-xl bg-emerald-50 dark:bg-emerald-950 p-4 text-emerald-700 dark:text-emerald-300">{message}</p>}
     {editing ? <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 sm:p-8">
@@ -325,13 +332,13 @@ export default function ProductLibrary({ studio }: { studio?: StudioEditorOption
           {blankName && <p className="text-sm text-amber-700 dark:text-amber-300">Every subject, grade and activity needs a name before saving.</p>}
         </fieldset>
         <QuantityPreview subjects={subjects} templateId={editing === "new" ? undefined : editing.template_id} revision={editing === "new" ? undefined : editing.revision} dirty={dirty} disabled={busy} />
-        {!studio && canWrite && editing !== "new" && <button type="button" className={buttonClass} disabled={busy || dirty || !!conflict || approvalBlocked} onClick={approve}>Approve immutable version for planning</button>}
+        {!studio && canWrite && editing !== "new" && <button type="button" className={buttonClass} disabled={busy || dirty || !!conflict || approvalBlocked || archiveBlocked} onClick={approve}>Approve immutable version for planning</button>}
         <p aria-live="polite" className="text-sm text-slate-500">{busy ? "Saving…" : dirty ? "Unsaved changes" : "Saved"} · Draft{editing !== "new" && ` · Version ${editing.version_number} · Revision ${editing.revision}`}</p>
-        {canWrite && <div className="studio-savebar flex flex-wrap gap-3"><button type="submit" disabled={busy || !!conflict || (Boolean(studio) && !dirty) || !content.name.trim() || blankName} className={`${buttonClass} bg-indigo-600 text-white`}>{busy ? "Saving…" : "Save draft"}</button>
-          {!studio && editing !== "new" && <button type="button" disabled={busy} className={`${buttonClass} text-slate-600 dark:text-slate-300 flex items-center gap-2`} onClick={() => setConfirmArchive(true)}><Archive size={18} />Archive kit</button>}</div>}
+        {canWrite && <div className="studio-savebar flex flex-wrap gap-3"><button type="submit" disabled={busy || !!conflict || archiveBlocked || (Boolean(studio) && !dirty) || !content.name.trim() || blankName} className={`${buttonClass} bg-indigo-600 text-white`}>{busy ? "Saving…" : "Save draft"}</button>
+          {!studio && editing !== "new" && <button type="button" disabled={busy || !!conflict || archiveBlocked} className={`${buttonClass} text-slate-600 dark:text-slate-300 flex items-center gap-2`} onClick={() => setConfirmArchive(true)}><Archive size={18} />Archive kit</button>}</div>}
       </form>
       {editing !== "new" && <RevisionHistory templateId={editing.template_id} revision={editing.revision} />}
-      {confirmArchive && <div role="alert" className="mt-6 rounded-xl border border-amber-200 p-4 text-slate-700 dark:text-slate-200"><p>Archive this kit? It will be removed from the active library. Its saved records will be retained.</p><div className="mt-3 flex gap-3"><button disabled={busy} onClick={archive} className={`${buttonClass} bg-amber-600 text-white`}>Confirm archive</button><button disabled={busy} onClick={() => setConfirmArchive(false)} className={buttonClass}>Cancel</button></div></div>}
+      {confirmArchive && canWrite && <div role="alert" className="mt-6 rounded-xl border border-amber-200 p-4 text-slate-700 dark:text-slate-200"><p>Archive this kit? It will be removed from the active library. Its saved records will be retained.</p><div className="mt-3 flex gap-3"><button disabled={busy || !!conflict || archiveBlocked} onClick={archive} className={`${buttonClass} bg-amber-600 text-white`}>Confirm archive</button><button disabled={busy} onClick={() => setConfirmArchive(false)} className={buttonClass}>Cancel</button></div></div>}
     </div> : <>
       <label className="flex items-center gap-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-4"><Search size={18} className="text-slate-400" /><input aria-label="Search draft kits" className="w-full min-h-11 py-3 bg-transparent outline-none text-slate-900 dark:text-white" value={search} onChange={e => setSearch(e.target.value)} placeholder="Search kits by name or category" /></label>
       {loading ? <div role="status" className="space-y-3"><span className="sr-only">Loading draft kits</span>{[1, 2, 3].map(id => <div key={id}><SkeletonCard /></div>)}</div>

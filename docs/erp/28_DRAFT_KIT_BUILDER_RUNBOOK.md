@@ -170,3 +170,11 @@ Verification: 11 new node-based editor-handler regressions pass, covering both e
 Product Library now blocks repeat approval after failed or unreadable responses, matching Studio recovery behavior. Local draft content stays open; recovery guidance persists independently of ordinary error messages. Return to the library and successfully reopen the authoritative draft before a deliberate retry. Backend approval remains idempotent per source revision; no automatic replay or published-version changes were introduced.
 
 Verification: five new controlled-hook regressions cover network/server/JSON failures, stale revisions, retained content, blocked handlers and reopening before retry. Full suite: 589 passed, 132 skipped; TypeScript and production build passed. Final guidance rendering also passed the 25 focused editor/lifecycle checks. No authenticated browser, PostgreSQL or recovery acceptance claimed; D6 BLOCKED and pilot NO-GO remain unchanged.
+
+## Archive response reconciliation and delivery batches - 2026-11-09
+
+Product Library now prevents archive submission after permission loss or while another mutation is pending. Failed or unreadable archive responses retain local content and persistent reconciliation guidance; saving, approval and archive remain blocked until an authoritative draft successfully reopens. A failed reload retains the block. Successful archive closes the editor. No automatic replay or backend policy changes were introduced.
+
+Verification: nine new controlled-hook regressions cover network/server/JSON errors, stale/missing drafts, permission loss, pending mutations, failed/successful reopen and successful archive. The initial reproduction produced seven failures. Final full suite: 598 passed, 132 skipped across 85 passing and nine skipped files; TypeScript and production build pass. No company data, schema or published versions changed. Fresh authenticated browser, PostgreSQL and recovery acceptance remain pending; historical local test endpoints were not listening. D6 BLOCKED and pilot NO-GO remain unchanged.
+
+The [longer build batch plan](ERP_BUILD_BATCH_PLAN_2026-11-09.md) groups related workflow work and runs full verification once per completed batch. Next is synthetic builder workflow acceptance followed by responsive visual acceptance; node tests alone do not establish pixel perfection.

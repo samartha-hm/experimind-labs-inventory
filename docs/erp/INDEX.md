@@ -5,6 +5,7 @@ Open only the authority relevant to the task. Current user instructions and conf
 | Topic | Authoritative specification |
 | --- | --- |
 | Cross-product assessment and excellence roadmap | [2026-11-09 assessment](../ERP_ASSESSMENT_2026-11-09.md), [architecture, research and acceptance plan](ERP_EXCELLENCE_PLAN_2026-11-09.md) |
+| Longer build sessions and verification batches | [Ordered build batches and exit evidence](ERP_BUILD_BATCH_PLAN_2026-11-09.md) |
 | D6-F8 trusted packing build and QC | [BUILD PASS / QC BLOCKED; isolated browser controls and conservation verified](D6F8_TRUSTED_PACKING_BUILD_AND_QC_ACCEPTANCE.md); D6 BLOCKED, pilot NO-GO |
 | D6-F7 frontend gate diagnosis | [Correct build-time OFF gate; authenticated reproduction, QC BLOCKED](D6F7_PACKING_QC_FRONTEND_GATE_DIAGNOSIS.md); D6 BLOCKED, pilot NO-GO |
 | D6-F6 packing QC browser acceptance | [Supported connection and authenticated navigation pass; trusted packing UI unavailable, QC BLOCKED](D6F6_PACKING_QC_ACCEPTANCE.md); D6 BLOCKED, pilot NO-GO |

@@ -4,7 +4,7 @@ import ProductLibrary, { type DraftKit } from './ProductLibrary';
 import { setApiAuthToken } from '../../utils/api';
 
 // Exercise editor event handlers and rerenders in the node environment without a DOM.
-const hooks = vi.hoisted(() => ({ values: [] as unknown[], cursor: 0 }));
+const hooks = vi.hoisted(() => ({ values: [] as unknown[], cursor: 0, role: 'staff' }));
 vi.mock('react', async importOriginal => {
   const actual = await importOriginal<typeof import('react')>();
   return { ...actual, useEffect: () => {}, useRef: () => ({ current: null }),
@@ -17,7 +17,7 @@ vi.mock('react', async importOriginal => {
     },
   };
 });
-vi.mock('../../AuthContext', () => ({ useAuth: () => ({ role: 'staff' }) }));
+vi.mock('../../AuthContext', () => ({ useAuth: () => ({ role: hooks.role }) }));
 
 const draft: DraftKit = { id: 'version', template_id: 'template', name: 'Saved kit', description: '', category: '', version_number: 1, revision: 2, updated_at: '', subjects: [] };
 type Control = ReactElement<{ children?: ReactNode; type?: string; value?: string; disabled?: boolean; onClick?: () => void | Promise<void>; onChange?: (event: { target: { value: string } }) => void; onSubmit?: (event: { preventDefault: () => void }) => Promise<void> }>;
@@ -44,8 +44,98 @@ function control(tree: Control[], predicate: (element: Control) => boolean): Con
 const submit = (tree: Control[]) => control(tree, element => element.type === 'form').props.onSubmit!({ preventDefault() {} });
 const saveButton = (tree: Control[]) => control(tree, element => element.type === 'button' && element.props.type === 'submit');
 
-beforeEach(() => { hooks.values = []; hooks.cursor = 0; setApiAuthToken('synthetic'); });
+beforeEach(() => { hooks.values = []; hooks.cursor = 0; hooks.role = 'staff'; setApiAuthToken('synthetic'); });
 afterEach(() => { vi.unstubAllGlobals(); setApiAuthToken(null); });
+
+const button = (tree: Control[], label: string) => control(tree, element => element.type === 'button' && text(element.props.children) === label);
+function archiveConfirmation(): Control[] {
+  render(true);
+  button(render(false), 'Archive kit').props.onClick!();
+  return render(false);
+}
+
+describe('Archive response recovery', () => {
+  it('clears reconciliation only after a successful authoritative reopen', async () => {
+    archiveConfirmation();
+    const fetch = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify(draft)))
+      .mockRejectedValueOnce(new TypeError('Connection lost'))
+      .mockRejectedValueOnce(new TypeError('Reload failed'))
+      .mockResolvedValueOnce(new Response(JSON.stringify(draft)));
+    vi.stubGlobal('fetch', fetch);
+    await submit(render(false));
+    await button(render(false), 'Confirm archive').props.onClick!();
+    button(render(false), 'Back to Product Library').props.onClick!();
+    const open = () => control(render(false), element => element.type === 'button' && text(element.props.children).includes('Saved kit')).props.onClick!();
+    await open();
+    expect(text(render(false))).toContain('Archive outcome needs reconciliation.');
+    await open();
+    const tree = render(false);
+    expect(text(tree)).not.toContain('Archive outcome needs reconciliation.');
+    expect(saveButton(tree).props.disabled).toBe(false);
+    expect(button(tree, 'Archive kit').props.disabled).toBe(false);
+    expect(tree.some(element => element.type === 'button' && text(element.props.children) === 'Confirm archive')).toBe(false);
+    expect(fetch).toHaveBeenCalledTimes(4);
+    expect(fetch.mock.calls[2][0]).toBe('/api/v1/product-templates/template');
+    expect(fetch.mock.calls[3][0]).toBe('/api/v1/product-templates/template');
+  });
+
+  it.each(['connection', 'server', 'invalid-json', 'stale', 'missing'] as const)('blocks mutations after %s archive response', async failure => {
+    const tree = archiveConfirmation();
+    const fetch = failure === 'connection' ? vi.fn().mockRejectedValue(new TypeError('Connection lost'))
+      : vi.fn().mockResolvedValue(new Response(failure === 'invalid-json' ? '{' : JSON.stringify({ error: 'Archive unavailable' }), {
+        status: failure === 'server' ? 500 : failure === 'stale' ? 409 : failure === 'missing' ? 404 : 200,
+        headers: { 'Content-Type': 'application/json' },
+      }));
+    vi.stubGlobal('fetch', fetch);
+    await button(tree, 'Confirm archive').props.onClick!();
+    const recovered = render(false);
+    expect(text(recovered)).toContain('Archive outcome needs reconciliation.');
+    expect(button(recovered, 'Confirm archive').props.disabled).toBe(true);
+    expect(saveButton(recovered).props.disabled).toBe(true);
+    expect(button(recovered, 'Approve immutable version for planning').props.disabled).toBe(true);
+    expect(recovered.some(element => element.type === 'input' && element.props.value === draft.name)).toBe(true);
+    await button(recovered, 'Confirm archive').props.onClick!();
+    await submit(recovered);
+    await button(recovered, 'Approve immutable version for planning').props.onClick!();
+    expect(fetch).toHaveBeenCalledTimes(1);
+  });
+
+  it('rejects confirmation after write permission is lost', async () => {
+    archiveConfirmation();
+    hooks.role = 'viewer';
+    const tree = render(false);
+    const fetch = vi.fn();
+    vi.stubGlobal('fetch', fetch);
+    const confirm = tree.find(element => element.type === 'button' && text(element.props.children) === 'Confirm archive');
+    if (confirm) {
+      expect(confirm.props.disabled).toBe(true);
+      await confirm.props.onClick!();
+    }
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it('rejects confirmation while another mutation is pending', async () => {
+    const tree = archiveConfirmation();
+    let finish!: (response: Response) => void;
+    const fetch = vi.fn().mockImplementation(() => new Promise<Response>(resolve => { finish = resolve; }));
+    vi.stubGlobal('fetch', fetch);
+    const saving = submit(tree);
+    await button(render(false), 'Confirm archive').props.onClick!();
+    expect(fetch).toHaveBeenCalledTimes(1);
+    finish(new Response(JSON.stringify(draft)));
+    await saving;
+  });
+
+  it('removes an archived draft only after confirmed success', async () => {
+    const tree = archiveConfirmation();
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(null, { status: 204 })));
+    await button(tree, 'Confirm archive').props.onClick!();
+    const next = render(false);
+    expect(text(next)).toContain('Kit archived.');
+    expect(next.some(element => element.type === 'form')).toBe(false);
+  });
+});
 
 describe('Approval response recovery', () => {
   it('allows a deliberate retry after reopening an authoritative draft', async () => {
