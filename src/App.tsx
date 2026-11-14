@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { lazy, Suspense, useState, useMemo, useEffect } from 'react';
 import { Settings, DatabaseZap, LayoutDashboard } from 'lucide-react';
 import { analyzeKitting } from './utils/kitting';
 import { useData, DataProvider } from './DataContext';
@@ -11,19 +11,10 @@ import { useUndoRedo } from '@/src/contexts/UndoRedoContext';
 import Sidebar from '@/src/shared/components/Sidebar';
 import Header from '@/src/shared/components/Header';
 import OperationsWorkspace from '@/src/features/core/OperationsWorkspace';
-import InventoryTab from '@/src/features/inventory/components/InventoryTab';
 import StocktakePanel from '@/src/features/inventory/StocktakePanel';
 import HistoricalReconciliationPanel from '@/src/features/inventory/HistoricalReconciliationPanel';
-import KittingTab from '@/src/features/kitting/components/KittingTab';
-import ProductLibrary from '@/src/features/kit-builder/LiveKitStudio';
-import SupplyPlanningPanel from '@/src/features/procurement/components/SupplyPlanningPanel';
-import SalesOrdersTab from '@/src/features/sales/components/SalesOrdersTab';
-import PartnersTab from '@/src/features/partners/components/PartnersTab';
-import WarehousesTab from '@/src/features/warehouse/components/WarehousesTab';
 import BOMCustomizerModal from '@/src/features/kitting/components/BOMCustomizerModal';
 import CreateKitModal from '@/src/features/kitting/components/CreateKitModal';
-import StorefrontManagerTab from '@/src/features/storefront/components/StorefrontManagerTab';
-import PredictiveAnalyticsTab from '@/src/features/analytics/PredictiveAnalyticsTab';
 import StockTransferTab from '@/src/features/warehouse/components/StockTransferTab';
 import CycleCountsTab from '@/src/features/warehouse/components/CycleCountsTab';
 import CommandPaletteModal from '@/src/shared/components/CommandPaletteModal';
@@ -35,17 +26,27 @@ import { ToastProvider } from '@/src/contexts/ToastContext';
 import { ApprovalProvider } from '@/src/contexts/ApprovalContext';
 import { LedgerAuditPanel } from './features/compliance/components/LedgerAuditPanel';
 import { UserDirectoryTab } from '@/src/features/compliance/components/UserDirectoryTab';
-import ProductionPlanningPanel from "./features/production/ProductionPlanningPanel";
 import { PackingPackageLookup } from "./features/packing/PackingLabelsPanel";
 import TrustedPackingPanel from './features/packing/TrustedPackingPanel';
 import TrustedDeliveryPanel from './features/delivery/TrustedDeliveryPanel';
 import { PackingWorkspaceEntry } from './features/packing/PackingWorkspace';
-import ProjectPlanningTab from '@/src/features/projects/ProjectPlanningTab';
 import { ProjectsWorkspaceEntry } from './features/projects/ProjectsWorkspace';
-import StickerMonitoringHubTab from '@/src/features/stickers/StickerMonitoringHubTab';
 import ToastContainer from '@/src/components/ToastContainer';
 import MobileBottomNav from '@/src/shared/components/MobileBottomNav';
 import { canAccessTab, getDefaultWorkspaceTab } from '@/src/features/core/workspacePolicy';
+
+const ProjectPlanningTab = lazy(() => import('@/src/features/projects/ProjectPlanningTab'));
+const InventoryTab = lazy(() => import('@/src/features/inventory/components/InventoryTab'));
+const ProductLibrary = lazy(() => import('@/src/features/kit-builder/LiveKitStudio'));
+const SalesOrdersTab = lazy(() => import('@/src/features/sales/components/SalesOrdersTab'));
+const StorefrontManagerTab = lazy(() => import('@/src/features/storefront/components/StorefrontManagerTab'));
+const StickerMonitoringHubTab = lazy(() => import('@/src/features/stickers/StickerMonitoringHubTab'));
+const KittingTab = lazy(() => import('@/src/features/kitting/components/KittingTab'));
+const WarehousesTab = lazy(() => import('@/src/features/warehouse/components/WarehousesTab'));
+const PredictiveAnalyticsTab = lazy(() => import('@/src/features/analytics/PredictiveAnalyticsTab'));
+const PartnersTab = lazy(() => import('@/src/features/partners/components/PartnersTab'));
+const SupplyPlanningPanel = lazy(() => import('@/src/features/procurement/components/SupplyPlanningPanel'));
+const ProductionPlanningPanel = lazy(() => import("./features/production/ProductionPlanningPanel"));
 
 function MainApp() {
   const { inventory, kits, transactions, loading, addInventoryItem, updateInventoryItem, deleteInventoryItem, updateKitBOM, addKitBOM, deleteKitBOM, logTransaction, salesOrders = [] } = useData();
@@ -317,6 +318,7 @@ function MainApp() {
         <div className="flex-1 overflow-y-auto overflow-x-hidden overscroll-contain">
           <div className="p-3 sm:p-6 md:p-8 max-w-7xl mx-auto pb-24 md:pb-8">
             <main>
+              <Suspense fallback={<p role="status" className="p-4 text-sm text-slate-400">Loading workspace…</p>}>
               <PackingPackageLookup />
               {import.meta.env.VITE_TRUSTED_PACKING_ENABLED==='true'&&new URLSearchParams(window.location.search).has('trusted_packing_package')&&<TrustedPackingPanel/>}
               {import.meta.env.VITE_TRUSTED_DELIVERY_ENABLED==='true'&&new URLSearchParams(window.location.search).has('trusted_packing_package')&&<TrustedDeliveryPanel/>}
@@ -422,6 +424,7 @@ function MainApp() {
               {activeTab === 'cycle_counts' && (
                 <CycleCountsTab role={role} />
               )}
+              </Suspense>
             </main>
           </div>
         </div>
