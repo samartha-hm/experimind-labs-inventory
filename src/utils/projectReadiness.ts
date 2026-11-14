@@ -1,3 +1,4 @@
+import { portfolioChecks } from "../data/portfolioTemplates";
 import {
   Project,
   ProjectWorkItem,
@@ -72,6 +73,7 @@ export function getProjectInventoryShortages(
     inventory.map((item) => [normalizeName(item.name), item]),
   );
 
+  const remaining = new Map<string, number>();
   return flattenItems(project)
     .filter((workItem) =>
       workItem.sourcingChannel === 'IN_STOCK' &&
@@ -79,18 +81,20 @@ export function getProjectInventoryShortages(
       workItem.status !== 'PACKED',
     )
     .flatMap((workItem) => {
-      const inventoryItem = inventoryByName.get(normalizeName(workItem.name));
-      if (!inventoryItem || inventoryItem.isCommon) return [];
+      const inventoryItem = workItem.catalogItemId ? inventory.find(i => i.id === workItem.catalogItemId) : inventoryByName.get(normalizeName(workItem.name));
+      if (!workItem.catalogItemId && (!inventoryItem || inventoryItem.isCommon)) return [];
+      const id = workItem.catalogItemId ?? inventoryItem!.id;
 
       const required = Math.max(0, Number(workItem.totalQuantity) || 0);
-      const available = Math.max(0, Number(inventoryItem.stockQty) || 0);
+      const available = remaining.get(id) ?? Math.max(0, Number(inventoryItem?.stockQty) || 0);
+      remaining.set(id, Math.max(0, available - required));
       const shortage = Math.max(0, required - available);
       return shortage > 0
         ? [{
             workItemId: workItem.id,
-            inventoryItemId: inventoryItem.id,
-            name: inventoryItem.name,
-            unit: workItem.unit || inventoryItem.unit,
+            inventoryItemId: id,
+            name: inventoryItem?.name ?? workItem.name,
+            unit: workItem.unit || inventoryItem?.unit || "pcs",
             required,
             available,
             shortage,
@@ -101,6 +105,8 @@ export function getProjectInventoryShortages(
 
 export function getProjectReadinessSummary(project: Project): ProjectReadinessSummary {
   const items = flattenItems(project);
+  const checks = project.productLine ? portfolioChecks[project.productLine] : [];
+  const verified = checks.filter(check => project.readinessEvidence?.[check]?.trim()).length;
   const totalItems = items.length;
   const readyItems = countByStatus(items, 'READY');
   const packedItems = countByStatus(items, 'PACKED');
@@ -129,7 +135,7 @@ export function getProjectReadinessSummary(project: Project): ProjectReadinessSu
     pendingItems,
     inPrepItems,
     packedItems,
-    readinessPercent: totalItems === 0 ? 0 : Math.round(((readyItems + packedItems) / totalItems) * 100),
+    readinessPercent: totalItems === 0 ? 0 : Math.round(((readyItems + packedItems + verified) / (totalItems + checks.length)) * 100),
     byChannel,
     nextActions
   };

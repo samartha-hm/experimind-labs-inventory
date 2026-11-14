@@ -25,6 +25,7 @@ export type WorkItemSourcingChannel =
 export type WorkItemStatus = 'PENDING' | 'IN_PREP' | 'READY' | 'PACKED';
 
 export interface ProjectWorkItem {
+  catalogItemId?: string;
   id: string;
   classId: string;
   name: string;
@@ -79,6 +80,9 @@ export interface ProjectAuditLog {
 }
 
 export interface Project {
+  productLine?: import("./portfolioTemplates").ProductLine;
+  catalogAssemblyId?: string;
+  readinessEvidence?: Record<string, string>;
   id: string;
   code: string;
   name: string;

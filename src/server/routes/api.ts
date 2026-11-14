@@ -1,3 +1,4 @@
+import { labLoans } from "./labLoans";
 import { packingRouter } from "../../routes/v1/packing.ts";
 import { attachmentRouter } from "../../routes/v1/attachments.ts";
 import { labelLayoutRouter } from "../../routes/v1/labelLayouts.ts";
@@ -81,6 +82,7 @@ export function mountApi(app: express.Express, receiptAuthority?: TrustedLedgerA
   app.use("/api/v1/vendor", authenticateJwt, requireTenant, vendorRoutes);
   app.use("/api/v1/customer", authenticateJwt, requireTenant, customerRoutes);
   app.use("/api/v1/purchase-order", authenticateJwt, requireTenant, purchaseOrderRoutes);
+  app.use("/api/v1/lab-loans", authenticateJwt, requireTenant, labLoans);
   app.use("/api/v1/sales-order", authenticateJwt, requireTenant, salesOrderRoutes);
   app.use("/api/v1/transaction", authenticateJwt, requireTenant, transactionRoutes);
   app.use("/api/v1/report", authenticateJwt, requireTenant, reportRoutes);

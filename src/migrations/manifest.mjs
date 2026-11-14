@@ -497,5 +497,15 @@ export const migrationManifest = [
       "AggregateWorkOrderDemand1793232000031"
     ],
     "scope": "synthetic-only"
+  },
+  {
+    "file": "1793232000033-FabLabLoans.ts",
+    "name": "FabLabLoans1793232000033",
+    "timestamp": 1793232000033,
+    "sha256": "e57f61c5ed919ed40fc624779c98ebcdddb41630e92f5346717bd846886aa77a",
+    "after": [
+      "BlockResidualProjectHolds1793232000032"
+    ],
+    "scope": "synthetic-only"
   }
 ];

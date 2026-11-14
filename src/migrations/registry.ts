@@ -1,3 +1,4 @@
+import { FabLabLoans1793232000033 } from "../migration/1793232000033-FabLabLoans.ts";
 import type { MigrationInterface } from 'typeorm';
 import { migrationManifest } from './manifest.mjs';
 import { Init1689500000000 } from '../migration/1689500000000-Init.ts';
@@ -102,6 +103,7 @@ const implementations: Record<string, new () => MigrationInterface> = {
   OperationalEvidence1793232000030,
   AggregateWorkOrderDemand1793232000031,
   BlockResidualProjectHolds1793232000032,
+  FabLabLoans1793232000033,
 };
 // The manifest alone defines order; no glob loading or environment-dependent subset.
 export const registeredMigrations = migrationManifest.map(entry => {
