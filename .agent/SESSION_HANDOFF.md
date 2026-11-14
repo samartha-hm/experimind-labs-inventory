@@ -1,7 +1,7 @@
-# Session handoff — 2026-11-14
+# Release handoff — 2026-11-14
 
-Branch `feature/kit-builder-milestone-1`. Workstreams 1 and 2 and the Workstream 5 reconciliation engine were committed earlier. Workstream 3 is in `061408f` and Workstream 4 is in `9f49427`.
+Release checkpoint `7214037` on `feature/kit-builder-milestone-1` includes catalog-backed BOM and project readiness, FabLab custody, and storefront ATP and ERP fulfillment.
 
-All five product lines use selectable catalog assemblies and project readiness profiles. Project creation snapshots nested BOM demand. FabLab loans track custody, overdue returns and condition. Storefront checkout reserves tenant stock for a linked ERP sales order. Pick, pack and dispatch update fulfillment and customer tracking.
+All 755 tests in 100 files passed on isolated PostgreSQL. ERP and storefront lint, typechecks and production builds passed. Storefront ESLint reported zero warnings. On isolated PostgreSQL, the production runner applied FabLabLoans1793232000033 once, granted runtime access and executed zero migrations on repeat.
 
-Verification used isolated PostgreSQL with both recovery cases enabled. All 753 Vitest tests passed across 100 files. ERP and storefront lint, typechecks and production builds passed. Storefront ESLint reported warnings. Configure STOREFRONT_ORG_ID and apply migrations before deployment.
+Deployment requires a valid STOREFRONT_ORG_ID and an existing inventory schema. Run the production migration plan and apply commands in README.md using the deployment migration role.

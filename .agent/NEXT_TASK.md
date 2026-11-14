@@ -1,3 +1,7 @@
+# Release deployment
+
+Verified release checkpoint `7214037` passed 755/755 tests and both app builds. Configure STOREFRONT_ORG_ID for the target tenant and run the documented production migration before serving traffic. Prior acceptance backlog follows.
+
 # Workstreams 3 and 4 checkpoint
 
 Verified 753/753 tests, both production builds, lint and typechecks. Configure the storefront organization and apply the FabLab migration in the deployment environment. Prior acceptance backlog follows.
