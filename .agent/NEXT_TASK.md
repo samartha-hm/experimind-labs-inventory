@@ -1,6 +1,6 @@
 # Next batch: builder visual acceptance, then project planning
 
-Workstream 1 is verified locally at 8299467. The next repository checkpoint requires verified GitHub remote ownership and push authorization.
+Workstreams 1 and 2 and the Workstream 5 reconciliation engine are verified locally through d120806 (743/743 tests). The next repository checkpoint requires verified GitHub remote ownership and push authorization.
 
 Latest continuation: fixed tablet global-search placeholder overlap; accepted 768 x 900 light/dark screenshots. Added guarded initial project/catalog loading and a Retry action; creation stays disabled until both reads succeed. 51 scoped tests passed, strengthened late-response tests rerun (3 passed), typecheck/build passed. Browser calculated preserved synthetic project demand of 3.7 m with school traces; no project mutations. Project retry controlled browser outage now passed. Latest trace/readability and 23-test PostgreSQL planning/supply checkpoint: docs/erp/PROJECT_PLANNING_ACCEPTANCE_2026-11-09.md. Remaining: deep editor/preview/long-name/keyboard coverage, reliable 4K captures, then shortage workflow acceptance. Do not treat earlier full-suite counts below as a fresh full-suite run for this continuation.
 
