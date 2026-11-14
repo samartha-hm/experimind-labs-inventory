@@ -1,3 +1,4 @@
+import { storefrontOrgId } from "../../services/storefrontStock.ts";
 import { Router } from "express";
 import { OrderService } from "../../services/OrderService.ts";
 import { getTenantOrgId, requireTenant } from "../../middleware/tenant.ts";
@@ -116,7 +117,7 @@ router.get("/track", async (req, res) => {
       return res.status(400).json({ error: "Order ID or Number is required for tracking" });
     }
 
-    const order = await orderService.trackCustomerOrder({
+    const order = await orderService.trackCustomerOrder(storefrontOrgId(), {
       orderNumberOrId: orderId,
       contact: contact,
     });
@@ -138,7 +139,7 @@ router.get("/customer/:email", async (req, res) => {
     if (!email) {
       return res.status(400).json({ error: "Email parameter is required" });
     }
-    const orders = await orderService.getCustomerOrdersByEmail(email);
+    const orders = await orderService.getCustomerOrdersByEmail(storefrontOrgId(), email);
     res.json(orders);
   } catch (e: any) {
     res.status(500).json({ error: e.message || "Failed to fetch customer orders" });
@@ -149,7 +150,7 @@ router.get("/customer/:email", async (req, res) => {
 router.post("/", async (req, res) => {
   try {
     const validated = await validateDto(req.body, CreateOrderDto);
-    const orgId = getTenantOrgId(req);
+    const orgId = storefrontOrgId();
 
     const customerName = validated.customerName || validated.customer_name || "Storefront Customer";
     const customerEmail = validated.customerEmail || validated.customer_email || "";
@@ -218,6 +219,7 @@ router.patch("/:id/fulfillment", authenticateJwt, requireTenant, async (req, res
       return res.status(404).json({ error: "Order not found" });
     }
 
+    if (status && order.order_number.startsWith("WEB-")) return res.status(409).json({ error: "Use the WMS fulfillment queue" });
     if (status) order.status = status;
     if (carrier !== undefined) order.carrier = carrier;
     if (tracking_number !== undefined) order.tracking_number = tracking_number;
@@ -249,6 +251,7 @@ router.patch("/:id/status", authenticateJwt, requireTenant, async (req, res) => 
       return res.status(404).json({ error: "Order not found" });
     }
 
+    if (order.order_number.startsWith("WEB-")) return res.status(409).json({ error: "Use the WMS fulfillment queue" });
     order.status = status;
     const updated = await orderRepo.save(order);
     res.json(updated);

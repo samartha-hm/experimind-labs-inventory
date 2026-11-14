@@ -1,4 +1,5 @@
 'use client';
+import type { CatalogProduct } from "@/types/catalog";
 import React, { useState } from 'react';
 import { X, Sparkles, Star, Award, CheckCircle2, ShoppingBag, Box, Truck, ShieldCheck, ArrowRight } from 'lucide-react';
 import SafeProductImage from './SafeProductImage';
@@ -6,7 +7,7 @@ import { useCartStore } from '@/store/useCartStore';
 import Link from 'next/link';
 
 interface QuickViewModalProps {
-  product: any;
+  product: CatalogProduct;
   onClose: () => void;
 }
 
@@ -18,7 +19,8 @@ export default function QuickViewModal({ product, onClose }: QuickViewModalProps
   if (!product) return null;
 
   const handleAddToCart = () => {
-    addItem({
+    const result = addItem({
+      maxStock: product.stockQty,
       id: product.id,
       name: product.name,
       price: product.basePrice,
@@ -26,6 +28,7 @@ export default function QuickViewModal({ product, onClose }: QuickViewModalProps
       category: product.category,
       quantity: quantity
     });
+    if (!result.success) return;
     setAdded(true);
     setTimeout(() => setAdded(false), 2000);
   };
@@ -96,7 +99,7 @@ export default function QuickViewModal({ product, onClose }: QuickViewModalProps
             <div className="bg-slate-50 rounded-xl p-3 space-y-1.5 border border-slate-100 text-xs">
               <div className="font-bold text-slate-800 flex items-center gap-1.5">
                 <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                <span>What's in the Box:</span>
+                <span>What&apos;s in the Box:</span>
               </div>
               <ul className="text-slate-600 text-[11px] space-y-1 pl-5 list-disc">
                 <li>Complete precision lab apparatus & component set</li>
@@ -134,6 +137,7 @@ export default function QuickViewModal({ product, onClose }: QuickViewModalProps
 
                 {/* Add to Cart */}
                 <button
+                  disabled={product.stockQty < quantity}
                   onClick={handleAddToCart}
                   className={`flex-grow py-2.5 px-5 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2 shadow-md ${
                     added

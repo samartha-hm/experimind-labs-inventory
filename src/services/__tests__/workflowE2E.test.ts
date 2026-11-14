@@ -671,7 +671,7 @@ describe("End-to-end operational workflow: low stock -> replenishment -> readine
         [{ lineId: so.lines[0].id, quantityShipped: 100 }],
         ORG,
       ),
-    ).rejects.toThrow(/Insufficient inventory/);
+    ).rejects.toThrow(/Invalid outstanding shipment quantity/);
   });
 
   it("step 10 — keeps the audit trail complete for every stock mutation", () => {

@@ -1,4 +1,5 @@
 'use client';
+import type { CatalogProduct } from "@/types/catalog";
 import React, { useState, useMemo } from 'react';
 import Link from 'next/link';
 import {
@@ -27,8 +28,8 @@ import SafeProductImage from './SafeProductImage';
 import { useCartStore } from '@/store/useCartStore';
 
 interface CatalogInteractiveViewProps {
-  products: any[];
-  categories: any[];
+  products: CatalogProduct[];
+  categories: {name: string; count: number}[];
   activeCategory: string;
   searchQuery: string;
 }
@@ -51,16 +52,17 @@ export default function CatalogInteractiveView({
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
 
   // Interactive Modals & Cart
-  const [selectedQuickViewProduct, setSelectedQuickViewProduct] = useState<any | null>(null);
+  const [selectedQuickViewProduct, setSelectedQuickViewProduct] = useState<CatalogProduct | null>(null);
   const [addedIds, setAddedIds] = useState<Record<string, boolean>>({});
   const [mobileFilterOpen, setMobileFilterOpen] = useState(false);
 
   const addItem = useCartStore((state) => state.addItem);
 
-  const handleQuickAdd = (product: any, e: React.MouseEvent) => {
+  const handleQuickAdd = (product: CatalogProduct, e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    addItem({
+    const result = addItem({
+      maxStock: product.stockQty,
       id: product.id,
       name: product.name,
       price: product.basePrice || product.price || 999,
@@ -68,6 +70,7 @@ export default function CatalogInteractiveView({
       category: product.category,
       quantity: 1
     });
+    if (!result.success) return;
 
     setAddedIds((prev) => ({ ...prev, [product.id]: true }));
     setTimeout(() => {
@@ -153,7 +156,7 @@ export default function CatalogInteractiveView({
 
     // 5. In Stock Only
     if (inStockOnly) {
-      list = list.filter((p) => (p.stockQty || 1) > 0);
+      list = list.filter((p) => (p.stockQty ?? 0) > 0);
     }
 
     // 6. Search Query
@@ -234,7 +237,7 @@ export default function CatalogInteractiveView({
           <div className="space-y-2.5">
             <h4 className="text-xs font-black text-slate-900 uppercase tracking-wider">Categories</h4>
             <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
-              {categories.map((cat: any) => {
+              {categories.map((cat) => {
                 const isSelected = selectedCategories.includes(cat.name.toLowerCase());
                 return (
                   <label
@@ -371,7 +374,7 @@ export default function CatalogInteractiveView({
                 <span className="text-slate-400 font-bold hidden sm:inline">Sort by:</span>
                 <select
                   value={sortBy}
-                  onChange={(e) => setSortBy(e.target.value as any)}
+                  onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
                   className="px-3 py-1.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-800 font-bold focus:outline-none focus:border-indigo-500"
                 >
                   <option value="featured">Featured First</option>
@@ -510,7 +513,7 @@ export default function CatalogInteractiveView({
                         </div>
 
                         <button
-                          onClick={(e) => handleQuickAdd(product, e)}
+                          disabled={!product.stockQty} onClick={(e) => handleQuickAdd(product, e)}
                           className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-black transition-all cursor-pointer ${
                             addedIds[product.id]
                               ? 'bg-emerald-600 text-white shadow-xs'

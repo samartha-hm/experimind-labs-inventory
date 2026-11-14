@@ -1,4 +1,5 @@
 'use client';
+import { useHydrated } from "@/utils/useHydrated";
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import {
@@ -28,7 +29,7 @@ export default function CustomerAuthModal({
   initialTab = 'signin',
   onSuccess
 }: CustomerAuthModalProps) {
-  const [mounted, setMounted] = useState(false);
+  const mounted = useHydrated();
   const [tab, setTab] = useState<'signin' | 'signup'>(initialTab);
   const [signInEmailOrPhone, setSignInEmailOrPhone] = useState('');
   
@@ -46,14 +47,8 @@ export default function CustomerAuthModal({
   const login = useCustomerStore((state) => state.login);
   const register = useCustomerStore((state) => state.register);
 
-  useEffect(() => {
-    setMounted(true);
-  }, []);
 
-  useEffect(() => {
-    setTab(initialTab);
-    setMessage(null);
-  }, [initialTab, isOpen]);
+
 
   // Handle ESC key to close
   useEffect(() => {

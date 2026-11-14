@@ -15,7 +15,7 @@ import { executionReadiness } from "../../services/ExecutionReadinessService";
 
 const phase=process.env.RECEIPT_RECOVERY_PHASE;
 it.skipIf(!phase)("restarts restricted authenticated receipt HTTP against a nonempty recovered database",async()=>{
-  const evidence=JSON.parse(await readFile(".local-dev/13md2b2bs-evidence.json","utf8"));
+  const evidence=JSON.parse(await readFile(process.env.RECEIPT_RECOVERY_EVIDENCE ?? ".local-dev/13md2b2bs-evidence.json","utf8"));
   const schema:string=evidence.schema, url=new URL(process.env.KIT_BUILDER_TEST_DATABASE_URL!);
   const database=process.env.RECEIPT_RECOVERY_DATABASE??"experimind_kitbuilder_test";
   if(url.hostname!=="127.0.0.1"||url.port!=="55432"||!/^requirement_test_[a-f0-9]{32}$/.test(schema)

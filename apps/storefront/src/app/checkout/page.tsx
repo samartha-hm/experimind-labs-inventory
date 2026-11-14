@@ -1,4 +1,6 @@
 'use client';
+import { useHydrated } from "@/utils/useHydrated";
+import type { ShopOrder, ShopLine } from "@/types/catalog";
 import UpiPaymentLink from "@/components/UpiPaymentLink";
 import { useCartStore } from "@/store/useCartStore";
 import { useState, useEffect } from "react";
@@ -15,10 +17,10 @@ const INDIAN_STATES = [
 
 export default function CheckoutPage() {
   const { items, total, clearCart, updateQuantity } = useCartStore();
-  const [mounted, setMounted] = useState(false);
+  const mounted = useHydrated();
   const [loading, setLoading] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
-  const [orderConfirmed, setOrderConfirmed] = useState<any | null>(null);
+  const [orderConfirmed, setOrderConfirmed] = useState<ShopOrder | null>(null);
   const router = useRouter();
 
   const [formData, setFormData] = useState({
@@ -36,33 +38,37 @@ export default function CheckoutPage() {
   const [touched, setTouched] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
-    setMounted(true);
-    try {
-      const storedEmail = localStorage.getItem('experimind_customer_email');
-      const storedName = localStorage.getItem('experimind_customer_name');
-      const storedPhone = localStorage.getItem('experimind_customer_phone');
-      const storedAddresses = localStorage.getItem('experimind_saved_addresses');
+    const frame = requestAnimationFrame(() => {
+      try {
+        const storedEmail = localStorage.getItem('experimind_customer_email');
+        const storedName = localStorage.getItem('experimind_customer_name');
+        const storedPhone = localStorage.getItem('experimind_customer_phone');
+        const storedAddresses = localStorage.getItem('experimind_saved_addresses');
 
-      let defaultAddr: any = null;
-      if (storedAddresses) {
-        const parsed = JSON.parse(storedAddresses);
-        if (Array.isArray(parsed)) {
-          defaultAddr = parsed.find((a: any) => a.isDefault) || parsed[0];
+        let defaultAddr: {name: string; phone: string; addressLine: string; city: string; state: string; pincode: string} | null = null;
+        if (storedAddresses) {
+          const parsed = JSON.parse(storedAddresses);
+          if (Array.isArray(parsed)) {
+            defaultAddr = parsed.find((a: {isDefault:boolean}) => a.isDefault) || parsed[0];
+          }
         }
-      }
 
-      setFormData((prev) => ({
-        ...prev,
-        name: storedName || defaultAddr?.name || prev.name,
-        email: storedEmail || prev.email,
-        phone: (storedPhone || defaultAddr?.phone || '').replace(/[\s-+]/g, ''),
-        address: defaultAddr?.addressLine || prev.address,
-        city: defaultAddr?.city || prev.city,
-        state: defaultAddr?.state || prev.state,
-        pincode: defaultAddr?.pincode || prev.pincode,
-      }));
-    } catch (_) {}
+        setFormData((prev) => ({
+          ...prev,
+          name: storedName || defaultAddr?.name || prev.name,
+          email: storedEmail || prev.email,
+          phone: (storedPhone || defaultAddr?.phone || '').replace(/[\s-+]/g, ''),
+          address: defaultAddr?.addressLine || prev.address,
+          city: defaultAddr?.city || prev.city,
+          state: defaultAddr?.state || prev.state,
+          pincode: defaultAddr?.pincode || prev.pincode,
+        }));
+      } catch (_) {}
+    });
+    return () => cancelAnimationFrame(frame);
   }, []);
+
+
 
   if (!mounted) return null;
 
@@ -153,14 +159,14 @@ export default function CheckoutPage() {
         };
 
         const existingOrders = JSON.parse(localStorage.getItem('experimind_recent_orders') || '[]');
-        const updatedOrders = [newOrderRecord, ...existingOrders.filter((o: any) => o.id !== newOrderRecord.id)];
+        const updatedOrders = [newOrderRecord, ...existingOrders.filter((o: ShopOrder) => o.id !== newOrderRecord.id)];
         localStorage.setItem('experimind_recent_orders', JSON.stringify(updatedOrders.slice(0, 10)));
       } catch (_) {}
 
       setOrderConfirmed(order);
       clearCart();
-    } catch (err: any) {
-      setServerError(err.message || 'An unexpected error occurred while placing the order.');
+    } catch (err) {
+      setServerError(err instanceof Error ? err.message : 'An unexpected error occurred while placing the order.');
     } finally {
       setLoading(false);
     }

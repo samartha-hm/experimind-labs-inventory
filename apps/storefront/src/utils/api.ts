@@ -3,5 +3,5 @@ export const getApiBaseUrl = () => {
   if (typeof window !== 'undefined') {
     return '/api';
   }
-  return process.env.API_URL || 'http://127.0.0.1:3000/api';
+  return process.env.API_URL || (process.env.PUBLIC_ERP_URL || 'http://127.0.0.1:3000').replace(/\/$/, '') + '/api';
 };

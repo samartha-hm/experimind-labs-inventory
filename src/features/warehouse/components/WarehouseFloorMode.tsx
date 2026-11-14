@@ -19,6 +19,7 @@ import { useData } from '@/src/DataContext';
 import { useToast } from '@/src/contexts/ToastContext';
 import POReceivingModal from '@/src/features/procurement/components/POReceivingModal';
 import SOFulfillmentModal from '@/src/features/sales/components/SOFulfillmentModal';
+import { StorefrontQueue } from "../../sales/components/StorefrontQueue";
 import CycleCountModal from '@/src/features/warehouse/components/CycleCountModal';
 
 export default function WarehouseFloorMode() {
@@ -80,6 +81,7 @@ export default function WarehouseFloorMode() {
 
   return (
     <div className="space-y-6 w-full animate-fadeIn pb-12">
+      <StorefrontQueue />
       {/* Floor Banner */}
       <div className="bg-slate-950 text-white p-6 rounded-3xl border border-slate-800 shadow-2xl flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="space-y-1">

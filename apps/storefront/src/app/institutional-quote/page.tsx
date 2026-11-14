@@ -140,6 +140,7 @@ export default function InstitutionalQuotePage() {
   });
 
   const [submitted, setSubmitted] = useState(false);
+  const [validUntil] = useState(() => new Date(Date.now() + 45 * 86400000));
   const [quoteNumber] = useState(() => `EXP-QT-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`);
   const [showPreviewModal, setShowPreviewModal] = useState(false);
 
@@ -332,7 +333,7 @@ export default function InstitutionalQuotePage() {
                       <button
                         key={item.type}
                         type="button"
-                        onClick={() => setInstitutionType(item.type as any)}
+                        onClick={() => setInstitutionType(item.type as typeof institutionType)}
                         className={`p-3 rounded-2xl text-xs font-bold border transition text-center cursor-pointer ${
                           institutionType === item.type
                             ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
@@ -763,7 +764,7 @@ export default function InstitutionalQuotePage() {
                   </span>
                   <div className="font-mono font-bold text-slate-900 text-sm mt-1">{quoteNumber}</div>
                   <div className="text-slate-500 text-[11px]">Date: {new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}</div>
-                  <div className="text-slate-500 text-[11px]">Valid Until: {new Date(Date.now() + 45 * 86400000).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}</div>
+                  <div className="text-slate-500 text-[11px]">Valid Until: {validUntil.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}</div>
                 </div>
               </div>
 

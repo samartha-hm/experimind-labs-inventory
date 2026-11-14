@@ -1,3 +1,5 @@
+import { CustomerOrder } from "../entity/CustomerOrder.ts";
+import { StockLot } from "../entity/StockLot.ts";
 import { SalesOrder } from "../entity/SalesOrder";
 import { SalesOrderLine } from "../entity/SalesOrderLine";
 import { Customer } from "../entity/Customer";
@@ -144,6 +146,7 @@ export class SalesOrderService {
     if (!existing) {
       throw new Error(`Sales order ${id} not found or access denied.`);
     }
+    if (existing.so_number.startsWith("WEB-")) throw new Error("Use the storefront fulfillment queue");
     Object.assign(existing, changes);
     if (changes.customer_id) {
       existing.customer_id = changes.customer_id;
@@ -156,6 +159,7 @@ export class SalesOrderService {
     if (!existing) {
       throw new Error(`Sales order ${id} not found or access denied.`);
     }
+    if (existing.so_number.startsWith("WEB-")) throw new Error("Storefront orders retain their reservation history");
     await this.soLineRepo.delete({ so_id: id });
     await this.soRepo.delete(id);
   }
@@ -189,6 +193,13 @@ export class SalesOrderService {
     await queryRunner.startTransaction();
 
     try {
+      const locked = await queryRunner.manager.findOne(SalesOrder, {
+        where: { id: soId, organization_id: orgId }, lock: { mode: "pessimistic_write" },
+      });
+      if (!locked) throw new Error("Sales order no longer available");
+      const webOrder = locked.so_number.startsWith("WEB-");
+      if (webOrder && locked.status !== "packed") throw new Error("Pack the order before shipment");
+      if (!shipments.length) throw new Error("No shipment lines");
       for (const shipment of shipments) {
         const line = await queryRunner.manager.findOne(SalesOrderLine, {
           where: { id: shipment.lineId, so_id: soId },
@@ -200,12 +211,13 @@ export class SalesOrderService {
         }
 
         const qtyToShip = Number(shipment.quantityShipped);
-        if (qtyToShip <= 0) continue;
+        if (!Number.isSafeInteger(qtyToShip) || qtyToShip <= 0 || qtyToShip > line.qty_ordered - line.qty_shipped)
+          throw new Error("Invalid outstanding shipment quantity");
 
         // Check and acquire pessimistic lock on target inventory item
         if (line.inventory_item_id) {
           const item = await queryRunner.manager.findOne(InventoryItem, {
-            where: { id: line.inventory_item_id },
+            where: { id: line.inventory_item_id, organization_id: orgId },
             lock: { mode: "pessimistic_write" },
           });
 
@@ -220,6 +232,29 @@ export class SalesOrderService {
             );
           }
 
+          let cost = Number(line.unit_price || item.base_price || 0);
+          if (webOrder) {
+            if (Number(item.reserved_quantity) < qtyToShip) throw new Error("Reservation mismatch");
+            const lots = await queryRunner.manager.createQueryBuilder(StockLot, "lot")
+              .where("lot.item_id = :id AND lot.organization_id = :org AND lot.status = 'RELEASED' AND lot.current_quantity > 0", { id: item.id, org: orgId })
+              .orderBy("lot.received_date", "ASC").addOrderBy("lot.id", "ASC").setLock("pessimistic_write").getMany();
+            let remaining = qtyToShip;
+            let extended = 0;
+            for (const lot of lots) {
+              const take = Math.min(remaining, Number(lot.current_quantity));
+              lot.current_quantity -= take;
+              if (lot.current_quantity === 0) lot.status = "DEPLETED";
+              extended += take * Number(lot.unit_cost);
+              await queryRunner.manager.save(lot);
+              remaining -= take;
+              if (!remaining) break;
+            }
+            if (remaining) throw new Error("Insufficient released FIFO layers");
+            cost = extended / qtyToShip;
+            item.reserved_quantity -= qtyToShip;
+          } else if (currentStock - Number(item.reserved_quantity || 0) < qtyToShip) {
+            throw new Error("Stock is reserved");
+          }
           const newStock = currentStock - qtyToShip;
           item.quantity = newStock;
           item.updated_at = new Date();
@@ -233,7 +268,7 @@ export class SalesOrderService {
             item_sku: item.sku,
             bin_location: item.bin_location,
             qty_delta: -qtyToShip,
-            unit_cost: Number(line.unit_price || item.base_price || 0),
+            unit_cost: cost,
             running_balance: newStock,
             transaction_type: "SO_SHIPMENT",
             reference_type: "sales_order",
@@ -256,6 +291,7 @@ export class SalesOrderService {
 
       so.status = allShipped ? "shipped" : "packed";
       await queryRunner.manager.save(so);
+      if (webOrder) await queryRunner.manager.update(CustomerOrder, { organization_id: orgId, order_number: locked.so_number }, { status: allShipped ? "shipped" : "packed" });
 
       await queryRunner.commitTransaction();
 

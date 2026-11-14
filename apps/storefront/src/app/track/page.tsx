@@ -1,4 +1,5 @@
 'use client';
+import type { ShopOrder, ShopLine } from "@/types/catalog";
 import UpiPaymentLink from "@/components/UpiPaymentLink";
 import React, { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
@@ -33,28 +34,13 @@ function TrackOrderContent() {
   const [contactInput, setContactInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [order, setOrder] = useState<any | null>(null);
-  const [recentOrders, setRecentOrders] = useState<any[]>([]);
+  const [order, setOrder] = useState<ShopOrder | null>(null);
+  const [recentOrders, setRecentOrders] = useState<ShopOrder[]>([]);
 
   const customer = useCustomerStore((state) => state.customer);
   const isLoggedIn = useCustomerStore((state) => state.isLoggedIn);
 
-  useEffect(() => {
-    const queryOrderId = searchParams.get('orderId') || searchParams.get('id');
-    const queryContact = searchParams.get('contact') || searchParams.get('email') || searchParams.get('phone');
 
-    if (queryOrderId) {
-      setOrderIdInput(queryOrderId);
-      if (queryContact) setContactInput(queryContact);
-      fetchTrackingData(queryOrderId, queryContact || '');
-    }
-
-    // Load recent orders from localStorage
-    try {
-      const saved = JSON.parse(localStorage.getItem('experimind_recent_orders') || '[]');
-      setRecentOrders(saved);
-    } catch (_) {}
-  }, [searchParams]);
 
   const fetchTrackingData = async (orderId: string, contact: string) => {
     if (!orderId.trim()) {
@@ -79,19 +65,39 @@ function TrackOrderContent() {
       // Save order to recent orders history
       try {
         const saved = JSON.parse(localStorage.getItem('experimind_recent_orders') || '[]');
-        if (!saved.some((o: any) => o.id === data.id || o.order_number === data.order_number)) {
+        if (!saved.some((o: ShopOrder) => o.id === data.id || o.order_number === data.order_number)) {
           const updated = [{ id: data.id, order_number: data.order_number, date: data.created_at, total: data.total_amount }, ...saved];
           localStorage.setItem('experimind_recent_orders', JSON.stringify(updated.slice(0, 10)));
           setRecentOrders(updated.slice(0, 10));
         }
       } catch (_) {}
-    } catch (e: any) {
+    } catch (e) {
       setOrder(null);
-      setError(e.message || 'Order lookup failed. Please verify your details or contact customer care.');
+      setError(e instanceof Error ? e.message : 'Order lookup failed. Please verify your details or contact customer care.');
     } finally {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => {
+      const queryOrderId = searchParams.get('orderId') || searchParams.get('id');
+      const queryContact = searchParams.get('contact') || searchParams.get('email') || searchParams.get('phone');
+
+      if (queryOrderId) {
+        setOrderIdInput(queryOrderId);
+        if (queryContact) setContactInput(queryContact);
+        fetchTrackingData(queryOrderId, queryContact || '');
+      }
+
+      // Load recent orders from localStorage
+      try {
+        const saved = JSON.parse(localStorage.getItem('experimind_recent_orders') || '[]');
+        setRecentOrders(saved);
+      } catch (_) {}
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [searchParams]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -229,7 +235,7 @@ function TrackOrderContent() {
               Recent Orders on this Device
             </span>
             <div className="flex flex-wrap gap-2">
-              {recentOrders.slice(0, 3).map((ro: any, idx: number) => (
+              {recentOrders.slice(0, 3).map((ro: ShopOrder, idx: number) => (
                 <button
                   key={idx}
                   onClick={() => {
@@ -365,7 +371,7 @@ function TrackOrderContent() {
 
               <div className="divide-y divide-slate-100 border border-slate-100 rounded-2xl overflow-hidden max-h-64 overflow-y-auto">
                 {order.lines && order.lines.length > 0 ? (
-                  order.lines.map((line: any, idx: number) => (
+                  order.lines.map((line: ShopLine, idx: number) => (
                     <div key={idx} className="p-3.5 flex items-center justify-between gap-3 text-xs hover:bg-slate-50">
                       <div className="flex-1 min-w-0">
                         <span className="font-bold text-slate-900 block truncate">{line.item_name || 'STEM Apparatus Kit'}</span>

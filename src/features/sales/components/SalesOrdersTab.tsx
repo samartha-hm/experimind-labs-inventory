@@ -1,3 +1,4 @@
+import { StorefrontQueue } from "./StorefrontQueue";
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
@@ -105,6 +106,7 @@ export default function SalesOrdersTab({ role }: SalesOrdersTabProps) {
 
   return (
     <div className="space-y-6 w-full">
+      <StorefrontQueue />
       {/* Header */}
       <div className="bg-white/80 backdrop-blur-md p-6 rounded-3xl border border-slate-200/60 shadow-xl shadow-indigo-500/5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
