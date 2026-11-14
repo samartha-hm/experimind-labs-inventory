@@ -1,28 +1,28 @@
 'use client';
+import { useHydrated } from "@/utils/useHydrated";
+import type { CatalogProduct } from "@/types/catalog";
 import { useCartStore } from "@/store/useCartStore";
 import { Plus, Check, AlertCircle } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 
 export default function AddToCartButton({
   product,
   fullWidth = false,
 }: {
-  product: any;
+  product: CatalogProduct;
   fullWidth?: boolean;
 }) {
   const addItem = useCartStore((state) => state.addItem);
   const getItemQuantity = useCartStore((state) => state.getItemQuantity);
-  const [mounted, setMounted] = useState(false);
+  const mounted = useHydrated();
   const [feedback, setFeedback] = useState<{ type: 'added' | 'max' | null; msg?: string }>({
     type: null,
   });
 
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+
 
   const currentInCart = mounted && product?.id ? getItemQuantity(product.id) : 0;
-  const maxStock = typeof product?.stockQty === 'number' ? product.stockQty : 99;
+  const maxStock = typeof product?.stockQty === 'number' ? product.stockQty : 0;
   const isOutOfStock = maxStock <= 0;
   const isMaxReached = currentInCart >= maxStock;
 

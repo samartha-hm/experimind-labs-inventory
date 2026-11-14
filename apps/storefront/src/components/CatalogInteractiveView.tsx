@@ -1,24 +1,15 @@
 'use client';
+import type { CatalogProduct } from "@/types/catalog";
 import React, { useState, useMemo } from 'react';
 import Link from 'next/link';
 import {
   Box,
   Sparkles,
   Star,
-  Award,
   SlidersHorizontal,
-  ArrowUpDown,
   ShoppingBag,
   Eye,
-  CheckCircle2,
-  Filter,
-  X,
-  Truck,
   RotateCcw,
-  Tag,
-  ShieldCheck,
-  Check,
-  ChevronDown,
   LayoutGrid,
   List
 } from 'lucide-react';
@@ -27,8 +18,8 @@ import SafeProductImage from './SafeProductImage';
 import { useCartStore } from '@/store/useCartStore';
 
 interface CatalogInteractiveViewProps {
-  products: any[];
-  categories: any[];
+  products: CatalogProduct[];
+  categories: {name: string; count: number}[];
   activeCategory: string;
   searchQuery: string;
 }
@@ -51,16 +42,17 @@ export default function CatalogInteractiveView({
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
 
   // Interactive Modals & Cart
-  const [selectedQuickViewProduct, setSelectedQuickViewProduct] = useState<any | null>(null);
+  const [selectedQuickViewProduct, setSelectedQuickViewProduct] = useState<CatalogProduct | null>(null);
   const [addedIds, setAddedIds] = useState<Record<string, boolean>>({});
   const [mobileFilterOpen, setMobileFilterOpen] = useState(false);
 
   const addItem = useCartStore((state) => state.addItem);
 
-  const handleQuickAdd = (product: any, e: React.MouseEvent) => {
+  const handleQuickAdd = (product: CatalogProduct, e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    addItem({
+    const result = addItem({
+      maxStock: product.stockQty,
       id: product.id,
       name: product.name,
       price: product.basePrice || product.price || 999,
@@ -68,6 +60,7 @@ export default function CatalogInteractiveView({
       category: product.category,
       quantity: 1
     });
+    if (!result.success) return;
 
     setAddedIds((prev) => ({ ...prev, [product.id]: true }));
     setTimeout(() => {
@@ -153,7 +146,7 @@ export default function CatalogInteractiveView({
 
     // 5. In Stock Only
     if (inStockOnly) {
-      list = list.filter((p) => (p.stockQty || 1) > 0);
+      list = list.filter((p) => (p.stockQty ?? 0) > 0);
     }
 
     // 6. Search Query
@@ -199,7 +192,9 @@ export default function CatalogInteractiveView({
 
         {/* Mobile Filter Toggle Button */}
         <button
-          onClick={() => setMobileFilterOpen(true)}
+          aria-expanded={mobileFilterOpen}
+          aria-controls="catalog-filters"
+          onClick={() => setMobileFilterOpen(open => !open)}
           className="lg:hidden px-4 py-2.5 rounded-2xl bg-indigo-600 text-white font-bold text-xs flex items-center gap-2 self-start"
         >
           <SlidersHorizontal className="w-4 h-4" />
@@ -213,7 +208,7 @@ export default function CatalogInteractiveView({
         {/* ======================================================== */}
         {/* LEFT FACETED FILTER SIDEBAR (AMAZON STYLE)               */}
         {/* ======================================================== */}
-        <aside className="hidden lg:block lg:col-span-3 bg-white rounded-3xl border border-slate-200/80 p-6 shadow-xs space-y-6 sticky top-28 text-left">
+        <aside id="catalog-filters" className={`${mobileFilterOpen ? "block" : "hidden"} lg:block lg:col-span-3 bg-white rounded-3xl border border-slate-200/80 p-6 shadow-xs space-y-6 sticky top-28 text-left`}>
           
           <div className="flex items-center justify-between border-b border-slate-100 pb-3">
             <div className="flex items-center gap-2 font-black text-slate-900 text-sm">
@@ -234,7 +229,7 @@ export default function CatalogInteractiveView({
           <div className="space-y-2.5">
             <h4 className="text-xs font-black text-slate-900 uppercase tracking-wider">Categories</h4>
             <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
-              {categories.map((cat: any) => {
+              {categories.map((cat) => {
                 const isSelected = selectedCategories.includes(cat.name.toLowerCase());
                 return (
                   <label
@@ -371,7 +366,7 @@ export default function CatalogInteractiveView({
                 <span className="text-slate-400 font-bold hidden sm:inline">Sort by:</span>
                 <select
                   value={sortBy}
-                  onChange={(e) => setSortBy(e.target.value as any)}
+                  onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
                   className="px-3 py-1.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-800 font-bold focus:outline-none focus:border-indigo-500"
                 >
                   <option value="featured">Featured First</option>
@@ -510,7 +505,7 @@ export default function CatalogInteractiveView({
                         </div>
 
                         <button
-                          onClick={(e) => handleQuickAdd(product, e)}
+                          disabled={!product.stockQty} onClick={(e) => handleQuickAdd(product, e)}
                           className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-black transition-all cursor-pointer ${
                             addedIds[product.id]
                               ? 'bg-emerald-600 text-white shadow-xs'

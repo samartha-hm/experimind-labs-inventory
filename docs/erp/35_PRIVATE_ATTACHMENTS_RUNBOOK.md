@@ -1,0 +1,15 @@
+# Private project attachments
+
+Project files use authenticated `/api/v1/attachments` routes and immutable PostgreSQL metadata/audit events. PNG, JPEG, PDF and UTF-8 TXT are accepted with matching signatures/extensions, up to 10 MiB. Executable, HTML and SVG uploads are rejected. Download responses force attachment disposition, sandboxing and no caching. Files are not malware-scanned; treat PDFs and photographs as untrusted documents and keep viewers patched.
+
+Set `ATTACHMENT_STORAGE_ROOT` to a private absolute filesystem directory outside source and web roots. Local development defaults to ignored `.local-dev/attachments`. Restrict Windows ACLs to the service account and backup operators; Unix permissions alone do not configure Windows ACLs. Never serve this directory through static hosting. Objects use organization UUID/object UUID keys; filenames only appear in metadata. Preserve both database metadata and these relative keys when moving storage. A future cloud adapter must implement the same private `put/get` contract and integrity checks.
+
+Upload headers: Bearer authentication, `Content-Type`, URI-encoded `X-Attachment-Name`, `Idempotency-Key`, optional `X-Record-Kind` (`project`, `survey`, `installation`, `delivery`), `X-Site-Id`, `X-Record-Id`. Survey requires a school; installation/delivery require an existing record belonging to that project and school. Reuse the same key and bytes after uncertain responses. Changed input with the same key returns 409. Closed projects must be reopened before upload. Staff may upload; viewers may list/download within their organization. Current database roles override token claims.
+
+Run only `node --env-file=.env.kit-builder-development node_modules/tsx/dist/cli.mjs scripts/run-hardening-development-migration.ts` for this isolated development baseline. The runner verifies localhost port/database and original inventory/ledger fingerprints. Empty migration rollback is tested; rollback refuses populated metadata. Never drop populated attachment tables.
+
+Filesystem and PostgreSQL cannot share a transaction. Objects are durably written before metadata commits: failed database commits may leave unreferenced objects. Preserve them for reconciliation; do not automatically delete files or insert speculative metadata. Missing/corrupt referenced objects fail closed on download. An upload retry creates at most one committed metadata row and no inventory movements.
+
+Backup/recovery must quiesce uploads, back up PostgreSQL and this entire private directory together, then restart writes. Encrypt backups, restrict operator access, and never commit objects or dumps. Before serving restored data, verify every metadata object's size/SHA-256 and tenant path. Restore testing and operational recovery acceptance remain required before pilot approval.
+
+Automated acceptance: private-storage tests plus packing HTTP/PostgreSQL integration cover roles, tenant denial, malformed uploads, concurrent replay, authenticated download, audit, restart persistence, guarded rollback and unchanged stock ledger. Browser interaction and Windows ACL deployment remain manual acceptance items.

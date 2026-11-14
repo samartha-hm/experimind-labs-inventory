@@ -1,8 +1,11 @@
 'use client';
+import { useHydrated } from "@/utils/useHydrated";
+import type { ShopOrder } from "@/types/catalog";
+import UpiPaymentLink from "@/components/UpiPaymentLink";
 import { useCartStore } from "@/store/useCartStore";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { CheckCircle2, ShoppingBag, ShieldCheck, ArrowRight, ArrowLeft, Lock, Truck, AlertCircle, Phone, Mail, User, MapPin, Building2, CreditCard, Package } from "lucide-react";
+import { CheckCircle2, ShieldCheck, ArrowRight, ArrowLeft, Lock, Truck, AlertCircle, Mail, User, MapPin, Package } from "lucide-react";
 import Link from "next/link";
 import SafeProductImage from "@/components/SafeProductImage";
 
@@ -13,11 +16,11 @@ const INDIAN_STATES = [
 ];
 
 export default function CheckoutPage() {
-  const { items, total, clearCart, updateQuantity } = useCartStore();
-  const [mounted, setMounted] = useState(false);
+  const { items, total, clearCart } = useCartStore();
+  const mounted = useHydrated();
   const [loading, setLoading] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
-  const [orderConfirmed, setOrderConfirmed] = useState<any | null>(null);
+  const [orderConfirmed, setOrderConfirmed] = useState<ShopOrder | null>(null);
   const router = useRouter();
 
   const [formData, setFormData] = useState({
@@ -35,33 +38,37 @@ export default function CheckoutPage() {
   const [touched, setTouched] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
-    setMounted(true);
-    try {
-      const storedEmail = localStorage.getItem('experimind_customer_email');
-      const storedName = localStorage.getItem('experimind_customer_name');
-      const storedPhone = localStorage.getItem('experimind_customer_phone');
-      const storedAddresses = localStorage.getItem('experimind_saved_addresses');
+    const frame = requestAnimationFrame(() => {
+      try {
+        const storedEmail = localStorage.getItem('experimind_customer_email');
+        const storedName = localStorage.getItem('experimind_customer_name');
+        const storedPhone = localStorage.getItem('experimind_customer_phone');
+        const storedAddresses = localStorage.getItem('experimind_saved_addresses');
 
-      let defaultAddr: any = null;
-      if (storedAddresses) {
-        const parsed = JSON.parse(storedAddresses);
-        if (Array.isArray(parsed)) {
-          defaultAddr = parsed.find((a: any) => a.isDefault) || parsed[0];
+        let defaultAddr: {name: string; phone: string; addressLine: string; city: string; state: string; pincode: string} | null = null;
+        if (storedAddresses) {
+          const parsed = JSON.parse(storedAddresses);
+          if (Array.isArray(parsed)) {
+            defaultAddr = parsed.find((a: {isDefault:boolean}) => a.isDefault) || parsed[0];
+          }
         }
-      }
 
-      setFormData((prev) => ({
-        ...prev,
-        name: storedName || defaultAddr?.name || prev.name,
-        email: storedEmail || prev.email,
-        phone: (storedPhone || defaultAddr?.phone || '').replace(/[\s-+]/g, ''),
-        address: defaultAddr?.addressLine || prev.address,
-        city: defaultAddr?.city || prev.city,
-        state: defaultAddr?.state || prev.state,
-        pincode: defaultAddr?.pincode || prev.pincode,
-      }));
-    } catch (_) {}
+        setFormData((prev) => ({
+          ...prev,
+          name: storedName || defaultAddr?.name || prev.name,
+          email: storedEmail || prev.email,
+          phone: (storedPhone || defaultAddr?.phone || '').replace(/[\s-+]/g, ''),
+          address: defaultAddr?.addressLine || prev.address,
+          city: defaultAddr?.city || prev.city,
+          state: defaultAddr?.state || prev.state,
+          pincode: defaultAddr?.pincode || prev.pincode,
+        }));
+      } catch {}
+    });
+    return () => cancelAnimationFrame(frame);
   }, []);
+
+
 
   if (!mounted) return null;
 
@@ -134,6 +141,9 @@ export default function CheckoutPage() {
         throw new Error(resData.error || 'Failed to process order. Please verify your details.');
       }
 
+      const order = resData.order ?? resData;
+      if (!order.id || !Number.isFinite(Number(order.total_amount))) throw new Error('Order confirmation is incomplete. Check your order history before retrying.');
+
       // Auto-save account credentials and recent order to local storage
       try {
         localStorage.setItem('experimind_customer_email', formData.email.trim().toLowerCase());
@@ -141,22 +151,22 @@ export default function CheckoutPage() {
         localStorage.setItem('experimind_customer_phone', cleanPhone);
 
         const newOrderRecord = {
-          id: resData.id || ('ORD-' + Math.floor(100000 + Math.random() * 900000)),
-          order_number: resData.order_number || resData.id,
+          id: order.id,
+          order_number: order.order_number || order.id,
           date: new Date().toISOString(),
-          total: orderTotal,
+          total: Number(order.total_amount),
           status: 'created'
         };
 
         const existingOrders = JSON.parse(localStorage.getItem('experimind_recent_orders') || '[]');
-        const updatedOrders = [newOrderRecord, ...existingOrders.filter((o: any) => o.id !== newOrderRecord.id)];
+        const updatedOrders = [newOrderRecord, ...existingOrders.filter((o: ShopOrder) => o.id !== newOrderRecord.id)];
         localStorage.setItem('experimind_recent_orders', JSON.stringify(updatedOrders.slice(0, 10)));
-      } catch (_) {}
+      } catch {}
 
-      setOrderConfirmed(resData || { id: 'ORD-' + Math.floor(100000 + Math.random() * 900000) });
+      setOrderConfirmed(order);
       clearCart();
-    } catch (err: any) {
-      setServerError(err.message || 'An unexpected error occurred while placing the order.');
+    } catch (err) {
+      setServerError(err instanceof Error ? err.message : 'An unexpected error occurred while placing the order.');
     } finally {
       setLoading(false);
     }
@@ -201,7 +211,8 @@ export default function CheckoutPage() {
           </div>
           <div className="flex justify-between pt-2">
             <span className="text-slate-700 font-bold text-sm">Total Order Value (GST Included)</span>
-            <span className="font-black text-indigo-600 text-xl">₹{orderTotal.toLocaleString('en-IN')}</span>
+            <span className="font-black text-indigo-600 text-xl">₹{Number(orderConfirmed.total_amount).toLocaleString('en-IN')}</span>
+            <UpiPaymentLink order={orderConfirmed} />
           </div>
         </div>
 

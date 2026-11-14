@@ -60,7 +60,7 @@ async function seedRealInventory() {
     ssl: dbUrl.includes("localhost") || dbUrl.includes("127.0.0.1") ? false : { rejectUnauthorized: false }
   });
 
-  const csvPath = path.join(process.cwd(), 'old web page', 'Invetory_mgmt - Assets.csv');
+  const csvPath = path.join(process.cwd(), 'docs', 'legacy', 'Invetory_mgmt - Assets.csv');
   if (!fs.existsSync(csvPath)) {
     console.error(`❌ CSV file not found at: ${csvPath}`);
     process.exit(1);

@@ -1,4 +1,6 @@
 'use client';
+import type { ShopOrder, ShopLine } from "@/types/catalog";
+import UpiPaymentLink from "@/components/UpiPaymentLink";
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import {
@@ -11,31 +13,17 @@ import {
   Package,
   FileText,
   CheckCircle2,
-  Clock,
   LogOut,
-  Mail,
   Phone,
-  Building,
-  Sparkles,
-  ExternalLink,
   Search,
   Plus,
   Edit2,
   Trash2,
   Star,
   RefreshCw,
-  HelpCircle,
   MessageSquare,
-  Lock,
-  ChevronRight,
-  AlertCircle,
   Printer,
-  X,
-  Check,
-  Share2,
-  SlidersHorizontal,
-  Box,
-  Compass
+  X
 } from 'lucide-react';
 import SafeProductImage from '@/components/SafeProductImage';
 import { useCartStore } from '@/store/useCartStore';
@@ -93,11 +81,10 @@ export default function CustomerAccountPage() {
   const [gstin, setGstin] = useState('29AAACE1234F1Z5');
 
   // Orders State
-  const [orders, setOrders] = useState<any[]>([]);
+  const [orders, setOrders] = useState<ShopOrder[]>([]);
   const [loadingOrders, setLoadingOrders] = useState(false);
   const [orderSearchQuery, setOrderSearchQuery] = useState('');
   const [orderStatusFilter, setOrderStatusFilter] = useState<string>('ALL');
-  const [orderTimeFilter, setOrderTimeFilter] = useState<string>('2026');
 
   // Addresses State
   const [addresses, setAddresses] = useState<AddressItem[]>(DEFAULT_ADDRESSES);
@@ -119,15 +106,14 @@ export default function CustomerAccountPage() {
 
   // Review Modal State
   const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
-  const [reviewProduct, setReviewProduct] = useState<any | null>(null);
+  const [reviewProduct, setReviewProduct] = useState<ShopLine | null>(null);
   const [ratingStars, setRatingStars] = useState(5);
   const [reviewText, setReviewText] = useState('');
   const [reviewHeadline, setReviewHeadline] = useState('');
 
   // Replacement Claim Modal State
   const [isClaimModalOpen, setIsClaimModalOpen] = useState(false);
-  const [claimOrder, setClaimOrder] = useState<any | null>(null);
-  const [claimItem, setClaimItem] = useState<any | null>(null);
+  const [claimItem, setClaimItem] = useState<ShopLine | null>(null);
   const [claimReason, setClaimReason] = useState('Damaged Glassware / Prism');
   const [claimDescription, setClaimDescription] = useState('');
   const [claimSubmitted, setClaimSubmitted] = useState(false);
@@ -141,35 +127,7 @@ export default function CustomerAccountPage() {
     setTimeout(() => setToastMessage(null), 3500);
   };
 
-  // Load from local storage on mount
-  useEffect(() => {
-    try {
-      const storedEmail = localStorage.getItem('experimind_customer_email');
-      const storedName = localStorage.getItem('experimind_customer_name');
-      const storedPhone = localStorage.getItem('experimind_customer_phone');
-      const storedInst = localStorage.getItem('experimind_customer_institution');
-      const storedRole = localStorage.getItem('experimind_customer_role');
-      const storedGstin = localStorage.getItem('experimind_customer_gstin');
-      const storedAddresses = localStorage.getItem('experimind_saved_addresses');
 
-      if (storedEmail) setCustomerEmail(storedEmail);
-      if (storedName) setCustomerName(storedName);
-      if (storedPhone) setCustomerPhone(storedPhone);
-      if (storedInst) setInstitutionName(storedInst);
-      if (storedRole) setUserRole(storedRole);
-      if (storedGstin) setGstin(storedGstin);
-
-      if (storedAddresses) {
-        setAddresses(JSON.parse(storedAddresses));
-      } else {
-        localStorage.setItem('experimind_saved_addresses', JSON.stringify(DEFAULT_ADDRESSES));
-      }
-
-      if (storedEmail) {
-        fetchCustomerOrders(storedEmail);
-      }
-    } catch (_) {}
-  }, []);
 
   const fetchCustomerOrders = async (email: string) => {
     setLoadingOrders(true);
@@ -179,11 +137,44 @@ export default function CustomerAccountPage() {
         const data = await res.json();
         setOrders(Array.isArray(data) ? data : []);
       }
-    } catch (_) {
+    } catch {
     } finally {
       setLoadingOrders(false);
     }
   };
+
+  // Load from local storage on mount
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => {
+      try {
+        const storedEmail = localStorage.getItem('experimind_customer_email');
+        const storedName = localStorage.getItem('experimind_customer_name');
+        const storedPhone = localStorage.getItem('experimind_customer_phone');
+        const storedInst = localStorage.getItem('experimind_customer_institution');
+        const storedRole = localStorage.getItem('experimind_customer_role');
+        const storedGstin = localStorage.getItem('experimind_customer_gstin');
+        const storedAddresses = localStorage.getItem('experimind_saved_addresses');
+
+        if (storedEmail) setCustomerEmail(storedEmail);
+        if (storedName) setCustomerName(storedName);
+        if (storedPhone) setCustomerPhone(storedPhone);
+        if (storedInst) setInstitutionName(storedInst);
+        if (storedRole) setUserRole(storedRole);
+        if (storedGstin) setGstin(storedGstin);
+
+        if (storedAddresses) {
+          setAddresses(JSON.parse(storedAddresses));
+        } else {
+          localStorage.setItem('experimind_saved_addresses', JSON.stringify(DEFAULT_ADDRESSES));
+        }
+
+        if (storedEmail) {
+          fetchCustomerOrders(storedEmail);
+        }
+      } catch {}
+    });
+    return () => cancelAnimationFrame(frame);
+  }, []);
 
   const customerStore = useCustomerStore();
 
@@ -286,7 +277,7 @@ export default function CustomerAccountPage() {
     showToast('Default Updated', 'This address will be auto-selected for future lab orders.');
   };
 
-  const handleBuyAgain = (line: any, e: React.MouseEvent) => {
+  const handleBuyAgain = (line: ShopLine, e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
     addItem({
@@ -299,7 +290,7 @@ export default function CustomerAccountPage() {
     showToast('Added to Cart', `1x "${line.item?.name || line.item_name}" added for re-order.`);
   };
 
-  const handleOpenReview = (line: any) => {
+  const handleOpenReview = (line: ShopLine) => {
     setReviewProduct(line);
     setRatingStars(5);
     setReviewHeadline('');
@@ -313,8 +304,7 @@ export default function CustomerAccountPage() {
     showToast('Review Submitted', `Thank you! Your ${ratingStars}-star educator review has been published.`);
   };
 
-  const handleOpenClaim = (order: any, line: any) => {
-    setClaimOrder(order);
+  const handleOpenClaim = (line: ShopLine) => {
     setClaimItem(line);
     setClaimReason('Damaged Glassware / Prism');
     setClaimDescription('');
@@ -343,7 +333,7 @@ export default function CustomerAccountPage() {
     if (orderSearchQuery.trim()) {
       const q = orderSearchQuery.toLowerCase();
       const matchesId = (order.order_number || order.id || '').toLowerCase().includes(q);
-      const matchesItem = (order.lines || []).some((l: any) =>
+      const matchesItem = (order.lines || []).some((l: ShopLine) =>
         (l.item_name || l.item?.name || '').toLowerCase().includes(q)
       );
       if (!matchesId && !matchesItem) return false;
@@ -460,7 +450,7 @@ export default function CustomerAccountPage() {
             return (
               <button
                 key={tile.id}
-                onClick={() => setActiveTab(tile.id as any)}
+                onClick={() => setActiveTab(tile.id as typeof activeTab)}
                 className={`p-4 rounded-3xl border text-left transition-all duration-200 cursor-pointer flex flex-col justify-between h-28 ${
                   isActive
                     ? 'bg-indigo-600 text-white border-indigo-600 shadow-lg shadow-indigo-600/20 scale-[1.02]'
@@ -578,7 +568,7 @@ export default function CustomerAccountPage() {
                         <div>
                           <span className="text-[10px] text-slate-400 uppercase tracking-wider font-bold block">Order Placed</span>
                           <span className="font-bold text-slate-800">
-                            {new Date(order.created_at || Date.now()).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                            {new Date(order.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
                           </span>
                         </div>
 
@@ -645,7 +635,7 @@ export default function CustomerAccountPage() {
 
                       {/* Line Items List */}
                       <div className="space-y-4">
-                        {(order.lines || []).map((line: any) => (
+                        {(order.lines || []).map((line: ShopLine) => (
                           <div
                             key={line.id}
                             className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4 rounded-2xl bg-slate-50/50 hover:bg-slate-50 border border-slate-100 transition-colors"
@@ -692,7 +682,7 @@ export default function CustomerAccountPage() {
 
                               {/* Claim Warranty / Replacement */}
                               <button
-                                onClick={() => handleOpenClaim(order, line)}
+                                onClick={() => handleOpenClaim(line)}
                                 className="px-3 py-2 rounded-xl text-xs font-bold bg-white hover:bg-emerald-50 text-slate-700 hover:text-emerald-600 border border-slate-200 transition-all flex items-center gap-1.5 shadow-2xs cursor-pointer"
                               >
                                 <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
@@ -985,7 +975,7 @@ export default function CustomerAccountPage() {
                         {ord.invoice_number || `INV-EXP-2026-${ord.id?.slice(0, 5)}`}
                       </span>
                       <span className="text-[10px] text-slate-400">
-                        Order #{ord.order_number || ord.id?.slice(0, 8)} • Placed {new Date(ord.created_at || Date.now()).toLocaleDateString('en-IN')}
+                        Order #{ord.order_number || ord.id?.slice(0, 8)} • Placed {new Date(ord.created_at).toLocaleDateString('en-IN')}
                       </span>
                     </div>
 
@@ -993,6 +983,7 @@ export default function CustomerAccountPage() {
                       <span className="font-black text-slate-900 text-sm">
                         ₹{Number(ord.total_amount || 0).toLocaleString('en-IN')}
                       </span>
+                      <UpiPaymentLink order={ord} />
 
                       <Link
                         href={`/track?orderId=${encodeURIComponent(ord.order_number || ord.id)}`}

@@ -15,6 +15,7 @@ export interface TreeNode {
   mountingType?: string;
   mslRating?: string;
   unitCost: number;
+  unit?: string;
   quantityPerAssembly: number;
   scrapPercentage: number;
   effectiveQuantity: number;
@@ -328,6 +329,7 @@ export class BomService {
           mountingType: childItem.mounting_type,
           mslRating: childItem.msl_rating,
           unitCost,
+          unit: childItem.unit,
           quantityPerAssembly: Number(node.quantity),
           scrapPercentage: Number(node.scrap_percentage),
           effectiveQuantity: effectiveQty,
@@ -369,18 +371,18 @@ export class BomService {
 
     const leafComponents: Array<any> = [];
 
-    const collectLeaves = (nodes: TreeNode[]) => {
+    const collectLeaves = (nodes: TreeNode[], multiplier: number) => {
       for (const node of nodes) {
         if (node.doNotPopulate) continue;
         if (node.children.length > 0) {
-          collectLeaves(node.children);
+          collectLeaves(node.children, multiplier * node.effectiveQuantity);
         } else {
           leafComponents.push({
             id: node.itemId,
             sku: node.sku,
             name: node.name,
             mpn: node.mpn,
-            requiredQuantity: node.effectiveQuantity * buildQuantity,
+            requiredQuantity: node.effectiveQuantity * multiplier,
             currentStock: node.currentStock,
             alternates: node.alternates,
           });
@@ -388,9 +390,15 @@ export class BomService {
       }
     };
 
-    collectLeaves(tree);
+    collectLeaves(tree, buildQuantity);
+    const combined = new Map<string, (typeof leafComponents)[number]>();
+    for (const leaf of leafComponents) {
+      const prior = combined.get(leaf.id);
+      if (prior) prior.requiredQuantity += leaf.requiredQuantity;
+      else combined.set(leaf.id, leaf);
+    }
 
-    const { hasShortage, shortages } = this.computeShortages(leafComponents);
+    const { hasShortage, shortages } = this.computeShortages([...combined.values()]);
 
     return {
       parentItemId,

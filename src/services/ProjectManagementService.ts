@@ -161,6 +161,7 @@ export class ProjectManagementService {
     }
 
     const newProject: Project = {
+      productLine: data.productLine, catalogAssemblyId: data.catalogAssemblyId, readinessEvidence: data.readinessEvidence,
       id: newId,
       code: newCode,
       name: data.name || 'New Educational Initiative',

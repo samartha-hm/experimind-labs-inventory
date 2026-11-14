@@ -8,10 +8,12 @@ export interface UserProfile {
   email: string;
   name: string;
   role: AppRole;
+  organization_id?: string;
 }
 
 interface AuthContextType {
   user: UserProfile | null;
+  currentUser: UserProfile | null;
   role: AppRole | null;
   token: string | null;
   loading: boolean;
@@ -25,6 +27,7 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType>({
   user: null,
+  currentUser: null,
   role: null,
   token: null,
   loading: true,
@@ -231,6 +234,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   return (
     <AuthContext.Provider value={{
       user,
+      currentUser: user,
       role,
       token,
       loading,

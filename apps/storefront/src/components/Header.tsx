@@ -1,4 +1,6 @@
 'use client';
+import { useHydrated } from "@/utils/useHydrated";
+import type { CatalogProduct } from "@/types/catalog";
 import Link from 'next/link';
 import {
   ShoppingBag,
@@ -16,7 +18,6 @@ import {
   ArrowRight,
   LogOut,
   Package,
-  FileText,
   Building
 } from 'lucide-react';
 import { useCartStore } from '@/store/useCartStore';
@@ -38,10 +39,10 @@ const POPULAR_SEARCH_KEYWORDS = [
 ];
 
 export default function Header() {
-  const [mounted, setMounted] = useState(false);
+  const mounted = useHydrated();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedSearchCategory, setSelectedSearchCategory] = useState('All');
-  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [searchResults, setSearchResults] = useState<CatalogProduct[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
   const [showSearchDropdown, setShowSearchDropdown] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -75,14 +76,15 @@ export default function Header() {
   const cartTotal = useCartStore((state) => state.total());
 
   useEffect(() => {
-    setMounted(true);
 
-    try {
-      const savedPin = localStorage.getItem('experimind_delivery_pincode');
-      const savedCity = localStorage.getItem('experimind_delivery_city');
-      if (savedPin) setCurrentPincode(savedPin);
-      if (savedCity) setCurrentCity(savedCity);
-    } catch (_) {}
+    const frame = requestAnimationFrame(() => {
+      try {
+        const savedPin = localStorage.getItem('experimind_delivery_pincode');
+        const savedCity = localStorage.getItem('experimind_delivery_city');
+        if (savedPin) setCurrentPincode(savedPin);
+        if (savedCity) setCurrentCity(savedCity);
+      } catch {}
+    });
 
     // Fetch dynamic announcement from CMS API
     fetch('/api/public/storefront/cms')
@@ -92,7 +94,7 @@ export default function Header() {
           setCmsAnnouncement(data.announcement);
         }
       })
-      .catch((_) => {});
+      .catch(() => {});
 
     // Close dropdowns on outside click
     const handleClickOutside = (e: MouseEvent) => {
@@ -104,14 +106,17 @@ export default function Header() {
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    return () => { cancelAnimationFrame(frame); document.removeEventListener('mousedown', handleClickOutside); };
   }, []);
+
+  function updateSearchQuery(value: string) {
+    setSearchQuery(value);
+    if (value.trim().length < 2) { setSearchResults([]); setShowSearchDropdown(false); }
+  }
 
   // Live auto-suggest search
   useEffect(() => {
     if (!searchQuery.trim() || searchQuery.trim().length < 2) {
-      setSearchResults([]);
-      setShowSearchDropdown(false);
       return;
     }
 
@@ -128,7 +133,7 @@ export default function Header() {
           setSearchResults(Array.isArray(data) ? data.slice(0, 6) : []);
           setShowSearchDropdown(true);
         }
-      } catch (_) {
+      } catch {
       } finally {
         setSearchLoading(false);
       }
@@ -170,7 +175,7 @@ export default function Header() {
       try {
         localStorage.setItem('experimind_delivery_pincode', clean);
         localStorage.setItem('experimind_delivery_city', resolvedCity);
-      } catch (_) {}
+      } catch {}
 
       setPincodeStatus(`Verified: Delivery Available to ${resolvedCity} (${clean})`);
       setTimeout(() => {
@@ -259,18 +264,19 @@ export default function Header() {
                 <input
                   type="text"
                   placeholder="Search STEM kits, Geomagic 3D, physics benches, sensors..."
+                  aria-busy={searchLoading}
                   value={searchQuery}
                   onFocus={() => {
                     if (searchResults.length > 0) setShowSearchDropdown(true);
                   }}
-                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onChange={(e) => updateSearchQuery(e.target.value)}
                   className="w-full bg-transparent text-slate-900 placeholder:text-slate-400 pl-3 pr-8 py-2.5 outline-none text-xs"
                 />
                 {searchQuery && (
                   <button
                     type="button"
                     onClick={() => {
-                      setSearchQuery('');
+                      updateSearchQuery('');
                       setShowSearchDropdown(false);
                     }}
                     className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-slate-400 hover:text-slate-600 font-bold p-1"
@@ -337,7 +343,7 @@ export default function Header() {
                       <button
                         key={kw}
                         onClick={() => {
-                          setSearchQuery(kw);
+                          updateSearchQuery(kw);
                           router.push(`/catalog?q=${encodeURIComponent(kw)}`);
                           setShowSearchDropdown(false);
                         }}
@@ -551,7 +557,7 @@ export default function Header() {
               type="text"
               placeholder="Search STEM kits, Geomagic, sensors..."
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e) => updateSearchQuery(e.target.value)}
               className="w-full bg-slate-100 text-slate-900 pl-10 pr-4 py-2.5 rounded-2xl border border-slate-200 text-xs"
             />
             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
@@ -607,7 +613,7 @@ export default function Header() {
       )}
 
       {/* 5. CUSTOMER AUTH MODAL */}
-      <CustomerAuthModal
+      <CustomerAuthModal key={String(authModalOpen)}
         isOpen={authModalOpen}
         onClose={() => setAuthModalOpen(false)}
       />

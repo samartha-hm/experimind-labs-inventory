@@ -309,7 +309,7 @@ All endpoints are versioned under `/api/v1/*` with JWT authorization (`Bearer <t
 ## 14. PRODUCTION DEPLOYMENT & INFRASTRUCTURE
 
 ### Production Server Details
-- **Public IP**: `13.233.142.180` (AWS EC2 Debian Linux aarch64 Graviton)
+- **Public IP**: `${EC2_HOST}` (AWS EC2 Debian Linux aarch64 Graviton)
 - **Application Directory**: `/home/admin/experimind-inventory`
 - **Database**: PostgreSQL 17 on `127.0.0.1:5432` (`experimind_inventory` database)
 - **PM2 Process Name**: `experimind-inventory`
@@ -324,10 +324,10 @@ npm run build
 tar --exclude="node_modules" --exclude=".git" --exclude="*.pem" --exclude="deploy_bundle.tar.gz" -czf deploy_bundle.tar.gz dist src scripts server.ts package.json package-lock.json tsconfig.json vite.config.ts
 
 # 3. Upload to AWS EC2
-scp -i "inventory.pem" deploy_bundle.tar.gz admin@13.233.142.180:/home/admin/deploy_bundle.tar.gz
+scp -i "inventory.pem" deploy_bundle.tar.gz admin@${EC2_HOST}:/home/admin/deploy_bundle.tar.gz
 
 # 4. Extract and restart PM2 on AWS
-ssh -i "inventory.pem" admin@13.233.142.180 "cd /home/admin/experimind-inventory && tar -xzf /home/admin/deploy_bundle.tar.gz && pm2 restart experimind-inventory && chmod -R 755 /home/admin/experimind-inventory/dist"
+ssh -i "inventory.pem" admin@${EC2_HOST} "cd /home/admin/experimind-inventory && tar -xzf /home/admin/deploy_bundle.tar.gz && pm2 restart experimind-inventory && chmod -R 755 /home/admin/experimind-inventory/dist"
 ```
 
 ---
@@ -337,12 +337,12 @@ ssh -i "inventory.pem" admin@13.233.142.180 "cd /home/admin/experimind-inventory
 To connect your custom domains (`shop.experimindlabs.com` for customers and `inventory.experimindlabs.com` for internal warehouse/ERP operations):
 
 ### 1. Configure DNS Records (Registrar / Cloudflare / GoDaddy / AWS Route 53)
-Add two **A Records** in your DNS management console targeting your AWS server elastic IP `13.233.142.180`:
+Add two **A Records** in your DNS management console targeting your AWS server elastic IP `${EC2_HOST}`:
 
 | Type | Name / Host | Target IP / Value | TTL | Purpose |
 | :--- | :--- | :--- | :--- | :--- |
-| **A** | `shop` (or `shop.experimindlabs.com`) | `13.233.142.180` | Auto / 300 | Public Customer Storefront |
-| **A** | `inventory` (or `inventory.experimindlabs.com`) | `13.233.142.180` | Auto / 300 | Enterprise WMS & ERP Portal |
+| **A** | `shop` (or `shop.experimindlabs.com`) | `${EC2_HOST}` | Auto / 300 | Public Customer Storefront |
+| **A** | `inventory` (or `inventory.experimindlabs.com`) | `${EC2_HOST}` | Auto / 300 | Enterprise WMS & ERP Portal |
 
 ---
 
@@ -356,7 +356,7 @@ The production Nginx reverse proxy configuration at `/etc/nginx/sites-available/
 server {
     listen 80;
     listen [::]:80;
-    server_name inventory.experimindlabs.com 13.233.142.180;
+    server_name inventory.experimindlabs.com;
 
     client_max_body_size 50M;
 
@@ -467,7 +467,7 @@ To ensure reliable operation across all devices, environments, and network condi
 ## 18. PWA SERVICE WORKER SSL ARCHITECTURE & TRUSTED ORIGINS
 
 ### The ServiceWorker Security Boundary
-Modern browsers strictly disallow ServiceWorker registration (`sw.js`) over untrusted or self-signed HTTPS connections on raw IP addresses (e.g. `https://13.233.142.180/`), returning a `SecurityError: Failed to register a ServiceWorker`.
+Modern browsers strictly disallow ServiceWorker registration (`sw.js`) over untrusted or self-signed HTTPS connections on raw IP addresses (e.g. `https://${EC2_HOST}/`), returning a `SecurityError: Failed to register a ServiceWorker`.
 
 ### Resilient Registration Strategy
 1. **Error-Suppressed Manual Registration**:
@@ -476,7 +476,7 @@ Modern browsers strictly disallow ServiceWorker registration (`sw.js`) over untr
    - When loaded over a self-signed IP or testing origin, the ServiceWorker registration fails gracefully without throwing uncaught promise rejections or halting execution.
 
 2. **Full PWA Offline Support on Custom Domains**:
-   - Once DNS A records point `shop.experimindlabs.com` and `inventory.experimindlabs.com` to `13.233.142.180` and Certbot installs trusted Let's Encrypt certificates, the ServiceWorker automatically activates with 100% offline cache capabilities.
+   - Once DNS A records point `shop.experimindlabs.com` and `inventory.experimindlabs.com` to `${EC2_HOST}` and Certbot installs trusted Let's Encrypt certificates, the ServiceWorker automatically activates with 100% offline cache capabilities.
 
 ---
 
@@ -565,7 +565,7 @@ To eliminate redundant 15-endpoint polling loops, the server exposes a persisten
 
 - 🏢 **Platform ERP Cockpit**: [https://inventory.experimindlabs.com/](https://inventory.experimindlabs.com/)
 - 🛍️ **Public Customer Storefront**: [https://shop.experimindlabs.com/](https://shop.experimindlabs.com/)
-- ⚡ **Direct Server IP**: `http://13.233.142.180`
+- ⚡ **Direct Server IP**: `${PUBLIC_ERP_URL}`
 
 ---
 

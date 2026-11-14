@@ -1,3 +1,4 @@
+import { storefrontOrgId, publicItem, availableToPromise } from "../../services/storefrontStock.ts";
 import { Router } from "express";
 import { AppDataSource } from "../../db.ts";
 
@@ -55,18 +56,18 @@ router.get("/catalog", async (req, res) => {
 
     let query = `
       SELECT 
-        id, sku, name, description, base_price as "basePrice", quantity as "stockQty",
+        id, sku, name, description, base_price as "basePrice", ${availableToPromise} as "stockQty",
         unit, threshold, is_common as "isCommon", is_subassembly as "isSubassembly",
         is_sellable as "isSellable", is_hidden as "isHidden", image_url as "imageUrl",
         category, bin_location as "binLocation"
       FROM inventory_items
-      WHERE is_hidden = false 
+      WHERE ${publicItem}
         AND is_sellable = true 
         AND LOWER(COALESCE(category, '')) NOT IN ('box', 'others')
     `;
 
-    const params: any[] = [];
-    let paramIndex = 1;
+    const params: any[] = [storefrontOrgId()];
+    let paramIndex = 2;
 
     if (category && typeof category === "string" && category.toLowerCase() !== "all") {
       query += ` AND LOWER(category) = LOWER($${paramIndex})`;
@@ -98,14 +99,14 @@ router.get("/categories", async (req, res) => {
     const rows = await AppDataSource.query(`
       SELECT DISTINCT category, count(*) as count
       FROM inventory_items
-      WHERE is_hidden = false 
+      WHERE ${publicItem}
         AND is_sellable = true
         AND category IS NOT NULL 
         AND category != ''
         AND LOWER(category) NOT IN ('box', 'others')
       GROUP BY category
       ORDER BY count DESC
-    `);
+    `, [storefrontOrgId()]);
     res.json(rows.map((r: any) => ({ name: r.category, count: Number(r.count) })));
   } catch (e: any) {
     res.status(500).json({ error: e.message });
@@ -120,20 +121,20 @@ router.get("/product/:id", async (req, res) => {
     
     let query = `
       SELECT 
-        id, sku, name, description, base_price as "basePrice", quantity as "stockQty",
+        id, sku, name, description, base_price as "basePrice", ${availableToPromise} as "stockQty",
         unit, threshold, is_common as "isCommon", is_subassembly as "isSubassembly",
         is_sellable as "isSellable", is_hidden as "isHidden", image_url as "imageUrl",
         category, bin_location as "binLocation"
       FROM inventory_items
-      WHERE is_hidden = false AND `;
+      WHERE ${publicItem} AND `;
       
     let params: any[] = [];
     if (isUuid) {
-      query += `id = $1`;
-      params = [id];
+      query += `id = $2`;
+      params = [storefrontOrgId(), id];
     } else {
-      query += `LOWER(sku) = LOWER($1)`;
-      params = [id];
+      query += `LOWER(sku) = LOWER($2)`;
+      params = [storefrontOrgId(), id];
     }
 
     const items = await AppDataSource.query(query, params);

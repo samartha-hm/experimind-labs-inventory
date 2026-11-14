@@ -1,3 +1,6 @@
+import { apiFetch as portfolioFetch } from "../../utils/api";
+import { catalogClasses, portfolioChecks, type ProductLine } from "../../data/portfolioTemplates";
+import { LabLoans } from "./LabLoans";
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import {
   Briefcase,
@@ -172,6 +175,8 @@ export default function ProjectPortfolioManagerTab({ onNavigateToTab }: ProjectP
   });
 
   // New Project Form State
+  const [productLine, setProductLine] = useState<ProductLine | "">("");
+  const [assembly, setAssembly] = useState("");
   const [templateType, setTemplateType] = useState<'CURRICULUM' | 'STANDARD_LAB' | 'BLANK'>('CURRICULUM');
   const [projectFormCode, setProjectFormCode] = useState<string>('');
   const [projectFormName, setProjectFormName] = useState<string>('');
@@ -484,15 +489,26 @@ export default function ProjectPortfolioManagerTab({ onNavigateToTab }: ProjectP
   };
 
   // Create Project Submit
-  const handleCreateProjectSubmit = (e: React.FormEvent) => {
+  const handleCreateProjectSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!projectFormName.trim()) {
       showToast('Project name is required', 'error');
       return;
     }
 
+    let classes;
+    if (productLine) {
+      try {
+        const result = await portfolioFetch("/bom/tree/" + encodeURIComponent(assembly));
+        classes = catalogClasses(result.data.tree, Math.max(1, Number(projectFormBatchMultiplier) || 1));
+      } catch (e) {
+        showToast("error", "Catalog BOM unavailable", e instanceof Error ? e.message : "Choose an assembly");
+        return;
+      }
+    }
     const created = ProjectManagementService.createProject(
       {
+        productLine: productLine || undefined, catalogAssemblyId: productLine ? assembly : undefined, classes,
         code: projectFormCode.trim() || undefined,
         name: projectFormName.trim(),
         clientName: projectFormClient.trim() || 'General Institutional Client',
@@ -1190,6 +1206,7 @@ export default function ProjectPortfolioManagerTab({ onNavigateToTab }: ProjectP
 
   return (
     <div className="space-y-8 pb-20 text-slate-200">
+      <LabLoans inventory={inventory} />
       {/* ===== 1. Executive Operations Header & KPI Ribbon ===== */}
       <div className="bg-gradient-to-r from-slate-900 via-indigo-950/40 to-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl relative overflow-hidden">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 relative z-10">
@@ -1567,6 +1584,15 @@ export default function ProjectPortfolioManagerTab({ onNavigateToTab }: ProjectP
                 </div>
                 <span className="text-lg font-black text-emerald-400 tabular-nums">{readinessSummary.readinessPercent}% ready</span>
               </div>
+              {selectedProject.productLine && <fieldset key={selectedProject.id}>
+                <legend>{selectedProject.productLine} readiness evidence</legend>
+                {portfolioChecks[selectedProject.productLine].map(check => <label className="block" key={check}>{check}
+                  <input className="ml-2 bg-slate-900" defaultValue={selectedProject.readinessEvidence?.[check] || ""}
+                    placeholder="Record verification" onBlur={e => {
+                      ProjectManagementService.updateProject(selectedProject.id, {readinessEvidence: {...selectedProject.readinessEvidence, [check]: e.target.value.trim()}});
+                      refreshProjectsList(selectedProject.id);
+                    }} /></label>)}
+              </fieldset>}
               <div className="h-2 rounded-full bg-slate-950 overflow-hidden">
                 <div className="h-full rounded-full bg-emerald-500 transition-all" style={{ width: `${readinessSummary.readinessPercent}%` }} />
               </div>
@@ -2185,9 +2211,18 @@ export default function ProjectPortfolioManagerTab({ onNavigateToTab }: ProjectP
             </div>
 
             <form onSubmit={handleCreateProjectSubmit} className="space-y-4 text-xs">
+              <label className="block">Product line
+                <select value={productLine} onChange={e => setProductLine(e.target.value as ProductLine | "")}>
+                  <option value="">General project</option>{Object.keys(portfolioChecks).map(line => <option key={line}>{line}</option>)}
+                </select>
+              </label>
+              {productLine && <label className="block">Catalog BOM assembly
+                <select required value={assembly} onChange={e => setAssembly(e.target.value)}>
+                  <option value="">Select assembly</option>{inventory.map(i => <option key={i.id} value={i.id}>{i.sku} {i.name}</option>)}
+                </select></label>}
               {/* Template Choice */}
               <div className="space-y-1.5">
-                <label className="text-slate-300 font-bold">Starter Template</label>
+                <label className="text-slate-300 font-bold">{productLine ? "Catalog BOM overrides starter template" : "Starter Template"}</label>
                 <div className="grid grid-cols-3 gap-2">
                   <button
                     type="button"

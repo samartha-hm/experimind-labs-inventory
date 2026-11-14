@@ -1,13 +1,13 @@
 'use client';
+import Image from 'next/image';
 import React, { useState } from 'react';
-import { Box, Sparkles, Compass, Cpu, Layers, Award, Shapes, Orbit } from 'lucide-react';
+import { Sparkles, Cpu, Shapes, Orbit } from 'lucide-react';
 
 interface SafeProductImageProps {
   src?: string | null;
   alt: string;
   className?: string;
   category?: string;
-  fallbackIconSize?: number;
 }
 
 export default function SafeProductImage({
@@ -15,7 +15,6 @@ export default function SafeProductImage({
   alt,
   className = "w-full h-full object-contain",
   category = "STEM Kits",
-  fallbackIconSize = 48,
 }: SafeProductImageProps) {
   const [hasError, setHasError] = useState(false);
 
@@ -52,7 +51,10 @@ export default function SafeProductImage({
   }
 
   return (
-    <img
+    <Image
+      width={640}
+      height={640}
+      unoptimized
       src={src}
       alt={alt || "ExperiMind Labs STEM Apparatus"}
       className={className}

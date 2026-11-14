@@ -10,7 +10,7 @@ const nextConfig: NextConfig = {
     return [
       {
         source: "/api/:path*",
-        destination: "http://127.0.0.1:3000/api/:path*", // Proxy to Express backend
+        destination: `${(process.env.PUBLIC_ERP_URL ?? "http://127.0.0.1:3000").replace(/\/$/, "")}/api/:path*`, // Proxy to Express backend
       },
     ];
   },

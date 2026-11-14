@@ -16,7 +16,7 @@
 
 ## 1. RAPID EMERGENCY DIAGNOSTIC CHECKLIST
 
-When an outage or anomaly occurs in production, run this 60-second triage via SSH on AWS EC2 (`admin@13.233.142.180`):
+When an outage or anomaly occurs in production, run this 60-second triage via SSH on AWS EC2 (`admin@${EC2_HOST}`):
 
 ```bash
 # 1. Check PM2 process table
@@ -210,4 +210,4 @@ echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
 ### Symptom B: Camera Barcode Scanner Fails to Launch
 - **Cause**: Browser requires HTTPS context (`navigator.mediaDevices.getUserMedia` is blocked over plain HTTP).
 - **Resolution**:
-  Access the platform through secure domain: [`https://inventory.experimindlabs.com/`](https://inventory.experimindlabs.com/). Plain IP access (`http://13.233.142.180`) blocks camera hardware on mobile devices.
+  Access the platform through secure domain: [`https://inventory.experimindlabs.com/`](https://inventory.experimindlabs.com/). Plain IP access (`${PUBLIC_ERP_URL}`) blocks camera hardware on mobile devices.

@@ -1,4 +1,5 @@
 'use client';
+import { useHydrated } from "@/utils/useHydrated";
 import { useCartStore } from "@/store/useCartStore";
 import Link from "next/link";
 import {
@@ -8,28 +9,21 @@ import {
   ShieldCheck,
   Truck,
   ArrowLeft,
-  Tag,
-  CheckCircle2,
-  X,
-  Sparkles,
-  Percent,
-  Check
+  Tag
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import SafeProductImage from "@/components/SafeProductImage";
 
 export default function CartPage() {
   const { items, removeItem, updateQuantity, total, clearCart } = useCartStore();
-  const [mounted, setMounted] = useState(false);
+  const mounted = useHydrated();
 
   // Promo Code Engine
   const [couponInput, setCouponInput] = useState('');
   const [appliedCoupon, setAppliedCoupon] = useState<{ code: string; discountPercent: number } | null>(null);
   const [couponError, setCouponError] = useState<string | null>(null);
 
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+
 
   if (!mounted) return null;
 

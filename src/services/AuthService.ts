@@ -1,11 +1,12 @@
 import { User } from "../entity/User.ts";
 import { RefreshToken } from "../entity/RefreshToken.ts";
-import { AppDataSource } from "../db.ts";
+import { IdentityDataSource as AppDataSource } from "../db.ts";
 import { env } from "../config/env.ts";
 import { validatePasswordStrength, generateSingleUseToken, hashToken } from "../utils/passwordPolicy.ts";
 import { generateBase32Secret, verifyTotpCode, generateOtpAuthUrl, generateBackupRecoveryCodes } from "../utils/totp.ts";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
+import type { DataSource, EntityManager } from "typeorm";
 
 export interface LoginResult {
   mfaRequired?: boolean;
@@ -16,12 +17,13 @@ export interface LoginResult {
 }
 
 export class AuthService {
+  constructor(private readonly db: DataSource | EntityManager = AppDataSource) {}
   private get userRepo() {
-    return AppDataSource.getRepository(User);
+    return this.db.getRepository(User);
   }
 
   private get tokenRepo() {
-    return AppDataSource.getRepository(RefreshToken);
+    return this.db.getRepository(RefreshToken);
   }
 
   async hashPassword(password: string): Promise<string> {
@@ -70,8 +72,8 @@ export class AuthService {
 
     const savedUser = await this.userRepo.save(user);
 
-    const token = this.generateAccessToken(savedUser);
     const refreshToken = await this.generateRefreshToken(savedUser.id);
+    const token = this.generateAccessToken(savedUser, hashToken(refreshToken));
 
     return { user: savedUser, token, refreshToken };
   }
@@ -130,8 +132,8 @@ export class AuthService {
       return { mfaRequired: true, mfaToken };
     }
 
-    const token = this.generateAccessToken(user);
     const refreshToken = await this.generateRefreshToken(user.id);
+    const token = this.generateAccessToken(user, hashToken(refreshToken));
 
     return { user, token, refreshToken };
   }
@@ -170,8 +172,8 @@ export class AuthService {
       throw new Error("Invalid two-factor authentication code.");
     }
 
-    const token = this.generateAccessToken(user);
     const refreshToken = await this.generateRefreshToken(user.id);
+    const token = this.generateAccessToken(user, hashToken(refreshToken));
 
     return { user, token, refreshToken };
   }
@@ -276,7 +278,14 @@ export class AuthService {
   }
 
   async refreshAccessToken(rawRefreshToken: string): Promise<{ token: string; refreshToken: string; user: { id: string; email: string; name: string; role: string; mfaEnabled: boolean } }> {
+    return this.db.transaction(async m => new AuthService(m).rotateRefreshToken(rawRefreshToken));
+  }
+
+  private async rotateRefreshToken(rawRefreshToken: string): Promise<{ token: string; refreshToken: string; user: { id: string; email: string; name: string; role: string; mfaEnabled: boolean } }> {
     const tokenHash = hashToken(rawRefreshToken);
+    const [owner] = await this.db.query("SELECT user_id FROM refresh_tokens WHERE token_hash=$1", [tokenHash]);
+    if (!owner) throw new Error("Refresh token is invalid, revoked, or expired.");
+    await this.db.query("SELECT id FROM users WHERE id=$1 FOR UPDATE", [owner.user_id]);
     const tokenRecord = await this.tokenRepo.findOne({
       where: { token_hash: tokenHash, is_revoked: false },
     });
@@ -295,8 +304,8 @@ export class AuthService {
     await this.tokenRepo.save(tokenRecord);
 
     // Issue new access and refresh token pair
-    const newAccessToken = this.generateAccessToken(user);
     const newRefreshToken = await this.generateRefreshToken(user.id);
+    const newAccessToken = this.generateAccessToken(user, hashToken(newRefreshToken));
 
     return {
       token: newAccessToken,
@@ -314,21 +323,24 @@ export class AuthService {
   async revokeRefreshToken(rawRefreshToken: string): Promise<void> {
     if (!rawRefreshToken) return;
     const tokenHash = hashToken(rawRefreshToken);
-    const tokenRecord = await this.tokenRepo.findOne({ where: { token_hash: tokenHash } });
-    if (tokenRecord) {
-      tokenRecord.is_revoked = true;
-      await this.tokenRepo.save(tokenRecord);
-    }
+    await this.db.transaction(async m => {
+      const [record] = await m.query("SELECT user_id FROM refresh_tokens WHERE token_hash=$1", [tokenHash]);
+      if (!record) return;
+      // Shared with ledger execution: logout cannot commit ahead of an authorized mutation.
+      await m.query("SELECT id FROM users WHERE id=$1 FOR UPDATE", [record.user_id]);
+      await m.query("UPDATE refresh_tokens SET is_revoked=true WHERE token_hash=$1", [tokenHash]);
+    });
   }
 
-  public generateAccessToken(user: User): string {
+  public generateAccessToken(user: User, sessionHash?: string): string {
     const payload = {
       sub: user.id,
+      sid: sessionHash,
       email: user.email,
       role: user.role,
       orgId: (user as any).organization_id || "00000000-0000-0000-0000-000000000000",
     };
-    return jwt.sign(payload, env.jwtSecret, { expiresIn: (env.jwtExpiresIn as any) || "15m" });
+    return jwt.sign(payload, env.jwtSecret, { issuer: "experimind-auth", audience: "experimind-api", expiresIn: (env.jwtExpiresIn as any) || "15m" });
   }
 
   private async generateRefreshToken(userId: string): Promise<string> {

@@ -1,0 +1,660 @@
+{
+  "classification": "SYNTHETIC TEST EVIDENCE; partial browser acceptance",
+  "schema": "requirement_test_65e4d0314cc341f7b81dae97c9e936df",
+  "browser": "Codex in-app browser; authenticated local application",
+  "artifacts": [
+    {
+      "artifact": ".local-dev/d6f-browser/01-authenticated-reload.txt",
+      "sha256": "b800d91e078946554a49c320ab10921bb66080b7f159c4679bd0dd0b2d03f465",
+      "bytes": 30691
+    },
+    {
+      "artifact": ".local-dev/d6f-browser/02-receipt-created.txt",
+      "sha256": "bc374b7ec9f5e30950ca4322fe80d972e3846450f0011914fff7afad92c6d198",
+      "bytes": 31225
+    },
+    {
+      "artifact": ".local-dev/d6f-browser/03-quarantined.txt",
+      "sha256": "d50c445238f88bc912cce8919d6bb8ac921ba91041301809ba129c94851822ad",
+      "bytes": 31201
+    },
+    {
+      "artifact": ".local-dev/d6f-browser/04-accepted.txt",
+      "sha256": "78f25bcdf167fdcca7e42c3d159d157efd393ca2f747c324dd3646b544e40b21",
+      "bytes": 30982
+    },
+    {
+      "artifact": ".local-dev/d6f-browser/05-rejected-pr-review.txt",
+      "sha256": "e279132c2f468c6d7081dd18abbd10f646df3c38a0a179474c6247c3535d1f42",
+      "bytes": 31261
+    },
+    {
+      "artifact": ".local-dev/d6f-browser/06-school-approved.txt",
+      "sha256": "072aecb5cf327f9deb24dd12738d4979ace676407ef99a678f23444fe79f4a38",
+      "bytes": 27110
+    },
+    {
+      "artifact": ".local-dev/d6f-browser/07-raw-issued.txt",
+      "sha256": "058001da4125096cfc8f1e873fbe1f1288d66765d24785b542a29f838e00a360",
+      "bytes": 28934
+    },
+    {
+      "artifact": ".local-dev/d6f-browser/08-output.txt",
+      "sha256": "ae3b1cf7814407a68b56af1bea1582965fd8b0ef209e20bf08645a9412e30bf4",
+      "bytes": 28840
+    },
+    {
+      "artifact": ".local-dev/d6f-browser/10-durable-retry.txt",
+      "sha256": "c7efbed7f40e508ca79dbaecb395d7838ab63a744d9bc766590bf13edd30cb86",
+      "bytes": 26187
+    },
+    {
+      "artifact": ".local-dev/d6f-browser/11-allocation-no-match.txt",
+      "sha256": "aaf005faa2ef5f904fc81a19d671516e2cf9a5bb9c3ba7a4dda1fe1b17ae2ce9",
+      "bytes": 30064
+    },
+    {
+      "artifact": ".local-dev/d6f-browser/12-package-qr-preview.txt",
+      "sha256": "9325e294fbbf415c9303be0eec1fe8a2ac30471be1bf013949f4cef5835d408d",
+      "bytes": 30782
+    },
+    {
+      "artifact": ".local-dev/d6f-browser-13-allocation-fixed.txt",
+      "sha256": "3cfd3a6d220a5f392d77cb8a13b14a6b817e1f728ad56fd9bcaf7dec64327940",
+      "bytes": 30858
+    },
+    {
+      "artifact": ".local-dev/d6f-receipt-proof.json",
+      "sha256": "b36ae615870fe7df2bc5340dfcb90a6cc7e2922118b810a0eadd459101374971",
+      "bytes": 2522
+    },
+    {
+      "artifact": ".local-dev/d6f-matching-final.log",
+      "sha256": "65280ab56ab152d6df341484ea015f4af3708ce76432bc8365d91e0d995429f2",
+      "bytes": 232
+    },
+    {
+      "artifact": ".local-dev/d6f-typecheck-resume.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "artifact": ".local-dev/d6f-regression-resume.log",
+      "sha256": "bbb9e507ec1a4dee7f5b3e26ebe67049b919e0a03f1d1eaaff68c00b981c053e",
+      "bytes": 13625
+    },
+    {
+      "artifact": ".local-dev/d6f-default-build.log",
+      "sha256": "734b50a65c79fce6c2cce43ae55cc9ed1a03aa728cc30bced6188121c154dc72",
+      "bytes": 1665
+    },
+    {
+      "artifact": ".local-dev/d6f-fixed-build.log",
+      "sha256": "8b8951bde2444160574e955c6e8dea85b64370335ebcd152bb11611a5e96db7e",
+      "bytes": 1666
+    },
+    {
+      "artifact": ".local-dev/d606-recovery-summary.json",
+      "sha256": "7524451683599682c576bd967f8cd8107aaa257e6d0e631035a12d90c5a65aba",
+      "bytes": 52692
+    },
+    {
+      "artifact": ".local-dev/d6f-recovery.log",
+      "sha256": "42b90ffc67db38bb1a86b9331a2d1bc7e230191271214da639586a152bb2a204",
+      "bytes": 202
+    }
+  ],
+  "excluded": "09-packing-denied.txt captured after navigation; does not independently prove initial packing error",
+  "credentials": "Private environment/account files and database dumps excluded",
+  "d6f2r": {
+    "date": "2026-10-30",
+    "classification": "PARTIAL — NOT PASS",
+    "recovery": "Verified preserved source restart and fresh-database schema restore",
+    "original_denial": "INCONCLUSIVE: original outbound payload and detailed error unavailable",
+    "browser": "Repository Playwright/Edge fallback; actual UI login and allocation HTTP 201 with fresh key; post-restart UI reload",
+    "pending_key_replay": "Not completed in browser; reconstructed original key accepted only in rollback diagnostic",
+    "receipt": "803da359-66f8-4cdf-b618-b89ee3d6cc06",
+    "reconciliation": {
+      "tables": 111,
+      "sha256": "c6ffdc72010b6f61e9038db5fb02d65e5cb7c5ca0798298ed331dc289875a743",
+      "scope": "Post-allocation source before/after restart and fresh restore; excludes users, sessions, refresh_tokens; credentials separately match"
+    },
+    "verification": {
+      "focused_passed": 20,
+      "regression_passed": 645,
+      "regression_skipped": 2,
+      "typecheck": "PASS",
+      "frontend_pwa_server_build": "PASS"
+    },
+    "limitations": [
+      "Historical denial remains unclassified; no implementation fix justified",
+      "Initial pre-allocation health JSON overwritten; retained state JSONL independently shows zero plan allocations",
+      "Both screenshot files show post-restart read-only login, not original allocation submission",
+      "Log snapshots are sealed copies of ongoing local server logs",
+      "No genuine migration journal; no historical provenance claim",
+      "QC and downstream browser acceptance not performed"
+    ],
+    "artifacts": [
+      {
+        "artifact": ".local-dev/d6f2r-postgres-snapshot.log",
+        "sha256": "18f9a013a044292ef8561cc82dbadce28ba1f1871bf9c01c9d2afee138e7a91d",
+        "bytes": 183047
+      },
+      {
+        "artifact": ".local-dev/d6f2r-restart-snapshot.log",
+        "sha256": "ea23e06c1aeb23a6dd052dbd2ecc1296ca0153a87c90f1be0c53fd5d1cdda8b8",
+        "bytes": 7017
+      },
+      {
+        "artifact": ".local-dev/d6f2r-resources.json",
+        "sha256": "5e2b042f38ca559ac9b55bc79f9c5665fcc2a2e5ddc10a5b0ae700612f9bc6af",
+        "bytes": 4610
+      },
+      {
+        "artifact": ".local-dev/d6f2r-state.jsonl",
+        "sha256": "fbd8a16220cdfd14569c3affb247f1c0aff8d1c20554586884067606ec43d04a",
+        "bytes": 31863
+      },
+      {
+        "artifact": ".local-dev/d6f2r-owner-probe.log",
+        "sha256": "b780255eccfadb580f48ed470537f4f79f60c4161d5bb2d9f9644643e4639fe9",
+        "bytes": 317
+      },
+      {
+        "artifact": ".local-dev/d6f2r-ledger-probe.log",
+        "sha256": "b780255eccfadb580f48ed470537f4f79f60c4161d5bb2d9f9644643e4639fe9",
+        "bytes": 317
+      },
+      {
+        "artifact": ".local-dev/d6f2r-authority.json",
+        "sha256": "fbf5a43129013971936e2465293b46cf1a14a9f1febdb31d7731d38142136b27",
+        "bytes": 1046
+      },
+      {
+        "artifact": ".local-dev/d6f2r-browser.json",
+        "sha256": "28dadf3b4176715058452485e1e96526afbea35f040c6c6c90ae1b7511ab7f85",
+        "bytes": 6121
+      },
+      {
+        "artifact": ".local-dev/d6f2r-browser-restart.json",
+        "sha256": "1da01bce196da1326f2439234a69b3b7d84b093e9d3538239e06057c21b345e8",
+        "bytes": 5207
+      },
+      {
+        "artifact": ".local-dev/d6f2r-browser-before.png",
+        "sha256": "bd40065c3b42ea73d86eb41f5ed3835c7d0f6bc8155acce87f9103e482c9f8e2",
+        "bytes": 184321
+      },
+      {
+        "artifact": ".local-dev/d6f2r-browser-after.png",
+        "sha256": "bd40065c3b42ea73d86eb41f5ed3835c7d0f6bc8155acce87f9103e482c9f8e2",
+        "bytes": 184321
+      },
+      {
+        "artifact": ".local-dev/d6f2r-before-restart.json",
+        "sha256": "01db6189ee243a346932bca4f18d030adb2bf06656e3f29c6a037fdfb75c5c1d",
+        "bytes": 20572
+      },
+      {
+        "artifact": ".local-dev/d6f2r-after-restart.json",
+        "sha256": "398c9ccb48a4f5808f6503a720b60f5aade763575f30c7b491d4765b078f0bf2",
+        "bytes": 23438
+      },
+      {
+        "artifact": ".local-dev/d6f2r-restored-health.json",
+        "sha256": "a52d92cbaea5563954208ec1d3395630b1195968048603815e3468c06faa8331",
+        "bytes": 23434
+      },
+      {
+        "artifact": ".local-dev/d6f2r-recovery-check.json",
+        "sha256": "62fa0db0edd6a871fc320e1bdd88827d4ef6bad164ccd9b094a3fb5c062f0d94",
+        "bytes": 340
+      },
+      {
+        "artifact": ".local-dev/d6f2r-after-restart-check.json",
+        "sha256": "62fa0db0edd6a871fc320e1bdd88827d4ef6bad164ccd9b094a3fb5c062f0d94",
+        "bytes": 340
+      },
+      {
+        "artifact": ".local-dev/d6f2r-restored-check.json",
+        "sha256": "1e450ebe7ed168b16b700b0e33d445445e12ef290db8ac967487d0d46d1df0e5",
+        "bytes": 336
+      },
+      {
+        "artifact": ".local-dev/d6f2r-restore.json",
+        "sha256": "c6e7de07b7a211abe655eb5fba8290643ea353ef36aef68b7c5f40204afd31cb",
+        "bytes": 221
+      },
+      {
+        "artifact": ".local-dev/d6f2r-lineage.json",
+        "sha256": "0da411116cd857a85cdf13270361daff3cdc4eca47cbf5276ad1a791a5eaf2f8",
+        "bytes": 57786
+      },
+      {
+        "artifact": ".local-dev/d6f2r-focused.log",
+        "sha256": "9bd89da0233add95a5ff0946434eedc031d4bf9f13d73a8804518b9da83acd4b",
+        "bytes": 233
+      },
+      {
+        "artifact": ".local-dev/d6f2r-regression.log",
+        "sha256": "5b7a12e1dfeab265202dba1eea5e60fe3f1ce7fc1d9d28c1c4cf27ea135aa2c8",
+        "bytes": 264
+      },
+      {
+        "artifact": ".local-dev/d6f2r-typecheck.log",
+        "sha256": "d1c66aa4fb26d014d35d932f32438d5d825e59676f3e289aeade54e4e8774f68",
+        "bytes": 65
+      },
+      {
+        "artifact": ".local-dev/d6f2r-build.log",
+        "sha256": "4535f6e7a1e0e60751d465a87fc12146d0856923de3b3ec3d004c19a89dfbc7d",
+        "bytes": 1665
+      }
+    ]
+  },
+  "d6f3": {
+    "date": "2026-10-30",
+    "classification": "BLOCKED — NOT PASS",
+    "baseline": "a42175258eb59f283d1d116cddc9368a936aac42",
+    "report": "docs/erp/D6F3_DOWNSTREAM_BROWSER_ACCEPTANCE.md",
+    "browser": {
+      "transactions": 0,
+      "authenticated": false,
+      "blocker": "Browser runtime selection/documentation timed out twice; documented recovery exhausted",
+      "fallback": false,
+      "applicationMutations": 0
+    },
+    "crateExemplar": {
+      "evidence": "Fresh in-memory unit fixtures only",
+      "schoolA": {
+        "common": 6,
+        "universal": 2
+      },
+      "schoolB": {
+        "common": 3,
+        "universal": 0
+      },
+      "math": {
+        "common": 0,
+        "universal": 0
+      },
+      "databaseAllocationExclusivity": "NOT VERIFIED"
+    },
+    "verification": {
+      "focusedPassed": 19,
+      "focusedFiles": 5,
+      "regressionPassed": 645,
+      "regressionSkipped": 2,
+      "regressionFilesPassed": 84,
+      "typecheck": "PASS",
+      "defaultFrontendPwaServerBuild": "PASS",
+      "featureEnabledBrowserBuild": "NOT RUN",
+      "skips": [
+        "receiptRecovery.integration.test.ts: RECEIPT_RECOVERY_PHASE not set",
+        "productionRecovery.integration.test.ts: PRODUCTION_RECOVERY_PHASE not set"
+      ],
+      "browserMatrix": "NOT EXERCISED"
+    },
+    "recovery": {
+      "synthetic": true,
+      "tables": 111,
+      "digest": "c6ffdc72010b6f61e9038db5fb02d65e5cb7c5ca0798298ed331dc289875a743",
+      "restart": true,
+      "systemIdentifier": "7699797950123419544",
+      "startBefore": "2026-10-30T17:34:07.159Z",
+      "startAfter": "2026-10-30T17:38:55.062Z",
+      "freshRestore": "d6f3_restore_20261030",
+      "credentialsAndGuardsMatch": true,
+      "restrictedRoles": true,
+      "closureBlocked": true
+    },
+    "software": "BLOCKED",
+    "pilot": "NO-GO",
+    "historicalDenial": "INCONCLUSIVE",
+    "artifacts": [
+      {
+        "artifact": ".local-dev/d6f3-focused.log",
+        "sha256": "ed48012731a7e31a91b029f86977c3829c2cb8ce1b25bb5b7d642aedf466f9cc",
+        "bytes": 3447
+      },
+      {
+        "artifact": ".local-dev/d6f3-focused-elevated.log",
+        "sha256": "f65a4222041a7737a461893b3af003ace26e0d9ab8611636d5c446bf3479fb59",
+        "bytes": 645
+      },
+      {
+        "artifact": ".local-dev/d6f3-typecheck.log",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "bytes": 0
+      },
+      {
+        "artifact": ".local-dev/d6f3-build.log",
+        "sha256": "fb0348eec0ad2ffedfeff08fe4052375df77787d78c5308fa972f5036de8cd8a",
+        "bytes": 1665
+      },
+      {
+        "artifact": ".local-dev/d6f3-regression.log",
+        "sha256": "f25254365eca8c014f047065e6ca1c8ea7a0c84bf128742cc5c1cf172057af34",
+        "bytes": 12561
+      },
+      {
+        "artifact": ".local-dev/d6f3-baseline.json",
+        "sha256": "d41a4c799cda92d8fe276605eb4ed88ed04c6a1b0c41b95889a4827f11c43274",
+        "bytes": 23438
+      },
+      {
+        "artifact": ".local-dev/d6f3-before-restart.json",
+        "sha256": "d41a4c799cda92d8fe276605eb4ed88ed04c6a1b0c41b95889a4827f11c43274",
+        "bytes": 23438
+      },
+      {
+        "artifact": ".local-dev/d6f3-after-restart.json",
+        "sha256": "085e943441f4e9f4154f9dd62e85c54595e9ad68e5708517607897341a1ebb2a",
+        "bytes": 23438
+      },
+      {
+        "artifact": ".local-dev/d6f3-restored-health.json",
+        "sha256": "14f72945eb4ea9dea120fdc5178c1558a4fa7704fb65e3bde6c3ec586631798c",
+        "bytes": 23433
+      },
+      {
+        "artifact": ".local-dev/d6f3-restore.json",
+        "sha256": "a00bab8c2aa2a6bea9b37e5ded8bc5d4894f41aeb67a54af58262143e943aada",
+        "bytes": 220
+      },
+      {
+        "artifact": ".local-dev/d6f3-recovery-summary.json",
+        "sha256": "7c0242063af7fa2ed0e609434232b1b25ed770cee15dd89a1c45e6d314d75390",
+        "bytes": 407
+      },
+      {
+        "artifact": ".local-dev/d6f3-postgres.log",
+        "sha256": "e0097a7fea063f640869b238cb7e28e852d4fccfaac20f2c92103b9bfa293343",
+        "bytes": 687
+      },
+      {
+        "artifact": ".local-dev/d6f3-postgres-elevated.log",
+        "sha256": "2f9a8d137585f2c4099ce02ebe62173e8a008ca5c2c0c85da17ae68167a6120e",
+        "bytes": 179570
+      },
+      {
+        "artifact": ".local-dev/d6f3-restart.log",
+        "sha256": "9f7ce430e9e1be916ce101e0fea2f967b38119fa265c26aa96a477a60b52f256",
+        "bytes": 405
+      }
+    ]
+  },
+  "d6f4": {
+    "date": "2026-10-30",
+    "verdict": "BLOCKED — NOT PASS",
+    "baseline": "ec9e1f63ee20b87261eae0a7e75f883d1c977431",
+    "report": "docs/erp/D6F4_AUTHENTICATED_BROWSER_ACCEPTANCE.md",
+    "evidence": "Supported browser tool transcript in current chat; no screenshot or new private artifact",
+    "browserSkill": "26.1027.30824",
+    "inventory": "iab discovered, ID 2",
+    "failureStage": "explicit in-app browser selection",
+    "elapsedMs": 10480,
+    "authenticatedTransitions": 0,
+    "mutationRequests": 0,
+    "databaseReconciliation": "NOT RERUN",
+    "verification": "Documentation only; tests/build/typecheck/recovery not rerun",
+    "historicalDenial": "INCONCLUSIVE",
+    "software": "BLOCKED",
+    "pilot": "NO-GO"
+  },
+  "d6f5": {
+    "date": "2026-10-31",
+    "baseline": "36bc6ae55163929c12d9e8fee00cb80f84c0fccd",
+    "report": "docs/erp/D6F5_ENVIRONMENT_DIAGNOSIS.md",
+    "browser": {
+      "discovery": true,
+      "selection": "TIMEOUT; kernel reset",
+      "budgetMs": 10000,
+      "authenticated": false,
+      "transactions": 0,
+      "fallback": false
+    },
+    "conservation": {
+      "tables": 111,
+      "digest": "c6ffdc72010b6f61e9038db5fb02d65e5cb7c5ca0798298ed331dc289875a743",
+      "restrictedRoles": true,
+      "guardsMatch": true,
+      "credentialsMatch": true
+    },
+    "software": "BLOCKED",
+    "pilot": "NO-GO",
+    "artifacts": [
+      {
+        "artifact": ".local-dev/d6f5-health.json",
+        "sha256": "58b00c86920933d1c89f8ee3bf30a7ae30d6a27d9c8b31a0ccbbed98e03ac665",
+        "bytes": 23443
+      },
+      {
+        "artifact": ".local-dev/d6f5-verification.json",
+        "sha256": "44b8776870a44cefbf92e4ec0a283ca5c7e4ee1f909763cb65b5fcd2ca144cea",
+        "bytes": 1224
+      },
+      {
+        "artifact": ".local-dev/d6f5-state.jsonl",
+        "sha256": "8b4de9be3cc9f03903cc2801838eca2d6e65fd4272be32040b6e5f6faf6b7d5b",
+        "bytes": 32331
+      },
+      {
+        "artifact": ".local-dev/d6f5-verify.mjs",
+        "sha256": "c25d8b2becb722baee6ea276044882122b355ac2c1d3c53cc18bee4a04b03d52",
+        "bytes": 1772
+      }
+    ]
+  },
+  "d6f6": {
+    "report": "docs/erp/D6F6_PACKING_QC_ACCEPTANCE.md",
+    "checkpoint": "148ad39553b5bf8d5fcf2b2ebdcfb1e29f2046fb",
+    "browserConnection": "PASS",
+    "authenticatedNavigation": "PASS",
+    "qcAcceptance": "BLOCKED",
+    "pilot": "NO-GO"
+  },
+  "d6f7": {
+    "report": "docs/erp/D6F7_PACKING_QC_FRONTEND_GATE_DIAGNOSIS.md",
+    "inspectedHead": "782b9b133df208e0515584c86c5f7f78f04176c7",
+    "classification": [
+      "B: effective build-time feature flag OFF",
+      "E: artifact mismatch for intended feature-enabled test; cache staleness unproven"
+    ],
+    "diagnosis": "PASS: correct OFF behavior verified",
+    "browser": "Authenticated existing session; fresh project and direct package tabs; six-check controls absent",
+    "qcAcceptance": "BLOCKED / NOT RUN",
+    "applicationChanges": false,
+    "tests": {
+      "passed": 14,
+      "files": 4,
+      "backendAuthoritySuites": "NOT RUN; source trace only",
+      "initialSandbox": "EPERM; approved rerun passed"
+    },
+    "build": {
+      "isolated": true,
+      "served": false,
+      "wrapperExitCode": 1,
+      "success": "UNVERIFIED; feature-enabled main asset emitted"
+    },
+    "conservation": {
+      "tables": 111,
+      "digest": "c6ffdc72010b6f61e9038db5fb02d65e5cb7c5ca0798298ed331dc289875a743",
+      "unchanged": true
+    },
+    "d6": "BLOCKED",
+    "pilot": "NO-GO",
+    "ownership": "O1-O10 DRAFT / NOT AUTHORIZED",
+    "artifacts": [
+      {
+        "artifact": ".local-dev/d6f7-bundle.json",
+        "sha256": "65edf5fbeb456decb7b0b88fd6568d0dadca904095eab30a7cf6664556f2042e",
+        "bytes": 1103
+      },
+      {
+        "artifact": ".local-dev/d6f7-health.json",
+        "sha256": "53ef1cf4ed0a5eb120dcef986126759c93b4883c06da31067b3dd3568fd21bff",
+        "bytes": 23443
+      },
+      {
+        "artifact": ".local-dev/d6f7-final-health.json",
+        "sha256": "75ddd92e076fc1dc52fc1d9cf1bda15e118501e1831b8960bbb44d185f71b858",
+        "bytes": 23443
+      },
+      {
+        "artifact": ".local-dev/d6f7-state.jsonl",
+        "sha256": "e47589cea275ceb32d7674aa7ba4977aa1d819f5325197de929d841bb7e29c6c",
+        "bytes": 64636
+      },
+      {
+        "artifact": ".local-dev/d6f7-verification.json",
+        "sha256": "487aaab3ce1733349eb4ee909d3c96b28636f52cab340ddab81d103a08b5fa7b",
+        "bytes": 629
+      },
+      {
+        "artifact": ".local-dev/d6f7-feature-build.log",
+        "sha256": "80df39daac4070107a93a1652bbba06c451139236a94995581aa1c282c653a11",
+        "bytes": 1268
+      },
+      {
+        "artifact": ".local-dev/d6f7-feature-preview/assets/index-CZ-jNXX9.js",
+        "sha256": "dec8d8d5c93f1e2bf665b4495a835d6ddb6359ede04d4c79bf4429f938ed244f",
+        "bytes": 1746698
+      },
+      {
+        "artifact": ".local-dev/d6f7-browser/packing-dom.txt",
+        "sha256": "6bed778a8b109bf2b506b30ec515bc326af448a04c884e74c6425b0f4dcd3385",
+        "bytes": 16841
+      },
+      {
+        "artifact": ".local-dev/d6f7-browser/packing.png",
+        "sha256": "4047de49f652318f658368f3dfc41630803ee95984a5e63c580752921250e980",
+        "bytes": 72530
+      },
+      {
+        "artifact": ".local-dev/d6f7-browser/direct-entry-dom.txt",
+        "sha256": "97d5b2164c59c7ad222771c89e752fd4e7104c206e883e2fe94f82f97f33207a",
+        "bytes": 2915
+      },
+      {
+        "artifact": ".local-dev/d6f7-browser/direct-entry.png",
+        "sha256": "543a4e2abfc05a04eec90f27ae06f861a3424f16cec01d30b6d08db351866fa6",
+        "bytes": 72519
+      }
+    ]
+  },
+  "d6f8": {
+    "date": "2026-11-03",
+    "baseline": "739a391cfc254bda62d2d5b0e63ef1a73fc9ee1d",
+    "report": "docs/erp/D6F8_TRUSTED_PACKING_BUILD_AND_QC_ACCEPTANCE.md",
+    "build": "PASS",
+    "build_child_exit": 0,
+    "application_source_changed": false,
+    "preview": "127.0.0.1:3108",
+    "browser_controls": "PASS",
+    "incomplete_ui_denial": "PASS",
+    "physical_inspection": "BLOCKED: unavailable",
+    "qc_acceptance": "NOT RUN",
+    "receipt_audit_retry": "NOT RUN",
+    "tests": {
+      "passed": 645,
+      "skipped": 2,
+      "files_passed": 84,
+      "files_skipped": 2,
+      "child_exit": 0
+    },
+    "typecheck": "PASS",
+    "default_frontend_and_server_build": "PASS",
+    "conservation": {
+      "tables": 111,
+      "digest": "c6ffdc72010b6f61e9038db5fb02d65e5cb7c5ca0798298ed331dc289875a743",
+      "unchanged": true,
+      "credentials_roles_closure_identity": "unchanged"
+    },
+    "d6": "BLOCKED",
+    "pilot": "NO-GO",
+    "ownership": "O1-O10 DRAFT / NOT AUTHORIZED",
+    "artifacts": [
+      {
+        "artifact": ".local-dev/d6f8-build.mjs",
+        "sha256": "2d3167535bb4892bfa0dac9519f3fa4c041e1d7f2511299f4b9a0ac16af4b177",
+        "bytes": 1529
+      },
+      {
+        "artifact": ".local-dev/d6f8-build.json",
+        "sha256": "7f7b44370cf328fca5a90ec99edeb067747c5be537c3b74050c23248c3411028",
+        "bytes": 2285
+      },
+      {
+        "artifact": ".local-dev/d6f8-regression.mjs",
+        "sha256": "8cd5dd0274b5ab5f1a1280f4cd5ffe60d315f045e2cadcfb83e3ead8ee53ce51",
+        "bytes": 645
+      },
+      {
+        "artifact": ".local-dev/d6f8-regression.json",
+        "sha256": "4240860b443c7ae8262fa2380e6d5eafa2e28ba635e647eb7664ab270732a4e6",
+        "bytes": 35
+      },
+      {
+        "artifact": ".local-dev/d6f8-regression.stdout.log",
+        "sha256": "61540724c1937bd9a39756c3b4cfda8d83cc261eefbf9fe37df13a5d36f17d02",
+        "bytes": 12533
+      },
+      {
+        "artifact": ".local-dev/d6f8-regression.stderr.log",
+        "sha256": "22237c1bd00445a85a845454a477ee46d9da4cd7745ad9949122cb17faa25c0a",
+        "bytes": 1057
+      },
+      {
+        "artifact": ".local-dev/d6f8-other-builds.json",
+        "sha256": "c01dfce0557c1226c6a90198c25ac1f6876ff21d555618e1a3c2fcc497b26d1f",
+        "bytes": 117
+      },
+      {
+        "artifact": ".local-dev/d6f8-typecheck.log",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "bytes": 0
+      },
+      {
+        "artifact": ".local-dev/d6f8-before-health.json",
+        "sha256": "fc18eeeaa42ec3e388c77b65296e92f90abef7bc9298a9296e496a68ad60183d",
+        "bytes": 23443
+      },
+      {
+        "artifact": ".local-dev/d6f8-final-health.json",
+        "sha256": "992ec7bbd111ea221fb0942c76f718a7687ba3bf1358804a42f28dbc43bbffc0",
+        "bytes": 23444
+      },
+      {
+        "artifact": ".local-dev/d6f8-verification.json",
+        "sha256": "ecd51fe3b75277db56bee010a544be6b0d88512edbab3f09787ba011e66a5c8b",
+        "bytes": 848
+      },
+      {
+        "artifact": ".local-dev/d6f8-preview.mjs",
+        "sha256": "a63ac18c3e53ca7d521655b2310998a930ebd4ed92428be475a3fddb8babbefb",
+        "bytes": 1363
+      },
+      {
+        "artifact": ".local-dev/d6f8-browser/incomplete-ax.txt",
+        "sha256": "fee0ad388f1452061d5a117be1fa538c467ea75b29906c9c430394625eb06be7",
+        "bytes": 9141
+      },
+      {
+        "artifact": ".local-dev/d6f8-browser/fresh-tab-ax.txt",
+        "sha256": "490e61dcce43b173927f030ff33fd99e941b1f3f4451fa9d9238bef9740eb022",
+        "bytes": 8942
+      },
+      {
+        "artifact": ".local-dev/d6f8-browser/incomplete.png",
+        "sha256": "4ed28c7c6d622e422c869863f29a784f57e3e4f6f1affb5c025b435893a7d3ad",
+        "bytes": 79198
+      },
+      {
+        "artifact": ".local-dev/d6f8-trusted/assets/index-CZ-jNXX9.js",
+        "sha256": "dec8d8d5c93f1e2bf665b4495a835d6ddb6359ede04d4c79bf4429f938ed244f",
+        "bytes": 1746698
+      }
+    ]
+  }
+}

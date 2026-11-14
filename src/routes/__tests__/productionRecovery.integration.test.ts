@@ -1,0 +1,251 @@
+import express from "express";
+import type { Server } from "node:http";
+import { randomBytes, randomUUID } from "node:crypto";
+import { readFile, writeFile } from "node:fs/promises";
+import { DataSource, type DataSourceOptions } from "typeorm";
+import { expect, it } from "vitest";
+import { AppDataSource } from "../../db";
+import { env } from "../../config/env";
+import { User } from "../../entity/User";
+import { AuthService } from "../../services/AuthService";
+import { replayCommitments, planningUnits } from "../../services/CommitmentLedgerService";
+import { TrustedLedgerAuthority } from "../../security/TrustedLedgerAuthority";
+import { assertDatabaseBoundary, configureDatabaseBoundary, sqlIdentifier } from "../../security/databaseBoundary";
+import { productionPlanningRouter } from "../v1/production-planning";
+import { stocktakeRouter } from "../v1/stocktakes";
+import { supplyPlanningRouter } from "../v1/supply-planning";
+import { verifyProductionBrowser } from "./productionBrowser.cases";
+import { verifyPackingBrowser } from "./packingBrowser.cases";
+import { verifyDeliveryBrowser } from "./deliveryBrowser.cases";
+import { trustedProjectProgress } from "../../services/TrustedCompletionService";
+import { MaterialReconciliationService } from "../../services/MaterialReconciliationService";
+import { ProjectPlanningService } from "../../services/ProjectPlanningService";
+import { verifyMaterialReconciliationBrowser } from "./materialReconciliationBrowser.cases";
+
+const phase=process.env.PRODUCTION_RECOVERY_PHASE;
+const prefix=process.env.PRODUCTION_RECOVERY_ARTIFACT_PREFIX??'d3';
+if(!/^d[0-9]+$/.test(prefix))throw Error('Invalid recovery artifact prefix');
+it.skipIf(!phase)("preserves production custody and authenticated exact retries after restart and restore",async()=>{
+  const evidence=JSON.parse(await readFile(process.env.PRODUCTION_RECOVERY_EVIDENCE??`.test-tmp/${prefix}-evidence.json`,"utf8")),{schema}=evidence;
+  const url=new URL(process.env.KIT_BUILDER_TEST_DATABASE_URL!);
+  const database=process.env.PRODUCTION_RECOVERY_DATABASE??"experimind_kitbuilder_test";
+  if(url.hostname!=="127.0.0.1"||!["55432","55433"].includes(url.port)||!/^requirement_test_[a-f0-9]{32}$/.test(schema)
+    || !/^(experimind_kitbuilder_test|experimind_production_restore_[a-f0-9]{16})$/.test(database))throw Error("Synthetic recovery target required");
+  url.pathname=`/${database}`;
+  const options={...AppDataSource.options as Extract<DataSourceOptions,{type:"postgres"}>,url:url.toString(),schema,
+    synchronize:false,migrationsRun:false,logging:false as const,extra:{max:2,options:`-c search_path=pg_catalog,${schema},pg_temp`}};
+  const owner=await new DataSource(options).initialize(),pools:DataSource[]=[],suffix=randomBytes(8).toString("hex");
+  const roles={runtime:`prt_${suffix}`,identity:`pid_${suffix}`,ledger:`plg_${suffix}`};
+  let server:Server|undefined;
+  try {
+    for(const role of Object.values(roles)){
+      const password=randomBytes(32).toString("hex");
+      await owner.query(`CREATE ROLE ${sqlIdentifier(role)} LOGIN PASSWORD '${password}' NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOREPLICATION NOBYPASSRLS`);
+      const connection=new URL(url);connection.username=role;connection.password=password;
+      pools.push(new DataSource({...options,url:connection.toString()}));
+    }
+    await owner.transaction(m=>configureDatabaseBoundary(m,schema,roles));
+    for(const pool of pools)await pool.initialize();
+    const [runtime,identity,writer]=pools;
+    for(const [index,kind] of (["runtime","identity","ledger"] as const).entries())await assertDatabaseBoundary(pools[index],kind,schema);
+    const tables=["physical_stocktakes","physical_stock_scopes","physical_stocktake_events","stock_ledger","commitment_events","commitment_balances","commitment_claims","commitment_entitlements",
+      "production_work_orders","production_input_issues","commitment_work_orders","commitment_work_order_materials",
+      "commitment_work_order_issues","production_output_custody","trusted_packing_plans","trusted_packing_allocations","trusted_packing_qc",
+      "trusted_dispatches","trusted_dispatch_units","trusted_delivery_receipts","trusted_installation_sources","site_installations","project_completions","supply_events","audit_logs","commitment_authorizations"];
+    if(evidence.historical_decisions)tables.push("trusted_historical_decisions");
+    if(evidence.operational_evidence)tables.push("operational_evidence_events");
+    const fingerprint=async()=>Object.fromEntries(await Promise.all(tables.map(async t=>[t,(await runtime.query(
+      `SELECT count(*)::int count,md5(coalesce(string_agg(row_to_json(t)::text,'' ORDER BY row_to_json(t)::text),'')) hash FROM ${t} t`))[0]])));
+    const before=await fingerprint();expect(before.production_output_custody.count).toBeGreaterThan(0);
+    if(evidence.browser_output)for(const table of ['physical_stocktakes','physical_stock_scopes','physical_stocktake_events','stock_ledger'])
+      expect(before[table].count).toBeGreaterThan(0);
+    if(evidence.browser_output) {
+      const stock=JSON.parse(await readFile('.local-dev/d5-browser/stocktake.json','utf8'));
+      const production=JSON.parse(await readFile('.local-dev/d5-browser/production.json','utf8'));
+      const delivery=JSON.parse(await readFile('.local-dev/d5-browser/delivery.json','utf8'));
+      const [balance]=await runtime.query('SELECT sum(qty_delta)::numeric balance FROM stock_ledger WHERE item_id=$1',[stock.item]);
+      expect(Number(balance.balance)).toBe(12); // counted 12 + received 2 - issued 2
+      const [allocation]=await runtime.query('SELECT sum(quantity)::numeric quantity FROM trusted_packing_allocations WHERE output_id=$1',[production.output.id]);
+      expect(Number(allocation.quantity)).toBe(2);
+      const units=await runtime.query(`SELECT c.quantity,c.fulfilled,c.released FROM trusted_dispatch_units u
+        JOIN commitment_claims c ON c.id=u.claim_id WHERE u.dispatch_id=$1`,[delivery.dispatch.id]);
+      // Each assembly contains multiple claim-bearing lines.
+      expect(units.length).toBeGreaterThanOrEqual(delivery.dispatch.roots.length);
+      for(const unit of units)expect([Number(unit.quantity),Number(unit.fulfilled),Number(unit.released)]).toEqual([1,1,0]);
+      const [completion]=await runtime.query('SELECT status FROM project_completions WHERE project_id=$1',[production.project]);
+      expect(completion.status).toBe('closed');
+    }
+    if(phase!=="before")expect(before).toEqual(JSON.parse(await readFile(`.local-dev/${prefix}-recovery-${phase==="restart"?"before":"restart"}.json`,"utf8")).after);
+    const [output]=evidence.browser_output
+      ?await runtime.query('SELECT * FROM production_output_custody WHERE id=$1',[evidence.browser_output])
+      :await runtime.query("SELECT * FROM production_output_custody WHERE location='Production shelf' ORDER BY id LIMIT 1");
+    const [admin]=await identity.query("SELECT id,email FROM users WHERE id=$1",[output.actor_id]);
+    const auth=new AuthService(identity),password=randomBytes(24).toString("hex")+"Aa1!";
+    await identity.getRepository(User).update(admin.id,{password_hash:await auth.hashPassword(password)});
+    const access=(await auth.login(admin.email,password)).token!;
+    const authority=await TrustedLedgerAuthority.create(writer,env.jwtSecret,schema);
+    const app=express();app.use(express.json());app.use("/production",productionPlanningRouter(runtime,authority));
+    app.use("/api/v1/production-planning",productionPlanningRouter(runtime,authority));
+    app.use("/review",stocktakeRouter(runtime,authority));
+    app.use("/api/v1/stocktakes",stocktakeRouter(runtime,authority));
+    app.use("/supply",supplyPlanningRouter(runtime,authority));
+    server=await new Promise<Server>(resolve=>{const s=app.listen(0,"127.0.0.1",()=>resolve(s));});
+    const address=server.address();if(!address||typeof address==="string")throw Error("Missing port");
+    const base=`http://127.0.0.1:${address.port}/production`,headers={Authorization:`Bearer ${access}`,"Content-Type":"application/json","Idempotency-Key":output.operation_key};
+    let reconciliationHash:string|undefined;
+    if(evidence.material_reconciliation) {
+      const project=evidence.material_reconciliation.project;
+      const snapshot=await new MaterialReconciliationService(runtime).preview(access,project);
+      reconciliationHash=snapshot.witnessHash;
+      expect(reconciliationHash).toBe(evidence.material_reconciliation.witnessHash);
+      if(phase!=='before')expect(reconciliationHash).toBe(JSON.parse(await readFile(`.local-dev/${prefix}-recovery-${phase==='restart'?'before':'restart'}.json`,'utf8')).reconciliationHash);
+      expect(await fingerprint()).toEqual(before);
+      if(process.env.D6P_BROWSER==='true'&&phase==='before') {
+        const [foreignActor]=await owner.query('SELECT id,organization_id FROM users WHERE organization_id<>$1 ORDER BY id LIMIT 1',[output.organization_id]);
+        expect(foreignActor).toBeDefined();
+        const foreign=await new ProjectPlanningService(owner).save(foreignActor.organization_id,foreignActor.id,
+          {name:'Synthetic reconciliation tenant boundary',client:'Synthetic',notes:'Unapproved empty draft',commercial_links:[],overrides:{},sites:[]});
+        const [actor]=await owner.query('SELECT role FROM users WHERE id=$1',[admin.id]);
+        await verifyMaterialReconciliationBrowser(app,`http://127.0.0.1:${address.port}`,access,admin,evidence.d6_exact_journey?.project??project,{
+          foreignProject:foreign.id,setDeniedRole:async denied=>{await owner.query('UPDATE users SET role=$2 WHERE id=$1',[admin.id,denied?'customer':actor.role]);}
+        });
+      }
+    }
+    const readinessResponse=await fetch(`http://127.0.0.1:${address.port}/review/operational-readiness`,{headers});
+    expect(readinessResponse.status).toBe(200);
+    const readiness=await readinessResponse.json();
+    expect(readiness.pilot).toBe('NO-GO');expect(readiness.evidence_acceptance_available).toBe(false);
+    if(evidence.operational_evidence) {
+      const saved=await runtime.query('SELECT stream_id FROM operational_evidence_events WHERE organization_id=$1',[output.organization_id]);
+      expect(saved.length).toBeGreaterThan(0);
+      const response=await fetch(`http://127.0.0.1:${address.port}/review/operational-evidence`,{headers});
+      expect(response.status).toBe(200);
+      const records=await response.json();
+      expect(records.some((record:any)=>record.kind==='count')).toBe(true);
+      expect(records.some((record:any)=>record.kind==='evidence')).toBe(true);
+      if(evidence.operational_evidence.retry_command) {
+        expect(admin.id).toBe(evidence.operational_evidence.actor);
+        const retry=await fetch(`http://127.0.0.1:${address.port}/review/operational-evidence`,{method:'POST',headers:{...headers,'Content-Type':'application/json','Idempotency-Key':evidence.operational_evidence.retry_key},body:JSON.stringify(evidence.operational_evidence.retry_command)});
+        expect(retry.status).toBe(201);expect(await retry.json()).toEqual(evidence.operational_evidence.retry_result);
+      }
+      await expect(runtime.query('INSERT INTO operational_evidence_events DEFAULT VALUES')).rejects.toMatchObject({code:'42501'});
+      await expect(writer.query('UPDATE operational_evidence_events SET revision=revision')).rejects.toMatchObject({code:'42501'});
+    }
+    const preparation={gates:readiness.gates,staff:readiness.staff,hardware:readiness.hardware};
+    if(phase!=='before'){
+      const previous=JSON.parse(await readFile(`.local-dev/${prefix}-recovery-${phase==='restart'?'before':'restart'}.json`,'utf8'));
+      expect(preparation).toEqual(previous.preparation);
+    }
+    const queue=await fetch(base+"/trusted-work-queue",{headers});expect(queue.status).toBe(200);
+    if(evidence.browser_output) {
+      const posted=await runtime.query("SELECT id,revision FROM physical_stocktakes WHERE status='posted' AND organization_id=$1 AND posted_by=$2",[output.organization_id,admin.id]);
+      expect(posted.length).toBeGreaterThan(0);
+      for(const stocktake of posted) {
+        const retry=await fetch(`http://127.0.0.1:${address.port}/review/${stocktake.id}/post`,{method:'POST',headers,body:JSON.stringify({revision:stocktake.revision-1})});
+        expect(retry.status).toBe(200);
+      }
+      expect(await fingerprint()).toEqual(before);
+    }
+    expect((await queue.json()).orders.find((o:any)=>o.id===output.order_id).outputs.some((o:any)=>o.id===output.id)).toBe(true);
+    const input={order:output.order_id,source:output.source_id,quantity:evidence.browser_output?String(Number(output.quantity)):output.quantity,unit:output.unit,location:output.location};
+    const response=await fetch(`${base}/operator/orders/${output.order_id}/finished-outputs`,{method:"POST",headers,body:JSON.stringify(input)});
+    expect(response.status).toBe(201);expect(await response.json()).toEqual({id:output.id,order:output.order_id,quantity:output.quantity,qr:output.qr});
+    const duplicate=await fetch(`${base}/operator/orders/${output.order_id}/finished-outputs`,{method:"POST",headers:{...headers,"Idempotency-Key":suffix},body:JSON.stringify(input)});
+    expect(duplicate.status).toBe(409);
+    const packingResponse=await fetch(base+'/trusted-packing',{headers});expect(packingResponse.status).toBe(200);
+    const packing=await packingResponse.json();
+    expect(packing.plans.flatMap((p:any)=>p.inspections).map((q:any)=>q.decision)).toEqual(expect.arrayContaining(evidence.browser_output?['accept']:['accept','reject']));
+    for(const [table,path] of [['trusted_packing_plans','plans'],['trusted_packing_allocations','allocations'],['trusted_packing_qc','inspections']]) {
+      const rows=await runtime.query(`SELECT * FROM ${table} WHERE actor_id=$1${evidence.browser_plan?` AND ${path==='plans'?'id':'plan_id'}=$2`:''}`,
+        evidence.browser_plan?[admin.id,evidence.browser_plan]:[admin.id]);expect(rows.length).toBeGreaterThan(0);
+      for(const row of rows) {
+        const request=path==='plans'?{project:row.project_id,site:row.site_id,approval:row.approval_id,demandRevision:row.demand_revision}:
+          path==='allocations'?{plan:row.plan_id,package:row.package_id,output:row.output_id,line:row.line_id,quantity:row.quantity}:
+          {plan:row.plan_id,package:row.package_id,allocationRevision:row.allocation_revision,decision:row.decision,checks:row.checks,notes:row.notes};
+        const retry=await fetch(`${base}/operator/packing/${path}`,{method:'POST',headers:{...headers,'Idempotency-Key':row.operation_key},body:JSON.stringify(request)});
+        const result=await retry.json();expect(retry.status,`${path}: ${JSON.stringify(result)}`).toBe(201);delete row.created_at;expect(result).toEqual(row);
+      }
+    }
+    if(process.env.PRODUCTION_BROWSER==='true'&&phase==='before')await verifyPackingBrowser(app,`http://127.0.0.1:${address.port}`,access,admin,packing);
+    if(process.env.PRODUCTION_BROWSER==='true'&&phase==='before') {
+      const delivery=await fetch(base+'/trusted-delivery',{headers});expect(delivery.status).toBe(200);
+      await verifyDeliveryBrowser(app,`http://127.0.0.1:${address.port}`,access,admin,output.organization_id,await delivery.json(),evidence.delivery.requests.find((r:any)=>r.path==='dispatches'));
+    }
+    if(process.env.PRODUCTION_BROWSER==="true"&&phase==="before")
+      await verifyProductionBrowser(app,`http://127.0.0.1:${address.port}`,access,admin,output);
+    await expect(runtime.query("UPDATE production_output_custody SET id=id")).rejects.toMatchObject({code:"42501"});
+    await writer.query("SELECT commitment_work_order_check(order_id) FROM commitment_work_orders");
+    const balances=await runtime.query("SELECT * FROM commitment_balances");
+    for(const b of balances){
+      const replay=replayCommitments(await runtime.query("SELECT * FROM commitment_events WHERE account_id=$1 ORDER BY sequence",[b.account_id]),
+        await runtime.query("SELECT * FROM commitment_entitlements WHERE account_id=$1",[b.account_id]));
+      expect([replay.approved,replay.fulfilled,replay.held]).toEqual([planningUnits(b.approved),planningUnits(b.fulfilled),planningUnits(b.held)]);
+    }
+    for(const request of evidence.delivery.requests) {
+      const retry=await fetch(`${base}/operator/delivery/${request.path}`,{method:'POST',headers:{...headers,'Idempotency-Key':request.key},body:JSON.stringify(request.input)});
+      const result=await retry.json();expect(retry.status,`${request.path}: ${JSON.stringify(result)}`).toBe(201);expect(result).toEqual(request.result);
+    }
+    if(evidence.purchasing_operator) {
+      for(const {request,result} of evidence.purchasing_operator.requests) {
+        const i=request.input,kind=request.action==="purchaseRequest"?"requests":"orders";
+        const retry=await fetch(`http://127.0.0.1:${address.port}/supply/operator/${kind}/${i.id}/${i.transition}`,{
+          method:"POST",headers:{...headers,"Idempotency-Key":request.key},body:JSON.stringify(i)});
+        expect(retry.status).toBe(i.transition==="create"?201:200);expect(await retry.json()).toEqual(result);
+      }
+    }
+    if(evidence.receipt_operator) {
+      for(const {request,result} of evidence.receipt_operator.requests) {
+        const i=request.input,path=i.transition==='receive'?`orders/${i.order}/receipts`:`receipts/${i.id}/${i.transition}`;
+        const retry=await fetch(`http://127.0.0.1:${address.port}/supply/operator/${path}`,{method:'POST',headers:{...headers,'Idempotency-Key':request.key},body:JSON.stringify(i)});
+        expect(retry.status).toBe(i.transition==='receive'?201:200);expect(await retry.json()).toEqual(result);
+      }
+    }
+    expect(await fingerprint()).toEqual(before);
+    if(evidence.historical_simulation) {
+      const simulation=await fetch(`http://127.0.0.1:${address.port}/review/reconciliation/simulate`,{method:'POST',headers,body:JSON.stringify({links:evidence.historical_simulation.proposed})});
+      expect(simulation.status).toBe(200);const result=await simulation.json();
+      expect(result.activationEnabled).toBe(false);expect(result.claimsReserved).toBe(false);
+      expect(result.structurallyValid).toBe(false);expect(result.before).toEqual(result.after);
+      expect(await fingerprint()).toEqual(before);
+    }
+    if(evidence.historical_decisions) {
+      for(const request of evidence.historical_decisions.requests) {
+        const retry=await fetch(`http://127.0.0.1:${address.port}/review/reconciliation/decisions`,{method:"POST",headers:{...headers,"Idempotency-Key":request.key},body:JSON.stringify(request.input)});
+        expect(retry.status).toBe(201); expect(await retry.json()).toEqual(request.result);
+      }
+      expect(await fingerprint()).toEqual(before);
+      const request=evidence.historical_decisions.requests[0];
+      const [latest]=await runtime.query("SELECT revision FROM trusted_historical_decisions WHERE organization_id=$1 AND record_id=$2 ORDER BY revision DESC LIMIT 1",[output.organization_id,request.input.record_id]);
+      const freshReview=await fetch(`http://127.0.0.1:${address.port}/review/reconciliation/decisions`,{method:"POST",headers:{...headers,"Idempotency-Key":randomUUID()},body:JSON.stringify({...request.input,revision:latest.revision,decision:"requires_documentation",reason:`Authenticated ${phase} recovery review`})});
+      expect(freshReview.status).toBe(201); expect((await freshReview.json()).revision).toBe(latest.revision+1);
+      await expect(runtime.query("UPDATE trusted_historical_decisions SET reason='rewrite'")).rejects.toMatchObject({code:"42501"});
+    }
+    if(evidence.delivery.recovery_installation) {
+    const [job]=await runtime.query("SELECT * FROM site_installations WHERE id=$1",[evidence.delivery.recovery_installation]);
+    const fresh=await fetch(`${base}/operator/delivery/installation-actions`,{method:'POST',headers:{...headers,'Idempotency-Key':randomUUID()},
+      body:JSON.stringify({id:job.id,input:{revision:job.revision,action:'note',notes:`Authenticated ${phase} recovery evidence`}})});
+    expect(fresh.status).toBe(201);expect((await fresh.json()).revision).toBe(job.revision+1);
+    }
+    if(evidence.d6_exact_journey) {
+      const progress=await trustedProjectProgress(runtime.manager,output.organization_id,evidence.d6_exact_journey.project);
+      expect(progress.completion).toBeNull();
+      expect(progress.blockers).toEqual(expect.arrayContaining([expect.stringContaining('unresolved material ownership hold')]));
+      expect(progress.reconciliation?.some(row=>row.dimension==='material'&&Number(row.held)>0)).toBe(true);
+      expect((await runtime.query('SELECT requirement_d4_project_blocked($1,$2) blocked',[output.organization_id,evidence.d6_exact_journey.project]))[0].blocked).toBe(true);
+    }
+    const after=await fingerprint();
+    for(const table of tables.filter(t=>!['site_installations','supply_events','audit_logs','commitment_authorizations','trusted_historical_decisions'].includes(t)))expect(after[table]).toEqual(before[table]);
+    await writeFile(`.local-dev/${prefix}-recovery-${phase}.json`,JSON.stringify({phase,database,schema,before,after:await fingerprint(),
+      preparation,reconciliationHash,reconciliation_browser:process.env.D6P_BROWSER==='true'&&phase==='before'?'PASS':'not run',authenticated_http:true,fresh_authenticated_mutation:Boolean(evidence.delivery.recovery_installation),delivery_exact_retry:evidence.delivery.requests.length>0,exact_retry:true,duplicate_denied:true,replayed_accounts:balances.length,
+      historical_review_exact_retry:Boolean(evidence.historical_decisions),historical_review_fresh_mutation:Boolean(evidence.historical_decisions),
+      purchasing_operator_exact_retry:Boolean(evidence.purchasing_operator),receipt_operator_exact_retry:Boolean(evidence.receipt_operator),historical_simulation_read_only:Boolean(evidence.historical_simulation),
+      residual_ownership_blocks_closure:Boolean(evidence.d6_exact_journey),
+      operator_browser:process.env.PRODUCTION_BROWSER==="true"&&phase==="before"?"PASS":"not run",
+      server:await runtime.query("SELECT current_database(),pg_postmaster_start_time()")},null,2));
+  } finally {
+    if(server){server.closeAllConnections();await new Promise<void>((resolve,reject)=>server!.close(e=>e?reject(e):resolve()));}
+    for(const pool of pools)if(pool.isInitialized)await pool.destroy();
+    for(const role of Object.values(roles)){await owner.query(`DROP OWNED BY ${sqlIdentifier(role)}`);await owner.query(`DROP ROLE ${sqlIdentifier(role)}`);}
+    await owner.destroy();
+  }
+},180000);

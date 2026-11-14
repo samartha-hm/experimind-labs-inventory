@@ -12,8 +12,11 @@ import Sidebar from '@/src/shared/components/Sidebar';
 import Header from '@/src/shared/components/Header';
 import OperationsWorkspace from '@/src/features/core/OperationsWorkspace';
 import InventoryTab from '@/src/features/inventory/components/InventoryTab';
+import StocktakePanel from '@/src/features/inventory/StocktakePanel';
+import HistoricalReconciliationPanel from '@/src/features/inventory/HistoricalReconciliationPanel';
 import KittingTab from '@/src/features/kitting/components/KittingTab';
-import PurchaseOrdersTab from '@/src/features/procurement/components/PurchaseOrdersTab';
+import ProductLibrary from '@/src/features/kit-builder/LiveKitStudio';
+import SupplyPlanningPanel from '@/src/features/procurement/components/SupplyPlanningPanel';
 import SalesOrdersTab from '@/src/features/sales/components/SalesOrdersTab';
 import PartnersTab from '@/src/features/partners/components/PartnersTab';
 import WarehousesTab from '@/src/features/warehouse/components/WarehousesTab';
@@ -30,9 +33,15 @@ import OfflineStatusBar from '@/src/shared/components/OfflineStatusBar';
 import { TenantProvider } from '@/src/contexts/TenantContext';
 import { ToastProvider } from '@/src/contexts/ToastContext';
 import { ApprovalProvider } from '@/src/contexts/ApprovalContext';
+import { LedgerAuditPanel } from './features/compliance/components/LedgerAuditPanel';
 import { UserDirectoryTab } from '@/src/features/compliance/components/UserDirectoryTab';
-import ProductionCommandCenterTab from '@/src/features/production/ProductionCommandCenterTab';
-import ProjectPortfolioManagerTab from '@/src/features/projects/ProjectPortfolioManagerTab';
+import ProductionPlanningPanel from "./features/production/ProductionPlanningPanel";
+import { PackingPackageLookup } from "./features/packing/PackingLabelsPanel";
+import TrustedPackingPanel from './features/packing/TrustedPackingPanel';
+import TrustedDeliveryPanel from './features/delivery/TrustedDeliveryPanel';
+import { PackingWorkspaceEntry } from './features/packing/PackingWorkspace';
+import ProjectPlanningTab from '@/src/features/projects/ProjectPlanningTab';
+import { ProjectsWorkspaceEntry } from './features/projects/ProjectsWorkspace';
 import StickerMonitoringHubTab from '@/src/features/stickers/StickerMonitoringHubTab';
 import ToastContainer from '@/src/components/ToastContainer';
 import MobileBottomNav from '@/src/shared/components/MobileBottomNav';
@@ -271,6 +280,7 @@ function MainApp() {
   }
 
   const handleNavigateTab = (tab: string) => {
+    if (!window.dispatchEvent(new Event('projects-workspace-leave', { cancelable: true }))) return;
     if (!canAccessTab(role, tab)) {
       return;
     }
@@ -307,6 +317,12 @@ function MainApp() {
         <div className="flex-1 overflow-y-auto overflow-x-hidden overscroll-contain">
           <div className="p-3 sm:p-6 md:p-8 max-w-7xl mx-auto pb-24 md:pb-8">
             <main>
+              <PackingPackageLookup />
+              {import.meta.env.VITE_TRUSTED_PACKING_ENABLED==='true'&&new URLSearchParams(window.location.search).has('trusted_packing_package')&&<TrustedPackingPanel/>}
+              {import.meta.env.VITE_TRUSTED_DELIVERY_ENABLED==='true'&&new URLSearchParams(window.location.search).has('trusted_packing_package')&&<TrustedDeliveryPanel/>}
+              {new URLSearchParams(window.location.search).get('packing_workspace') === '1' && <PackingWorkspaceEntry direct />}
+              {new URLSearchParams(window.location.search).get('projects_workspace') === '1' && <ProjectsWorkspaceEntry direct />}
+              {activeTab === 'product_library' && <ProductLibrary />}
               {activeTab === 'overview' && (
                 <OperationsWorkspace
                   inventory={inventory}
@@ -321,6 +337,10 @@ function MainApp() {
               )}
 
               {activeTab === 'inventory' && (
+                <div className="space-y-6">
+                <StocktakePanel />
+                <HistoricalReconciliationPanel />
+                <p className="text-sm text-amber-700">Item master below retains historical quantities, prices and locations. Use verified stocktake balances above for planning.</p>
                 <InventoryTab
                   inventory={inventory}
                   kits={kits}
@@ -333,26 +353,15 @@ function MainApp() {
                   onOpenBarcodeStudio={() => setIsBarcodeStudioOpen(true)}
                   onOpenBarcodeScanner={() => setIsBarcodeScannerOpen(true)}
                 />
+                </div>
               )}
 
               {activeTab === 'projects_hub' && (
-                <ProjectPortfolioManagerTab
-                  onNavigateToTab={(tabId, params) => {
-                    if (params) setProjectNavParams(params);
-                    handleNavigateTab(tabId);
-                  }}
-                />
+                <ProjectsWorkspaceEntry><ProjectPlanningTab /></ProjectsWorkspaceEntry>
               )}
 
               {activeTab === 'production_command' && (
-                <ProductionCommandCenterTab
-                  initialProjectId={projectNavParams.projectId}
-                  initialGrade={projectNavParams.grade}
-                  onNavigateToTab={(tabId, params) => {
-                    if (params) setProjectNavParams(params);
-                    handleNavigateTab(tabId);
-                  }}
-                />
+                <ProductionPlanningPanel />
               )}
 
               {activeTab === 'sticker_hub' && (
@@ -384,12 +393,14 @@ function MainApp() {
                 <PredictiveAnalyticsTab />
               )}
 
+              {activeTab === 'ledger_audit' && <LedgerAuditPanel key={`${user?.organization_id}:${user?.id}`} />}
+
               {activeTab === 'user_directory' && (
                 <UserDirectoryTab />
               )}
 
               {activeTab === 'purchase_orders' && (
-                <PurchaseOrdersTab role={role} />
+                <SupplyPlanningPanel />
               )}
 
               {activeTab === 'sales_orders' && (
@@ -512,8 +523,10 @@ export default function App() {
           >
             {isRegistering && (
               <div>
-                <label className="block text-slate-300 font-bold mb-1">Full Name</label>
+                <label htmlFor="auth-name" className="block text-slate-300 font-bold mb-1">Full Name</label>
                 <input
+                  id="auth-name"
+                  autoComplete="name"
                   type="text"
                   required
                   value={name}
@@ -524,8 +537,10 @@ export default function App() {
             )}
 
             <div>
-              <label className="block text-slate-300 font-bold mb-1">Email Address</label>
+              <label htmlFor="auth-email" className="block text-slate-300 font-bold mb-1">Email Address</label>
               <input
+                id="auth-email"
+                autoComplete="username"
                 type="email"
                 required
                 value={email}
@@ -535,8 +550,10 @@ export default function App() {
             </div>
 
             <div>
-              <label className="block text-slate-300 font-bold mb-1">Password</label>
+              <label htmlFor="auth-password" className="block text-slate-300 font-bold mb-1">Password</label>
               <input
+                id="auth-password"
+                autoComplete={isRegistering ? "new-password" : "current-password"}
                 type="password"
                 required
                 value={password}

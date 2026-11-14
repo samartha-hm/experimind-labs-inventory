@@ -5,7 +5,26 @@ import { plainToInstance } from "class-transformer";
 import { requireCapability, requireRole } from "../../middleware/requireRole.ts";
 import { requireTenant } from "../../middleware/tenant.ts";
 
+import { AppDataSource } from "../../db.ts";
+import { SalesOrder } from "../../entity/SalesOrder.ts";
+import { CustomerOrder } from "../../entity/CustomerOrder.ts";
+import { getTenantOrgId } from "../../middleware/tenant.ts";
 const router = Router();
+router.post("/:id/advance", requireCapability("fulfill_orders"), async (req, res) => {
+  try {
+    const status = req.body.status;
+    const previous = status === "picking" ? "confirmed" : status === "packed" ? "picking" : null;
+    if (!previous) return res.status(400).json({ error: "Invalid fulfillment stage" });
+    await AppDataSource.transaction(async manager => {
+      const order = await manager.findOneByOrFail(SalesOrder, {id: req.params.id, organization_id: getTenantOrgId(req)});
+      if (!order.so_number.startsWith("WEB-")) throw new Error("Storefront order required");
+      const result = await manager.update(SalesOrder, {id: order.id, status: previous}, {status});
+      if (!result.affected) throw new Error("Order stage changed");
+      if (status === "packed") await manager.update(CustomerOrder, {organization_id: order.organization_id, order_number: order.so_number}, {status});
+    });
+    res.json({status});
+  } catch (e) { res.status(409).json({error: e instanceof Error ? e.message : "Fulfillment failed"}); }
+});
 const service = new SalesOrderService();
 
 export class CreateSalesOrderDto {

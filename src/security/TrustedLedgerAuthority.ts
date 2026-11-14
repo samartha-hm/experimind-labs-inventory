@@ -1,0 +1,243 @@
+import { recordHistoricalDecision } from "../services/HistoricalDecisionService";
+import { StocktakeService } from "../services/StocktakeService";
+import { appendOperationalEvidence, operationalCollectors } from "../services/OperationalEvidenceService";
+import type { OperationalCommand } from "../features/inventory/operationalEvidenceTypes";
+import type { HistoricalDecisionInput } from "../features/inventory/reconciliationTypes";
+import { dispatchPacking, acknowledgeDelivery, type DispatchInput, type DeliveryInput } from '../services/TrustedDeliveryService';
+import { mutateTrustedCompletion,type InstallationCreate,type InstallationAction,type ClosureInput } from '../services/TrustedCompletionService';
+import jwt, { type JwtPayload } from "jsonwebtoken";
+import { createHash, randomUUID } from "node:crypto";
+import type { DataSource, EntityManager } from "typeorm";
+import { CommitmentLedgerService, type LedgerAccountInput, type LedgerOperation, type LedgerEvent } from "../services/CommitmentLedgerService";
+import { canonicalRequirementJSON } from "../services/RequirementApprovalService";
+import { assertDatabaseBoundary } from "./databaseBoundary";
+import { mutateReservation, type ReservationMutation, type ReservationResult } from "../services/ReservationCommitmentService";
+import { mutatePurchaseRequest, type PurchaseRequestMutation, type PurchaseRequestResult } from "../services/PurchaseRequestCommitmentService";
+
+import { mutatePurchaseOrder, type PurchaseOrderMutation, type PurchaseOrderResult } from "../services/PurchaseOrderCommitmentService";
+import { mutateReceipt, type ReceiptMutation, type ReceiptResult } from "../services/ReceiptCommitmentService";
+import { publishRecipe, type RecipePublication, type PublishedRecipe } from "../services/RecipePublicationService";
+
+import { claimWorkOrder, issueWorkOrder, type WorkOrderClaim, type WorkOrderIssue, type WorkOrderResult, type WorkOrderIssueResult } from "../services/WorkOrderAuthorityService";
+import { recordFinishedOutput, type FinishedOutputInput, type FinishedOutputResult } from "../services/FinishedOutputService";
+
+import { createPackingPlan, allocatePackingOutput, inspectPacking, type PackingPlanInput, type PackingAllocationInput, type PackingQCInput, type PackingReceipt } from "../services/TrustedPackingService";
+export type LedgerRequest =
+  | { action: "historicalDecision"; key: string; input: HistoricalDecisionInput }
+  | { action: "createAccount"; key: string; input: LedgerAccountInput }
+  | { action: "entitlement"; key: string; account: string; approval: string; revision: number; cap: string; provenance: unknown }
+  | { action: "execute"; key: string; account: string; entitlement: string; reason: string; operation: LedgerOperation }
+  | { action: "reservation"; key: string; input: ReservationMutation }
+  | { action: "purchaseRequest"; key: string; input: PurchaseRequestMutation }
+  | { action: "purchaseOrder"; key: string; input: PurchaseOrderMutation }
+  | { action: "receipt"; key: string; input: ReceiptMutation }
+  | { action: "publishRecipe"; key: string; input: RecipePublication }
+  | { action: "claimWorkOrder"; key: string; input: WorkOrderClaim }
+  | { action: "issueWorkOrder"; key: string; input: WorkOrderIssue }
+  | { action: "recordFinishedOutput"; key: string; input: FinishedOutputInput }
+  | { action: "createPackingPlan"; key: string; input: PackingPlanInput }
+  | { action: "allocatePackingOutput"; key: string; input: PackingAllocationInput }
+  | { action: "inspectPacking"; key: string; input: PackingQCInput }
+  | { action: "dispatchPacking"; key: string; input: DispatchInput }
+  | { action: "acknowledgeDelivery"; key: string; input: DeliveryInput }
+  | { action: "createTrustedInstallation"; key:string; input:InstallationCreate }
+  | { action: "trustedInstallationAction"; key:string; input:InstallationAction }
+  | { action: "closeTrustedProject"; key:string; input:ClosureInput };
+const issuer = "experimind-ledger";
+const audience = "experimind-ledger-execution";
+const fingerprint = (request: LedgerRequest) => createHash("sha256").update(canonicalRequirementJSON(request)).digest("hex");
+
+/** Private server issuer and executor. Neither pool nor signing key is available to runtime SQL.
+ * The reservation adapter requires separately activated isolated D2 schema/ACLs.
+ */
+export class TrustedLedgerAuthority {
+  #db: DataSource;
+  #key: string;
+  private constructor(db: DataSource, key: string) { this.#db = db; this.#key = key; }
+  static async create(db: DataSource, key: string, schema: string): Promise<TrustedLedgerAuthority> {
+    if (key.length < 32) throw new Error("Strong server signing key required");
+    await assertDatabaseBoundary(db, "ledger", schema);
+    return new TrustedLedgerAuthority(db, key);
+  }
+  private claims(token: string, capability: boolean, stocktake = false, operational = false): JwtPayload {
+    const p = jwt.verify(token, this.#key, { algorithms: ["HS256"],
+      issuer: capability ? issuer : "experimind-auth",
+      audience: capability ? audience : "experimind-api" });
+    const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (typeof p === "string" || !uuid.test(p.sub ?? "") || typeof p.orgId !== "string" || !uuid.test(p.orgId) ||
+      p.iss !== (capability ? issuer : "experimind-auth") || p.aud !== (capability ? audience : "experimind-api") ||
+      !Number.isInteger(p.exp) || !Number.isInteger(p.iat) || p.exp! <= p.iat! || p.iat! > Math.floor(Date.now()/1000) ||
+      typeof p.sid !== "string" || !/^[a-f0-9]{64}$/.test(p.sid) ||
+      !(operational ? operationalCollectors : stocktake ? ["admin", "super_admin", "manager"] : ["admin", "super_admin"]).includes(p.role) || p.type || p.purpose ||
+      p.orgId === "00000000-0000-0000-0000-000000000000" ||
+      (capability && (!uuid.test(p.jti ?? "") || p.exp! - p.iat! > 60 || p.scope !== "ledger:mutate")))
+      throw new Error("Authenticated administrator session required");
+    return p;
+  }
+  private async current(m: EntityManager, p: JwtPayload, stocktake = false, operational = false): Promise<void> {
+    // All session revocation paths acquire this same user row FOR UPDATE first.
+    if (!(await m.query(`SELECT id FROM users WHERE id=$1 AND organization_id=$2 AND is_active
+      AND role=ANY($3::text[]) ${operational ? 'AND role=$4' : ''} FOR SHARE`, [p.sub, p.orgId, operational ? operationalCollectors : stocktake ? ['admin','super_admin','manager'] : ['admin','super_admin'], ...(operational ? [p.role] : [])])).length)
+      throw new Error("Active tenant administrator required");
+    if (!(await m.query(`SELECT id FROM refresh_tokens WHERE user_id=$1 AND token_hash=$2
+      AND NOT is_revoked AND expires_at>clock_timestamp()`, [p.sub, p.sid])).length)
+      throw new Error("Session revoked or expired");
+    if ((await m.query(`SELECT id FROM sessions WHERE user_id=$1 AND refresh_token_hash=$2
+      AND (is_revoked OR expires_at<=clock_timestamp())`, [p.sub, p.sid])).length)
+      throw new Error("Session revoked or expired");
+    if ((await m.query("SELECT extract(epoch FROM clock_timestamp()) >= $1 expired", [p.exp]))[0].expired)
+      throw new Error("Authorization expired");
+  }
+  /** A live approver session and the posting transaction share the same identity lock.
+   * Stocktake identity/revision supplies the durable retry key; no new capability is exposed.
+   */
+  async postStocktakeForSession(accessToken: string, id: string, revision: number) {
+    const p = this.claims(accessToken, false, true);
+    return this.#db.transaction(async m => {
+      await this.current(m, p, true);
+      const result = await new StocktakeService(this.#db).transition(p.orgId!, id, p.sub!, revision, 'post', '', false, m);
+      await this.current(m, p, true);
+      return result;
+    });
+  }
+  async performOperationalForSession(accessToken: string, key: string, command: OperationalCommand) {
+    const normalized = JSON.parse(JSON.stringify(command)) as OperationalCommand;
+    const p = this.claims(accessToken, false, false, true);
+    return this.#db.transaction(async m => {
+      await this.current(m, p, false, true);
+      const result = await appendOperationalEvidence(m, p.orgId!, p.sub!, p.role, key, normalized);
+      await this.current(m, p, false, true);
+      return result;
+    });
+  }
+  /** Only authenticated server code can call the issuer; no SQL minting function exists. */
+  async performForSession(accessToken: string, capability: string, request: LedgerRequest) {
+    const session=this.claims(accessToken,false), grant=this.claims(capability,true);
+    if(session.sub!==grant.sub || session.orgId!==grant.orgId || session.sid!==grant.sid)
+      throw new Error("Capability belongs to another session");
+    return this.perform(capability,request);
+  }
+
+  async issue(accessToken: string, request: LedgerRequest): Promise<string> {
+    // Snapshot input before any asynchronous work; bind the exact JSON accepted by execution.
+    const normalized = JSON.parse(JSON.stringify(request)) as LedgerRequest;
+    if (!normalized.key.trim() || normalized.key.length > 100) throw new Error("Operation key required");
+    const p = this.claims(accessToken, false);
+    return this.#db.transaction(async m => {
+      await this.current(m, p);
+      return jwt.sign({ sub: p.sub, orgId: p.orgId, role: p.role, sid: p.sid,
+        scope: "ledger:mutate", action: normalized.action, operationKey: normalized.key,
+        fingerprint: fingerprint(normalized) }, this.#key, { algorithm: "HS256", issuer, audience,
+        jwtid: randomUUID(), expiresIn: Math.min(60, p.exp! - Math.floor(Date.now()/1000)) });
+    });
+  }
+
+  /** Narrow operator entry point; retries read the exact durable receipt after live session validation. */
+  async performReceiptForSession(accessToken: string, request: Extract<LedgerRequest,{action:"receipt"}>) {
+    return this.performPurchasingForSession(accessToken, request);
+  }
+
+  async performPurchasingForSession(accessToken: string, request: Extract<LedgerRequest,{action:"receipt"|"purchaseRequest"|"purchaseOrder"}>) {
+    const normalized = JSON.parse(JSON.stringify(request)) as typeof request;
+    if (!["receipt","purchaseRequest","purchaseOrder"].includes(normalized.action)) throw Error("Unsupported purchasing operator action");
+    const p = this.claims(accessToken, false), digest = fingerprint(normalized);
+    const saved = () => this.#db.transaction(async m => {
+      await this.current(m, p);
+      const [row] = await m.query(`SELECT fingerprint,result FROM commitment_authorizations
+        WHERE organization_id=$1 AND actor_id=$2 AND operation_key=$3`, [p.orgId,p.sub,normalized.key]);
+      if (row && row.fingerprint !== digest) throw Error("Operation key belongs to another request");
+      return row;
+    });
+    const previous = await saved();
+    if (previous) return previous.result;
+    try {
+      return await this.performForSession(accessToken, await this.issue(accessToken, normalized), normalized);
+    } catch (error) {
+      // A simultaneous exact retry may have committed under another private capability.
+      const committed = await saved();
+      if (committed) return committed.result;
+      throw error;
+    }
+  }
+
+  async performProductionForSession(accessToken: string,
+    request: Extract<LedgerRequest,{action:"historicalDecision"|"issueWorkOrder"|"recordFinishedOutput"|"createPackingPlan"|"allocatePackingOutput"|"inspectPacking"|"dispatchPacking"|"acknowledgeDelivery"|"createTrustedInstallation"|"trustedInstallationAction"|"closeTrustedProject"}>) {
+    const normalized = JSON.parse(JSON.stringify(request)) as typeof request;
+    if (!["historicalDecision","issueWorkOrder","recordFinishedOutput","createPackingPlan","allocatePackingOutput","inspectPacking","dispatchPacking","acknowledgeDelivery","createTrustedInstallation","trustedInstallationAction","closeTrustedProject"].includes(normalized.action)) throw Error("Unsupported operator action");
+    const p=this.claims(accessToken,false), digest=fingerprint(normalized);
+    const receipt=await this.#db.transaction(async m=>{
+      await this.current(m,p);
+      const [saved]=await m.query(`SELECT fingerprint,result FROM commitment_authorizations
+        WHERE organization_id=$1 AND actor_id=$2 AND operation_key=$3`,[p.orgId,p.sub,normalized.key]);
+      if(saved && saved.fingerprint!==digest)throw Error("Operation key belongs to another request");
+      return saved;
+    });
+    if(receipt)return receipt.result;
+    return this.performForSession(accessToken,await this.issue(accessToken,normalized),normalized);
+  }
+  async perform(token: string, request: LedgerRequest): Promise<string | LedgerEvent | ReservationResult | PurchaseRequestResult | PurchaseOrderResult | ReceiptResult | PublishedRecipe | WorkOrderResult | WorkOrderIssueResult | FinishedOutputResult | PackingReceipt> {
+    const normalized = JSON.parse(JSON.stringify(request)) as LedgerRequest;
+    const p = this.claims(token, true), digest = fingerprint(normalized);
+    if (p.action !== normalized.action || p.operationKey !== normalized.key || p.fingerprint !== digest)
+      throw new Error("Capability execution scope mismatch");
+    return this.#db.transaction(async m => {
+      await this.current(m, p);
+      await m.query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))",
+        [`capability:${p.orgId}:${p.sub}:${normalized.key}`]);
+      const [receipt] = await m.query(`SELECT * FROM commitment_authorizations
+        WHERE id=$1 OR (organization_id=$2 AND actor_id=$3 AND operation_key=$4)`,
+        [p.jti, p.orgId, p.sub, normalized.key]);
+      if (receipt) {
+        if ((receipt.id !== p.jti && normalized.action !== "historicalDecision") || receipt.fingerprint !== digest || receipt.organization_id !== p.orgId ||
+          receipt.actor_id !== p.sub || receipt.operation_key !== normalized.key)
+          throw new Error("Authorization replay conflict");
+        await this.current(m, p);
+        if (normalized.action === "reservation" || normalized.action === "purchaseRequest" || normalized.action === "purchaseOrder" || normalized.action === "receipt" || normalized.action === "claimWorkOrder") {
+          const i=normalized.input;
+          await m.query("SELECT requirement_assert($1,$2,$3,$4,$5)",[p.orgId,i.project,i.site,i.demandRevision,i.approval]);
+        }
+        return receipt.result;
+      }
+      const service = new CommitmentLedgerService(m), context = { actor: p.sub!, organization: p.orgId as string };
+      let result: string | LedgerEvent | ReservationResult | PurchaseRequestResult | PurchaseOrderResult | ReceiptResult | PublishedRecipe | WorkOrderResult | WorkOrderIssueResult | FinishedOutputResult | PackingReceipt;
+      switch (normalized.action) {
+        case "historicalDecision": result = await recordHistoricalDecision(m,context,normalized.input,normalized.key); break;
+        case "createAccount": result = await service.createAccount(context, normalized.input); break;
+        case "entitlement": result = await service.entitlement(context, normalized.account, normalized.approval,
+          normalized.revision, normalized.cap, normalized.provenance); break;
+        case "execute": result = await service.executeInTransaction(m, context, normalized.account,
+          normalized.entitlement, normalized.key, normalized.reason, normalized.operation); break;
+        case "reservation": result = await mutateReservation(m,context,normalized.input,normalized.key); break;
+        case "purchaseRequest": result = await mutatePurchaseRequest(m,context,normalized.input,normalized.key); break;
+        case "purchaseOrder": result = await mutatePurchaseOrder(m,context,normalized.input,normalized.key); break;
+        case "receipt": result = await mutateReceipt(m,context,normalized.input,normalized.key); break;
+        case "claimWorkOrder": result = await claimWorkOrder(m,context,normalized.input,normalized.key); break;
+        case "issueWorkOrder": result = await issueWorkOrder(m,context,normalized.input,normalized.key); break;
+        case "createPackingPlan": result = await createPackingPlan(m,context,normalized.input,normalized.key); break;
+        case "allocatePackingOutput": result = await allocatePackingOutput(m,context,normalized.input,normalized.key); break;
+        case "dispatchPacking": result = await dispatchPacking(m,context,normalized.input,normalized.key); break;
+        case "acknowledgeDelivery": result = await acknowledgeDelivery(m,context,normalized.input,normalized.key); break;
+        case "createTrustedInstallation": result=await mutateTrustedCompletion(m,context,normalized.key,{kind:'create',input:normalized.input}); break;
+        case "trustedInstallationAction": result=await mutateTrustedCompletion(m,context,normalized.key,{kind:'installation',input:normalized.input}); break;
+        case "closeTrustedProject": result=await mutateTrustedCompletion(m,context,normalized.key,{kind:'closure',input:normalized.input}); break;
+        case "inspectPacking": result = await inspectPacking(m,context,normalized.input,normalized.key); break;
+        case "recordFinishedOutput": result = await recordFinishedOutput(m,context,normalized.input,normalized.key); break;
+        case "publishRecipe": result = await publishRecipe(m,context,normalized.input,normalized.key); break;
+        default: throw new Error("Unknown ledger action");
+      }
+      await m.query(`INSERT INTO commitment_authorizations(id,organization_id,actor_id,operation_key,fingerprint,result)
+        VALUES($1,$2,$3,$4,$5,$6::jsonb)`, [p.jti,p.orgId,p.sub,normalized.key,digest,JSON.stringify(result)]);
+      await this.current(m, p);
+      return JSON.parse(JSON.stringify(result)) as string | LedgerEvent | ReservationResult | PurchaseRequestResult | PurchaseOrderResult | ReceiptResult | PublishedRecipe | WorkOrderResult | WorkOrderIssueResult | FinishedOutputResult | PackingReceipt;
+    });
+  }
+  createAccount(token: string, input: LedgerAccountInput, key: string) {
+    return this.perform(token, { action: "createAccount", key, input }) as Promise<string>;
+  }
+  entitlement(token: string, account: string, approval: string, revision: number, cap: string, provenance: unknown, key: string) {
+    return this.perform(token, { action: "entitlement", key, account, approval, revision, cap, provenance }) as Promise<string>;
+  }
+  execute(token: string, account: string, entitlement: string, key: string, reason: string, operation: LedgerOperation) {
+    return this.perform(token, { action: "execute", key, account, entitlement, reason, operation }) as Promise<LedgerEvent>;
+  }
+}

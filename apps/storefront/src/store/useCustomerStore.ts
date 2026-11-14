@@ -51,7 +51,7 @@ const getInitialSession = (): { customer: CustomerProfile | null; isLoggedIn: bo
         return { customer: parsed, isLoggedIn: true };
       }
     }
-  } catch (_) {}
+  } catch {}
   return { customer: null, isLoggedIn: false };
 };
 
@@ -87,7 +87,7 @@ export const useCustomerStore = create<CustomerState>((set) => ({
 
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(newProfile));
-    } catch (_) {}
+    } catch {}
 
     set({ customer: newProfile, isLoggedIn: true });
   },
@@ -106,7 +106,7 @@ export const useCustomerStore = create<CustomerState>((set) => ({
 
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(newProfile));
-    } catch (_) {}
+    } catch {}
 
     set({ customer: newProfile, isLoggedIn: true });
   },
@@ -114,7 +114,7 @@ export const useCustomerStore = create<CustomerState>((set) => ({
   logout: () => {
     try {
       localStorage.removeItem(STORAGE_KEY);
-    } catch (_) {}
+    } catch {}
     set({ customer: null, isLoggedIn: false });
   },
 
@@ -124,7 +124,7 @@ export const useCustomerStore = create<CustomerState>((set) => ({
       const updated = { ...state.customer, ...updates };
       try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-      } catch (_) {}
+      } catch {}
       return { customer: updated };
     });
   },
@@ -147,7 +147,7 @@ export const useCustomerStore = create<CustomerState>((set) => ({
       const updatedCustomer = { ...state.customer, addresses: updatedAddresses };
       try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedCustomer));
-      } catch (_) {}
+      } catch {}
       return { customer: updatedCustomer };
     });
   },
@@ -162,7 +162,7 @@ export const useCustomerStore = create<CustomerState>((set) => ({
       const updatedCustomer = { ...state.customer, addresses: updatedAddresses };
       try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedCustomer));
-      } catch (_) {}
+      } catch {}
       return { customer: updatedCustomer };
     });
   },
@@ -177,7 +177,7 @@ export const useCustomerStore = create<CustomerState>((set) => ({
       const updatedCustomer = { ...state.customer, addresses: updatedAddresses };
       try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedCustomer));
-      } catch (_) {}
+      } catch {}
       return { customer: updatedCustomer };
     });
   },
@@ -192,7 +192,7 @@ export const useCustomerStore = create<CustomerState>((set) => ({
       const updatedCustomer = { ...state.customer, addresses: updatedAddresses };
       try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedCustomer));
-      } catch (_) {}
+      } catch {}
       return { customer: updatedCustomer };
     });
   },

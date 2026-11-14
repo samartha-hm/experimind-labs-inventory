@@ -1,0 +1,209 @@
+{
+  "source_schema": "requirement_test_87b0a10ddbd2492b8dd7394355afa4e9",
+  "target_schema": "commitment_restore_50f817e5a5e44acda3af56db34cfe75c",
+  "all_table_fingerprints_match": true,
+  "verified_table_count": 12,
+  "pinned_functions": 11,
+  "deferred_witness_restored": true,
+  "replayed_accounts": 24,
+  "before": {
+    "accounts": {
+      "count": 24,
+      "hash": "6d58d26d9d7207ed10689521746b88d7"
+    },
+    "entitlements": {
+      "count": 26,
+      "hash": "414699ca99f082bb2fabbda79b0009d3"
+    },
+    "balances": {
+      "count": 24,
+      "hash": "d7b9a637478461f6f633e93224e35ca8"
+    },
+    "claims": {
+      "count": 31,
+      "hash": "84ddef3adb8a9f64d75bbaeac9d7b32a"
+    },
+    "sources": {
+      "count": 32,
+      "hash": "e5d23a96bdb3bbe024abf2ce6ceba934"
+    },
+    "events": {
+      "count": 69,
+      "hash": "c18c44a3ffb13c91fdb98297f01a3058"
+    },
+    "reconciliation_cases": {
+      "count": 0,
+      "hash": "d41d8cd98f00b204e9800998ecf8427e"
+    },
+    "authorizations": {
+      "count": 21,
+      "hash": "7331290e43c1333ea455cbee75635546"
+    },
+    "reservations": {
+      "count": 5,
+      "hash": "dd256e981ea49700bb9dbcfdd62eee0f"
+    },
+    "project_stock_reservations": {
+      "count": 7,
+      "hash": "80cd6b33f2b2ae6ec3444d9eae15bf8e"
+    },
+    "supply_events": {
+      "count": 37,
+      "hash": "efc41c91c2604b045e471431960b1c32"
+    },
+    "requirement_execution_bindings": {
+      "count": 17,
+      "hash": "970fa0097f3a7ce292550ba617a14131"
+    }
+  },
+  "after": {
+    "accounts": {
+      "count": 24,
+      "hash": "6d58d26d9d7207ed10689521746b88d7"
+    },
+    "entitlements": {
+      "count": 26,
+      "hash": "414699ca99f082bb2fabbda79b0009d3"
+    },
+    "balances": {
+      "count": 24,
+      "hash": "d7b9a637478461f6f633e93224e35ca8"
+    },
+    "claims": {
+      "count": 31,
+      "hash": "84ddef3adb8a9f64d75bbaeac9d7b32a"
+    },
+    "sources": {
+      "count": 32,
+      "hash": "e5d23a96bdb3bbe024abf2ce6ceba934"
+    },
+    "events": {
+      "count": 69,
+      "hash": "c18c44a3ffb13c91fdb98297f01a3058"
+    },
+    "reconciliation_cases": {
+      "count": 0,
+      "hash": "d41d8cd98f00b204e9800998ecf8427e"
+    },
+    "authorizations": {
+      "count": 21,
+      "hash": "7331290e43c1333ea455cbee75635546"
+    },
+    "reservations": {
+      "count": 5,
+      "hash": "dd256e981ea49700bb9dbcfdd62eee0f"
+    },
+    "project_stock_reservations": {
+      "count": 7,
+      "hash": "80cd6b33f2b2ae6ec3444d9eae15bf8e"
+    },
+    "supply_events": {
+      "count": 37,
+      "hash": "efc41c91c2604b045e471431960b1c32"
+    },
+    "requirement_execution_bindings": {
+      "count": 17,
+      "hash": "970fa0097f3a7ce292550ba617a14131"
+    }
+  },
+  "backup_restore": "PASS",
+  "migration_role": {
+    "current_user": "kitbuilder_dev",
+    "rolsuper": true,
+    "rolcreaterole": true
+  },
+  "shadow": {
+    "project_stock_reservations:missing_source_lineage": 1,
+    "project_stock_reservations:historical_reconciliation_required": 1,
+    "purchase_requests:missing_source_lineage": 1,
+    "purchase_requests:historical_reconciliation_required": 1,
+    "production_work_orders:missing_source_lineage": 1,
+    "production_work_orders:historical_reconciliation_required": 1,
+    "packing_orders:missing_source_lineage": 6,
+    "packing_orders:historical_reconciliation_required": 6,
+    "delivery_orders:missing_source_lineage": 1,
+    "delivery_orders:historical_reconciliation_required": 1
+  },
+  "shadow_records": [
+    {
+      "kind": "project_stock_reservations",
+      "id": "6e501590-258c-4386-82a6-d212329ad878",
+      "status": "active",
+      "state": null,
+      "project_id": "d614fe1c-0114-4e04-bee7-4b3f3b170b60",
+      "site_id": "daf780d0-e397-4a9e-b483-7d7c88d3aec4"
+    },
+    {
+      "kind": "purchase_requests",
+      "id": "9ad47db9-8cc8-488f-b0ea-fda0bd65ec26",
+      "status": "reviewed",
+      "state": null,
+      "project_id": null,
+      "site_id": null
+    },
+    {
+      "kind": "production_work_orders",
+      "id": "4e3074c4-9193-4c81-aa28-3848c0b66572",
+      "status": "released",
+      "state": null,
+      "project_id": "d614fe1c-0114-4e04-bee7-4b3f3b170b60",
+      "site_id": "daf780d0-e397-4a9e-b483-7d7c88d3aec4"
+    },
+    {
+      "kind": "packing_orders",
+      "id": "348574fe-6a53-4a05-9c7b-8cdaa2797a10",
+      "status": "ready",
+      "state": null,
+      "project_id": "f5fd914d-e317-444d-aec8-b534ff3f879d",
+      "site_id": "32724ab4-4397-463e-bdee-993db81c3ef3"
+    },
+    {
+      "kind": "packing_orders",
+      "id": "58e4db51-f6ff-4d63-8b5d-f41a3d7029d0",
+      "status": "packing",
+      "state": null,
+      "project_id": "ebb2a473-1ce9-4fd9-b93f-9c1f27eac917",
+      "site_id": "f10a64dc-d7ac-4017-a1b9-d768c97cf1b9"
+    },
+    {
+      "kind": "packing_orders",
+      "id": "730ebaf3-0714-4e1c-9096-5d6aef3ee00b",
+      "status": "draft",
+      "state": null,
+      "project_id": "d614fe1c-0114-4e04-bee7-4b3f3b170b60",
+      "site_id": "daf780d0-e397-4a9e-b483-7d7c88d3aec4"
+    },
+    {
+      "kind": "packing_orders",
+      "id": "8b87072b-ed79-4a3c-bce0-3ef39a3706bb",
+      "status": "draft",
+      "state": null,
+      "project_id": "a64f8a40-c610-4161-8981-7ba3b3c3d1a5",
+      "site_id": "20d95cce-25f6-4277-806b-a7907d92686c"
+    },
+    {
+      "kind": "packing_orders",
+      "id": "b3103cb7-a94a-4f32-b111-f0bd490ec94a",
+      "status": "draft",
+      "state": null,
+      "project_id": "50321e1c-4927-4cc9-9317-8c549319401f",
+      "site_id": "3e970637-b728-46a1-8da1-aeead41dd0b8"
+    },
+    {
+      "kind": "packing_orders",
+      "id": "d8cfed18-0458-4af8-a402-75a5e2bc55a0",
+      "status": "draft",
+      "state": null,
+      "project_id": "d614fe1c-0114-4e04-bee7-4b3f3b170b60",
+      "site_id": "51750ba8-7e8c-49a7-a964-68dd219751b1"
+    },
+    {
+      "kind": "delivery_orders",
+      "id": "188f642d-a4f4-4b0c-8f08-62eac6f60b2d",
+      "status": "delivered",
+      "state": null,
+      "project_id": "f5fd914d-e317-444d-aec8-b534ff3f879d",
+      "site_id": "32724ab4-4397-463e-bdee-993db81c3ef3"
+    }
+  ]
+}

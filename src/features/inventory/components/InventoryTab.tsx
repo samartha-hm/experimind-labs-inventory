@@ -474,6 +474,7 @@ export default function InventoryTab({
             <Search className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
               type="text"
+              aria-label="Search inventory items"
               placeholder="Search items by name, SKU, category, or bin location..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}

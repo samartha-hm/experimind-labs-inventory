@@ -1,6 +1,15 @@
+import { registeredMigrations } from './migrations/registry';
+
+import { commitmentEntities } from "./entity/CommitmentLedger";
+import { productionEntities } from "./entity/ProductionPlanning";
+import { supplyEntities } from "./entity/SupplyPlanning";
 import "reflect-metadata";
 import { DataSource } from "typeorm";
 import { env } from "./config/env.ts";
+import { ProductTemplate } from "./entity/ProductTemplate.ts";
+import { ProductTemplateVersion } from "./entity/ProductTemplateVersion.ts";
+import { ProductTemplateRevision } from "./entity/ProductTemplateRevision.ts";
+import { planningEntities } from "./entity/PlanningProject.ts";
 
 import { User } from "./entity/User.ts";
 import { InventoryItem } from "./entity/InventoryItem.ts";
@@ -31,6 +40,8 @@ import { FloorPlanLayout } from "./entity/FloorPlanLayout.ts";
 import { CustomElementType } from "./entity/CustomElementType.ts";
 import { SerialNumber } from "./entity/SerialNumber.ts";
 import { StockLedger } from "./entity/StockLedger.ts";
+import { stocktakeEntities } from "./entity/Stocktake.ts";
+import { OperationalEvidenceEvent } from "./entity/OperationalEvidence";
 import { WarehouseTransfer } from "./entity/WarehouseTransfer.ts";
 import { WarehouseTransferLine } from "./entity/WarehouseTransferLine.ts";
 import { CycleCount } from "./entity/CycleCount.ts";
@@ -52,37 +63,32 @@ import { RmaLine } from "./entity/RmaLine.ts";
 import { BomNode } from "./entity/BomNode.ts";
 import { ComponentAlternate } from "./entity/ComponentAlternate.ts";
 
-import { Init1689500000000 } from "./migration/1689500000000-Init.ts";
-import { AddOrgAuditOrdersInvoices1689500000001 } from "./migration/1689500000001-AddOrgAuditOrdersInvoices.ts";
-import { SeedDefaultOrganization1689500000002 } from "./migration/1689500000002-SeedDefaultOrganization.ts";
-import { AlignEntitiesAndSchema1689500000003 } from "./migration/1689500000003-AlignEntitiesAndSchema.ts";
-import { CleanSchemaAlignment1689500000004 } from "./migration/1689500000004-CleanSchemaAlignment.ts";
-import { FinalSchemaReconciliation1689500000005 } from "./migration/1689500000005-FinalSchemaReconciliation.ts";
-import { SeedAdminUser1689500000006 } from "./migration/1689500000006-SeedAdminUser.ts";
-import { AddVisualWarehouseAndSerialNumbers1689500000007 } from "./migration/1689500000007-AddVisualWarehouseAndSerialNumbers.ts";
-import { AddStockLedgerAndWmsOps1689500000008 } from "./migration/1689500000008-AddStockLedgerAndWmsOps.ts";
-import { AddRbacAndSessions1689500000009 } from "./migration/1689500000009-AddRbacAndSessions.ts";
-import { EnterpriseMultiLocationAndAuditCore1689500000010 } from "./migration/1689500000010-EnterpriseMultiLocationAndAuditCore.ts";
-import { AddQmsAndESignatures1689500000011 } from "./migration/1689500000011-AddQmsAndESignatures.ts";
-import { AddOrderFulfillmentFields1689500000012 } from "./migration/1689500000012-AddOrderFulfillmentFields.ts";
-import { AddHardwareElectronicsBOM1689500000013 } from "./migration/1689500000013-AddHardwareElectronicsBOM.ts";
-import { AddStockIntegrityAndSpatialTree1689500000014 } from "./migration/1689500000014-AddStockIntegrityAndSpatialTree.ts";
-import { AddReservedQuantity1689500000015 } from "./migration/1689500000015-AddReservedQuantity.ts";
 
 const isLocalhostDb = env.databaseUrl.includes("localhost") || env.databaseUrl.includes("127.0.0.1");
+export const databaseSchema = process.env.DATABASE_SCHEMA ?? "public";
+if (!/^[a-z_][a-z0-9_]*$/.test(databaseSchema)) throw new Error("Invalid DATABASE_SCHEMA");
 
 export const AppDataSource = new DataSource({
   type: "postgres",
   url: env.databaseUrl,
-  ssl: isLocalhostDb ? false : { rejectUnauthorized: false },
+  schema: databaseSchema,
+  ssl: isLocalhostDb ? false : { rejectUnauthorized: true },
   synchronize: false, // Use migrations for production DB schema changes
   logging: env.nodeEnv === "development" ? ["error", "warn"] : ["error"],
   extra: {
     max: 25, // Connection pool size
     idleTimeoutMillis: 30000,
     connectionTimeoutMillis: 5000,
+    options: `-c search_path=pg_catalog,${databaseSchema},pg_temp`,
   },
   entities: [
+    ...commitmentEntities,
+    ...productionEntities,
+    ...supplyEntities,
+    ...planningEntities,
+    ProductTemplate,
+    ProductTemplateVersion,
+    ProductTemplateRevision,
     User,
     InventoryItem,
     Warehouse,
@@ -112,6 +118,8 @@ export const AppDataSource = new DataSource({
     CustomElementType,
     SerialNumber,
     StockLedger,
+    ...stocktakeEntities,
+    OperationalEvidenceEvent,
     WarehouseTransfer,
     WarehouseTransferLine,
     CycleCount,
@@ -133,23 +141,26 @@ export const AppDataSource = new DataSource({
     BomNode,
     ComponentAlternate,
   ],
-  migrations: [
-    Init1689500000000,
-    AddOrgAuditOrdersInvoices1689500000001,
-    SeedDefaultOrganization1689500000002,
-    AlignEntitiesAndSchema1689500000003,
-    CleanSchemaAlignment1689500000004,
-    FinalSchemaReconciliation1689500000005,
-    SeedAdminUser1689500000006,
-    AddVisualWarehouseAndSerialNumbers1689500000007,
-    AddStockLedgerAndWmsOps1689500000008,
-    AddRbacAndSessions1689500000009,
-    EnterpriseMultiLocationAndAuditCore1689500000010,
-    AddQmsAndESignatures1689500000011,
-    AddOrderFulfillmentFields1689500000012,
-    AddHardwareElectronicsBOM1689500000013,
-    AddStockIntegrityAndSpatialTree1689500000014,
-    AddReservedQuantity1689500000015,
-  ],
+  migrationsRun: false,
+  migrations: registeredMigrations,
   subscribers: [],
 });
+
+// Separate credentials; missing identity credentials fail at server startup, never fall back.
+export const IdentityDataSource = new DataSource({
+  ...AppDataSource.options as Extract<import("typeorm").DataSourceOptions, { type: "postgres" }>,
+  url: process.env.IDENTITY_DATABASE_URL,
+  logging: false,
+  ssl: process.env.IDENTITY_DATABASE_URL && ["localhost","127.0.0.1"].includes(new URL(process.env.IDENTITY_DATABASE_URL).hostname)
+    ? false : { rejectUnauthorized: true },
+  extra: { max: 5, connectionTimeoutMillis: 5000, options: `-c search_path=pg_catalog,${databaseSchema},pg_temp` },
+});
+
+// Opt-in private writer for synthetic recovery only; never reuse runtime/identity credentials.
+export const ReceiptLedgerDataSource = process.env.RECEIPT_LEDGER_DATABASE_URL ? new DataSource({
+  ...AppDataSource.options as Extract<import("typeorm").DataSourceOptions, { type: "postgres" }>,
+  url: process.env.RECEIPT_LEDGER_DATABASE_URL,
+  logging: false,
+  ssl: false,
+  extra: { max: 5, connectionTimeoutMillis: 5000, options: `-c search_path=pg_catalog,${databaseSchema},pg_temp` },
+}) : undefined;

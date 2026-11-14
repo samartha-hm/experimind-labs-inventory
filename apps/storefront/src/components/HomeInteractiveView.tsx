@@ -1,30 +1,18 @@
 'use client';
+import type { CatalogProduct } from "@/types/catalog";
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import {
   ArrowRight,
   ShieldCheck,
-  Truck,
   Award,
   Sparkles,
-  BookOpen,
   Star,
-  CheckCircle2,
   ChevronRight,
-  ChevronLeft,
   ShoppingBag,
-  Clock,
-  Compass,
   Cpu,
-  Atom,
-  Layers,
   Zap,
-  Eye,
-  Percent,
-  Check,
   Building,
-  Users,
-  FileText,
   Shapes,
   Orbit,
   FlaskConical,
@@ -107,71 +95,15 @@ const HERO_SLIDES = [
   }
 ];
 
-const LIGHTNING_DEALS = [
-  {
-    id: "EXP-KIT-GEO",
-    name: "Geomagic 3D Geometry & Visual Math Kit",
-    category: "Maths kits",
-    gradeLevel: "Grades 6–10",
-    rating: 5.0,
-    reviewsCount: 142,
-    price: 1499,
-    mrp: 1999,
-    discount: "25% OFF",
-    claimedPercent: 82,
-    imageUrl: "https://images.unsplash.com/photo-1509228468518-180dd4864904?auto=format&fit=crop&w=800&q=80"
-  },
-  {
-    id: "EXP-KIT-ANUBHAV",
-    name: "Anubhav Foundational Sensory Science Kit",
-    category: "STEM Kits",
-    gradeLevel: "Grades 1–5",
-    rating: 4.9,
-    reviewsCount: 88,
-    price: 1199,
-    mrp: 1599,
-    discount: "25% OFF",
-    claimedPercent: 74,
-    imageUrl: "https://images.unsplash.com/photo-1532094349884-543bc11b234d?auto=format&fit=crop&w=800&q=80"
-  },
-  {
-    id: "EXP-KIT-PSL",
-    name: "PSL Physical Science & Problem Solving Lab",
-    category: "STEM Kits",
-    gradeLevel: "Grades 8–12",
-    rating: 4.9,
-    reviewsCount: 65,
-    price: 2299,
-    mrp: 2999,
-    discount: "23% OFF",
-    claimedPercent: 91,
-    imageUrl: "https://images.unsplash.com/photo-1581092160607-ee22621dd758?auto=format&fit=crop&w=800&q=80"
-  },
-  {
-    id: "EXP-KIT-PRASTUTI",
-    name: "Prastuti Demonstration Science Models Set",
-    category: "Prastuti Science",
-    gradeLevel: "Grades 6–10",
-    rating: 4.8,
-    reviewsCount: 43,
-    price: 3499,
-    mrp: 4499,
-    discount: "22% OFF",
-    claimedPercent: 68,
-    imageUrl: "https://images.unsplash.com/photo-1603555501671-8f96b3fce8b4?auto=format&fit=crop&w=800&q=80"
-  }
-];
 
 interface HomeInteractiveViewProps {
-  cms: any;
-  featuredProducts: any[];
+  featuredProducts: CatalogProduct[];
 }
 
-export default function HomeInteractiveView({ cms, featuredProducts }: HomeInteractiveViewProps) {
+export default function HomeInteractiveView({ featuredProducts }: HomeInteractiveViewProps) {
   const [currentSlide, setCurrentSlide] = useState(0);
-  const [selectedQuickViewProduct, setSelectedQuickViewProduct] = useState<any | null>(null);
+  const [selectedQuickViewProduct, setSelectedQuickViewProduct] = useState<CatalogProduct | null>(null);
   const [addedIds, setAddedIds] = useState<Record<string, boolean>>({});
-  const [countdownTime, setCountdownTime] = useState({ hours: 7, minutes: 24, seconds: 18 });
 
   const addItem = useCartStore((state) => state.addItem);
 
@@ -183,23 +115,11 @@ export default function HomeInteractiveView({ cms, featuredProducts }: HomeInter
     return () => clearInterval(timer);
   }, []);
 
-  // Lightning deals countdown timer
-  useEffect(() => {
-    const countdown = setInterval(() => {
-      setCountdownTime((prev) => {
-        if (prev.seconds > 0) return { ...prev, seconds: prev.seconds - 1 };
-        if (prev.minutes > 0) return { ...prev, minutes: 59, seconds: 59 };
-        if (prev.hours > 0) return { ...prev, hours: prev.hours - 1, minutes: 59, seconds: 59 };
-        return { hours: 8, minutes: 0, seconds: 0 };
-      });
-    }, 1000);
-    return () => clearInterval(countdown);
-  }, []);
-
-  const handleQuickAdd = (product: any, e: React.MouseEvent) => {
+  const handleQuickAdd = (product: CatalogProduct, e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    addItem({
+    const result = addItem({
+      maxStock: product.stockQty,
       id: product.id,
       name: product.name,
       price: product.price || product.basePrice || 1499,
@@ -207,6 +127,7 @@ export default function HomeInteractiveView({ cms, featuredProducts }: HomeInter
       category: product.category,
       quantity: 1
     });
+    if (!result.success) return;
 
     setAddedIds((prev) => ({ ...prev, [product.id]: true }));
     setTimeout(() => {
@@ -378,37 +299,24 @@ export default function HomeInteractiveView({ cms, featuredProducts }: HomeInter
                   <Zap className="w-4 h-4 fill-amber-500" />
                 </div>
                 <h2 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
-                  Today's Lightning Deals & Lab Specials
+                  Featured lab products
                 </h2>
               </div>
               <p className="text-xs text-slate-500">
-                Special educational subsidies for verified school labs & curious home experimenters.
+                Explore the current lab catalog.
               </p>
             </div>
 
-            {/* Countdown Box */}
-            <div className="flex items-center gap-2 bg-slate-900 text-white px-4 py-2 rounded-2xl text-xs font-mono font-bold shadow-xs">
-              <Clock className="w-4 h-4 text-amber-400 shrink-0" />
-              <span className="text-slate-400 font-sans text-[11px]">Ends in:</span>
-              <span className="text-amber-400">
-                {String(countdownTime.hours).padStart(2, '0')}h : {String(countdownTime.minutes).padStart(2, '0')}m : {String(countdownTime.seconds).padStart(2, '0')}s
-              </span>
-            </div>
+
           </div>
 
           {/* Deals Grid */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {LIGHTNING_DEALS.map((deal) => (
+            {featuredProducts.slice(0, 4).map((deal) => (
               <div
                 key={deal.id}
                 className="bg-white rounded-3xl border border-slate-200/80 hover:border-indigo-300 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 overflow-hidden flex flex-col group relative"
               >
-                {/* Discount Badge */}
-                <div className="absolute top-3 left-3 z-10 bg-red-600 text-white text-[10px] font-black px-2.5 py-1 rounded-full uppercase tracking-wider shadow-sm flex items-center gap-1">
-                  <Percent className="w-3 h-3" />
-                  <span>{deal.discount}</span>
-                </div>
-
                 {/* Product Image */}
                 <Link
                   href={`/product/${deal.id}`}
@@ -439,32 +347,19 @@ export default function HomeInteractiveView({ cms, featuredProducts }: HomeInter
                       </h3>
                     </Link>
 
-                    {/* Stock Claimed Bar (Amazon Flash Sale Bar) */}
-                    <div className="space-y-1 pt-1">
-                      <div className="flex justify-between text-[10px] text-slate-500 font-bold">
-                        <span>Claimed {deal.claimedPercent}%</span>
-                        <span className="text-amber-600">⚡ Limited Units</span>
-                      </div>
-                      <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                        <div
-                          className="h-full bg-gradient-to-r from-amber-500 to-orange-500 rounded-full"
-                          style={{ width: `${deal.claimedPercent}%` }}
-                        />
-                      </div>
-                    </div>
+                    <span>{deal.stockQty} available</span>
                   </div>
 
                   <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
                     <div>
                       <div className="flex items-baseline gap-1.5">
-                        <span className="text-lg font-black text-slate-900">₹{deal.price.toLocaleString('en-IN')}</span>
-                        <span className="text-xs text-slate-400 line-through">₹{deal.mrp.toLocaleString('en-IN')}</span>
+                        <span className="text-lg font-black text-slate-900">₹{deal.basePrice.toLocaleString('en-IN')}</span>
                       </div>
                       <span className="text-[10px] text-emerald-600 font-bold block">Free Pan-India Delivery</span>
                     </div>
 
                     <button
-                      onClick={(e) => handleQuickAdd(deal, e)}
+                      disabled={!deal.stockQty} onClick={(e) => handleQuickAdd(deal, e)}
                       className={`px-3.5 py-2 rounded-xl text-xs font-black transition-all flex items-center gap-1 cursor-pointer ${
                         addedIds[deal.id]
                           ? 'bg-emerald-600 text-white shadow-xs'
@@ -663,7 +558,7 @@ export default function HomeInteractiveView({ cms, featuredProducts }: HomeInter
                     ))}
                   </div>
                   <p className="text-xs text-slate-600 leading-relaxed font-normal italic">
-                    "{t.quote}"
+                    &quot;{t.quote}&quot;
                   </p>
                 </div>
                 <div className="pt-3 border-t border-slate-200/60">

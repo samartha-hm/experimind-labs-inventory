@@ -32,6 +32,8 @@ export const useCartStore = create<CartStore>()(
         let message = '';
         const maxStock = typeof newItem.maxStock === 'number' ? newItem.maxStock : 99;
 
+        if (maxStock <= 0) return {success: false, message: "Out of stock"};
+
         set((state) => {
           const existing = state.items.find((i) => i.id === newItem.id);
           if (existing) {

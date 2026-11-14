@@ -265,7 +265,9 @@ router.post("/logout", async (req, res) => {
   if (refreshToken) {
     try {
       await authService.revokeRefreshToken(refreshToken);
-    } catch (_) {}
+    } catch (_) {
+      return res.status(503).json({ error: "Logout revocation unavailable; retry required" });
+    }
   }
   res.clearCookie("refreshToken", getCookieOptions(req));
   res.json({ message: "Successfully logged out." });

@@ -1,4 +1,5 @@
 node_modules/
+.local-dev/
 build/
 dist/
 coverage/
@@ -10,3 +11,4 @@ coverage/
 *.ppk
 *.tar.gz
 *.zip
+*\ (1)*

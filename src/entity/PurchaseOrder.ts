@@ -13,6 +13,13 @@ import type { PurchaseOrderLine } from "./PurchaseOrderLine";
 
 @Entity("purchase_orders")
 export class PurchaseOrder {
+  // Null means a preserved legacy order, excluded from verified incoming supply.
+  @Column({type:"int",nullable:true}) planning_revision!:number|null;
+  @Column({type:"jsonb",nullable:true}) planning_lines!:import("./SupplyPlanning").SupplyLine[]|null;
+  @Column({type:"uuid",nullable:true}) purchase_request_id!:string|null;
+  @Column({type:"uuid",nullable:true}) reviewed_by!:string|null;
+  @Column({type:"uuid",nullable:true}) approved_by!:string|null;
+  @Column({type:"uuid",nullable:true}) created_by!:string|null;
   @PrimaryGeneratedColumn("uuid")
   id: string;
 

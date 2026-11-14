@@ -9,11 +9,17 @@
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-316192?style=for-the-badge&logo=postgresql&logoColor=white)](https://www.postgresql.org/)
 [![TailwindCSS](https://img.shields.io/badge/Tailwind_CSS_v4-38B2AC?style=for-the-badge&logo=tailwind-css&logoColor=white)](https://tailwindcss.com/)
 [![Compliance](https://img.shields.io/badge/FDA_21_CFR_Part_11-Compliant-emerald?style=for-the-badge)](https://www.fda.gov/)
-[![Tests](https://img.shields.io/badge/Vitest-77%20Passed-brightgreen?style=for-the-badge&logo=vitest&logoColor=white)](https://vitest.dev/)
+[![Tests](https://img.shields.io/badge/Vitest-755%20Passed-brightgreen?style=for-the-badge&logo=vitest&logoColor=white)](https://vitest.dev/)
 
 **NexaInventory ERP** is an enterprise-grade, single-codebase supply chain orchestration, WMS digital twin, assembly kitting, double-entry stock ledger, hardware electronics BOM engine, and fulfillment platform developed for **Experimind Labs**.
 
 ---
+
+## Catalog preparation and fulfillment
+
+In Project Preparation, select Prastuti, Portable STEM Lab (PSL), Anubhav, Geo-Magic, or Shiksha 2.0 Robot and choose an assembly from the item catalog. The project snapshots its nested BOM quantities for the requested batch. Record product-specific readiness evidence alongside material preparation. FabLab checkout records custody by asset tag, borrower, department and due date. Damaged tools and tools awaiting calibration require clearance before checkout.
+
+Set `STOREFRONT_ORG_ID` to the selling ERP organization UUID and `PUBLIC_ERP_URL` to the ERP origin for the Next.js storefront. Apply registered migrations before starting the ERP. The public catalog shows on-hand stock less reservations and quarantine. Checkout reserves units, and the storefront queue in Sales Orders and Warehouse handles picking, packing and FIFO dispatch.
 
 ## 🎯 Product Operating Model
 
@@ -34,7 +40,7 @@ The navigation keeps the daily operational paths visible and groups specialist t
 - 🏢 **Platform ERP & WMS Cockpit**: [https://inventory.experimindlabs.com/](https://inventory.experimindlabs.com/)
 - 🛍️ **Public Customer Storefront**: [https://shop.experimindlabs.com/](https://shop.experimindlabs.com/)
 - 📖 **Interactive Swagger / OpenAPI Docs**: [https://inventory.experimindlabs.com/api/docs](https://inventory.experimindlabs.com/api/docs)
-- ⚡ **Direct Server IP (AWS EC2)**: `http://13.233.142.180`
+- ⚡ **Public ERP URL**: `${PUBLIC_ERP_URL}`
 
 ---
 
@@ -127,3 +133,5 @@ npm --prefix apps/storefront run build
 - 🛠️ **[Detailed Technical Documentation](docs/DETAILED_TECHNICAL_DOCUMENTATION.md)** — *Component lifecycle, undo/redo architecture, and state models.*
 - 🚀 **[Setup & Deployment Guide](docs/SETUP_AND_DEPLOYMENT.md)** — *AWS EC2, Nginx, PM2, and SSL Certbot setup.*
 - 🔧 **[Troubleshooting Guide](docs/TROUBLESHOOTING.md)** — *Common diagnostic commands, database recovery, and service logs.*
+
+For production, set `STOREFRONT_ORG_ID` to the shop tenant UUID. Review `npm run db:migrate -- --plan-production`, then run `npm run db:migrate -- --apply-production` with the designated migration credentials. The production command applies the FabLab loans migration using a dedicated runtime migration journal. The existing inventory schema is required. An existing unjournaled loans table causes the transaction to roll back and requires operator review.

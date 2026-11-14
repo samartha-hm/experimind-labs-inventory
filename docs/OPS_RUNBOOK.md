@@ -1,8 +1,8 @@
 # Operations Runbook — Experimind Labs Inventory (AWS production)
 
-Production: `http://13.233.142.180` — main app on `:3000`, Next.js storefront on `:3001`,
+Production: `${PUBLIC_ERP_URL}` — main app on `:3000`, Next.js storefront on `:3001`,
 PostgreSQL 17 on `localhost:5432` (database `experimind_inventory`). App directory:
-`/home/admin/experimind-inventory`. SSH: `admin@13.233.142.180` with `inventory.pem`.
+`/home/admin/experimind-inventory`. SSH: `admin@${EC2_HOST}` with `inventory.pem`.
 
 This runbook covers the three operational safeguards required by the readiness plan
 (`docs/PLATFORM_REPLAN_AND_READINESS_PLAN.md`, item 5): **backup rotation**,
@@ -24,7 +24,7 @@ nothing is hardcoded in the script or the systemd units.
 ### Verify a backup was taken
 
 ```bash
-ssh -i inventory.pem admin@13.233.142.180 \
+ssh -i inventory.pem admin@${EC2_HOST} \
   "systemctl status experimind-backup.service; tail -5 /home/admin/backups/backup.log"
 ```
 
@@ -44,7 +44,7 @@ gunzip -c /home/admin/backups/experimind_inventory_<stamp>.dump.gz | \
   production, then **drops the scratch database**. Production is never modified.
 
 ```bash
-ssh -i inventory.pem admin@13.233.142.180 \
+ssh -i inventory.pem admin@${EC2_HOST} \
   "cd /home/admin/experimind-inventory && sudo bash scripts/ops/restore-rehearsal.sh"
 ```
 
@@ -100,7 +100,7 @@ The deploy pipeline refreshes the systemd units on every deploy (non-fatal). To
 install or refresh them manually:
 
 ```bash
-ssh -i inventory.pem admin@13.233.142.180 \
+ssh -i inventory.pem admin@${EC2_HOST} \
   "cd /home/admin/experimind-inventory && sudo bash scripts/ops/install-ops-timers.sh"
 ```
 

@@ -30,6 +30,9 @@ export default defineConfig(() => {
           ],
         },
         workbox: {
+          // The complete trusted workflow entry exceeds Workbox's 2 MiB default.
+          // Keep it available offline while retaining a bounded precache budget.
+          maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,
           cleanupOutdatedCaches: true,
           clientsClaim: true,
           skipWaiting: true,
@@ -101,7 +104,10 @@ export default defineConfig(() => {
     },
     server: {
       hmr: process.env.DISABLE_HMR !== 'true',
-      watch: process.env.DISABLE_HMR === 'true' ? null : {},
+      // Local PostgreSQL clusters and rehearsal artifacts are not frontend sources.
+      watch: process.env.DISABLE_HMR === 'true' ? null : {
+        ignored: ['**/.local-dev/**', '**/.test-tmp/**'],
+      },
     },
   };
 });

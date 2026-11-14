@@ -1,4 +1,5 @@
 'use client';
+import type { CatalogProduct } from "@/types/catalog";
 import React, { useState } from 'react';
 import Link from 'next/link';
 import {
@@ -7,13 +8,10 @@ import {
   Truck,
   CheckCircle2,
   MapPin,
-  Tag,
   Building,
-  Sparkles,
   Award,
   BookOpen,
   Layers,
-  ChevronRight,
   Plus,
   Minus,
   ShoppingBag,
@@ -21,16 +19,13 @@ import {
   Check,
   X,
   FileText,
-  MessageSquare,
-  Clock,
-  RotateCcw,
-  Share2
+  MessageSquare
 } from 'lucide-react';
 import SafeProductImage from './SafeProductImage';
 import { useCartStore } from '@/store/useCartStore';
 
 interface ProductDetailInteractiveViewProps {
-  product: any;
+  product: CatalogProduct;
 }
 
 export default function ProductDetailInteractiveView({ product }: ProductDetailInteractiveViewProps) {
@@ -55,7 +50,6 @@ export default function ProductDetailInteractiveView({ product }: ProductDetailI
   const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
   const [bulkBatchSize, setBulkBatchSize] = useState(25);
   const [bulkDiscountTier, setBulkDiscountTier] = useState(15);
-  const [bulkQuoteSuccess, setBulkQuoteSuccess] = useState(false);
 
   // Active Tab: 'specs' | 'curriculum' | 'reviews' | 'faq'
   const [activeTab, setActiveTab] = useState<'specs' | 'curriculum' | 'reviews' | 'faq'>('specs');
@@ -104,7 +98,8 @@ export default function ProductDetailInteractiveView({ product }: ProductDetailI
   };
 
   const handleAddToCart = () => {
-    addItem({
+    const result = addItem({
+      maxStock: product.stockQty,
       id: product.id,
       name: product.name,
       price: basePrice,
@@ -112,9 +107,11 @@ export default function ProductDetailInteractiveView({ product }: ProductDetailI
       category: product.category,
       quantity: quantity
     });
+    if (!result.success) return false;
 
     setAddedToCartToast(true);
-    setTimeout(() => setAddedToCartToast(null as any), 3000);
+    setTimeout(() => setAddedToCartToast(false), 3000);
+    return true;
   };
 
   return (
@@ -126,7 +123,7 @@ export default function ProductDetailInteractiveView({ product }: ProductDetailI
           <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
           <div>
             <div className="text-xs font-black">{quantity}x Added to Cart!</div>
-            <div className="text-[11px] text-slate-300">"{product.name}" is in your cart.</div>
+            <div className="text-[11px] text-slate-300">&quot;{product.name}&quot; is in your cart.</div>
           </div>
           <Link
             href="/cart"
@@ -308,13 +305,14 @@ export default function ProductDetailInteractiveView({ product }: ProductDetailI
               </div>
 
               <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-3 py-2 rounded-2xl border border-emerald-100">
-                In Stock at Karnataka Central Lab
+                {product.stockQty} available
               </span>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
               <button
-                onClick={handleAddToCart}
+                disabled={product.stockQty < quantity}
+                  onClick={handleAddToCart}
                 className="w-full py-4 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-black text-sm shadow-xl shadow-indigo-600/25 transition-all flex items-center justify-center gap-2 cursor-pointer hover:scale-[1.02]"
               >
                 <ShoppingBag className="w-5 h-5" />
@@ -323,7 +321,8 @@ export default function ProductDetailInteractiveView({ product }: ProductDetailI
 
               <Link
                 href="/cart"
-                onClick={handleAddToCart}
+                aria-disabled={product.stockQty < quantity}
+                onClick={event => { if (product.stockQty < quantity || !handleAddToCart()) event.preventDefault(); }}
                 className="w-full py-4 rounded-2xl bg-slate-900 hover:bg-slate-800 text-white font-black text-sm shadow-lg transition-all flex items-center justify-center gap-2"
               >
                 <Zap className="w-5 h-5 text-amber-400 fill-amber-400" />
@@ -384,7 +383,7 @@ export default function ProductDetailInteractiveView({ product }: ProductDetailI
             return (
               <button
                 key={tab.id}
-                onClick={() => setActiveTab(tab.id as any)}
+                onClick={() => setActiveTab(tab.id as typeof activeTab)}
                 className={`flex items-center gap-2 px-5 py-2.5 rounded-2xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
                   isActive
                     ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20'

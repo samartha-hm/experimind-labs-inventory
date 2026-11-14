@@ -117,7 +117,7 @@ export default function UndoRedoWidget() {
       {/* 1. COLLAPSED SLEEK SIDE TAB / ARROW (MINIMAL & NON-INTRUSIVE) */}
       {/* ========================================================================= */}
       {isCollapsed ? (
-        <div className="fixed bottom-6 right-0 z-[9990] flex items-center animate-in slide-in-from-right duration-200">
+        <div className="fixed bottom-[calc(6rem+env(safe-area-inset-bottom,0px))] md:bottom-6 right-0 z-[9990] flex items-center animate-in slide-in-from-right duration-200">
           <button
             onClick={() => toggleCollapse(false)}
             title="Expand Undo / Redo Actions Panel"
@@ -140,7 +140,7 @@ export default function UndoRedoWidget() {
         /* ========================================================================= */
         /* 2. EXPANDED FLOATING DOCKED PILL */
         /* ========================================================================= */
-        <div className="fixed bottom-5 right-5 z-[9990] flex items-center gap-1.5 bg-slate-950/95 text-white p-1.5 rounded-2xl shadow-2xl border border-slate-800/90 backdrop-blur-xl animate-in slide-in-from-bottom-2 select-none">
+        <div className="fixed bottom-[calc(6rem+env(safe-area-inset-bottom,0px))] md:bottom-5 right-3 md:right-5 z-[9990] flex items-center gap-1.5 bg-slate-950/95 text-white p-1.5 rounded-2xl shadow-2xl border border-slate-800/90 backdrop-blur-xl animate-in slide-in-from-bottom-2 select-none">
           
           {/* Quick Undo Button */}
           <button
@@ -239,7 +239,7 @@ export default function UndoRedoWidget() {
       {/* 3. EXPANDABLE ACTION TIMELINE & BATCH ROLLBACK CONSOLE */}
       {/* ========================================================================= */}
       {isConsoleOpen && !isCollapsed && (
-        <div className="fixed bottom-20 right-5 z-[9991] w-full max-w-lg bg-slate-950/95 text-white rounded-3xl shadow-2xl border border-slate-800 backdrop-blur-2xl p-5 space-y-4 animate-in slide-in-from-bottom-4 max-h-[78vh] flex flex-col">
+        <div className="fixed bottom-[calc(10rem+env(safe-area-inset-bottom,0px))] md:bottom-20 right-3 md:right-5 z-[9991] w-[calc(100%-1.5rem)] max-w-lg bg-slate-950/95 text-white rounded-3xl shadow-2xl border border-slate-800 backdrop-blur-2xl p-5 space-y-4 animate-in slide-in-from-bottom-4 max-h-[60vh] md:max-h-[78vh] flex flex-col">
           
           {/* Header */}
           <div className="flex items-center justify-between border-b border-slate-800 pb-3 shrink-0">

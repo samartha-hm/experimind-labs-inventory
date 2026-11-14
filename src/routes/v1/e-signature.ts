@@ -2,8 +2,10 @@ import { Router } from "express";
 import { ElectronicSignatureService } from "../../services/ElectronicSignatureService.ts";
 import { authenticateJwt } from "../../middleware/auth.ts";
 import { requireTenant } from "../../middleware/tenant.ts";
+import { advancedOperationsGate } from "../../middleware/advancedOperationsGate.ts";
 
 const router = Router();
+router.use(advancedOperationsGate);
 
 /**
  * POST /api/v1/e-signature/sign

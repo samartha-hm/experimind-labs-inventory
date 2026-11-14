@@ -1,7 +1,8 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { InventoryItem, KitBOM, TransactionRecord, BOMRequirement, StockLedgerEntry, WarehouseTransfer, CycleCount } from './types';
 import { useAuth } from './AuthContext';
 import { apiFetch } from './utils/api';
+import { createLatestRequestGuard, parseStockNumber } from './utils/latestRequest';
 import { useUndoRedo } from '@/src/contexts/UndoRedoContext';
 
 interface DataContextType {
@@ -15,6 +16,10 @@ interface DataContextType {
   warehouses: any[];
   bins: any[];
   loading: boolean;
+  inventoryLoadError: string | null;
+  inventoryLoadedAt: string | null;
+  inventoryRefreshing: boolean;
+  refreshInventory: () => Promise<void>;
   
   // Inventory
   addInventoryItem: (item: Omit<InventoryItem, 'id'>) => Promise<string | null>;
@@ -122,6 +127,10 @@ const DataContext = createContext<DataContextType>({
   wmsTransfers: [],
   wmsCycleCounts: [],
   loading: true,
+  inventoryLoadError: null,
+  inventoryLoadedAt: null,
+  inventoryRefreshing: false,
+  refreshInventory: async () => {},
   updateCustomerOrderStatus: async () => {},
   updateCustomerOrderFulfillment: async () => {},
   refreshCustomerOrders: async () => {},
@@ -178,11 +187,11 @@ function mapItemToFrontend(dbItem: any): InventoryItem {
     id: dbItem.id,
     name: dbItem.name,
     category: dbItem.category || 'General Components',
-    stockQty: Number(dbItem.quantity) || 0,
+    stockQty: parseStockNumber(dbItem.quantity),
     unit: dbItem.unit || 'pcs',
     isCommon: !!dbItem.is_common,
     isSubassembly: !!dbItem.is_subassembly,
-    threshold: Number(dbItem.threshold) || 10,
+    threshold: dbItem.threshold == null ? 10 : parseStockNumber(dbItem.threshold),
     imageUrl: dbItem.image_url || undefined,
     basePrice: Number(dbItem.base_price) || 0,
     description: dbItem.description || undefined,
@@ -235,6 +244,13 @@ function mapItemToBackend(item: Partial<InventoryItem>): any {
 }
 
 export function DataProvider({ children }: { children: React.ReactNode }) {
+  const { user } = useAuth();
+  // A different account receives a fresh cache before its children render.
+  const scope = JSON.stringify([user?.organization_id, user?.id, user?.role]);
+  return <DataSessionProvider key={scope}>{children}</DataSessionProvider>;
+}
+
+function DataSessionProvider({ children }: { children: React.ReactNode; key?: React.Key }) {
   const { user, token } = useAuth();
   const { addAction } = useUndoRedo();
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
@@ -254,18 +270,38 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [wmsCycleCounts, setWmsCycleCounts] = useState<CycleCount[]>([]);
   const [customerOrders, setCustomerOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [inventoryLoadError, setInventoryLoadError] = useState<string | null>(null);
+  const [inventoryLoadedAt, setInventoryLoadedAt] = useState<string | null>(null);
+  const [inventoryRefreshing, setInventoryRefreshing] = useState(false);
+  const inventoryRequests = useRef(createLatestRequestGuard());
 
-  const loadAllData = async () => {
+  const refreshInventory = async () => {
+    if (!user || !token) return;
+    const isCurrent = inventoryRequests.current.begin();
+    setInventoryRefreshing(true);
+    try {
+      const records = await apiFetch('/api/v1/inventory');
+      if (!isCurrent()) return;
+      if (!Array.isArray(records)) throw new Error('Unexpected inventory response');
+      setInventory(records.map(mapItemToFrontend));
+      setInventoryLoadedAt(new Date().toISOString());
+      setInventoryLoadError(null);
+    } catch {
+      if (isCurrent()) setInventoryLoadError('Inventory could not be loaded. Check your connection and access, then retry.');
+    } finally {
+      if (isCurrent()) setInventoryRefreshing(false);
+    }
+  };
+
+  const loadAllData = async (isCurrent: () => boolean) => {
     try {
       // ===== Stage 1: Critical Core Data (Inventory & Kits) -> Unblocks UI in <50ms =====
-      const [resInv, resKits] = await Promise.allSettled([
-        apiFetch('/api/v1/inventory'),
+      const [, resKits] = await Promise.allSettled([
+        refreshInventory(),
         apiFetch('/api/v1/kit'),
       ]);
 
-      if (resInv.status === 'fulfilled' && Array.isArray(resInv.value)) {
-        setInventory(resInv.value.map(mapItemToFrontend));
-      }
+      if (!isCurrent()) return;
 
       if (resKits.status === 'fulfilled' && Array.isArray(resKits.value)) {
         setKits(resKits.value.map((k: any) => ({
@@ -302,6 +338,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       ]);
 
       const [resTx, resVendors, resCustomers, resPos, resSos, resWh, resBins, resRacks, resElemTypes, resSerials, resLedger, resTransfers, resAudits, resOrders] = secondaryResults;
+      if (!isCurrent()) return;
 
       if (resTx.status === 'fulfilled' && Array.isArray(resTx.value)) {
         setTransactions(resTx.value.map((t: any) => ({
@@ -442,22 +479,24 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     } catch (e) {
       console.error('Error loading data from PostgreSQL:', e);
     } finally {
-      setLoading(false);
+      if (isCurrent()) setLoading(false);
     }
   };
 
   useEffect(() => {
     let sseSource: EventSource | null = null;
+    let active = true;
 
     if (user && token) {
       setLoading(true);
-      loadAllData();
+      void loadAllData(() => active);
 
       // Establish real-time Server-Sent Events (SSE) stream connection
       try {
         sseSource = new EventSource(`/api/v1/stream/events?token=${encodeURIComponent(token)}`);
 
         sseSource.addEventListener("STOCK_UPDATE", (e: MessageEvent) => {
+          if (!active) return;
           try {
             const payload = JSON.parse(e.data);
             if (payload?.data?.itemId) {
@@ -466,7 +505,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
                   item.id === payload.data.itemId
                     ? {
                         ...item,
-                        stockQty: Number(payload.data.quantity),
+                        stockQty: parseStockNumber(payload.data.quantity),
                         binLocation: payload.data.binLocation || item.binLocation,
                       }
                     : item
@@ -479,8 +518,9 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         });
 
         sseSource.addEventListener("PO_UPDATE", () => {
+          if (!active) return;
           apiFetch("/api/v1/purchase-order").then((data) => {
-            if (Array.isArray(data)) {
+            if (active && Array.isArray(data)) {
               setPurchaseOrders(
                 data.map((po: any) => ({
                   id: po.id,
@@ -507,7 +547,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
                 }))
               );
             }
-          });
+          }).catch(() => { /* Retain the last snapshot when the event refresh fails. */ });
         });
 
         sseSource.onerror = (e) => {
@@ -522,6 +562,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       }
     } else {
       setInventory([]);
+      setInventoryLoadError(null);
       setKits([]);
       setTransactions([]);
       setVendors([]);
@@ -537,6 +578,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     }
 
     return () => {
+      active = false;
+      inventoryRequests.current.invalidate();
       if (sseSource) {
         sseSource.close();
       }
@@ -1763,7 +1806,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <DataContext.Provider value={{
-      inventory, kits, transactions, vendors, customers, purchaseOrders, salesOrders, customerOrders, warehouses, bins, loading,
+      inventory, kits, transactions, vendors, customers, purchaseOrders, salesOrders, customerOrders, warehouses, bins, loading, inventoryLoadError,
+      inventoryLoadedAt, inventoryRefreshing, refreshInventory,
       physicalRacks, elementTypes, serialNumbers,
       stockLedger, wmsTransfers, wmsCycleCounts,
       addInventoryItem, updateInventoryItem, deleteInventoryItem, addKitBOM, updateKitBOM, deleteKitBOM, logTransaction,
