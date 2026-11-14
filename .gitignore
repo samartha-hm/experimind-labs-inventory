@@ -11,3 +11,4 @@ coverage/
 *.ppk
 *.tar.gz
 *.zip
+*\ (1)*
