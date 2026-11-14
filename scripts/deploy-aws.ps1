@@ -1,11 +1,12 @@
 # PowerShell AWS Deployment Script for Experimind Labs Inventory OS
 param(
-    [string]$ServerIP = "13.233.142.180",
+    [string]$ServerIP = $env:EC2_HOST,
     [string]$User = "admin",
     [string]$KeyFile = "inventory.pem"
 )
 
 $ErrorActionPreference = "Stop"
+if (-not $ServerIP) { throw "Set EC2_HOST or supply -ServerIP." }
 
 Write-Host "==========================================================" -ForegroundColor Cyan
 Write-Host " 🚀 EXPERIMIND LABS - AWS PRODUCTION DEPLOYMENT PIPELINE " -ForegroundColor Cyan

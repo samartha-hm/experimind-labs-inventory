@@ -33,6 +33,7 @@ import OfflineStatusBar from '@/src/shared/components/OfflineStatusBar';
 import { TenantProvider } from '@/src/contexts/TenantContext';
 import { ToastProvider } from '@/src/contexts/ToastContext';
 import { ApprovalProvider } from '@/src/contexts/ApprovalContext';
+import { LedgerAuditPanel } from './features/compliance/components/LedgerAuditPanel';
 import { UserDirectoryTab } from '@/src/features/compliance/components/UserDirectoryTab';
 import ProductionPlanningPanel from "./features/production/ProductionPlanningPanel";
 import { PackingPackageLookup } from "./features/packing/PackingLabelsPanel";
@@ -391,6 +392,8 @@ function MainApp() {
               {activeTab === 'analytics' && (
                 <PredictiveAnalyticsTab />
               )}
+
+              {activeTab === 'ledger_audit' && <LedgerAuditPanel key={`${user?.organization_id}:${user?.id}`} />}
 
               {activeTab === 'user_directory' && (
                 <UserDirectoryTab />

@@ -85,6 +85,7 @@ export const workspaceGroups: WorkspaceGroup[] = [
     icon: Settings2,
     items: [
       { tabId: 'analytics', label: 'Reports', icon: TrendingUp },
+      { tabId: 'ledger_audit', label: 'Governance / Audit', icon: Settings2 },
       { tabId: 'user_directory', label: 'People & roles', icon: Users },
       { tabId: 'shop', label: 'Storefront', icon: ShoppingBag },
     ],

@@ -60,7 +60,7 @@ NexaInventory ERP runs in production on a single high-efficiency **AWS EC2** ins
 
 ## 2. PRODUCTION ENVIRONMENT SPECIFICATIONS
 
-- **Server IP**: `13.233.142.180` (AWS EC2, ap-south-1 Mumbai)
+- **Server IP**: `${EC2_HOST}` (AWS EC2, ap-south-1 Mumbai)
 - **SSH User**: `admin`
 - **SSH Authentication Key**: `inventory.pem` (RSA Private Key)
 - **Application Directory**: `/home/admin/experimind-inventory`
@@ -88,7 +88,7 @@ powershell -ExecutionPolicy Bypass -File scripts/deploy-aws.ps1
 
 ### Optional Custom Parameters
 ```powershell
-powershell -ExecutionPolicy Bypass -File scripts/deploy-aws.ps1 -ServerIP "13.233.142.180" -User "admin" -KeyFile "inventory.pem"
+powershell -ExecutionPolicy Bypass -File scripts/deploy-aws.ps1 -ServerIP $env:EC2_HOST -User "admin" -KeyFile "inventory.pem"
 ```
 
 ### What the Automated Pipeline Executes:
@@ -103,8 +103,8 @@ powershell -ExecutionPolicy Bypass -File scripts/deploy-aws.ps1 -ServerIP "13.23
           (Excludes local node_modules and scratch files; size ~1.5 MB)
 
 [3/5] Secure Upload
-      ├── scp deploy_bundle.tar.gz admin@13.233.142.180:/home/admin/
-      └── scp scripts/setup-aws.sh admin@13.233.142.180:/home/admin/
+      ├── scp deploy_bundle.tar.gz admin@${EC2_HOST}:/home/admin/
+      └── scp scripts/setup-aws.sh admin@${EC2_HOST}:/home/admin/
 
 [4/5] Remote Provisioning & PM2 Reload
       ├── chmod +x /home/admin/setup-aws.sh && /home/admin/setup-aws.sh (Idempotent prerequisite check)
@@ -128,7 +128,7 @@ If you need to connect to the AWS instance manually to perform maintenance, view
 
 ### 4.1 Connect via SSH
 ```bash
-ssh -i inventory.pem admin@13.233.142.180
+ssh -i inventory.pem admin@${EC2_HOST}
 ```
 
 ### 4.2 Navigate to Application Directory
@@ -236,7 +236,7 @@ The Nginx configuration file is located at `/etc/nginx/sites-available/experimin
 - **`shop.experimindlabs.com`**:
   - Proxies to `http://127.0.0.1:3001` (Next.js 16 Storefront).
   - Includes Next.js asset caching rules (`/_next/static/` max-age 31536000s immutable).
-- **Direct IP (`13.233.142.180`)**:
+- **Direct IP (`${EC2_HOST}`)**:
   - Routes directly to ERP Port 3000 with HTTP 200 healthcheck support.
 
 ### 6.2 Nginx Management Commands

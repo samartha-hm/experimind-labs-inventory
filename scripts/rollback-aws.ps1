@@ -4,13 +4,14 @@
 #   .\scripts\rollback-aws.ps1                                  # pick newest snapshot interactively
 #   .\scripts\rollback-aws.ps1 -ReleaseFile release_20260924T120000Z.tar.gz
 param(
-    [string]$ServerIP = "13.233.142.180",
+    [string]$ServerIP = $env:EC2_HOST,
     [string]$User = "admin",
     [string]$KeyFile = "inventory.pem",
     [string]$ReleaseFile = ""
 )
 
 $ErrorActionPreference = "Stop"
+if (-not $ServerIP) { throw "Set EC2_HOST or supply -ServerIP." }
 
 Write-Host "==========================================================" -ForegroundColor Cyan
 Write-Host " EXPERIMIND LABS - AWS ROLLBACK " -ForegroundColor Cyan

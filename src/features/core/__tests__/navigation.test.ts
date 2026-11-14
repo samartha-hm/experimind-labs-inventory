@@ -22,6 +22,7 @@ const routedTabs = [
   'production_command',
   'sticker_hub',
   'analytics',
+  'ledger_audit',
   'user_directory',
   'shop',
 ];

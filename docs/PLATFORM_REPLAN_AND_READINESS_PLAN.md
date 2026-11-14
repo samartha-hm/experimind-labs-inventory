@@ -4,7 +4,7 @@
 **Document status:** Approved plan with verified production readiness update
 **Prepared:** 2026-09-23
 **Repository:** `samartha-hm/experimind-labs-inventory`
-**Production host:** AWS EC2 `13.233.142.180`
+**Production host:** AWS EC2 `${EC2_HOST}`
 **Scope:** Product simplification and operational core rebuild
 
 ---

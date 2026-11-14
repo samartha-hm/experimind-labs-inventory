@@ -24,6 +24,7 @@ const roleTabs: Record<PlatformRole, Set<string>> = {
     'stock_transfer',
     'cycle_counts',
     'vendors',
+    'ledger_audit',
     'user_directory',
     'analytics',
     'shop',
@@ -50,6 +51,7 @@ export function normalizePlatformRole(role: LegacyRole): PlatformRole {
 }
 
 export function canAccessTab(role: LegacyRole, tab: string): boolean {
+  if (tab === 'ledger_audit') return role === 'admin' || role === 'super_admin';
   return roleTabs[normalizePlatformRole(role)].has(tab);
 }
 
@@ -59,5 +61,7 @@ export function getDefaultWorkspaceTab(role: LegacyRole): string {
 }
 
 export function getVisibleWorkspaceTabs(role: LegacyRole): string[] {
-  return Array.from(roleTabs[normalizePlatformRole(role)]);
+  const tabs = new Set(roleTabs[normalizePlatformRole(role)]);
+  if (canAccessTab(role, 'ledger_audit')) tabs.add('ledger_audit');
+  return Array.from(tabs).filter(tab => canAccessTab(role, tab));
 }

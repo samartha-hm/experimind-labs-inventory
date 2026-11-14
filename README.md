@@ -34,7 +34,7 @@ The navigation keeps the daily operational paths visible and groups specialist t
 - 🏢 **Platform ERP & WMS Cockpit**: [https://inventory.experimindlabs.com/](https://inventory.experimindlabs.com/)
 - 🛍️ **Public Customer Storefront**: [https://shop.experimindlabs.com/](https://shop.experimindlabs.com/)
 - 📖 **Interactive Swagger / OpenAPI Docs**: [https://inventory.experimindlabs.com/api/docs](https://inventory.experimindlabs.com/api/docs)
-- ⚡ **Direct Server IP (AWS EC2)**: `http://13.233.142.180`
+- ⚡ **Public ERP URL**: `${PUBLIC_ERP_URL}`
 
 ---
 

@@ -1,4 +1,5 @@
 'use client';
+import UpiPaymentLink from "@/components/UpiPaymentLink";
 import React, { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
@@ -277,6 +278,7 @@ function TrackOrderContent() {
               <div>
                 <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Total Amount</span>
                 <span className="text-2xl font-black text-white">₹{Number(order.total_amount).toLocaleString('en-IN')}</span>
+                <UpiPaymentLink order={order} />
               </div>
             </div>
           </div>

@@ -1,4 +1,5 @@
 'use client';
+import UpiPaymentLink from "@/components/UpiPaymentLink";
 import { useCartStore } from "@/store/useCartStore";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
@@ -134,6 +135,9 @@ export default function CheckoutPage() {
         throw new Error(resData.error || 'Failed to process order. Please verify your details.');
       }
 
+      const order = resData.order ?? resData;
+      if (!order.id || !Number.isFinite(Number(order.total_amount))) throw new Error('Order confirmation is incomplete. Check your order history before retrying.');
+
       // Auto-save account credentials and recent order to local storage
       try {
         localStorage.setItem('experimind_customer_email', formData.email.trim().toLowerCase());
@@ -141,10 +145,10 @@ export default function CheckoutPage() {
         localStorage.setItem('experimind_customer_phone', cleanPhone);
 
         const newOrderRecord = {
-          id: resData.id || ('ORD-' + Math.floor(100000 + Math.random() * 900000)),
-          order_number: resData.order_number || resData.id,
+          id: order.id,
+          order_number: order.order_number || order.id,
           date: new Date().toISOString(),
-          total: orderTotal,
+          total: Number(order.total_amount),
           status: 'created'
         };
 
@@ -153,7 +157,7 @@ export default function CheckoutPage() {
         localStorage.setItem('experimind_recent_orders', JSON.stringify(updatedOrders.slice(0, 10)));
       } catch (_) {}
 
-      setOrderConfirmed(resData || { id: 'ORD-' + Math.floor(100000 + Math.random() * 900000) });
+      setOrderConfirmed(order);
       clearCart();
     } catch (err: any) {
       setServerError(err.message || 'An unexpected error occurred while placing the order.');
@@ -201,7 +205,8 @@ export default function CheckoutPage() {
           </div>
           <div className="flex justify-between pt-2">
             <span className="text-slate-700 font-bold text-sm">Total Order Value (GST Included)</span>
-            <span className="font-black text-indigo-600 text-xl">₹{orderTotal.toLocaleString('en-IN')}</span>
+            <span className="font-black text-indigo-600 text-xl">₹{Number(orderConfirmed.total_amount).toLocaleString('en-IN')}</span>
+            <UpiPaymentLink order={orderConfirmed} />
           </div>
         </div>
 

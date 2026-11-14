@@ -1,4 +1,5 @@
 'use client';
+import UpiPaymentLink from "@/components/UpiPaymentLink";
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import {
@@ -993,6 +994,7 @@ export default function CustomerAccountPage() {
                       <span className="font-black text-slate-900 text-sm">
                         ₹{Number(ord.total_amount || 0).toLocaleString('en-IN')}
                       </span>
+                      <UpiPaymentLink order={ord} />
 
                       <Link
                         href={`/track?orderId=${encodeURIComponent(ord.order_number || ord.id)}`}
