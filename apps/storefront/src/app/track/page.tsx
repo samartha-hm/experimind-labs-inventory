@@ -3,30 +3,17 @@ import type { ShopOrder, ShopLine } from "@/types/catalog";
 import UpiPaymentLink from "@/components/UpiPaymentLink";
 import React, { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
-import Link from 'next/link';
 import {
   Truck,
   Search,
   Package,
   CheckCircle2,
-  Clock,
   MapPin,
-  FileText,
-  MessageSquare,
   AlertCircle,
-  ShieldCheck,
-  Sparkles,
-  ArrowRight,
-  Printer,
-  ChevronRight,
-  Phone,
   Mail,
   Box,
-  Calendar,
-  User
+  Calendar
 } from 'lucide-react';
-import SafeProductImage from '@/components/SafeProductImage';
-import { useCustomerStore } from '@/store/useCustomerStore';
 
 function TrackOrderContent() {
   const searchParams = useSearchParams();
@@ -37,8 +24,6 @@ function TrackOrderContent() {
   const [order, setOrder] = useState<ShopOrder | null>(null);
   const [recentOrders, setRecentOrders] = useState<ShopOrder[]>([]);
 
-  const customer = useCustomerStore((state) => state.customer);
-  const isLoggedIn = useCustomerStore((state) => state.isLoggedIn);
 
 
 
@@ -70,7 +55,7 @@ function TrackOrderContent() {
           localStorage.setItem('experimind_recent_orders', JSON.stringify(updated.slice(0, 10)));
           setRecentOrders(updated.slice(0, 10));
         }
-      } catch (_) {}
+      } catch {}
     } catch (e) {
       setOrder(null);
       setError(e instanceof Error ? e.message : 'Order lookup failed. Please verify your details or contact customer care.');
@@ -94,7 +79,7 @@ function TrackOrderContent() {
       try {
         const saved = JSON.parse(localStorage.getItem('experimind_recent_orders') || '[]');
         setRecentOrders(saved);
-      } catch (_) {}
+      } catch {}
     });
     return () => cancelAnimationFrame(frame);
   }, [searchParams]);

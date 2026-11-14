@@ -6,19 +6,12 @@ import {
   FileText,
   Sparkles,
   CheckCircle2,
-  Download,
   Printer,
   Calculator,
   ShieldCheck,
   Send,
-  HelpCircle,
-  Clock,
-  MapPin,
-  Mail,
-  Phone,
-  ArrowRight,
   BookOpen,
-  Award,
+  Award
 } from 'lucide-react';
 
 interface KitItem {
@@ -125,9 +118,8 @@ export default function InstitutionalQuotePage() {
   const [phone, setPhone] = useState('');
   const [stateCode, setStateCode] = useState('29'); // Default: Karnataka
   const [campusAddress, setCampusAddress] = useState('');
-  const [pincode, setPincode] = useState('');
   const [gstin, setGstin] = useState('');
-  const [deliveryTimeline, setDeliveryTimeline] = useState('Within 15 Days (Urgent Grant Utilization)');
+  const deliveryTimeline = 'Within 15 Days (Urgent Grant Utilization)';
   const [notes, setNotes] = useState('');
 
   // Selected quantities for each kit

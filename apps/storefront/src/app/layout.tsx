@@ -6,17 +6,11 @@ import {
   Sparkles,
   ShieldCheck,
   Truck,
-  RefreshCw,
   Award,
-  Heart,
   Mail,
   Phone,
   MapPin,
-  Building,
   FileText,
-  CreditCard,
-  CheckCircle2,
-  Lock,
   ArrowUp,
   MessageSquare
 } from "lucide-react";

@@ -9,6 +9,7 @@ const schema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
   PORT: z.coerce.number().int().min(1).max(65535).default(3000),
   HOST: z.string().trim().min(1).default("0.0.0.0"),
+  STOREFRONT_ORG_ID: z.preprocess(value => value === "" ? undefined : value, z.uuid().optional()),
   DATABASE_URL: database.optional(),
   IDENTITY_DATABASE_URL: database.optional(),
   RECEIPT_LEDGER_DATABASE_URL: database.optional(),
@@ -24,7 +25,7 @@ const schema = z.object({
   MFA_ISSUER: z.string().min(1).default("Experimind Inventory"),
 }).superRefine((value, ctx) => {
   if (value.NODE_ENV !== "production") return;
-  for (const key of ["DATABASE_URL", "IDENTITY_DATABASE_URL"] as const) {
+  for (const key of ["DATABASE_URL", "IDENTITY_DATABASE_URL", "STOREFRONT_ORG_ID"] as const) {
     if (!value[key]) ctx.addIssue({ code: "custom", path: [key], message: "Required for production" });
   }
   if (!value.JWT_SECRET || value.JWT_SECRET.length < 32 || value.JWT_SECRET.includes("super-secret-jwt-key")) {
@@ -38,6 +39,7 @@ export function parseEnvironment(input: NodeJS.ProcessEnv) {
   const v = result.data;
   const publicErpUrl = v.PUBLIC_ERP_URL ?? v.APP_URL ?? "https://inventory.experimindlabs.com";
   return {
+    storefrontOrgId: v.STOREFRONT_ORG_ID,
     nodeEnv: v.NODE_ENV, host: v.HOST, port: v.PORT,
     databaseUrl: v.DATABASE_URL ?? "postgres://postgres:postgres@localhost:5432/experimind_inventory",
     jwtSecret: v.JWT_SECRET ?? randomBytes(32).toString("hex"),

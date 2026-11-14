@@ -6,20 +6,10 @@ import {
   Box,
   Sparkles,
   Star,
-  Award,
   SlidersHorizontal,
-  ArrowUpDown,
   ShoppingBag,
   Eye,
-  CheckCircle2,
-  Filter,
-  X,
-  Truck,
   RotateCcw,
-  Tag,
-  ShieldCheck,
-  Check,
-  ChevronDown,
   LayoutGrid,
   List
 } from 'lucide-react';
@@ -202,7 +192,9 @@ export default function CatalogInteractiveView({
 
         {/* Mobile Filter Toggle Button */}
         <button
-          onClick={() => setMobileFilterOpen(true)}
+          aria-expanded={mobileFilterOpen}
+          aria-controls="catalog-filters"
+          onClick={() => setMobileFilterOpen(open => !open)}
           className="lg:hidden px-4 py-2.5 rounded-2xl bg-indigo-600 text-white font-bold text-xs flex items-center gap-2 self-start"
         >
           <SlidersHorizontal className="w-4 h-4" />
@@ -216,7 +208,7 @@ export default function CatalogInteractiveView({
         {/* ======================================================== */}
         {/* LEFT FACETED FILTER SIDEBAR (AMAZON STYLE)               */}
         {/* ======================================================== */}
-        <aside className="hidden lg:block lg:col-span-3 bg-white rounded-3xl border border-slate-200/80 p-6 shadow-xs space-y-6 sticky top-28 text-left">
+        <aside id="catalog-filters" className={`${mobileFilterOpen ? "block" : "hidden"} lg:block lg:col-span-3 bg-white rounded-3xl border border-slate-200/80 p-6 shadow-xs space-y-6 sticky top-28 text-left`}>
           
           <div className="flex items-center justify-between border-b border-slate-100 pb-3">
             <div className="flex items-center gap-2 font-black text-slate-900 text-sm">

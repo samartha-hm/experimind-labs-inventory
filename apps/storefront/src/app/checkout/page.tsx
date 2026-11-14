@@ -1,11 +1,11 @@
 'use client';
 import { useHydrated } from "@/utils/useHydrated";
-import type { ShopOrder, ShopLine } from "@/types/catalog";
+import type { ShopOrder } from "@/types/catalog";
 import UpiPaymentLink from "@/components/UpiPaymentLink";
 import { useCartStore } from "@/store/useCartStore";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { CheckCircle2, ShoppingBag, ShieldCheck, ArrowRight, ArrowLeft, Lock, Truck, AlertCircle, Phone, Mail, User, MapPin, Building2, CreditCard, Package } from "lucide-react";
+import { CheckCircle2, ShieldCheck, ArrowRight, ArrowLeft, Lock, Truck, AlertCircle, Mail, User, MapPin, Package } from "lucide-react";
 import Link from "next/link";
 import SafeProductImage from "@/components/SafeProductImage";
 
@@ -16,7 +16,7 @@ const INDIAN_STATES = [
 ];
 
 export default function CheckoutPage() {
-  const { items, total, clearCart, updateQuantity } = useCartStore();
+  const { items, total, clearCart } = useCartStore();
   const mounted = useHydrated();
   const [loading, setLoading] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
@@ -63,7 +63,7 @@ export default function CheckoutPage() {
           state: defaultAddr?.state || prev.state,
           pincode: defaultAddr?.pincode || prev.pincode,
         }));
-      } catch (_) {}
+      } catch {}
     });
     return () => cancelAnimationFrame(frame);
   }, []);
@@ -161,7 +161,7 @@ export default function CheckoutPage() {
         const existingOrders = JSON.parse(localStorage.getItem('experimind_recent_orders') || '[]');
         const updatedOrders = [newOrderRecord, ...existingOrders.filter((o: ShopOrder) => o.id !== newOrderRecord.id)];
         localStorage.setItem('experimind_recent_orders', JSON.stringify(updatedOrders.slice(0, 10)));
-      } catch (_) {}
+      } catch {}
 
       setOrderConfirmed(order);
       clearCart();

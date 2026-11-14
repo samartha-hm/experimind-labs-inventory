@@ -18,7 +18,6 @@ import {
   ArrowRight,
   LogOut,
   Package,
-  FileText,
   Building
 } from 'lucide-react';
 import { useCartStore } from '@/store/useCartStore';
@@ -84,7 +83,7 @@ export default function Header() {
         const savedCity = localStorage.getItem('experimind_delivery_city');
         if (savedPin) setCurrentPincode(savedPin);
         if (savedCity) setCurrentCity(savedCity);
-      } catch (_) {}
+      } catch {}
     });
 
     // Fetch dynamic announcement from CMS API
@@ -95,7 +94,7 @@ export default function Header() {
           setCmsAnnouncement(data.announcement);
         }
       })
-      .catch((_) => {});
+      .catch(() => {});
 
     // Close dropdowns on outside click
     const handleClickOutside = (e: MouseEvent) => {
@@ -134,7 +133,7 @@ export default function Header() {
           setSearchResults(Array.isArray(data) ? data.slice(0, 6) : []);
           setShowSearchDropdown(true);
         }
-      } catch (_) {
+      } catch {
       } finally {
         setSearchLoading(false);
       }
@@ -176,7 +175,7 @@ export default function Header() {
       try {
         localStorage.setItem('experimind_delivery_pincode', clean);
         localStorage.setItem('experimind_delivery_city', resolvedCity);
-      } catch (_) {}
+      } catch {}
 
       setPincodeStatus(`Verified: Delivery Available to ${resolvedCity} (${clean})`);
       setTimeout(() => {
@@ -265,6 +264,7 @@ export default function Header() {
                 <input
                   type="text"
                   placeholder="Search STEM kits, Geomagic 3D, physics benches, sensors..."
+                  aria-busy={searchLoading}
                   value={searchQuery}
                   onFocus={() => {
                     if (searchResults.length > 0) setShowSearchDropdown(true);

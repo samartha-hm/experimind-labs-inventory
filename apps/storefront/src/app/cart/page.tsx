@@ -9,14 +9,9 @@ import {
   ShieldCheck,
   Truck,
   ArrowLeft,
-  Tag,
-  CheckCircle2,
-  X,
-  Sparkles,
-  Percent,
-  Check
+  Tag
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import SafeProductImage from "@/components/SafeProductImage";
 
 export default function CartPage() {

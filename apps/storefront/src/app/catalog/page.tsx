@@ -33,7 +33,7 @@ async function getCategories() {
     const res = await fetch(`${getApiBaseUrl()}/public/storefront/categories`, { cache: 'no-store' });
     if (!res.ok) return [];
     return res.json();
-  } catch (e) {
+  } catch {
     return [];
   }
 }

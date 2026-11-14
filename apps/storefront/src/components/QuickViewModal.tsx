@@ -1,7 +1,7 @@
 'use client';
 import type { CatalogProduct } from "@/types/catalog";
 import React, { useState } from 'react';
-import { X, Sparkles, Star, Award, CheckCircle2, ShoppingBag, Box, Truck, ShieldCheck, ArrowRight } from 'lucide-react';
+import { X, Star, CheckCircle2, ShoppingBag, Truck, ArrowRight } from 'lucide-react';
 import SafeProductImage from './SafeProductImage';
 import { useCartStore } from '@/store/useCartStore';
 import Link from 'next/link';

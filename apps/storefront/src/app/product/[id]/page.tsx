@@ -1,6 +1,6 @@
 import { getApiBaseUrl } from "@/utils/api";
 import Link from "next/link";
-import { ArrowLeft, Box } from "lucide-react";
+import { Box } from "lucide-react";
 import ProductDetailInteractiveView from "@/components/ProductDetailInteractiveView";
 
 export const dynamic = 'force-dynamic';

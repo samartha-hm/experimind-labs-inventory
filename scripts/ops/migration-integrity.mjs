@@ -60,11 +60,23 @@ export async function inspectMigrationAuthority(query, schema) {
 }
 
 // Never manufacture history for synchronized schemas. Plans use read-only connections.
-export async function readMigrationJournal(query, schema) {
+export async function readMigrationJournal(query, schema, table = "migrations") {
+  if (!["migrations", "runtime_migrations"].includes(table)) throw new Error("invalid-journal");
   if (!/^[a-z_][a-z0-9_]*$/.test(schema)) throw new Error('invalid-schema');
-  const { rows } = await query('SELECT to_regclass($1) IS NOT NULL AS present', [`${schema}.migrations`]);
+  const { rows } = await query('SELECT to_regclass($1) IS NOT NULL AS present', [`${schema}.${table}`]);
   if (!rows[0]?.present) return undefined;
-  return (await query(`SELECT id, name, timestamp FROM "${schema}".migrations ORDER BY id`)).rows;
+  return (await query(`SELECT id, name, timestamp FROM "${schema}"."${table}" ORDER BY id`)).rows;
+}
+
+// Runtime releases use their own journal. The historic manifest contains colliding
+// timestamps and synthetic-only steps and cannot serve as a production upgrade chain.
+export async function inspectRuntimeMigrationPlan(query, schema) {
+  const sources = await inspectMigrationSources();
+  const manifest = migrationManifest.filter(entry => entry.scope === 'production-runtime');
+  const journal = await readMigrationJournal(query, schema, 'runtime_migrations');
+  const plan = planMigrations(manifest.map(entry => ({ ...entry, after: entry.runtimeAfter })), journal ?? []);
+  const issues = [...sources.issues, ...plan.issues];
+  return { ...plan, issues, ready: issues.length === 0 };
 }
 
 export async function inspectMigrationPlan(query, schema, root = process.cwd()) {

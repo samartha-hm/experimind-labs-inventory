@@ -13,31 +13,17 @@ import {
   Package,
   FileText,
   CheckCircle2,
-  Clock,
   LogOut,
-  Mail,
   Phone,
-  Building,
-  Sparkles,
-  ExternalLink,
   Search,
   Plus,
   Edit2,
   Trash2,
   Star,
   RefreshCw,
-  HelpCircle,
   MessageSquare,
-  Lock,
-  ChevronRight,
-  AlertCircle,
   Printer,
-  X,
-  Check,
-  Share2,
-  SlidersHorizontal,
-  Box,
-  Compass
+  X
 } from 'lucide-react';
 import SafeProductImage from '@/components/SafeProductImage';
 import { useCartStore } from '@/store/useCartStore';
@@ -99,7 +85,6 @@ export default function CustomerAccountPage() {
   const [loadingOrders, setLoadingOrders] = useState(false);
   const [orderSearchQuery, setOrderSearchQuery] = useState('');
   const [orderStatusFilter, setOrderStatusFilter] = useState<string>('ALL');
-  const [orderTimeFilter, setOrderTimeFilter] = useState<string>('2026');
 
   // Addresses State
   const [addresses, setAddresses] = useState<AddressItem[]>(DEFAULT_ADDRESSES);
@@ -128,7 +113,6 @@ export default function CustomerAccountPage() {
 
   // Replacement Claim Modal State
   const [isClaimModalOpen, setIsClaimModalOpen] = useState(false);
-  const [claimOrder, setClaimOrder] = useState<ShopOrder | null>(null);
   const [claimItem, setClaimItem] = useState<ShopLine | null>(null);
   const [claimReason, setClaimReason] = useState('Damaged Glassware / Prism');
   const [claimDescription, setClaimDescription] = useState('');
@@ -153,7 +137,7 @@ export default function CustomerAccountPage() {
         const data = await res.json();
         setOrders(Array.isArray(data) ? data : []);
       }
-    } catch (_) {
+    } catch {
     } finally {
       setLoadingOrders(false);
     }
@@ -187,7 +171,7 @@ export default function CustomerAccountPage() {
         if (storedEmail) {
           fetchCustomerOrders(storedEmail);
         }
-      } catch (_) {}
+      } catch {}
     });
     return () => cancelAnimationFrame(frame);
   }, []);
@@ -320,8 +304,7 @@ export default function CustomerAccountPage() {
     showToast('Review Submitted', `Thank you! Your ${ratingStars}-star educator review has been published.`);
   };
 
-  const handleOpenClaim = (order: ShopOrder, line: ShopLine) => {
-    setClaimOrder(order);
+  const handleOpenClaim = (line: ShopLine) => {
     setClaimItem(line);
     setClaimReason('Damaged Glassware / Prism');
     setClaimDescription('');
@@ -699,7 +682,7 @@ export default function CustomerAccountPage() {
 
                               {/* Claim Warranty / Replacement */}
                               <button
-                                onClick={() => handleOpenClaim(order, line)}
+                                onClick={() => handleOpenClaim(line)}
                                 className="px-3 py-2 rounded-xl text-xs font-bold bg-white hover:bg-emerald-50 text-slate-700 hover:text-emerald-600 border border-slate-200 transition-all flex items-center gap-1.5 shadow-2xs cursor-pointer"
                               >
                                 <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />

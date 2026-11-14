@@ -6,7 +6,7 @@ import { describe, expect, it } from 'vitest';
 import { DataSource, MigrationExecutor } from 'typeorm';
 import { migrationManifest } from './manifest.mjs';
 import { registeredMigrations } from './registry';
-import { diagnoseHistoricalIdentity, inspectMigrationSources, inspectMigrationAuthority, planMigrations, readMigrationJournal } from '../../scripts/ops/migration-integrity.mjs';
+import { diagnoseHistoricalIdentity, inspectRuntimeMigrationPlan, inspectMigrationSources, inspectMigrationAuthority, planMigrations, readMigrationJournal } from '../../scripts/ops/migration-integrity.mjs';
 
 const manifest = [1, 2, 3].map((n, index) => ({ name: `Test${1700000000000 + n}`,
   file: `${1700000000000 + n}-Test.ts`, timestamp: 1700000000000 + n,
@@ -90,6 +90,14 @@ describe('migration integrity', () => {
   ])('refuses altered, duplicate, unknown, gapped or reordered history', (rows, issue) => {
     const plan = planMigrations(manifest, rows);
     expect(plan.ready).toBe(false); expect(plan.issues).toContain(issue);
+  });
+  it('plans only production migrations and recognizes a completed runtime release', async () => {
+    const name = 'FabLabLoans1793232000033';
+    const empty = await inspectRuntimeMigrationPlan(async () => ({ rows: [{ present: false }] }), 'public');
+    expect(empty).toMatchObject({ ready: true, ordered: [name], pending: [name] });
+    const applied = await inspectRuntimeMigrationPlan(async (sql: string) => ({ rows: sql.includes('to_regclass')
+      ? [{ present: true }] : [{ name, timestamp: '1793232000033' }] }), 'public');
+    expect(applied).toMatchObject({ ready: true, pending: [] });
   });
   it('refuses duplicate names, timestamp disorder and missing prerequisites', () => {
     expect(planMigrations([manifest[0], manifest[0]], []).issues).toContain('duplicate-name');

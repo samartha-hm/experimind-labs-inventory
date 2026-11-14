@@ -5,27 +5,14 @@ import Link from 'next/link';
 import {
   ArrowRight,
   ShieldCheck,
-  Truck,
   Award,
   Sparkles,
-  BookOpen,
   Star,
-  CheckCircle2,
   ChevronRight,
-  ChevronLeft,
   ShoppingBag,
-  Clock,
-  Compass,
   Cpu,
-  Atom,
-  Layers,
   Zap,
-  Eye,
-  Percent,
-  Check,
   Building,
-  Users,
-  FileText,
   Shapes,
   Orbit,
   FlaskConical,
@@ -110,11 +97,10 @@ const HERO_SLIDES = [
 
 
 interface HomeInteractiveViewProps {
-  cms: unknown;
   featuredProducts: CatalogProduct[];
 }
 
-export default function HomeInteractiveView({ cms, featuredProducts }: HomeInteractiveViewProps) {
+export default function HomeInteractiveView({ featuredProducts }: HomeInteractiveViewProps) {
   const [currentSlide, setCurrentSlide] = useState(0);
   const [selectedQuickViewProduct, setSelectedQuickViewProduct] = useState<CatalogProduct | null>(null);
   const [addedIds, setAddedIds] = useState<Record<string, boolean>>({});

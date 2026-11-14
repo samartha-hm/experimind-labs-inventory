@@ -1,6 +1,8 @@
+import { env } from "../server/config/env";
+
 export function storefrontOrgId() {
-  const org = process.env.STOREFRONT_ORG_ID;
-  if (!org || !/^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(org)) {
+  const org = env.storefrontOrgId;
+  if (!org) {
     throw new Error("Configure STOREFRONT_ORG_ID for the public shop");
   }
   return org;

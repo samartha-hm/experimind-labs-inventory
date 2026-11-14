@@ -8,13 +8,10 @@ import {
   Truck,
   CheckCircle2,
   MapPin,
-  Tag,
   Building,
-  Sparkles,
   Award,
   BookOpen,
   Layers,
-  ChevronRight,
   Plus,
   Minus,
   ShoppingBag,
@@ -22,10 +19,7 @@ import {
   Check,
   X,
   FileText,
-  MessageSquare,
-  Clock,
-  RotateCcw,
-  Share2
+  MessageSquare
 } from 'lucide-react';
 import SafeProductImage from './SafeProductImage';
 import { useCartStore } from '@/store/useCartStore';
@@ -56,7 +50,6 @@ export default function ProductDetailInteractiveView({ product }: ProductDetailI
   const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
   const [bulkBatchSize, setBulkBatchSize] = useState(25);
   const [bulkDiscountTier, setBulkDiscountTier] = useState(15);
-  const [bulkQuoteSuccess, setBulkQuoteSuccess] = useState(false);
 
   // Active Tab: 'specs' | 'curriculum' | 'reviews' | 'faq'
   const [activeTab, setActiveTab] = useState<'specs' | 'curriculum' | 'reviews' | 'faq'>('specs');

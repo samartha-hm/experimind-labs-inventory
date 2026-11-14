@@ -3,7 +3,7 @@ import { useHydrated } from "@/utils/useHydrated";
 import type { CatalogProduct } from "@/types/catalog";
 import { useCartStore } from "@/store/useCartStore";
 import { Plus, Check, AlertCircle } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 
 export default function AddToCartButton({
   product,
