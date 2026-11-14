@@ -1,3 +1,7 @@
+# Workstreams 3 and 4 checkpoint
+
+Verified 753/753 tests, both production builds, lint and typechecks. Configure the storefront organization and apply the FabLab migration in the deployment environment. Prior acceptance backlog follows.
+
 # Next batch: builder visual acceptance, then project planning
 
 Workstreams 1 and 2 and the Workstream 5 reconciliation engine are verified locally through d120806 (743/743 tests). The next repository checkpoint requires verified GitHub remote ownership and push authorization.
