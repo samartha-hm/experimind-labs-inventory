@@ -7,10 +7,12 @@ const nextConfig: NextConfig = {
     root: path.resolve(__dirname),
   },
   async rewrites() {
+    const erp = (process.env.PUBLIC_ERP_URL ?? "http://127.0.0.1:3000").replace(/\/$/, "");
     return [
+      { source: "/assets/payment-qr.jpeg", destination: `${erp}/assets/payment-qr.jpeg` },
       {
         source: "/api/:path*",
-        destination: `${(process.env.PUBLIC_ERP_URL ?? "http://127.0.0.1:3000").replace(/\/$/, "")}/api/:path*`, // Proxy to Express backend
+        destination: `${erp}/api/:path*`, // Proxy to Express backend
       },
     ];
   },

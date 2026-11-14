@@ -36,6 +36,7 @@ import {
   ZoomIn,
   Check,
   CheckCircle2,
+  CircleDashed,
   CheckCheck,
   CheckSquare,
   SlidersHorizontal,
@@ -1206,7 +1207,7 @@ export default function ProjectPortfolioManagerTab({ onNavigateToTab }: ProjectP
 
   return (
     <div className="space-y-8 pb-20 text-slate-200">
-      <LabLoans inventory={inventory} />
+      <LabLoans inventory={inventory} role={user?.role} />
       {/* ===== 1. Executive Operations Header & KPI Ribbon ===== */}
       <div className="bg-gradient-to-r from-slate-900 via-indigo-950/40 to-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl relative overflow-hidden">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 relative z-10">
@@ -1584,14 +1585,24 @@ export default function ProjectPortfolioManagerTab({ onNavigateToTab }: ProjectP
                 </div>
                 <span className="text-lg font-black text-emerald-400 tabular-nums">{readinessSummary.readinessPercent}% ready</span>
               </div>
-              {selectedProject.productLine && <fieldset key={selectedProject.id}>
-                <legend>{selectedProject.productLine} readiness evidence</legend>
-                {portfolioChecks[selectedProject.productLine].map(check => <label className="block" key={check}>{check}
-                  <input className="ml-2 bg-slate-900" defaultValue={selectedProject.readinessEvidence?.[check] || ""}
-                    placeholder="Record verification" onBlur={e => {
-                      ProjectManagementService.updateProject(selectedProject.id, {readinessEvidence: {...selectedProject.readinessEvidence, [check]: e.target.value.trim()}});
-                      refreshProjectsList(selectedProject.id);
-                    }} /></label>)}
+              {selectedProject.productLine && <fieldset key={selectedProject.id} className="space-y-3 rounded-xl border border-slate-700 bg-slate-900 p-4">
+                <legend className="px-2 text-sm font-bold text-white"><span className="sr-only">{selectedProject.productLine} readiness evidence</span><span aria-hidden="true">Product Readiness Checklist</span></legend>
+                <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+                  <span className="rounded-full bg-indigo-950 px-2.5 py-1 font-semibold text-indigo-200">{selectedProject.productLine}</span>
+                  <span className="text-slate-300">{portfolioChecks[selectedProject.productLine].filter(check => selectedProject.readinessEvidence?.[check]?.trim()).length} / {portfolioChecks[selectedProject.productLine].length} verified</span>
+                </div>
+                {portfolioChecks[selectedProject.productLine].map(check => {
+                  const verified = Boolean(selectedProject.readinessEvidence?.[check]?.trim());
+                  const Icon = verified ? CheckCircle2 : CircleDashed;
+                  return <label key={check} className="block text-xs font-semibold text-slate-300">
+                    <span className="flex items-center gap-2"><Icon aria-label={verified ? "Verified" : "Pending"} className={"h-4 w-4 " + (verified ? "text-emerald-400" : "text-amber-400")} />{check}</span>
+                    <input aria-label={check} className="mt-1.5 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white focus:border-indigo-400" defaultValue={selectedProject.readinessEvidence?.[check] || ""}
+                      placeholder="Record verification" onBlur={e => {
+                        ProjectManagementService.updateProject(selectedProject.id, {readinessEvidence: {...selectedProject.readinessEvidence, [check]: e.target.value.trim()}});
+                        refreshProjectsList(selectedProject.id);
+                      }} />
+                  </label>;
+                })}
               </fieldset>}
               <div className="h-2 rounded-full bg-slate-950 overflow-hidden">
                 <div className="h-full rounded-full bg-emerald-500 transition-all" style={{ width: `${readinessSummary.readinessPercent}%` }} />
@@ -2211,13 +2222,13 @@ export default function ProjectPortfolioManagerTab({ onNavigateToTab }: ProjectP
             </div>
 
             <form onSubmit={handleCreateProjectSubmit} className="space-y-4 text-xs">
-              <label className="block">Product line
-                <select value={productLine} onChange={e => setProductLine(e.target.value as ProductLine | "")}>
+              <label className="block space-y-1.5 font-bold text-slate-300">Product line
+                <select className="mt-1.5 block w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2.5 text-sm text-slate-100 focus:border-indigo-400" value={productLine} onChange={e => setProductLine(e.target.value as ProductLine | "")}>
                   <option value="">General project</option>{Object.keys(portfolioChecks).map(line => <option key={line}>{line}</option>)}
                 </select>
               </label>
-              {productLine && <label className="block">Catalog BOM assembly
-                <select required value={assembly} onChange={e => setAssembly(e.target.value)}>
+              {productLine && <label className="block space-y-1.5 font-bold text-slate-300">Catalog BOM assembly
+                <select className="mt-1.5 block w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2.5 text-sm text-slate-100 focus:border-indigo-400" required value={assembly} onChange={e => setAssembly(e.target.value)}>
                   <option value="">Select assembly</option>{inventory.map(i => <option key={i.id} value={i.id}>{i.sku} {i.name}</option>)}
                 </select></label>}
               {/* Template Choice */}
